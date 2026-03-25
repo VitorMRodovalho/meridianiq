@@ -115,21 +115,36 @@ class ScheduleComparison:
         self.baseline = baseline
         self.update = update
 
-        # Build lookup maps keyed by task_id
+        # Build lookup maps keyed by task_code (user-visible Activity ID)
+        # task_code persists across XER exports; task_id is auto-generated
+        # and changes between different exports of the same schedule.
         self._base_tasks: dict[str, Task] = {
-            t.task_id: t for t in baseline.activities
+            t.task_code: t for t in baseline.activities if t.task_code
         }
         self._upd_tasks: dict[str, Task] = {
-            t.task_id: t for t in update.activities
+            t.task_code: t for t in update.activities if t.task_code
         }
 
-        # Build relationship keys: (task_id, pred_task_id) -> Relationship
-        self._base_rels: dict[tuple[str, str], Relationship] = {
-            (r.task_id, r.pred_task_id): r for r in baseline.relationships
+        # Build task_id→task_code lookups for relationship cross-referencing
+        base_id_to_code: dict[str, str] = {
+            t.task_id: t.task_code for t in baseline.activities if t.task_code
         }
-        self._upd_rels: dict[tuple[str, str], Relationship] = {
-            (r.task_id, r.pred_task_id): r for r in update.relationships
+        upd_id_to_code: dict[str, str] = {
+            t.task_id: t.task_code for t in update.activities if t.task_code
         }
+
+        # Build relationship keys using task_code pairs (not task_id)
+        self._base_rels: dict[tuple[str, str], Relationship] = {}
+        for r in baseline.relationships:
+            succ_code = base_id_to_code.get(r.task_id, r.task_id)
+            pred_code = base_id_to_code.get(r.pred_task_id, r.pred_task_id)
+            self._base_rels[(succ_code, pred_code)] = r
+
+        self._upd_rels: dict[tuple[str, str], Relationship] = {}
+        for r in update.relationships:
+            succ_code = upd_id_to_code.get(r.task_id, r.task_id)
+            pred_code = upd_id_to_code.get(r.pred_task_id, r.pred_task_id)
+            self._upd_rels[(succ_code, pred_code)] = r
 
     # ------------------------------------------------------------------
     # Public API
@@ -208,7 +223,7 @@ class ScheduleComparison:
             upd: Update version of the activity.
             result: The result object to populate.
         """
-        tid = base.task_id
+        tid = base.task_code or base.task_id
 
         # Description change
         if base.task_name != upd.task_name:
@@ -564,30 +579,35 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        # Build predecessor map for the update schedule
-        pred_map: dict[str, list[str]] = {}
+        # Build predecessor map using task_code for the update schedule
+        upd_id_to_code: dict[str, str] = {
+            t.task_id: t.task_code for t in self.update.activities if t.task_code
+        }
+        pred_map: dict[str, list[str]] = {}  # task_code -> [pred_task_codes]
         for rel in self.update.relationships:
-            pred_map.setdefault(rel.task_id, []).append(rel.pred_task_id)
+            succ_code = upd_id_to_code.get(rel.task_id, rel.task_id)
+            pred_code = upd_id_to_code.get(rel.pred_task_id, rel.pred_task_id)
+            pred_map.setdefault(succ_code, []).append(pred_code)
 
         for task in self.update.activities:
             if task.act_start_date is None:
                 continue
 
-            preds = pred_map.get(task.task_id, [])
-            for pred_id in preds:
-                pred_task = self._upd_tasks.get(pred_id)
+            preds = pred_map.get(task.task_code, [])
+            for pred_code in preds:
+                pred_task = self._upd_tasks.get(pred_code)
                 if pred_task is None:
                     continue
 
                 # Predecessor not finished but successor has started
-                if pred_task.status_code != "TK_Complete" and pred_task.act_end_date is None:
+                if pred_task.status_code.lower() != "tk_complete" and pred_task.act_end_date is None:
                     result.manipulation_flags.append(
                         ManipulationFlag(
-                            task_id=task.task_id,
+                            task_id=task.task_code,
                             task_name=task.task_name,
                             indicator="oos_progress",
                             description=(
-                                f"Started but predecessor {pred_id} "
+                                f"Started but predecessor {pred_code} "
                                 f"({pred_task.task_name}) is not complete"
                             ),
                         )
@@ -607,10 +627,10 @@ class ScheduleComparison:
             base_t = self._base_tasks[tid]
             upd_t = self._upd_tasks[tid]
 
-            # Only flag not-started activities
-            if upd_t.status_code != "TK_NotStart":
+            # Only flag not-started activities (case-insensitive)
+            if upd_t.status_code.lower() != "tk_notstart":
                 continue
-            if base_t.status_code != "TK_NotStart":
+            if base_t.status_code.lower() != "tk_notstart":
                 continue
 
             # Check target duration changed

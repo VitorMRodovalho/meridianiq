@@ -37,25 +37,25 @@ class TestActivityDetection:
     """Tests for activity-level change detection."""
 
     def test_detect_added_activities(self, comparison_result: ComparisonResult) -> None:
-        """Two new activities (T-031, T-032) should be detected."""
+        """Two new activities (A7010, A7020) should be detected by task_code."""
         added_ids = {c.task_id for c in comparison_result.activities_added}
-        assert "T-031" in added_ids
-        assert "T-032" in added_ids
+        assert "A7010" in added_ids
+        assert "A7020" in added_ids
         assert len(comparison_result.activities_added) == 2
 
     def test_detect_deleted_activities(self, comparison_result: ComparisonResult) -> None:
-        """One activity (T-029) should be detected as deleted."""
+        """One activity (A1040) should be detected as deleted by task_code."""
         deleted_ids = {c.task_id for c in comparison_result.activities_deleted}
-        assert "T-029" in deleted_ids
+        assert "A1040" in deleted_ids
         assert len(comparison_result.activities_deleted) == 1
 
     def test_detect_duration_changes(self, comparison_result: ComparisonResult) -> None:
-        """Three activities should have duration changes."""
+        """Three activities should have duration changes (matched by task_code)."""
         dur_ids = {c.task_id for c in comparison_result.duration_changes}
-        # T-021: 40 -> 56, T-024: 80 -> 60, T-025: 80 -> 64
-        assert "T-021" in dur_ids
-        assert "T-024" in dur_ids
-        assert "T-025" in dur_ids
+        # A4010 (Roof Membrane): 40->56, A5020 (Flooring): 80->60, A5030 (Fixtures): 80->64
+        assert "A4010" in dur_ids
+        assert "A5020" in dur_ids
+        assert "A5030" in dur_ids
         assert len(comparison_result.duration_changes) == 3
 
 
@@ -84,23 +84,23 @@ class TestConstraintDetection:
 
     def test_detect_constraint_addition(self, comparison_result: ComparisonResult) -> None:
         """At least one new constraint should be detected."""
-        # T-026 gets a new cstr_type2 (CS_MSOA)
+        # A5040 (Landscaping) gets a new cstr_type2 (CS_MSOA)
         assert len(comparison_result.constraint_changes) >= 1
         constraint_task_ids = {c.task_id for c in comparison_result.constraint_changes}
-        assert "T-026" in constraint_task_ids
+        assert "A5040" in constraint_task_ids
 
 
 class TestManipulationFlags:
     """Tests for schedule manipulation indicators."""
 
     def test_detect_retroactive_date(self, comparison_result: ComparisonResult) -> None:
-        """Retroactive date change on T-002 should be flagged."""
+        """Retroactive date change on A1010 (Site Survey) should be flagged."""
         retro_flags = [
             f for f in comparison_result.manipulation_flags
             if f.indicator == "retroactive_date"
         ]
         retro_task_ids = {f.task_id for f in retro_flags}
-        assert "T-002" in retro_task_ids
+        assert "A1010" in retro_task_ids
 
     def test_detect_oos_progress(self, comparison_result: ComparisonResult) -> None:
         """Out-of-sequence progress should be detected."""
