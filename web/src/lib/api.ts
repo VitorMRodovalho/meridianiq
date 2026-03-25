@@ -6,7 +6,10 @@ import type {
 	CriticalPathResponse,
 	FloatDistributionResponse,
 	MilestonesResponse,
-	CompareResponse
+	CompareResponse,
+	TimelineDetailSchema,
+	TimelineListResponse,
+	DelayTrendResponse
 } from './types';
 
 const BASE = '';
@@ -59,4 +62,28 @@ export async function compareSchedules(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ baseline_id: baselineId, update_id: updateId })
 	});
+}
+
+// ── Forensic Analysis ─────────────────────────────────
+
+export async function createTimeline(
+	projectIds: string[]
+): Promise<TimelineDetailSchema> {
+	return request<TimelineDetailSchema>('/api/v1/forensic/create-timeline', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ project_ids: projectIds })
+	});
+}
+
+export async function getTimelines(): Promise<TimelineListResponse> {
+	return request<TimelineListResponse>('/api/v1/forensic/timelines');
+}
+
+export async function getTimeline(id: string): Promise<TimelineDetailSchema> {
+	return request<TimelineDetailSchema>(`/api/v1/forensic/timelines/${id}`);
+}
+
+export async function getDelayTrend(id: string): Promise<DelayTrendResponse> {
+	return request<DelayTrendResponse>(`/api/v1/forensic/timelines/${id}/delay-trend`);
 }

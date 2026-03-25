@@ -49,10 +49,19 @@
 				</svg>
 				Compare
 			</a>
+			<a
+				href="/forensic"
+				class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+				</svg>
+				Forensic
+			</a>
 		</nav>
 		<div class="px-6 py-4 border-t border-gray-700">
 			<p class="text-xs text-gray-500">MIT License</p>
-			<p class="text-xs text-gray-500">v0.1.0-dev</p>
+			<p class="text-xs text-gray-500">v0.2.0-dev</p>
 		</div>
 	</aside>
 

@@ -3,8 +3,8 @@
 """FastAPI application for P6 XER Analytics.
 
 Provides REST endpoints for uploading XER files, querying parsed
-schedule data, running DCMA assessments, CPM analysis, and comparing
-schedule versions.
+schedule data, running DCMA assessments, CPM analysis, comparing
+schedule versions, and forensic (CPA/window) analysis.
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from src.analytics.comparison import ScheduleComparison
 from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
+from src.analytics.forensics import ForensicAnalyzer
 from src.parser.models import ParsedSchedule
 from src.parser.xer_reader import XERReader
 
@@ -29,8 +30,11 @@ from .schemas import (
     CodeRestructuringSchema,
     CompareRequest,
     CompareResponse,
+    CreateTimelineRequest,
     CriticalPathActivity,
     CriticalPathResponse,
+    DelayTrendPoint,
+    DelayTrendResponse,
     FloatBucket,
     FloatChangeSchema,
     FloatDistributionResponse,
@@ -46,20 +50,25 @@ from .schemas import (
     ProjectSummary,
     RelationshipChangeSchema,
     RelationshipSchema,
+    TimelineDetailSchema,
+    TimelineListResponse,
+    TimelineSummarySchema,
     ValidationResponse,
     WBSLevelCount,
     WBSStats,
+    WindowSchema,
 )
-from .storage import ProjectStore
+from .storage import ProjectStore, TimelineStore
 
 app = FastAPI(
     title="P6 XER Analytics",
     description="Open-source Primavera P6 XER schedule analysis toolkit",
-    version="0.1.0-dev",
+    version="0.2.0-dev",
 )
 
-# Global in-memory store (singleton for the app lifetime)
+# Global in-memory stores (singletons for the app lifetime)
 _store = ProjectStore()
+_timeline_store = TimelineStore()
 
 
 def get_store() -> ProjectStore:
@@ -68,6 +77,14 @@ def get_store() -> ProjectStore:
     Exposed as a function so tests can replace it via monkeypatching.
     """
     return _store
+
+
+def get_timeline_store() -> TimelineStore:
+    """Return the global timeline store.
+
+    Exposed as a function so tests can replace it via monkeypatching.
+    """
+    return _timeline_store
 
 
 # ------------------------------------------------------------------
@@ -577,4 +594,203 @@ def compare_schedules(request: CompareRequest) -> CompareResponse:
         activities_joined_cp=result.activities_joined_cp,
         activities_left_cp=result.activities_left_cp,
         summary=result.summary,
+    )
+
+
+# ------------------------------------------------------------------
+# Forensic Analysis (CPA / Window Analysis)
+# ------------------------------------------------------------------
+
+
+def _window_to_schema(wr: Any) -> WindowSchema:
+    """Convert a WindowResult dataclass to a WindowSchema.
+
+    Args:
+        wr: A ``WindowResult`` instance.
+
+    Returns:
+        A ``WindowSchema`` suitable for JSON serialisation.
+    """
+    return WindowSchema(
+        window_number=wr.window.window_number,
+        window_id=wr.window.window_id,
+        baseline_project_id=wr.window.baseline_project_id,
+        update_project_id=wr.window.update_project_id,
+        start_date=wr.window.start_date.isoformat() if wr.window.start_date else None,
+        end_date=wr.window.end_date.isoformat() if wr.window.end_date else None,
+        completion_date_start=(
+            wr.completion_date_start.isoformat() if wr.completion_date_start else None
+        ),
+        completion_date_end=(
+            wr.completion_date_end.isoformat() if wr.completion_date_end else None
+        ),
+        delay_days=wr.delay_days,
+        cumulative_delay=wr.cumulative_delay,
+        critical_path_start=wr.critical_path_start,
+        critical_path_end=wr.critical_path_end,
+        cp_activities_joined=wr.cp_activities_joined,
+        cp_activities_left=wr.cp_activities_left,
+        driving_activity=wr.driving_activity,
+        comparison_summary=wr.comparison.summary if wr.comparison else {},
+    )
+
+
+@app.post(
+    "/api/v1/forensic/create-timeline",
+    response_model=TimelineDetailSchema,
+)
+def create_timeline(request: CreateTimelineRequest) -> TimelineDetailSchema:
+    """Create a forensic CPA timeline from multiple schedule updates.
+
+    Fetches each referenced project from the store, sorts by data date,
+    runs the ``ForensicAnalyzer``, stores the result, and returns the
+    full timeline.
+
+    Args:
+        request: Contains a list of project_ids (minimum 2).
+
+    Raises:
+        HTTPException: If any project is not found or analysis fails.
+    """
+    store = get_store()
+    tl_store = get_timeline_store()
+
+    schedules: list[ParsedSchedule] = []
+    for pid in request.project_ids:
+        schedule = store.get(pid)
+        if schedule is None:
+            raise HTTPException(
+                status_code=404, detail=f"Project not found: {pid}"
+            )
+        schedules.append(schedule)
+
+    try:
+        analyzer = ForensicAnalyzer(schedules, list(request.project_ids))
+        timeline = analyzer.analyze()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Forensic analysis failed: {exc}"
+        )
+
+    tid = tl_store.add(timeline)
+
+    return TimelineDetailSchema(
+        timeline_id=tid,
+        project_name=timeline.project_name,
+        schedule_count=timeline.schedule_count,
+        total_delay_days=timeline.total_delay_days,
+        contract_completion=(
+            timeline.contract_completion.isoformat()
+            if timeline.contract_completion
+            else None
+        ),
+        current_completion=(
+            timeline.current_completion.isoformat()
+            if timeline.current_completion
+            else None
+        ),
+        windows=[_window_to_schema(w) for w in timeline.windows],
+        summary=timeline.summary,
+    )
+
+
+@app.get(
+    "/api/v1/forensic/timelines",
+    response_model=TimelineListResponse,
+)
+def list_timelines() -> TimelineListResponse:
+    """List all forensic timelines."""
+    tl_store = get_timeline_store()
+    items = [TimelineSummarySchema(**t) for t in tl_store.list_all()]
+    return TimelineListResponse(timelines=items)
+
+
+@app.get(
+    "/api/v1/forensic/timelines/{timeline_id}",
+    response_model=TimelineDetailSchema,
+)
+def get_timeline(timeline_id: str) -> TimelineDetailSchema:
+    """Get full forensic timeline with all window results.
+
+    Args:
+        timeline_id: The stored timeline identifier.
+
+    Raises:
+        HTTPException: If the timeline is not found.
+    """
+    tl_store = get_timeline_store()
+    timeline = tl_store.get(timeline_id)
+    if timeline is None:
+        raise HTTPException(status_code=404, detail="Timeline not found")
+
+    return TimelineDetailSchema(
+        timeline_id=timeline.timeline_id,
+        project_name=timeline.project_name,
+        schedule_count=timeline.schedule_count,
+        total_delay_days=timeline.total_delay_days,
+        contract_completion=(
+            timeline.contract_completion.isoformat()
+            if timeline.contract_completion
+            else None
+        ),
+        current_completion=(
+            timeline.current_completion.isoformat()
+            if timeline.current_completion
+            else None
+        ),
+        windows=[_window_to_schema(w) for w in timeline.windows],
+        summary=timeline.summary,
+    )
+
+
+@app.get(
+    "/api/v1/forensic/timelines/{timeline_id}/delay-trend",
+    response_model=DelayTrendResponse,
+)
+def get_delay_trend(timeline_id: str) -> DelayTrendResponse:
+    """Return delay trend data for charting.
+
+    Each point represents one analysis window's data date and the
+    forecasted completion date at that point.
+
+    Args:
+        timeline_id: The stored timeline identifier.
+
+    Raises:
+        HTTPException: If the timeline is not found.
+    """
+    tl_store = get_timeline_store()
+    timeline = tl_store.get(timeline_id)
+    if timeline is None:
+        raise HTTPException(status_code=404, detail="Timeline not found")
+
+    points: list[DelayTrendPoint] = []
+    for wr in timeline.windows:
+        points.append(
+            DelayTrendPoint(
+                window_id=wr.window.window_id,
+                window_number=wr.window.window_number,
+                data_date=(
+                    wr.window.end_date.isoformat() if wr.window.end_date else None
+                ),
+                completion_date=(
+                    wr.completion_date_end.isoformat()
+                    if wr.completion_date_end
+                    else None
+                ),
+                delay_days=wr.delay_days,
+                cumulative_delay=wr.cumulative_delay,
+            )
+        )
+
+    return DelayTrendResponse(
+        timeline_id=timeline.timeline_id,
+        contract_completion=(
+            timeline.contract_completion.isoformat()
+            if timeline.contract_completion
+            else None
+        ),
+        points=points,
     )

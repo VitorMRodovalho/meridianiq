@@ -207,3 +207,62 @@ export interface CompareResponse {
 	activities_left_cp: string[];
 	summary: Record<string, unknown>;
 }
+
+// ── Forensic Analysis ─────────────────────────────────
+
+export interface WindowSchema {
+	window_number: number;
+	window_id: string;
+	baseline_project_id: string;
+	update_project_id: string;
+	start_date: string | null;
+	end_date: string | null;
+	completion_date_start: string | null;
+	completion_date_end: string | null;
+	delay_days: number;
+	cumulative_delay: number;
+	critical_path_start: string[];
+	critical_path_end: string[];
+	cp_activities_joined: string[];
+	cp_activities_left: string[];
+	driving_activity: string;
+	comparison_summary: Record<string, unknown>;
+}
+
+export interface TimelineSummarySchema {
+	timeline_id: string;
+	project_name: string;
+	schedule_count: number;
+	total_delay_days: number;
+	window_count: number;
+}
+
+export interface TimelineDetailSchema {
+	timeline_id: string;
+	project_name: string;
+	schedule_count: number;
+	total_delay_days: number;
+	contract_completion: string | null;
+	current_completion: string | null;
+	windows: WindowSchema[];
+	summary: Record<string, unknown>;
+}
+
+export interface TimelineListResponse {
+	timelines: TimelineSummarySchema[];
+}
+
+export interface DelayTrendPoint {
+	window_id: string;
+	window_number: number;
+	data_date: string | null;
+	completion_date: string | null;
+	delay_days: number;
+	cumulative_delay: number;
+}
+
+export interface DelayTrendResponse {
+	timeline_id: string;
+	contract_completion: string | null;
+	points: DelayTrendPoint[];
+}

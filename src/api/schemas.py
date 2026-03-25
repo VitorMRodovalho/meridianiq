@@ -297,3 +297,83 @@ class CompareResponse(BaseModel):
     activities_joined_cp: list[str] = Field(default_factory=list)
     activities_left_cp: list[str] = Field(default_factory=list)
     summary: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Forensic Analysis ─────────────────────────────────
+
+
+class CreateTimelineRequest(BaseModel):
+    """Request body for POST /api/v1/forensic/create-timeline."""
+
+    project_ids: list[str] = Field(
+        ..., min_length=2, description="At least 2 project IDs sorted by data date"
+    )
+
+
+class WindowSchema(BaseModel):
+    """A single analysis window in the forensic timeline."""
+
+    window_number: int
+    window_id: str
+    baseline_project_id: str = ""
+    update_project_id: str = ""
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    completion_date_start: Optional[str] = None
+    completion_date_end: Optional[str] = None
+    delay_days: float = 0.0
+    cumulative_delay: float = 0.0
+    critical_path_start: list[str] = Field(default_factory=list)
+    critical_path_end: list[str] = Field(default_factory=list)
+    cp_activities_joined: list[str] = Field(default_factory=list)
+    cp_activities_left: list[str] = Field(default_factory=list)
+    driving_activity: str = ""
+    comparison_summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class TimelineSummarySchema(BaseModel):
+    """Summary of a forensic timeline (used in list responses)."""
+
+    timeline_id: str
+    project_name: str = ""
+    schedule_count: int = 0
+    total_delay_days: float = 0.0
+    window_count: int = 0
+
+
+class TimelineDetailSchema(BaseModel):
+    """Full forensic timeline with all window results."""
+
+    timeline_id: str
+    project_name: str = ""
+    schedule_count: int = 0
+    total_delay_days: float = 0.0
+    contract_completion: Optional[str] = None
+    current_completion: Optional[str] = None
+    windows: list[WindowSchema] = Field(default_factory=list)
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class TimelineListResponse(BaseModel):
+    """Response for GET /api/v1/forensic/timelines."""
+
+    timelines: list[TimelineSummarySchema] = Field(default_factory=list)
+
+
+class DelayTrendPoint(BaseModel):
+    """A single point on the delay trend chart."""
+
+    window_id: str
+    window_number: int
+    data_date: Optional[str] = None
+    completion_date: Optional[str] = None
+    delay_days: float = 0.0
+    cumulative_delay: float = 0.0
+
+
+class DelayTrendResponse(BaseModel):
+    """Response for GET /api/v1/forensic/timelines/{id}/delay-trend."""
+
+    timeline_id: str
+    contract_completion: Optional[str] = None
+    points: list[DelayTrendPoint] = Field(default_factory=list)

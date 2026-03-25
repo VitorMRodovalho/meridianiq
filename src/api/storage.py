@@ -1,16 +1,17 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""In-memory storage for parsed projects (prototype v0.1).
+"""In-memory storage for parsed projects and forensic timelines (prototype v0.2).
 
-Provides a simple dictionary-based store for parsed schedules and their
-raw XER bytes.  Designed as a placeholder until a persistent database
-layer is introduced.
+Provides simple dictionary-based stores for parsed schedules, their raw
+XER bytes, and forensic analysis timelines.  Designed as a placeholder
+until a persistent database layer is introduced.
 """
 from __future__ import annotations
 
 import threading
 from typing import Any
 
+from src.analytics.forensics import ForensicTimeline
 from src.parser.models import ParsedSchedule
 
 
@@ -98,4 +99,74 @@ class ProjectStore:
         with self._lock:
             self._projects.clear()
             self._xer_data.clear()
+            self._counter = 0
+
+
+class TimelineStore:
+    """In-memory storage for forensic timelines.
+
+    Thread-safe via a simple lock.  Not intended for production use --
+    all data is lost when the process exits.
+
+    Usage::
+
+        store = TimelineStore()
+        tid = store.add(timeline)
+        timeline = store.get(tid)
+    """
+
+    def __init__(self) -> None:
+        """Initialise an empty store."""
+        self._timelines: dict[str, ForensicTimeline] = {}
+        self._counter: int = 0
+        self._lock = threading.Lock()
+
+    def add(self, timeline: ForensicTimeline) -> str:
+        """Store a forensic timeline and return its timeline_id.
+
+        Args:
+            timeline: The forensic timeline to store.
+
+        Returns:
+            A unique timeline_id string.
+        """
+        with self._lock:
+            self._counter += 1
+            tid = f"timeline-{self._counter:04d}"
+            timeline.timeline_id = tid
+            self._timelines[tid] = timeline
+        return tid
+
+    def get(self, timeline_id: str) -> ForensicTimeline | None:
+        """Retrieve a forensic timeline by timeline_id.
+
+        Args:
+            timeline_id: The identifier returned by ``add()``.
+
+        Returns:
+            The stored ``ForensicTimeline``, or ``None`` if not found.
+        """
+        return self._timelines.get(timeline_id)
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """List all stored timelines with summary info.
+
+        Returns:
+            A list of dictionaries with key timeline metadata.
+        """
+        return [
+            {
+                "timeline_id": t.timeline_id,
+                "project_name": t.project_name,
+                "schedule_count": t.schedule_count,
+                "total_delay_days": t.total_delay_days,
+                "window_count": len(t.windows),
+            }
+            for t in self._timelines.values()
+        ]
+
+    def clear(self) -> None:
+        """Remove all stored timelines."""
+        with self._lock:
+            self._timelines.clear()
             self._counter = 0
