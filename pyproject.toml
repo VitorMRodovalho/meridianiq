@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "p6-xer-analytics"
+version = "0.1.0.dev0"
+description = "Open-source Primavera P6 XER schedule analysis toolkit"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+authors = [
+    {name = "Vitor Maia Rodovalho", email = "vitor.rodovalho@outlook.com"},
+]
+keywords = ["primavera", "p6", "xer", "schedule", "cpm", "construction"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "networkx>=3.0",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.100", "uvicorn[standard]"]
+export = ["pandas>=2.0"]
+dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+all = ["p6-xer-analytics[api,export,dev]"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
