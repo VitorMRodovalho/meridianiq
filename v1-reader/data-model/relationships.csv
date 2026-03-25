@@ -1,0 +1,10 @@
+FromTableName,FromColumnName,ToTableName,ToColumnName,IsActive,Cardinality,CrossFilteringBehavior,FromKeyCount,ToKeyCount,RelyOnReferentialIntegrity
+TASK,wbs_id_Key,PROJWBS,wbs_id_Key,1,M:1,Single,862,,0
+PREDECESSOR,Task_id_key,TASK,Task_ID_Key,1,M:1,Single,4160,,0
+Successor,Task_pred_id_key,TASK,Task_ID_Key,1,M:1,Single,4135,,0
+TASK,Task_ID_Key,P6,Task_ID_Key,1,M:1,Single,4476,,0
+TASK,proj_id,PROJECT,proj_id,1,M:1,Single,85,,0
+TASK,status_code,Activity_Status,status_code,1,M:1,Single,6,,0
+Forecast,,PROJWBS,wbs_id_Key,1,M:1,Single,670,,0
+Forecast,,,,1,M:1,Single,1653,,0
+Forecast,,PROJECT,proj_id,1,M:1,Single,79,,0

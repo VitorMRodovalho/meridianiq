@@ -1,0 +1,288 @@
+TableName,ColumnName,PandasDataType
+ACTVCODE,%F,string
+ACTVCODE,actv_code_id,Int64
+ACTVCODE,parent_actv_code_id,string
+ACTVCODE,actv_code_type_id,Int64
+ACTVCODE,actv_code_name,string
+ACTVCODE,short_name,string
+ACTVCODE,seq_num,Int64
+ACTVCODE,color,string
+ACTVCODE,ACTVCODE,string
+ACTVCODE,ACTVCODE_ID_Key,string
+ACTVCODE,total_assignments,Int64
+ACTVCODE,[DivisionCode]P- Draft MPS 2024-10-01 Rev 01.xer,string
+ACTVCODE,proj_id,string
+ACTVCODE,ACTV_ID_Key,string
+ACTVTYPE,%F,string
+ACTVTYPE,actv_code_type_id,Int64
+ACTVTYPE,actv_short_len,Int64
+ACTVTYPE,seq_num,Int64
+ACTVTYPE,actv_code_type,string
+ACTVTYPE,proj_id,string
+ACTVTYPE,wbs_id,string
+ACTVTYPE,actv_code_type_scope,string
+ACTVTYPE,export_flag,string
+ACTVTYPE,ACTVTYPE,string
+ACTVTYPE,ACTV_ID_Key,string
+ACTVTYPE,[DivisionCode]P- Draft MPS 2024-10-01 Rev 01.xer,string
+Activity_Status,status_code,string
+Activity_Status,Description,string
+FinalDate,FinalDate,datetime64[ns]
+InitialDate,InitialDate,datetime64[ns]
+Mstdate,Year,object
+Mstdate,Month,object
+Mstdate,week,object
+P6,Key,string
+P6,wbs_id_key,string
+P6,Task Name,object
+P6,Activity_ID,string
+P6,Activity_name,string
+P6_Calendars,clndr_id,string
+P6_Calendars,default_flag,string
+P6_Calendars,clndr_name,string
+P6_Calendars,proj_id,string
+P6_Calendars,base_clndr_id,string
+P6_Calendars,last_chng_date,datetime64[ns]
+P6_Calendars,clndr_type,string
+P6_Calendars,day_hr_cnt,Float64
+P6_Calendars,week_hr_cnt,Float64
+P6_Calendars,month_hr_cnt,Float64
+P6_Calendars,year_hr_cnt,Float64
+P6_Calendars,rsrc_private,string
+P6_Calendars,clndr_id_key,string
+PREDECESSOR,pred_task_id,string
+PREDECESSOR,proj_id,string
+PREDECESSOR,pred_proj_id,string
+PREDECESSOR,pred_type,string
+PREDECESSOR,lag_hr_cnt,Float64
+PREDECESSOR,Task_id_key,string
+PREDECESSOR,pred_task_id_key,string
+PREDECESSOR,Activity_ID,object
+PREDECESSOR,predecessor_ID,object
+PREDECESSOR,predecessor_ID_Name,object
+PREDECESSOR,predecessor_ID_Finish,object
+PREDECESSOR,float_path,string
+PREDECESSOR,Relationship Free Float,Float64
+PREDECESSOR,Driving,object
+PREDECESSOR,Task_status,object
+PREDECESSOR,Hours-Day,object
+PREDECESSOR,Lag,object
+PROJECT,proj_id,string
+PROJECT,proj_short_name,string
+PROJECT,last_recalc_date,datetime64[ns]
+PROJECT,wbs_short_name,object
+PROJECT,Index,Float64
+PROJECT,FileName,string
+PROJWBS,wbs_id,string
+PROJWBS,proj_id,string
+PROJWBS,seq_num,Int64
+PROJWBS,proj_node_flag,string
+PROJWBS,wbs_short_name,string
+PROJWBS,wbs_name,string
+PROJWBS,parent_wbs_id,string
+PROJWBS,wbs_id_Key,string
+PROJWBS,Parent_wbs_id_Key,string
+PROJWBS,Path,object
+PROJWBS,Level_01,object
+PROJWBS,Level_02,object
+PROJWBS,Level_03,object
+PROJWBS,Level_04,object
+PROJWBS,Level_05,object
+PROJWBS,Sort_02,string
+PROJWBS,Sort_03,string
+PROJWBS,Sort_04,string
+PROJWBS,Sort_05,string
+PROJWBS,Master_Sort,object
+PROJWBS,Isleaf,object
+PROJWBS,Level,object
+PROJWBS,Sort_01,string
+PROJWBS,Sort_06,string
+PROJWBS,Level_06,object
+PROJWBS,Sort_07,object
+PROJWBS,Sort_08,object
+PROJWBS,Sort_09,object
+PROJWBS,Sort_10,object
+PROJWBS,Sort_11,object
+PROJWBS,Sort_12,object
+PROJWBS,Level_07,object
+PROJWBS,Level_08,object
+PROJWBS,Level_09,object
+PROJWBS,Level_10,object
+PROJWBS,Level_11,object
+PROJWBS,Level_12,object
+PROJWBS,Level5 Type,object
+Path_Current,Path,string
+Schema,Version,string
+ShPt_Cost,category,string
+ShPt_Cost,Major Contracts,string
+ShPt_Cost,Board Line Item,string
+ShPt_Cost,FY22 Budget,decimal.Decimal
+ShPt_Cost,Current LOP (FY24),decimal.Decimal
+ShPt_Cost,Total Allocated Contingency,decimal.Decimal
+ShPt_Cost,Commitment,decimal.Decimal
+ShPt_Cost,Actuals to Date,decimal.Decimal
+ShPt_Cost,Total Forecast/ LOP,decimal.Decimal
+ShPt_Cost,Delta with FY24,decimal.Decimal
+ShPt_Cost,CBS L2,string
+ShPt_Dashboard Info page,ID,string
+ShPt_Dashboard Info page,Dashboard,string
+ShPt_Dashboard Info page,Tile Title,string
+ShPt_Dashboard Info page,Description,string
+ShPt_Dashboard Info page, Visualization Type or Shape,string
+ShPt_Dashboard Info page,Refresh Rate,string
+ShPt_Dashboard Info page,Originating Data Source,string
+ShPt_Dashboard Info page,Intermediary Data Source or Secondary,string
+ShPt_Dashboard Info page,Other Data Source,string
+ShPt_Dashboard Info page,Date Range,string
+ShPt_Dashboard Info page,Filters,string
+ShPt_Dashboard Info page,Custom Logic,string
+ShPt_Dashboard Info page,Coloration Meaning,string
+ShPt_Dashboard Info page,Integrations and Interoprability,string
+ShPt_Dashboard Info page,Contextual Information,string
+ShPt_Dashboard Info page,Data Labels,string
+ShPt_Dashboard Info page,Data Owner,string
+ShPt_Dashboard Info page,Contact,string
+ShPt_FRA_FY_Milestone_Target,Activity ID,string
+ShPt_FRA_FY_Milestone_Target,B0 Finnish,datetime64[ns]
+ShPt_FRA_FY_Milestone_Target,AIMS Target Date,datetime64[ns]
+ShPt_FRA_FY_Milestone_Target,Milestone Name,string
+ShPt_FRA_FY_Milestone_Target,Project #,string
+ShPt_FRA_FY_Milestone_Target,Project Name,string
+ShPt_FRA_FY_Milestone_Target,Milestone Description,string
+ShPt_Issue_Registry,Issue ID,string
+ShPt_Issue_Registry,Date Raised ,string
+ShPt_Issue_Registry,Description,string
+ShPt_Issue_Registry,Program/Package,string
+ShPt_Issue_Registry,Impact Level,string
+ShPt_Issue_Registry,Critical Path Impact,string
+ShPt_Issue_Registry,Responsible Party,string
+ShPt_Issue_Registry,Mitigation Action,string
+ShPt_Issue_Registry,Resolution Deadline,string
+ShPt_Issue_Registry,Status,string
+ShPt_Issue_Registry,Comments,string
+ShPt_Risk_Registry,Level 1,string
+ShPt_Risk_Registry,Level 2,string
+ShPt_Risk_Registry,Level 3,string
+ShPt_Risk_Registry,Risk Description,string
+ShPt_Risk_Registry,Impact,string
+ShPt_Risk_Registry,Prob. Of Occur.,string
+ShPt_Risk_Registry,Direct Cost impact,string
+ShPt_Risk_Registry,Schedule impact,string
+ShPt_Risk_Registry,Risk Severity,string
+ShPt_Risk_Registry,Risk Owner,string
+ShPt_Risk_Registry,Response,string
+ShPt_Risk_Registry,Mitigation,string
+ShPt_Risk_Registry,Prob. Of Occur._1,string
+ShPt_Risk_Registry,Direct Cost impact_2,string
+ShPt_Risk_Registry,Schedule impact_3,string
+ShPt_Risk_Registry,Risk Severity_4,string
+TASK,task_id,string
+TASK,proj_id,string
+TASK,wbs_id,string
+TASK,clndr_id,string
+TASK,phys_complete_pct,Float64
+TASK,rev_fdbk_flag,string
+TASK,lock_plan_flag,string
+TASK,auto_compute_act_flag,string
+TASK,complete_pct_type,string
+TASK,task_type,string
+TASK,duration_type,string
+TASK,status_code,string
+TASK,task_code,string
+TASK,task_name,string
+TASK,rsrc_id,string
+TASK,total_float_hr_cnt,Float64
+TASK,free_float_hr_cnt,Float64
+TASK,remain_drtn_hr_cnt,Float64
+TASK,act_work_qty,Float64
+TASK,remain_work_qty,Float64
+TASK,target_work_qty,Float64
+TASK,target_drtn_hr_cnt,Float64
+TASK,target_equip_qty,Float64
+TASK,act_equip_qty,Float64
+TASK,remain_equip_qty,Float64
+TASK,cstr_date,datetime64[ns]
+TASK,act_start_date,datetime64[ns]
+TASK,act_end_date,datetime64[ns]
+TASK,late_start_date,datetime64[ns]
+TASK,late_end_date,datetime64[ns]
+TASK,expect_end_date,datetime64[ns]
+TASK,early_start_date,datetime64[ns]
+TASK,early_end_date,datetime64[ns]
+TASK,restart_date,datetime64[ns]
+TASK,reend_date,datetime64[ns]
+TASK,target_start_date,datetime64[ns]
+TASK,target_end_date,datetime64[ns]
+TASK,rem_late_start_date,datetime64[ns]
+TASK,rem_late_end_date,datetime64[ns]
+TASK,cstr_type,string
+TASK,priority_type,string
+TASK,suspend_date,string
+TASK,resume_date,string
+TASK,float_path,string
+TASK,float_path_order,string
+TASK,guid,string
+TASK,tmpl_guid,string
+TASK,cstr_date2,string
+TASK,cstr_type2,string
+TASK,driving_path_flag,string
+TASK,act_this_per_work_qty,string
+TASK,act_this_per_equip_qty,string
+TASK,external_early_start_date,string
+TASK,external_late_end_date,string
+TASK,create_date,string
+TASK,update_date,string
+TASK,create_user,string
+TASK,update_user,string
+TASK,Task_ID_Key,string
+TASK,wbs_id_Key,string
+TASK,Predecessor,object
+TASK,Duration,Float64
+TASK,Task Name,object
+TASK,Hierarchy %,Float64
+TASK,Start,object
+TASK,Finish,object
+TASK,Hours-Day,object
+TASK,Total_Float,object
+TASK,Data_Date,object
+TASK,rd,Float64
+TASK,Remaining_Hours_Day,object
+TASK,Activity status,object
+TASK,Lookahead Category,object
+TASK,Previous_Planned_Finish_Date,object
+TASK,Previous_Planned_Start_Date,object
+TASK,Index,object
+TASK,Baseline_Finish_Date,object
+TASK,Variance (days) Current vs Baseline,object
+TASK,Variance (days) Current vs Previous Planned date,object
+TASK,Finish FC,object
+TASK,%F,string
+TASK,est_wt,string
+TASK,location_id,string
+TASK,crt_path_num,string
+TASK,Column1,string
+TASK,TASK,string
+TASK,clndr_id_Key,string
+TASK,FileName,string
+TASK,Variance (days) Current vs Previous BG,object
+TASKACTV,%F,string
+TASKACTV,task_id,Int64
+TASKACTV,actv_code_type_id,Int64
+TASKACTV,actv_code_id,string
+TASKACTV,proj_id,string
+TASKACTV,TASKACTV,string
+TASKACTV,TASKACTV_ID_Key,string
+TASKACTV,TASK_ID_Key,string
+TASKACTV,ACTVCODE_ID_Key,string
+TASKACTV,ACTV_ID_Key,string
+TASKACTV,[DivisionCode]P- Draft MPS 2024-10-01 Rev 01.xer,string
+TASKACTV,Key2,string
+dim_calendar,DATE,datetime64[ns]
+dim_calendar,Week of Month,string
+dim_calendar,Calendar Year Quarter,string
+dim_calendar,Fiscal Year,string
+dim_calendar,Fiscal Quarter,string
+dim_calendar,Fiscal Year Quarter,string
+dim_calendar,Year,Int64
+dim_calendar,Quarter,string
+dim_calendar,Month,Int64
