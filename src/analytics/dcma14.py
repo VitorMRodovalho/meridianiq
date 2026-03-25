@@ -112,18 +112,19 @@ class DCMA14Analyzer:
         }
 
         # Filter to incomplete activities only (non-LOE, non-WBS summary)
+        # Use case-insensitive comparison — P6 versions vary in case
         self._incomplete: list[Any] = [
             t
             for t in schedule.activities
-            if t.status_code != "TK_Complete"
-            and t.task_type not in ("TT_LOE", "TT_WBS")
+            if t.status_code.lower() != "tk_complete"
+            and t.task_type.lower() not in ("tt_loe", "tt_wbs")
         ]
 
         # All non-LOE/WBS activities
         self._all_countable: list[Any] = [
             t
             for t in schedule.activities
-            if t.task_type not in ("TT_LOE", "TT_WBS")
+            if t.task_type.lower() not in ("tt_loe", "tt_wbs")
         ]
 
     # ------------------------------------------------------------------
@@ -405,7 +406,7 @@ class DCMA14Analyzer:
         non_milestone = [
             t
             for t in self._all_countable
-            if t.task_type not in ("TT_mile", "TT_finmile")
+            if t.task_type.lower() not in ("tt_mile", "tt_finmile")
         ]
         total_nm = len(non_milestone)
         with_res = sum(
@@ -448,7 +449,7 @@ class DCMA14Analyzer:
         total = len(self._all_countable)
         missed = 0
         for t in self._all_countable:
-            if t.status_code == "TK_Complete":
+            if t.status_code.lower() == "tk_complete":
                 continue
             if t.target_end_date and t.target_end_date < self.data_date:
                 missed += 1
@@ -634,7 +635,7 @@ class DCMA14Analyzer:
             )
 
         actually_complete = sum(
-            1 for t in should_be_complete if t.status_code == "TK_Complete"
+            1 for t in should_be_complete if t.status_code.lower() == "tk_complete"
         )
         bei = round(actually_complete / total_should, 3)
         return MetricResult(

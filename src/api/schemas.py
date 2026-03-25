@@ -83,6 +83,25 @@ class RelationshipSchema(BaseModel):
     lag_hr_cnt: float = 0.0
 
 
+class WBSLevelCount(BaseModel):
+    """WBS elements at a specific hierarchy level."""
+
+    level: int
+    count: int
+
+
+class WBSStats(BaseModel):
+    """WBS hierarchy statistics for schedule assessment."""
+
+    total_elements: int = 0
+    max_depth: int = 0
+    by_level: list[WBSLevelCount] = Field(default_factory=list)
+    avg_activities_per_wbs: float = 0.0
+    min_activities_per_wbs: int = 0
+    max_activities_per_wbs: int = 0
+    wbs_with_no_activities: int = 0
+
+
 class ProjectDetailResponse(BaseModel):
     """Response for GET /api/v1/projects/{project_id}."""
 
@@ -91,6 +110,7 @@ class ProjectDetailResponse(BaseModel):
     data_date: Optional[str] = None
     activities: list[ActivitySchema] = Field(default_factory=list)
     relationships: list[RelationshipSchema] = Field(default_factory=list)
+    wbs_stats: Optional[WBSStats] = None
 
 
 # ── Validation (DCMA) ───────────────────────────────────

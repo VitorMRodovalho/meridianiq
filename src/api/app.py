@@ -45,6 +45,8 @@ from .schemas import (
     RelationshipChangeSchema,
     RelationshipSchema,
     ValidationResponse,
+    WBSLevelCount,
+    WBSStats,
 )
 from .storage import ProjectStore
 
@@ -216,12 +218,80 @@ def get_project(project_id: str) -> ProjectDetailResponse:
         for r in schedule.relationships
     ]
 
+    # Compute WBS hierarchy statistics
+    wbs_stats = _compute_wbs_stats(schedule)
+
     return ProjectDetailResponse(
         project_id=project_id,
         name=name,
         data_date=data_date,
         activities=activities,
         relationships=relationships,
+        wbs_stats=wbs_stats,
+    )
+
+
+def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
+    """Compute WBS hierarchy depth and activity distribution."""
+    wbs_nodes = schedule.wbs_nodes
+    if not wbs_nodes:
+        return WBSStats()
+
+    # Build parent→children map and find root(s)
+    wbs_by_id: dict[str, Any] = {w.wbs_id: w for w in wbs_nodes}
+    child_ids: set[str] = set()
+    for w in wbs_nodes:
+        if w.parent_wbs_id and w.parent_wbs_id != w.wbs_id:
+            child_ids.add(w.wbs_id)
+
+    # Calculate depth for each WBS node via BFS from roots
+    roots = [w for w in wbs_nodes if w.wbs_id not in child_ids
+             or w.proj_node_flag.upper() == "Y"]
+    levels: dict[str, int] = {}
+    queue = [(r.wbs_id, 1) for r in roots]
+    for wbs_id, level in queue:
+        if wbs_id in levels:
+            continue
+        levels[wbs_id] = level
+        # Find children
+        for w in wbs_nodes:
+            if w.parent_wbs_id == wbs_id and w.wbs_id != wbs_id:
+                queue.append((w.wbs_id, level + 1))
+
+    # Assign level 1 to any unvisited nodes (orphans)
+    for w in wbs_nodes:
+        if w.wbs_id not in levels:
+            levels[w.wbs_id] = 1
+
+    max_depth = max(levels.values()) if levels else 0
+
+    # Count by level
+    level_counts: dict[int, int] = {}
+    for lvl in levels.values():
+        level_counts[lvl] = level_counts.get(lvl, 0) + 1
+    by_level = [
+        WBSLevelCount(level=lvl, count=cnt)
+        for lvl, cnt in sorted(level_counts.items())
+    ]
+
+    # Activities per WBS node
+    act_per_wbs: dict[str, int] = {w.wbs_id: 0 for w in wbs_nodes}
+    for t in schedule.activities:
+        if t.wbs_id in act_per_wbs:
+            act_per_wbs[t.wbs_id] += 1
+
+    counts = list(act_per_wbs.values())
+    no_activities = sum(1 for c in counts if c == 0)
+    non_zero = [c for c in counts if c > 0]
+
+    return WBSStats(
+        total_elements=len(wbs_nodes),
+        max_depth=max_depth,
+        by_level=by_level,
+        avg_activities_per_wbs=round(sum(counts) / len(counts), 1) if counts else 0.0,
+        min_activities_per_wbs=min(non_zero) if non_zero else 0,
+        max_activities_per_wbs=max(non_zero) if non_zero else 0,
+        wbs_with_no_activities=no_activities,
     )
 
 
@@ -343,11 +413,11 @@ def get_float_distribution(project_id: str) -> FloatDistributionResponse:
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Filter to countable activities
+    # Filter to countable activities (case-insensitive)
     countable = [
         t for t in schedule.activities
-        if t.task_type not in ("TT_LOE", "TT_WBS")
-        and t.status_code != "TK_Complete"
+        if t.task_type.lower() not in ("tt_loe", "tt_wbs")
+        and t.status_code.lower() != "tk_complete"
     ]
 
     total = len(countable)
@@ -410,6 +480,8 @@ def get_milestones(project_id: str) -> MilestonesResponse:
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Match milestones case-insensitively — P6 versions vary in case
+    MILESTONE_TYPES = {"tt_mile", "tt_finmile"}
     milestones = [
         MilestoneSchema(
             task_id=t.task_id,
@@ -425,7 +497,7 @@ def get_milestones(project_id: str) -> MilestonesResponse:
             target_end_date=t.target_end_date,
         )
         for t in schedule.activities
-        if t.task_type in ("TT_mile", "TT_finmile")
+        if t.task_type.lower() in MILESTONE_TYPES
     ]
 
     return MilestonesResponse(milestones=milestones)
