@@ -1,4 +1,4 @@
-# Known Bugs — v0.1
+# Known Bugs — v0.1.0
 
 ## BUG-001: Milestones not detected in real XER files
 - **Status:** FIXED (2026-03-25)

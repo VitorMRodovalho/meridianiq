@@ -869,8 +869,15 @@ class ScheduleComparison:
             modified_ids.add(change.task_id)
 
         total_changed = added + deleted + len(modified_ids)
+        # Use union of all unique activities across both schedules as denominator
+        # This prevents >100% when adds+deletes+mods exceed baseline count
+        total_universe = len(
+            {t.task_code or t.task_id for t in self.baseline.activities}
+            | {t.task_code or t.task_id for t in self.update.activities}
+        )
         result.changed_percentage = round(
-            (total_changed / total_baseline) * 100, 2
+            min((total_changed / total_universe) * 100, 100.0) if total_universe > 0 else 0.0,
+            2,
         )
 
         # Relationship churn

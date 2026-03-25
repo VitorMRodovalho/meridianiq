@@ -50,12 +50,28 @@ export interface RelationshipSchema {
 	lag_hr_cnt: number;
 }
 
+export interface WBSLevelCount {
+	level: number;
+	count: number;
+}
+
+export interface WBSStats {
+	total_elements: number;
+	max_depth: number;
+	by_level: WBSLevelCount[];
+	avg_activities_per_wbs: number;
+	min_activities_per_wbs: number;
+	max_activities_per_wbs: number;
+	wbs_with_no_activities: number;
+}
+
 export interface ProjectDetailResponse {
 	project_id: string;
 	name: string;
 	data_date: string | null;
 	activities: ActivitySchema[];
 	relationships: RelationshipSchema[];
+	wbs_stats: WBSStats | null;
 }
 
 export interface MetricSchema {
@@ -156,6 +172,22 @@ export interface ManipulationFlagSchema {
 	severity: string;
 }
 
+export interface CodeRestructuringSchema {
+	task_id: string;
+	old_code: string;
+	new_code: string;
+	activity_name: string;
+}
+
+export interface MatchStatsSchema {
+	matched_by_task_id: number;
+	matched_by_task_code: number;
+	total_matched: number;
+	added: number;
+	deleted: number;
+	code_restructured: number;
+}
+
 export interface CompareResponse {
 	activities_added: ActivityChangeSchema[];
 	activities_deleted: ActivityChangeSchema[];
@@ -167,6 +199,8 @@ export interface CompareResponse {
 	significant_float_changes: FloatChangeSchema[];
 	constraint_changes: ActivityChangeSchema[];
 	manipulation_flags: ManipulationFlagSchema[];
+	code_restructuring: CodeRestructuringSchema[];
+	match_stats: MatchStatsSchema | null;
 	changed_percentage: number;
 	critical_path_changed: boolean;
 	activities_joined_cp: string[];

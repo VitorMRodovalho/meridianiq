@@ -173,10 +173,21 @@
 					<p class="text-2xl font-bold text-gray-900">{project.relationships.length}</p>
 				</div>
 				<div class="bg-white border border-gray-200 rounded-lg p-5">
-					<p class="text-sm text-gray-500">WBS Elements</p>
-					<p class="text-2xl font-bold text-gray-900">
-						{new Set(project.activities.map(a => a.task_type)).size}
-					</p>
+					<p class="text-sm text-gray-500">WBS Structure</p>
+					{#if project.wbs_stats}
+						<p class="text-2xl font-bold text-gray-900">{project.wbs_stats.total_elements} <span class="text-sm font-normal text-gray-500">elements</span></p>
+						<p class="text-xs text-gray-500 mt-1">Max depth: {project.wbs_stats.max_depth} levels</p>
+						{#if project.wbs_stats.by_level.length > 0}
+							<div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-gray-600">
+								{#each project.wbs_stats.by_level as lvl}
+									<div>L{lvl.level}: {lvl.count}</div>
+								{/each}
+							</div>
+						{/if}
+						<p class="text-xs text-gray-400 mt-1">Avg {project.wbs_stats.avg_activities_per_wbs} activities/WBS</p>
+					{:else}
+						<p class="text-2xl font-bold text-gray-900">—</p>
+					{/if}
 				</div>
 			</div>
 

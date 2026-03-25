@@ -143,6 +143,51 @@
 			</div>
 		</div>
 
+		<!-- Match Method + Code Restructuring -->
+		{#if result.match_stats}
+			<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+				<h3 class="text-sm font-medium text-blue-800 mb-2">Matching Method</h3>
+				<div class="grid grid-cols-3 gap-4 text-sm">
+					<div>
+						<span class="text-blue-600 font-bold">{result.match_stats.matched_by_task_id.toLocaleString()}</span>
+						<span class="text-blue-700"> by system ID</span>
+					</div>
+					<div>
+						<span class="text-blue-600 font-bold">{result.match_stats.matched_by_task_code.toLocaleString()}</span>
+						<span class="text-blue-700"> by activity code</span>
+					</div>
+					<div>
+						<span class="text-blue-600 font-bold">{result.match_stats.total_matched.toLocaleString()}</span>
+						<span class="text-blue-700"> total matched</span>
+					</div>
+				</div>
+				{#if result.match_stats.code_restructured > 0}
+					<p class="text-xs text-blue-600 mt-2">
+						{result.match_stats.code_restructured} activities had their activity code changed between versions
+					</p>
+				{/if}
+			</div>
+		{/if}
+
+		{#if result.code_restructuring && result.code_restructuring.length > 0}
+			<div class="border border-yellow-300 bg-yellow-50 rounded-lg p-4 mb-6">
+				<h3 class="text-sm font-medium text-yellow-800 mb-2">Schedule Restructuring Detected ({result.code_restructuring.length} code changes)</h3>
+				<div class="max-h-48 overflow-y-auto">
+					<table class="w-full text-xs">
+						<thead><tr class="text-left text-yellow-700"><th class="py-1 pr-2">Old Code</th><th class="py-1 pr-2">New Code</th><th class="py-1">Activity</th></tr></thead>
+						<tbody>
+							{#each result.code_restructuring.slice(0, 20) as cr}
+								<tr class="border-t border-yellow-200"><td class="py-1 pr-2 font-mono">{cr.old_code}</td><td class="py-1 pr-2 font-mono">{cr.new_code}</td><td class="py-1">{cr.activity_name}</td></tr>
+							{/each}
+							{#if result.code_restructuring.length > 20}
+								<tr><td colspan="3" class="py-1 text-yellow-600">... and {result.code_restructuring.length - 20} more</td></tr>
+							{/if}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Manipulation Alerts -->
 		{#if result.manipulation_flags.length > 0}
 			<div class="border-2 border-red-300 bg-red-50 rounded-lg p-6 mb-6">
