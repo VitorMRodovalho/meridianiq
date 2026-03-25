@@ -26,6 +26,7 @@ from src.parser.xer_reader import XERReader
 from .schemas import (
     ActivityChangeSchema,
     ActivitySchema,
+    CodeRestructuringSchema,
     CompareRequest,
     CompareResponse,
     CriticalPathActivity,
@@ -35,6 +36,7 @@ from .schemas import (
     FloatDistributionResponse,
     HealthResponse,
     ManipulationFlagSchema,
+    MatchStatsSchema,
     MetricSchema,
     MilestoneSchema,
     MilestonesResponse,
@@ -566,6 +568,10 @@ def compare_schedules(request: CompareRequest) -> CompareResponse:
         manipulation_flags=[
             ManipulationFlagSchema(**asdict(c)) for c in result.manipulation_flags
         ],
+        code_restructuring=[
+            CodeRestructuringSchema(**asdict(c)) for c in result.code_restructuring
+        ],
+        match_stats=MatchStatsSchema(**asdict(result.match_stats)),
         changed_percentage=result.changed_percentage,
         critical_path_changed=result.critical_path_changed,
         activities_joined_cp=result.activities_joined_cp,

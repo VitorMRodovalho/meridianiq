@@ -71,6 +71,28 @@ class ManipulationFlag:
 
 
 @dataclass
+class CodeRestructuring:
+    """A detected activity code change between schedule versions."""
+
+    task_id: str
+    old_code: str
+    new_code: str
+    activity_name: str
+
+
+@dataclass
+class MatchStats:
+    """Statistics about how activities were matched between schedules."""
+
+    matched_by_task_id: int = 0
+    matched_by_task_code: int = 0
+    total_matched: int = 0
+    added: int = 0
+    deleted: int = 0
+    code_restructured: int = 0
+
+
+@dataclass
 class ComparisonResult:
     """Full comparison output between baseline and update schedules."""
 
@@ -84,6 +106,8 @@ class ComparisonResult:
     significant_float_changes: list[FloatChange] = field(default_factory=list)
     constraint_changes: list[ActivityChange] = field(default_factory=list)
     manipulation_flags: list[ManipulationFlag] = field(default_factory=list)
+    code_restructuring: list[CodeRestructuring] = field(default_factory=list)
+    match_stats: MatchStats = field(default_factory=MatchStats)
     changed_percentage: float = 0.0
     critical_path_changed: bool = False
     activities_joined_cp: list[str] = field(default_factory=list)
@@ -106,7 +130,13 @@ class ScheduleComparison:
     """
 
     def __init__(self, baseline: ParsedSchedule, update: ParsedSchedule) -> None:
-        """Initialise comparison with baseline and update schedules.
+        """Initialise comparison with multi-layer activity matching.
+
+        Matching strategy (3 tiers):
+        1. Match by task_id (P6 internal ID — most reliable for same-database exports)
+        2. Match remaining by task_code (user-visible ID — fallback for cross-database)
+        3. Remaining unmatched = truly added/deleted
+        4. Detect code restructuring where task_id matches but task_code changed
 
         Args:
             baseline: The earlier (baseline) parsed schedule.
@@ -115,36 +145,108 @@ class ScheduleComparison:
         self.baseline = baseline
         self.update = update
 
-        # Build lookup maps keyed by task_code (user-visible Activity ID)
-        # task_code persists across XER exports; task_id is auto-generated
-        # and changes between different exports of the same schedule.
-        self._base_tasks: dict[str, Task] = {
-            t.task_code: t for t in baseline.activities if t.task_code
-        }
-        self._upd_tasks: dict[str, Task] = {
-            t.task_code: t for t in update.activities if t.task_code
-        }
+        # Multi-layer matching
+        self._matched: list[tuple[Task, Task]] = []
+        self._added: list[Task] = []
+        self._deleted: list[Task] = []
+        self._code_changes: list[CodeRestructuring] = []
+        self._match_stats = MatchStats()
+        self._run_matching()
 
-        # Build task_id→task_code lookups for relationship cross-referencing
-        base_id_to_code: dict[str, str] = {
-            t.task_id: t.task_code for t in baseline.activities if t.task_code
-        }
-        upd_id_to_code: dict[str, str] = {
-            t.task_id: t.task_code for t in update.activities if t.task_code
-        }
+        # Build keyed lookup for matched pairs (use a stable key for each pair)
+        # Use the update activity's task_code (or task_id) as the canonical key
+        self._base_tasks: dict[str, Task] = {}
+        self._upd_tasks: dict[str, Task] = {}
+        for base_t, upd_t in self._matched:
+            key = upd_t.task_code or upd_t.task_id
+            self._base_tasks[key] = base_t
+            self._upd_tasks[key] = upd_t
 
-        # Build relationship keys using task_code pairs (not task_id)
+        # Build task_id→canonical_key lookups for relationship cross-referencing
+        base_id_to_key: dict[str, str] = {}
+        upd_id_to_key: dict[str, str] = {}
+        for base_t, upd_t in self._matched:
+            key = upd_t.task_code or upd_t.task_id
+            base_id_to_key[base_t.task_id] = key
+            upd_id_to_key[upd_t.task_id] = key
+        # Also add unmatched activities for relationship resolution
+        for t in self._added:
+            upd_id_to_key[t.task_id] = t.task_code or t.task_id
+        for t in self._deleted:
+            base_id_to_key[t.task_id] = t.task_code or t.task_id
+
+        # Build relationship keys using canonical keys
         self._base_rels: dict[tuple[str, str], Relationship] = {}
         for r in baseline.relationships:
-            succ_code = base_id_to_code.get(r.task_id, r.task_id)
-            pred_code = base_id_to_code.get(r.pred_task_id, r.pred_task_id)
-            self._base_rels[(succ_code, pred_code)] = r
+            succ_key = base_id_to_key.get(r.task_id, r.task_id)
+            pred_key = base_id_to_key.get(r.pred_task_id, r.pred_task_id)
+            self._base_rels[(succ_key, pred_key)] = r
 
         self._upd_rels: dict[tuple[str, str], Relationship] = {}
         for r in update.relationships:
-            succ_code = upd_id_to_code.get(r.task_id, r.task_id)
-            pred_code = upd_id_to_code.get(r.pred_task_id, r.pred_task_id)
-            self._upd_rels[(succ_code, pred_code)] = r
+            succ_key = upd_id_to_key.get(r.task_id, r.task_id)
+            pred_key = upd_id_to_key.get(r.pred_task_id, r.pred_task_id)
+            self._upd_rels[(succ_key, pred_key)] = r
+
+    def _run_matching(self) -> None:
+        """Execute multi-layer activity matching."""
+        base_activities = self.baseline.activities
+        upd_activities = self.update.activities
+
+        # Tier 1: Match by task_id (P6 internal ID)
+        base_by_id: dict[str, Task] = {t.task_id: t for t in base_activities}
+        upd_by_id: dict[str, Task] = {t.task_id: t for t in upd_activities}
+        id_matches = set(base_by_id.keys()) & set(upd_by_id.keys())
+
+        matched_base_ids: set[str] = set()
+        matched_upd_ids: set[str] = set()
+
+        for tid in id_matches:
+            self._matched.append((base_by_id[tid], upd_by_id[tid]))
+            matched_base_ids.add(tid)
+            matched_upd_ids.add(tid)
+
+        # Detect code restructuring (task_id matches but task_code changed)
+        for base_t, upd_t in self._matched:
+            if base_t.task_code and upd_t.task_code and base_t.task_code != upd_t.task_code:
+                self._code_changes.append(
+                    CodeRestructuring(
+                        task_id=base_t.task_id,
+                        old_code=base_t.task_code,
+                        new_code=upd_t.task_code,
+                        activity_name=upd_t.task_name or base_t.task_name,
+                    )
+                )
+
+        # Tier 2: Match remaining by task_code (fallback)
+        remaining_base = {
+            t.task_code: t for t in base_activities
+            if t.task_id not in matched_base_ids and t.task_code
+        }
+        remaining_upd = {
+            t.task_code: t for t in upd_activities
+            if t.task_id not in matched_upd_ids and t.task_code
+        }
+        code_matches = set(remaining_base.keys()) & set(remaining_upd.keys())
+
+        for code in code_matches:
+            self._matched.append((remaining_base[code], remaining_upd[code]))
+            matched_base_ids.add(remaining_base[code].task_id)
+            matched_upd_ids.add(remaining_upd[code].task_id)
+
+        # Truly unmatched = added or deleted
+        self._added = [t for t in upd_activities if t.task_id not in matched_upd_ids]
+        self._deleted = [t for t in base_activities if t.task_id not in matched_base_ids]
+
+        # Record stats
+        self._match_stats = MatchStats(
+            matched_by_task_id=len(id_matches),
+            matched_by_task_code=len(code_matches),
+            total_matched=len(self._matched),
+            added=len(self._added),
+            deleted=len(self._deleted),
+            code_restructured=len(self._code_changes),
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -157,6 +259,8 @@ class ScheduleComparison:
             A ``ComparisonResult`` populated with all detected changes.
         """
         result = ComparisonResult()
+        result.code_restructuring = list(self._code_changes)
+        result.match_stats = self._match_stats
 
         self._compare_activities(result)
         self._compare_relationships(result)
@@ -175,18 +279,16 @@ class ScheduleComparison:
     def _compare_activities(self, result: ComparisonResult) -> None:
         """Detect added, deleted, and modified activities.
 
+        Uses pre-computed multi-layer matching results.
+
         Args:
             result: The result object to populate.
         """
-        base_ids = set(self._base_tasks.keys())
-        upd_ids = set(self._upd_tasks.keys())
-
-        # Added activities
-        for tid in sorted(upd_ids - base_ids):
-            task = self._upd_tasks[tid]
+        # Added activities (truly new — not matched by task_id or task_code)
+        for task in self._added:
             result.activities_added.append(
                 ActivityChange(
-                    task_id=tid,
+                    task_id=task.task_code or task.task_id,
                     task_name=task.task_name,
                     change_type="added",
                     new_value=task.task_code,
@@ -194,12 +296,11 @@ class ScheduleComparison:
                 )
             )
 
-        # Deleted activities
-        for tid in sorted(base_ids - upd_ids):
-            task = self._base_tasks[tid]
+        # Deleted activities (truly removed — not matched by task_id or task_code)
+        for task in self._deleted:
             result.activities_deleted.append(
                 ActivityChange(
-                    task_id=tid,
+                    task_id=task.task_code or task.task_id,
                     task_name=task.task_name,
                     change_type="deleted",
                     old_value=task.task_code,
@@ -207,10 +308,8 @@ class ScheduleComparison:
                 )
             )
 
-        # Modified activities (common to both)
-        for tid in sorted(base_ids & upd_ids):
-            base_t = self._base_tasks[tid]
-            upd_t = self._upd_tasks[tid]
+        # Modified activities (matched pairs)
+        for base_t, upd_t in self._matched:
             self._detect_activity_modifications(base_t, upd_t, result)
 
     def _detect_activity_modifications(
@@ -387,9 +486,8 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        for tid in sorted(set(self._base_tasks) & set(self._upd_tasks)):
-            base_t = self._base_tasks[tid]
-            upd_t = self._upd_tasks[tid]
+        for base_t, upd_t in self._matched:
+            tid = upd_t.task_code or upd_t.task_id
 
             old_f = base_t.total_float_hr_cnt
             new_f = upd_t.total_float_hr_cnt
@@ -423,9 +521,8 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        for tid in sorted(set(self._base_tasks) & set(self._upd_tasks)):
-            base_t = self._base_tasks[tid]
-            upd_t = self._upd_tasks[tid]
+        for base_t, upd_t in self._matched:
+            tid = upd_t.task_code or upd_t.task_id
 
             base_cstr = (base_t.cstr_type or "").strip()
             upd_cstr = (upd_t.cstr_type or "").strip()
@@ -479,9 +576,8 @@ class ScheduleComparison:
                 )
 
         # Check new activities for constraints (newly added with constraints)
-        base_ids = set(self._base_tasks.keys())
-        for tid in sorted(set(self._upd_tasks) - base_ids):
-            upd_t = self._upd_tasks[tid]
+        for upd_t in self._added:
+            tid = upd_t.task_code or upd_t.task_id
             upd_cstr = (upd_t.cstr_type or "").strip()
             if upd_cstr:
                 result.constraint_changes.append(
@@ -515,6 +611,7 @@ class ScheduleComparison:
         self._detect_oos_progress(result)
         self._detect_unjustified_duration_changes(result)
         self._detect_constraint_masking(result)
+        self._detect_mass_restructuring(result)
 
     def _detect_retroactive_dates(self, result: ComparisonResult) -> None:
         """Flag activities where actual dates differ between baseline and update.
@@ -526,13 +623,13 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        for tid in sorted(set(self._base_tasks) & set(self._upd_tasks)):
-            base_t = self._base_tasks[tid]
-            upd_t = self._upd_tasks[tid]
+        for base_t, upd_t in self._matched:
 
             # Only flag if the activity was already started in the baseline
             if base_t.act_start_date is None:
                 continue
+
+            tid = upd_t.task_code or upd_t.task_id
 
             # Check if actual start date was changed retroactively
             if (
@@ -623,9 +720,8 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        for tid in sorted(set(self._base_tasks) & set(self._upd_tasks)):
-            base_t = self._base_tasks[tid]
-            upd_t = self._upd_tasks[tid]
+        for base_t, upd_t in self._matched:
+            tid = upd_t.task_code or upd_t.task_id
 
             # Only flag not-started activities (case-insensitive)
             if upd_t.status_code.lower() != "tk_notstart":
@@ -650,6 +746,33 @@ class ScheduleComparison:
                     )
                 )
 
+    def _detect_mass_restructuring(self, result: ComparisonResult) -> None:
+        """Flag mass code restructuring as a manipulation indicator.
+
+        If more than 10% of matched activities had their codes changed,
+        this indicates a mass restructuring that can obscure forensic analysis.
+
+        Args:
+            result: The result object to populate.
+        """
+        if not self._matched:
+            return
+        pct = len(self._code_changes) / len(self._matched) * 100
+        if pct > 10.0:
+            result.manipulation_flags.append(
+                ManipulationFlag(
+                    task_id="SCHEDULE",
+                    task_name="Mass Code Restructuring",
+                    indicator="mass_code_restructuring",
+                    description=(
+                        f"{len(self._code_changes)} activities ({pct:.1f}%) had their "
+                        f"codes changed. Mass restructuring can obscure schedule changes "
+                        f"and complicates forensic analysis."
+                    ),
+                    severity="warning",
+                )
+            )
+
     def _detect_constraint_masking(self, result: ComparisonResult) -> None:
         """Flag new constraints that may mask float consumption.
 
@@ -659,9 +782,8 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        for tid in sorted(set(self._base_tasks) & set(self._upd_tasks)):
-            base_t = self._base_tasks[tid]
-            upd_t = self._upd_tasks[tid]
+        for base_t, upd_t in self._matched:
+            tid = upd_t.task_code or upd_t.task_id
 
             base_cstr = (base_t.cstr_type or "").strip()
             upd_cstr = (upd_t.cstr_type or "").strip()
@@ -727,7 +849,7 @@ class ScheduleComparison:
         Args:
             result: The result object to populate.
         """
-        total_baseline = len(self._base_tasks)
+        total_baseline = len(self.baseline.activities)
         if total_baseline == 0:
             result.changed_percentage = 0.0
             result.summary = {}
@@ -766,7 +888,7 @@ class ScheduleComparison:
 
         result.summary = {
             "baseline_activity_count": total_baseline,
-            "update_activity_count": len(self._upd_tasks),
+            "update_activity_count": len(self.update.activities),
             "activities_added": added,
             "activities_deleted": deleted,
             "activities_modified": len(modified_ids),

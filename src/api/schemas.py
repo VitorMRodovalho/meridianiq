@@ -257,6 +257,26 @@ class ManipulationFlagSchema(BaseModel):
     severity: str = "critical"
 
 
+class CodeRestructuringSchema(BaseModel):
+    """A detected activity code change between versions."""
+
+    task_id: str
+    old_code: str
+    new_code: str
+    activity_name: str
+
+
+class MatchStatsSchema(BaseModel):
+    """Statistics about how activities were matched."""
+
+    matched_by_task_id: int = 0
+    matched_by_task_code: int = 0
+    total_matched: int = 0
+    added: int = 0
+    deleted: int = 0
+    code_restructured: int = 0
+
+
 class CompareResponse(BaseModel):
     """Response for POST /api/v1/compare."""
 
@@ -270,6 +290,8 @@ class CompareResponse(BaseModel):
     significant_float_changes: list[FloatChangeSchema] = Field(default_factory=list)
     constraint_changes: list[ActivityChangeSchema] = Field(default_factory=list)
     manipulation_flags: list[ManipulationFlagSchema] = Field(default_factory=list)
+    code_restructuring: list[CodeRestructuringSchema] = Field(default_factory=list)
+    match_stats: Optional[MatchStatsSchema] = None
     changed_percentage: float = 0.0
     critical_path_changed: bool = False
     activities_joined_cp: list[str] = Field(default_factory=list)
