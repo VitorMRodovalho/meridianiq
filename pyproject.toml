@@ -27,7 +27,7 @@ dependencies = [
 [project.optional-dependencies]
 api = ["fastapi>=0.100", "uvicorn[standard]"]
 export = ["pandas>=2.0"]
-dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy", "httpx>=0.24"]
 all = ["p6-xer-analytics[api,export,dev]"]
 
 [tool.pytest.ini_options]
