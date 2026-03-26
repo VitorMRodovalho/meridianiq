@@ -45,7 +45,7 @@
 </script>
 
 <svelte:head>
-	<title>Compare - P6 XER Analytics</title>
+	<title>Compare - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">

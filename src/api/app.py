@@ -1,6 +1,6 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""FastAPI application for P6 XER Analytics.
+"""FastAPI application for MeridianIQ.
 
 Provides REST endpoints for uploading XER files, querying parsed
 schedule data, running DCMA assessments, CPM analysis, comparing

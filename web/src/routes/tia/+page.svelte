@@ -107,7 +107,7 @@
 </script>
 
 <svelte:head>
-	<title>Time Impact Analysis - P6 XER Analytics</title>
+	<title>Time Impact Analysis - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">

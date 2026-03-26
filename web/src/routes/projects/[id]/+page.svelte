@@ -115,7 +115,7 @@
 </script>
 
 <svelte:head>
-	<title>{project?.name || 'Project'} - P6 XER Analytics</title>
+	<title>{project?.name || 'Project'} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">

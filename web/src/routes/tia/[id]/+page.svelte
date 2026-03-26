@@ -115,7 +115,7 @@
 </script>
 
 <svelte:head>
-	<title>TIA Analysis {analysisId} - P6 XER Analytics</title>
+	<title>TIA Analysis {analysisId} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">

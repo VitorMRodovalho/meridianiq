@@ -48,7 +48,7 @@
 </script>
 
 <svelte:head>
-	<title>Upload - P6 XER Analytics</title>
+	<title>Upload - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-3xl mx-auto">

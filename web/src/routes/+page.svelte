@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-	<title>P6 XER Analytics</title>
+	<title>MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-6xl mx-auto">

@@ -70,7 +70,7 @@
 </script>
 
 <svelte:head>
-	<title>Timeline {timelineId} - P6 XER Analytics</title>
+	<title>Timeline {timelineId} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">

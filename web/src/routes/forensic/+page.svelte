@@ -55,7 +55,7 @@
 </script>
 
 <svelte:head>
-	<title>Forensic Analysis - P6 XER Analytics</title>
+	<title>Forensic Analysis - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">
