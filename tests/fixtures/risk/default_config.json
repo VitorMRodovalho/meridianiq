@@ -1,0 +1,7 @@
+{
+    "iterations": 1000,
+    "default_distribution": "pert",
+    "default_uncertainty": 0.2,
+    "seed": 42,
+    "confidence_levels": [10, 25, 50, 75, 80, 90]
+}

@@ -16,7 +16,7 @@ class HealthResponse(BaseModel):
     """Response for GET /api/v1/health."""
 
     status: str = "ok"
-    version: str = "0.4.0-dev"
+    version: str = "0.5.0-dev"
 
 
 # ── Upload ───────────────────────────────────────────────
@@ -643,3 +643,154 @@ class ForecastResponse(BaseModel):
     etc: float = 0.0
     vac: float = 0.0
     tcpi: float = 0.0
+
+
+# ── Risk (Monte Carlo QSRA) ─────────────────────────────
+
+
+class DurationRiskSchema(BaseModel):
+    """Duration risk specification for a single activity."""
+
+    activity_id: str
+    distribution: str = "pert"
+    min_duration: float = 0.0
+    most_likely: float = 0.0
+    max_duration: float = 0.0
+
+
+class RiskEventSchema(BaseModel):
+    """A discrete risk event that may affect one or more activities."""
+
+    risk_id: str
+    name: str = ""
+    probability: float = 0.0
+    impact_hours: float = 0.0
+    affected_activities: list[str] = Field(default_factory=list)
+
+
+class SimulationConfigSchema(BaseModel):
+    """Configuration for a Monte Carlo simulation run."""
+
+    iterations: int = 1000
+    default_distribution: str = "pert"
+    default_uncertainty: float = 0.2
+    seed: Optional[int] = None
+    confidence_levels: list[int] = Field(
+        default_factory=lambda: [10, 25, 50, 75, 80, 90]
+    )
+
+
+class RunSimulationRequest(BaseModel):
+    """Request body for POST /api/v1/risk/simulate/{project_id}."""
+
+    config: Optional[SimulationConfigSchema] = None
+    duration_risks: list[DurationRiskSchema] = Field(default_factory=list)
+    risk_events: list[RiskEventSchema] = Field(default_factory=list)
+
+
+class PValueSchema(BaseModel):
+    """A P-value (percentile) result."""
+
+    percentile: int = 0
+    duration_days: float = 0.0
+    delta_days: float = 0.0
+
+
+class HistogramBinSchema(BaseModel):
+    """A single bin of the completion-duration histogram."""
+
+    bin_start: float = 0.0
+    bin_end: float = 0.0
+    count: int = 0
+    frequency: float = 0.0
+
+
+class CriticalityEntrySchema(BaseModel):
+    """Criticality index for a single activity."""
+
+    activity_id: str = ""
+    activity_name: str = ""
+    criticality_pct: float = 0.0
+
+
+class SensitivityEntrySchema(BaseModel):
+    """Sensitivity (Spearman correlation) for a single activity."""
+
+    activity_id: str = ""
+    activity_name: str = ""
+    correlation: float = 0.0
+
+
+class RiskSCurvePointSchema(BaseModel):
+    """A single point on the cumulative probability S-curve."""
+
+    duration_days: float = 0.0
+    cumulative_probability: float = 0.0
+
+
+class SimulationResultSchema(BaseModel):
+    """Full response for a Monte Carlo simulation."""
+
+    simulation_id: str = ""
+    project_name: str = ""
+    project_id: str = ""
+    iterations: int = 0
+    deterministic_days: float = 0.0
+    mean_days: float = 0.0
+    std_days: float = 0.0
+    p_values: list[PValueSchema] = Field(default_factory=list)
+    histogram: list[HistogramBinSchema] = Field(default_factory=list)
+    criticality: list[CriticalityEntrySchema] = Field(default_factory=list)
+    sensitivity: list[SensitivityEntrySchema] = Field(default_factory=list)
+    s_curve: list[RiskSCurvePointSchema] = Field(default_factory=list)
+
+
+class SimulationSummarySchema(BaseModel):
+    """Summary of a simulation (used in list responses)."""
+
+    simulation_id: str = ""
+    project_name: str = ""
+    project_id: str = ""
+    iterations: int = 0
+    deterministic_days: float = 0.0
+    mean_days: float = 0.0
+    p50_days: float = 0.0
+    p80_days: float = 0.0
+
+
+class SimulationListResponse(BaseModel):
+    """Response for GET /api/v1/risk/simulations."""
+
+    simulations: list[SimulationSummarySchema] = Field(default_factory=list)
+
+
+class HistogramResponse(BaseModel):
+    """Response for GET /api/v1/risk/simulations/{id}/histogram."""
+
+    simulation_id: str = ""
+    deterministic_days: float = 0.0
+    bins: list[HistogramBinSchema] = Field(default_factory=list)
+    p_values: list[PValueSchema] = Field(default_factory=list)
+
+
+class TornadoResponse(BaseModel):
+    """Response for GET /api/v1/risk/simulations/{id}/tornado."""
+
+    simulation_id: str = ""
+    entries: list[SensitivityEntrySchema] = Field(default_factory=list)
+
+
+class CriticalityResponse(BaseModel):
+    """Response for GET /api/v1/risk/simulations/{id}/criticality."""
+
+    simulation_id: str = ""
+    entries: list[CriticalityEntrySchema] = Field(default_factory=list)
+
+
+class RiskSCurveResponse(BaseModel):
+    """Response for GET /api/v1/risk/simulations/{id}/s-curve."""
+
+    simulation_id: str = ""
+    deterministic_days: float = 0.0
+    points: list[RiskSCurvePointSchema] = Field(default_factory=list)
+    p_values: list[PValueSchema] = Field(default_factory=list)

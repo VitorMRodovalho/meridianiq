@@ -1,6 +1,6 @@
 # MIT License
 # Copyright (c) 2025 Vitor Maia Rodovalho
-"""In-memory storage for parsed projects, forensic timelines, TIA analyses, and EVM analyses (v0.4).
+"""In-memory storage for parsed projects, forensic timelines, TIA analyses, EVM analyses, and risk simulations (v0.5).
 
 Provides simple dictionary-based stores for parsed schedules, their raw
 XER bytes, forensic analysis timelines, and TIA analyses.  Designed as
@@ -13,6 +13,7 @@ from typing import Any
 
 from src.analytics.evm import EVMAnalysisResult
 from src.analytics.forensics import ForensicTimeline
+from src.analytics.risk import SimulationResult
 from src.analytics.tia import TIAAnalysis
 from src.parser.models import ParsedSchedule
 
@@ -315,4 +316,84 @@ class EVMStore:
         """Remove all stored EVM analyses."""
         with self._lock:
             self._analyses.clear()
+            self._counter = 0
+
+
+class RiskStore:
+    """In-memory storage for Monte Carlo risk simulation results.
+
+    Thread-safe via a simple lock.  Not intended for production use --
+    all data is lost when the process exits.
+
+    Usage::
+
+        store = RiskStore()
+        sid = store.add(result)
+        result = store.get(sid)
+    """
+
+    def __init__(self) -> None:
+        """Initialise an empty store."""
+        self._simulations: dict[str, SimulationResult] = {}
+        self._counter: int = 0
+        self._lock = threading.Lock()
+
+    def add(self, result: SimulationResult) -> str:
+        """Store a simulation result and return its simulation_id.
+
+        Args:
+            result: The simulation result to store.
+
+        Returns:
+            A unique simulation_id string.
+        """
+        with self._lock:
+            self._counter += 1
+            sid = f"risk-{self._counter:04d}"
+            result.simulation_id = sid
+            self._simulations[sid] = result
+        return sid
+
+    def get(self, simulation_id: str) -> SimulationResult | None:
+        """Retrieve a simulation result by simulation_id.
+
+        Args:
+            simulation_id: The identifier returned by ``add()``.
+
+        Returns:
+            The stored ``SimulationResult``, or ``None`` if not found.
+        """
+        return self._simulations.get(simulation_id)
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """List all stored simulations with summary info.
+
+        Returns:
+            A list of dictionaries with key simulation metadata.
+        """
+        results: list[dict[str, Any]] = []
+        for s in self._simulations.values():
+            p50 = 0.0
+            p80 = 0.0
+            for pv in s.p_values:
+                if pv.percentile == 50:
+                    p50 = pv.duration_days
+                if pv.percentile == 80:
+                    p80 = pv.duration_days
+            results.append({
+                "simulation_id": s.simulation_id,
+                "project_name": s.project_name,
+                "project_id": s.project_id,
+                "iterations": s.iterations,
+                "deterministic_days": s.deterministic_days,
+                "mean_days": s.mean_days,
+                "p50_days": p50,
+                "p80_days": p80,
+            })
+        return results
+
+    def clear(self) -> None:
+        """Remove all stored simulations."""
+        with self._lock:
+            self._simulations.clear()
             self._counter = 0

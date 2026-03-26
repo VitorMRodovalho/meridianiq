@@ -1,0 +1,60 @@
+{
+    "duration_risks": [
+        {
+            "activity_id": "A1010",
+            "distribution": "triangular",
+            "min_duration": 32.0,
+            "most_likely": 40.0,
+            "max_duration": 64.0
+        },
+        {
+            "activity_id": "A1020",
+            "distribution": "pert",
+            "min_duration": 16.0,
+            "most_likely": 24.0,
+            "max_duration": 40.0
+        },
+        {
+            "activity_id": "A1030",
+            "distribution": "uniform",
+            "min_duration": 24.0,
+            "most_likely": 32.0,
+            "max_duration": 48.0
+        },
+        {
+            "activity_id": "A1040",
+            "distribution": "pert",
+            "min_duration": 12.0,
+            "most_likely": 16.0,
+            "max_duration": 32.0
+        },
+        {
+            "activity_id": "A1050",
+            "distribution": "pert",
+            "min_duration": 28.0,
+            "most_likely": 40.0,
+            "max_duration": 56.0
+        },
+        {
+            "activity_id": "A2010",
+            "distribution": "triangular",
+            "min_duration": 20.0,
+            "most_likely": 32.0,
+            "max_duration": 48.0
+        },
+        {
+            "activity_id": "A2020",
+            "distribution": "pert",
+            "min_duration": 16.0,
+            "most_likely": 24.0,
+            "max_duration": 40.0
+        },
+        {
+            "activity_id": "A2030",
+            "distribution": "pert",
+            "min_duration": 24.0,
+            "most_likely": 32.0,
+            "max_duration": 56.0
+        }
+    ]
+}

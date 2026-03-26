@@ -1,0 +1,25 @@
+{
+    "risk_events": [
+        {
+            "risk_id": "RE-001",
+            "name": "Adverse Weather Delay",
+            "probability": 0.3,
+            "impact_hours": 16.0,
+            "affected_activities": ["A1010", "A1020", "A2010"]
+        },
+        {
+            "risk_id": "RE-002",
+            "name": "Material Supply Shortage",
+            "probability": 0.15,
+            "impact_hours": 24.0,
+            "affected_activities": ["A1030", "A1040", "A2020"]
+        },
+        {
+            "risk_id": "RE-003",
+            "name": "Permit Approval Delay",
+            "probability": 0.1,
+            "impact_hours": 40.0,
+            "affected_activities": ["A1010"]
+        }
+    ]
+}
