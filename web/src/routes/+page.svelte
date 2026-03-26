@@ -25,7 +25,7 @@
 
 <div class="p-8 max-w-6xl mx-auto">
 	<div class="mb-10">
-		<h1 class="text-3xl font-bold text-gray-900">P6 XER Schedule Analysis Platform</h1>
+		<h1 class="text-3xl font-bold text-gray-900">MeridianIQ — Schedule Intelligence Platform</h1>
 		<p class="mt-2 text-lg text-gray-600">
 			Open-source Primavera P6 schedule validation, comparison, and forensic analysis
 		</p>

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.analytics.comparison import ScheduleComparison
@@ -119,6 +120,14 @@ app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
     version="0.5.0-dev",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Global in-memory stores (singletons for the app lifetime)
