@@ -16,7 +16,7 @@ class HealthResponse(BaseModel):
     """Response for GET /api/v1/health."""
 
     status: str = "ok"
-    version: str = "0.1.0-dev"
+    version: str = "0.4.0-dev"
 
 
 # ── Upload ───────────────────────────────────────────────
@@ -519,3 +519,127 @@ class ContractProvisionsResponse(BaseModel):
     """Response for GET /api/v1/contract/provisions."""
 
     provisions: list[ContractProvisionSchema] = Field(default_factory=list)
+
+
+# ── EVM (Earned Value Management) ─────────────────────
+
+
+class EVMAnalyzeRequest(BaseModel):
+    """Request body for POST /api/v1/evm/analyze/{project_id}."""
+
+    pass
+
+
+class EVMMetricsSchema(BaseModel):
+    """EVM metric values for a scope element."""
+
+    scope_name: str = ""
+    scope_id: str = ""
+    bac: float = 0.0
+    pv: float = 0.0
+    ev: float = 0.0
+    ac: float = 0.0
+    sv: float = 0.0
+    cv: float = 0.0
+    spi: float = 0.0
+    cpi: float = 0.0
+    eac_cpi: float = 0.0
+    eac_combined: float = 0.0
+    etc: float = 0.0
+    vac: float = 0.0
+    tcpi: float = 0.0
+    percent_complete_ev: float = 0.0
+    percent_spent: float = 0.0
+
+
+class SCurvePointSchema(BaseModel):
+    """A single data point on the S-curve chart."""
+
+    date: str
+    cumulative_pv: float = 0.0
+    cumulative_ev: float = 0.0
+    cumulative_ac: float = 0.0
+
+
+class HealthClassificationSchema(BaseModel):
+    """Health classification for a performance index."""
+
+    index_name: str
+    value: float = 0.0
+    status: str = "critical"
+    label: str = ""
+
+
+class WBSMetricsSchema(BaseModel):
+    """EVM metrics for a single WBS element."""
+
+    wbs_id: str
+    wbs_name: str = ""
+    metrics: EVMMetricsSchema = Field(default_factory=EVMMetricsSchema)
+    activity_count: int = 0
+
+
+class EVMAnalysisSchema(BaseModel):
+    """Full EVM analysis response."""
+
+    analysis_id: str
+    project_name: str = ""
+    project_id: str = ""
+    data_date: Optional[str] = None
+    metrics: EVMMetricsSchema = Field(default_factory=EVMMetricsSchema)
+    wbs_breakdown: list[WBSMetricsSchema] = Field(default_factory=list)
+    s_curve: list[SCurvePointSchema] = Field(default_factory=list)
+    schedule_health: HealthClassificationSchema = Field(
+        default_factory=HealthClassificationSchema
+    )
+    cost_health: HealthClassificationSchema = Field(
+        default_factory=HealthClassificationSchema
+    )
+    forecast: dict[str, float] = Field(default_factory=dict)
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class EVMAnalysisSummarySchema(BaseModel):
+    """Summary of an EVM analysis (used in list responses)."""
+
+    analysis_id: str
+    project_name: str = ""
+    project_id: str = ""
+    bac: float = 0.0
+    spi: float = 0.0
+    cpi: float = 0.0
+    schedule_health: str = ""
+    cost_health: str = ""
+
+
+class EVMListResponse(BaseModel):
+    """Response for GET /api/v1/evm/analyses."""
+
+    analyses: list[EVMAnalysisSummarySchema] = Field(default_factory=list)
+
+
+class SCurveResponse(BaseModel):
+    """Response for GET /api/v1/evm/analyses/{id}/s-curve."""
+
+    analysis_id: str
+    points: list[SCurvePointSchema] = Field(default_factory=list)
+
+
+class WBSDrillResponse(BaseModel):
+    """Response for GET /api/v1/evm/analyses/{id}/wbs-drill."""
+
+    analysis_id: str
+    wbs_breakdown: list[WBSMetricsSchema] = Field(default_factory=list)
+
+
+class ForecastResponse(BaseModel):
+    """Response for GET /api/v1/evm/analyses/{id}/forecast."""
+
+    analysis_id: str
+    bac: float = 0.0
+    eac_cpi: float = 0.0
+    eac_combined: float = 0.0
+    eac_etc_new: float = 0.0
+    etc: float = 0.0
+    vac: float = 0.0
+    tcpi: float = 0.0

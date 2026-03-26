@@ -1,13 +1,13 @@
 services:
-  backend:
+  meridianiq-api:
     build: .
     ports:
       - "8000:8000"
-  frontend:
+  meridianiq-web:
     build: ./web
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      - meridianiq-api
     environment:
-      - API_URL=http://backend:8000
+      - API_URL=http://meridianiq-api:8000

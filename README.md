@@ -1,103 +1,117 @@
-# P6 XER Analytics -- Primavera P6 Schedule Analysis Toolkit
+# MeridianIQ
 
-**Parse, analyze, and compare Oracle P6 XER schedule files using Power BI.**
+**The intelligence standard for project schedules.**
 
-Author: Vitor Rodovalho
-Based on: [djouallah/Xer-Reader-PowerBI](https://github.com/djouallah/Xer-Reader-PowerBI) (enhanced and extended)
+Open-source schedule intelligence platform that transforms Oracle Primavera P6 XER files into actionable insights -- from DCMA validation to earned value forecasting.
 
-## Overview
+---
 
-This repository contains the documented knowledge artifacts (DAX measures, Power Query/M code, and data model schemas) from a suite of Power BI dashboards built for Oracle Primavera P6 schedule analysis.
+## Vision
 
-These are **not runnable .pbix files** -- they are the extracted, documented, and anonymized intellectual property: the DAX formulas, M code, data model relationships, and architectural decisions that make the dashboards work. This enables knowledge sharing, code review, and serves as the foundation for a future standalone tool.
+Construction and infrastructure projects lose billions annually to schedule disputes, undetected delays, and poor cost forecasting. MeridianIQ brings forensic-grade analysis to every project team -- not just the ones that can afford proprietary consultants.
 
-### What is P6/XER?
+## Capabilities
 
-Oracle Primavera P6 is the industry-standard project scheduling tool for construction, infrastructure, and energy projects. It exports schedule data as `.xer` files -- tab-delimited text files containing project activities, dependencies, calendars, WBS hierarchies, and resource assignments. See [docs/xer-format-reference.md](docs/xer-format-reference.md) for format details.
+| Module | Standard | Status |
+|--------|----------|--------|
+| XER Parser | Oracle P6 XER format | Stable |
+| DCMA 14-Point Assessment | DCMA IPMR/IMS guidelines | Stable |
+| Critical Path Method (CPM) | PMI Practice Standard for Scheduling | Stable |
+| Schedule Comparison | SCL Delay and Disruption Protocol | Stable |
+| Forensic Window Analysis | AACE RP 29R-03 | Stable |
+| Time Impact Analysis (TIA) | AACE RP 52R-06 | Stable |
+| Contract Compliance | AIA A201 / ConsensusDocs 200 / FIDIC | Stable |
+| Earned Value Management (EVM) | ANSI/EIA-748, AACE RP 10S-90 | v0.4-dev |
 
-### Evolution
-
-This toolkit evolved from a simple open-source XER reader (2020) into a production-grade enterprise schedule analytics platform. See [docs/evolution.md](docs/evolution.md) for the full story.
-
-## Tool Inventory
-
-| Tool | DAX Measures | Power Queries | Purpose |
-|------|-------------|---------------|---------|
-| **v1-reader** | 36 | 12 | Parse and analyze single XER/SQLite schedule |
-| **v1-compare** | 40 | 10 | Compare two P6 schedule versions |
-| **v1-program-schedule** | 130 | 20 | Production enterprise schedule dashboard |
-
-**Total: 206 DAX measures** for comprehensive schedule analytics.
-
-## Key Features
-
-- **XER text file parsing via Power Query** -- no external dependencies, no Python, no plugins
-- **SQLite alternative data source** -- same dashboards can read from SQLite databases via ODBC
-- **Composite keys** (proj_id.task_id, proj_id.wbs_id) for multi-project XER support
-- **Schedule health metrics**: float analysis, milestone tracking, predecessor/successor gap detection
-- **Version comparison**: float erosion calculation, activity change detection, relationship free float analysis
-- **Forecast integration**: time-series forecast hours with cumulative tracking
-- **Activity categorization**: LOE, milestones (start/finish), task dependent, by completion percentage type
-
-## Repository Structure
+## Architecture
 
 ```
-p6-xer-analytics/
-+-- README.md                  # This file
-+-- LICENSE                    # MIT (Vitor's additions only)
-+-- ATTRIBUTION.md             # Upstream credit and license note
-+-- ANONYMIZATION_RULES.md     # Sanitization methodology
-+-- .gitignore
-+-- docs/
-|   +-- xer-format-reference.md    # Oracle P6 XER file format guide
-|   +-- architecture.md            # Data flow and parsing patterns
-|   +-- evolution.md               # Project history (2020-2026)
-|   +-- business-case.md           # Industry context and value proposition
-|   +-- v2-roadmap.md              # Future: beyond Power BI
-+-- v1-reader/                 # Enhanced XER Reader
-|   +-- dax-measures/measures.md
-|   +-- power-query/queries.md
-|   +-- data-model/{schema.csv, relationships.csv}
-|   +-- UPSTREAM_DIFF.md
-+-- v1-compare/                # Schedule Comparison Tool
-|   +-- dax-measures/measures.md
-|   +-- power-query/queries.md
-|   +-- data-model/{schema.csv, relationships.csv}
-|   +-- README.md
-+-- v1-program-schedule/       # Production Enterprise Dashboard
-|   +-- dax-measures/measures.md
-|   +-- power-query/queries.md
-|   +-- data-model/{schema.csv, relationships.csv}
-|   +-- README.md
-+-- xer-samples/
-    +-- README.md
+meridianiq/
+  src/
+    parser/          # XER file parser (models + reader)
+    analytics/       # Analysis engines (DCMA, CPM, comparison, forensics, TIA, EVM)
+    api/             # FastAPI REST endpoints
+  web/               # SvelteKit + Tailwind CSS frontend
+  tests/             # pytest test suite with fixture generators
 ```
 
-## How to Use
+**Stack:** Python 3.12+ / FastAPI / Pydantic v2 / NetworkX / SvelteKit 2 / Tailwind CSS 4
 
-1. **Study the DAX measures** in each tool's `dax-measures/measures.md` to understand the schedule analysis logic
-2. **Review Power Query code** in `power-query/queries.md` to see the XER parsing implementation
-3. **Examine data models** via `schema.csv` and `relationships.csv` to understand table structures
-4. **Read the architecture docs** in `docs/` for the overall system design
+## Roadmap
 
-To recreate a working dashboard, you would need to:
-- Import the Power Query code into a new Power BI file
-- Recreate the data model relationships from the CSV files
-- Add the DAX measures to a Metrics table
-- Build visualizations on top
+| Version | Codename | Focus | Status |
+|---------|----------|-------|--------|
+| v0.1 | Parser | XER parsing, DCMA 14-point, CPM | Released |
+| v0.2 | Forensics | Schedule comparison, window analysis, delay trends | Released |
+| v0.3 | Claims | TIA (AACE 52R-06), contract compliance | Released |
+| v0.4 | Controls | Earned Value Management (SPI/CPI/EAC/S-curve) | In Progress |
+| v0.5 | Risk | Monte Carlo simulation, risk register | Planned |
+| v1.0 | Production | PostgreSQL persistence, auth, multi-tenant | Planned |
+| v1.5 | Intelligence | ML anomaly detection, schedule health scoring | Planned |
+| v2.0 | Enterprise | Multi-project portfolio, P6 XML support, API keys | Planned |
 
-## Attribution
+## Quick Start
 
-This project builds on [Xer-Reader-PowerBI](https://github.com/djouallah/Xer-Reader-PowerBI) by djouallah. The upstream project provided the foundational XER parsing concept. All DAX measures, the Compare tool, the Program Schedule dashboard, composite key patterns, and forecast integration are original work by Vitor Rodovalho. See [ATTRIBUTION.md](ATTRIBUTION.md) for full details.
+### Prerequisites
 
-## Anonymization
+- Python 3.12+
+- Node.js 20+
 
-All files have been sanitized to remove client names, internal IPs, SharePoint URLs, and personal identifiers. The anonymization follows a methodology-only approach documented in [ANONYMIZATION_RULES.md](ANONYMIZATION_RULES.md). No real values appear in any repository file.
+### Backend
 
-## Note on Portuguese Code
+```bash
+# Clone and install
+git clone https://github.com/vitormrodovalho/meridianiq.git
+cd meridianiq
+pip install -e ".[all]"
 
-Some Power Query variable names and DAX measure names may contain Portuguese-language terms. These are preserved from the original development environment to maintain code accuracy and are not sensitive information.
+# Run API server
+uvicorn src.api.app:app --reload --port 8000
+
+# Run tests
+pytest
+```
+
+### Frontend
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+### Docker
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:3000 for the web UI, or http://localhost:8000/docs for the API.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on reporting issues, submitting code, and areas where help is needed.
+
+## Acknowledgments
+
+See [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md) for upstream projects, tools, and standards that made this possible.
+
+## Citation
+
+If you use MeridianIQ in academic work, please cite:
+
+```bibtex
+@software{rodovalho2025meridianiq,
+  author       = {Rodovalho, Vitor Maia},
+  title        = {MeridianIQ: Open-Source Schedule Intelligence Platform},
+  year         = {2025},
+  url          = {https://github.com/vitormrodovalho/meridianiq},
+  license      = {MIT}
+}
+```
 
 ## License
 
-MIT License -- applies to Vitor Rodovalho's contributions only. The upstream project (djouallah/Xer-Reader-PowerBI) has no specified license. See [LICENSE](LICENSE) and [ATTRIBUTION.md](ATTRIBUTION.md).
+MIT License. See [LICENSE](LICENSE) for details.
+
+Copyright (c) 2025 Vitor Maia Rodovalho

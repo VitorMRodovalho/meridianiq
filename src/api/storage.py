@@ -1,6 +1,6 @@
 # MIT License
-# Copyright (c) 2026 Vitor Maia Rodovalho
-"""In-memory storage for parsed projects, forensic timelines, and TIA analyses (prototype v0.3).
+# Copyright (c) 2025 Vitor Maia Rodovalho
+"""In-memory storage for parsed projects, forensic timelines, TIA analyses, and EVM analyses (v0.4).
 
 Provides simple dictionary-based stores for parsed schedules, their raw
 XER bytes, forensic analysis timelines, and TIA analyses.  Designed as
@@ -11,6 +11,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
+from src.analytics.evm import EVMAnalysisResult
 from src.analytics.forensics import ForensicTimeline
 from src.analytics.tia import TIAAnalysis
 from src.parser.models import ParsedSchedule
@@ -239,6 +240,79 @@ class TIAStore:
 
     def clear(self) -> None:
         """Remove all stored analyses."""
+        with self._lock:
+            self._analyses.clear()
+            self._counter = 0
+
+
+class EVMStore:
+    """In-memory storage for EVM analyses.
+
+    Thread-safe via a simple lock.  Not intended for production use --
+    all data is lost when the process exits.
+
+    Usage::
+
+        store = EVMStore()
+        eid = store.add(result)
+        result = store.get(eid)
+    """
+
+    def __init__(self) -> None:
+        """Initialise an empty store."""
+        self._analyses: dict[str, EVMAnalysisResult] = {}
+        self._counter: int = 0
+        self._lock = threading.Lock()
+
+    def add(self, result: EVMAnalysisResult) -> str:
+        """Store an EVM analysis result and return its analysis_id.
+
+        Args:
+            result: The EVM analysis result to store.
+
+        Returns:
+            A unique analysis_id string.
+        """
+        with self._lock:
+            self._counter += 1
+            aid = f"evm-{self._counter:04d}"
+            result.analysis_id = aid
+            self._analyses[aid] = result
+        return aid
+
+    def get(self, analysis_id: str) -> EVMAnalysisResult | None:
+        """Retrieve an EVM analysis result by analysis_id.
+
+        Args:
+            analysis_id: The identifier returned by ``add()``.
+
+        Returns:
+            The stored ``EVMAnalysisResult``, or ``None`` if not found.
+        """
+        return self._analyses.get(analysis_id)
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """List all stored EVM analyses with summary info.
+
+        Returns:
+            A list of dictionaries with key analysis metadata.
+        """
+        return [
+            {
+                "analysis_id": a.analysis_id,
+                "project_name": a.project_name,
+                "project_id": a.project_id,
+                "bac": a.metrics.bac,
+                "spi": round(a.metrics.spi, 3),
+                "cpi": round(a.metrics.cpi, 3),
+                "schedule_health": a.schedule_health.status,
+                "cost_health": a.cost_health.status,
+            }
+            for a in self._analyses.values()
+        ]
+
+    def clear(self) -> None:
+        """Remove all stored EVM analyses."""
         with self._lock:
             self._analyses.clear()
             self._counter = 0
