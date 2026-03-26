@@ -58,10 +58,19 @@
 				</svg>
 				Forensic
 			</a>
+			<a
+				href="/tia"
+				class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+				TIA
+			</a>
 		</nav>
 		<div class="px-6 py-4 border-t border-gray-700">
 			<p class="text-xs text-gray-500">MIT License</p>
-			<p class="text-xs text-gray-500">v0.2.0-dev</p>
+			<p class="text-xs text-gray-500">v0.3.0-dev</p>
 		</div>
 	</aside>
 

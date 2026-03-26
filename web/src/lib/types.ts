@@ -266,3 +266,97 @@ export interface DelayTrendResponse {
 	contract_completion: string | null;
 	points: DelayTrendPoint[];
 }
+
+// ── TIA (Time Impact Analysis) ─────────────────────────
+
+export interface FragmentActivitySchema {
+	fragment_activity_id: string;
+	name: string;
+	duration_hours: number;
+	predecessors: Record<string, unknown>[];
+	successors: Record<string, unknown>[];
+}
+
+export interface DelayFragmentSchema {
+	fragment_id: string;
+	name: string;
+	description: string;
+	responsible_party: string;
+	activities: FragmentActivitySchema[];
+}
+
+export interface TIAResultSchema {
+	fragment_id: string;
+	fragment_name: string;
+	responsible_party: string;
+	unimpacted_completion_days: number;
+	impacted_completion_days: number;
+	delay_days: number;
+	critical_path_affected: boolean;
+	float_consumed_hours: number;
+	delay_type: string;
+	concurrent_with: string[];
+	impacted_driving_path: string[];
+}
+
+export interface TIAAnalysisSchema {
+	analysis_id: string;
+	project_name: string;
+	base_project_id: string;
+	fragments: DelayFragmentSchema[];
+	results: TIAResultSchema[];
+	total_owner_delay: number;
+	total_contractor_delay: number;
+	total_shared_delay: number;
+	net_delay: number;
+	summary: Record<string, unknown>;
+}
+
+export interface TIAAnalysisSummarySchema {
+	analysis_id: string;
+	project_name: string;
+	fragment_count: number;
+	net_delay: number;
+	total_owner_delay: number;
+	total_contractor_delay: number;
+}
+
+export interface TIAListResponse {
+	analyses: TIAAnalysisSummarySchema[];
+}
+
+// ── Contract Compliance ─────────────────────────────────
+
+export interface ComplianceCheckSchema {
+	fragment_id: string;
+	fragment_name: string;
+	provision_id: string;
+	provision_name: string;
+	provision_category: string;
+	status: string;
+	finding: string;
+	recommendation: string;
+	details: Record<string, unknown>;
+}
+
+export interface ContractCheckResponse {
+	analysis_id: string;
+	checks: ComplianceCheckSchema[];
+	total_checks: number;
+	warnings: number;
+	failures: number;
+}
+
+export interface ContractProvisionSchema {
+	provision_id: string;
+	name: string;
+	description: string;
+	category: string;
+	reference: string;
+	threshold_days: number;
+	details: string;
+}
+
+export interface ContractProvisionsResponse {
+	provisions: ContractProvisionSchema[];
+}

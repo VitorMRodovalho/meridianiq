@@ -1,0 +1,15 @@
+{
+  "fragment_id": "FRAG-003",
+  "name": "Design Revision by Owner",
+  "description": "Owner-directed design change requiring 10 working days of additional engineering review",
+  "responsible_party": "owner",
+  "activities": [
+    {
+      "fragment_activity_id": "FRAG-003-A",
+      "name": "Design Review and Revision",
+      "duration_hours": 80,
+      "predecessors": [{"activity_code": "A1020", "rel_type": "FS", "lag_hours": 0}],
+      "successors": [{"activity_code": "A1030", "rel_type": "FS", "lag_hours": 0}]
+    }
+  ]
+}

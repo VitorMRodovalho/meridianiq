@@ -1,10 +1,10 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""In-memory storage for parsed projects and forensic timelines (prototype v0.2).
+"""In-memory storage for parsed projects, forensic timelines, and TIA analyses (prototype v0.3).
 
 Provides simple dictionary-based stores for parsed schedules, their raw
-XER bytes, and forensic analysis timelines.  Designed as a placeholder
-until a persistent database layer is introduced.
+XER bytes, forensic analysis timelines, and TIA analyses.  Designed as
+a placeholder until a persistent database layer is introduced.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import threading
 from typing import Any
 
 from src.analytics.forensics import ForensicTimeline
+from src.analytics.tia import TIAAnalysis
 from src.parser.models import ParsedSchedule
 
 
@@ -169,4 +170,75 @@ class TimelineStore:
         """Remove all stored timelines."""
         with self._lock:
             self._timelines.clear()
+            self._counter = 0
+
+
+class TIAStore:
+    """In-memory storage for TIA analyses.
+
+    Thread-safe via a simple lock.  Not intended for production use --
+    all data is lost when the process exits.
+
+    Usage::
+
+        store = TIAStore()
+        aid = store.add(analysis)
+        analysis = store.get(aid)
+    """
+
+    def __init__(self) -> None:
+        """Initialise an empty store."""
+        self._analyses: dict[str, TIAAnalysis] = {}
+        self._counter: int = 0
+        self._lock = threading.Lock()
+
+    def add(self, analysis: TIAAnalysis) -> str:
+        """Store a TIA analysis and return its analysis_id.
+
+        Args:
+            analysis: The TIA analysis to store.
+
+        Returns:
+            A unique analysis_id string.
+        """
+        with self._lock:
+            self._counter += 1
+            aid = f"tia-{self._counter:04d}"
+            analysis.analysis_id = aid
+            self._analyses[aid] = analysis
+        return aid
+
+    def get(self, analysis_id: str) -> TIAAnalysis | None:
+        """Retrieve a TIA analysis by analysis_id.
+
+        Args:
+            analysis_id: The identifier returned by ``add()``.
+
+        Returns:
+            The stored ``TIAAnalysis``, or ``None`` if not found.
+        """
+        return self._analyses.get(analysis_id)
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """List all stored TIA analyses with summary info.
+
+        Returns:
+            A list of dictionaries with key analysis metadata.
+        """
+        return [
+            {
+                "analysis_id": a.analysis_id,
+                "project_name": a.project_name,
+                "fragment_count": len(a.fragments),
+                "net_delay": a.net_delay,
+                "total_owner_delay": a.total_owner_delay,
+                "total_contractor_delay": a.total_contractor_delay,
+            }
+            for a in self._analyses.values()
+        ]
+
+    def clear(self) -> None:
+        """Remove all stored analyses."""
+        with self._lock:
+            self._analyses.clear()
             self._counter = 0

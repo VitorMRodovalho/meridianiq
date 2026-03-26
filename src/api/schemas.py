@@ -377,3 +377,145 @@ class DelayTrendResponse(BaseModel):
     timeline_id: str
     contract_completion: Optional[str] = None
     points: list[DelayTrendPoint] = Field(default_factory=list)
+
+
+# ── TIA (Time Impact Analysis) ──────────────────────────
+
+
+class FragmentActivitySchema(BaseModel):
+    """A single activity within a delay fragment."""
+
+    fragment_activity_id: str
+    name: str
+    duration_hours: float = 0.0
+    predecessors: list[dict[str, Any]] = Field(default_factory=list)
+    successors: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DelayFragmentSchema(BaseModel):
+    """A delay fragment definition for TIA."""
+
+    fragment_id: str
+    name: str
+    description: str = ""
+    responsible_party: str = "contractor"
+    activities: list[FragmentActivitySchema] = Field(default_factory=list)
+
+
+class TIAAnalyzeRequest(BaseModel):
+    """Request body for POST /api/v1/tia/analyze."""
+
+    project_id: str
+    fragments: list[DelayFragmentSchema] = Field(
+        ..., min_length=1, description="At least 1 delay fragment"
+    )
+
+
+class TIAResultSchema(BaseModel):
+    """Result of analyzing a single delay fragment."""
+
+    fragment_id: str
+    fragment_name: str
+    responsible_party: str = ""
+    unimpacted_completion_days: float = 0.0
+    impacted_completion_days: float = 0.0
+    delay_days: float = 0.0
+    critical_path_affected: bool = False
+    float_consumed_hours: float = 0.0
+    delay_type: str = ""
+    concurrent_with: list[str] = Field(default_factory=list)
+    impacted_driving_path: list[str] = Field(default_factory=list)
+
+
+class TIAAnalysisSchema(BaseModel):
+    """Full TIA analysis response."""
+
+    analysis_id: str
+    project_name: str = ""
+    base_project_id: str = ""
+    fragments: list[DelayFragmentSchema] = Field(default_factory=list)
+    results: list[TIAResultSchema] = Field(default_factory=list)
+    total_owner_delay: float = 0.0
+    total_contractor_delay: float = 0.0
+    total_shared_delay: float = 0.0
+    net_delay: float = 0.0
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class TIAAnalysisSummarySchema(BaseModel):
+    """Summary of a TIA analysis (used in list responses)."""
+
+    analysis_id: str
+    project_name: str = ""
+    fragment_count: int = 0
+    net_delay: float = 0.0
+    total_owner_delay: float = 0.0
+    total_contractor_delay: float = 0.0
+
+
+class TIAListResponse(BaseModel):
+    """Response for GET /api/v1/tia/analyses."""
+
+    analyses: list[TIAAnalysisSummarySchema] = Field(default_factory=list)
+
+
+class TIASummaryResponse(BaseModel):
+    """Response for GET /api/v1/tia/analyses/{id}/summary."""
+
+    analysis_id: str
+    total_owner_delay: float = 0.0
+    total_contractor_delay: float = 0.0
+    total_shared_delay: float = 0.0
+    net_delay: float = 0.0
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Contract Compliance ──────────────────────────────────
+
+
+class ContractCheckRequest(BaseModel):
+    """Request body for POST /api/v1/contract/check."""
+
+    analysis_id: str
+
+
+class ContractProvisionSchema(BaseModel):
+    """A contract provision."""
+
+    provision_id: str
+    name: str
+    description: str
+    category: str = ""
+    reference: str = ""
+    threshold_days: float = 0.0
+    details: str = ""
+
+
+class ComplianceCheckSchema(BaseModel):
+    """A single compliance check result."""
+
+    fragment_id: str
+    fragment_name: str
+    provision_id: str
+    provision_name: str
+    provision_category: str = ""
+    status: str = "info"
+    finding: str = ""
+    recommendation: str = ""
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class ContractCheckResponse(BaseModel):
+    """Response for POST /api/v1/contract/check."""
+
+    analysis_id: str
+    checks: list[ComplianceCheckSchema] = Field(default_factory=list)
+    total_checks: int = 0
+    warnings: int = 0
+    failures: int = 0
+
+
+class ContractProvisionsResponse(BaseModel):
+    """Response for GET /api/v1/contract/provisions."""
+
+    provisions: list[ContractProvisionSchema] = Field(default_factory=list)

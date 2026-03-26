@@ -1,0 +1,15 @@
+{
+  "fragment_id": "FRAG-001",
+  "name": "Permit Approval Delay",
+  "description": "Building permit delayed by 15 working days due to incomplete application",
+  "responsible_party": "contractor",
+  "activities": [
+    {
+      "fragment_activity_id": "FRAG-001-A",
+      "name": "Permit Resubmission",
+      "duration_hours": 120,
+      "predecessors": [{"activity_code": "A1020", "rel_type": "FS", "lag_hours": 0}],
+      "successors": [{"activity_code": "A1030", "rel_type": "FS", "lag_hours": 0}]
+    }
+  ]
+}

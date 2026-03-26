@@ -9,7 +9,12 @@ import type {
 	CompareResponse,
 	TimelineDetailSchema,
 	TimelineListResponse,
-	DelayTrendResponse
+	DelayTrendResponse,
+	TIAAnalysisSchema,
+	TIAListResponse,
+	DelayFragmentSchema,
+	ContractCheckResponse,
+	ContractProvisionsResponse
 } from './types';
 
 const BASE = '';
@@ -86,4 +91,43 @@ export async function getTimeline(id: string): Promise<TimelineDetailSchema> {
 
 export async function getDelayTrend(id: string): Promise<DelayTrendResponse> {
 	return request<DelayTrendResponse>(`/api/v1/forensic/timelines/${id}/delay-trend`);
+}
+
+// ── TIA (Time Impact Analysis) ─────────────────────────
+
+export async function createTIAAnalysis(
+	projectId: string,
+	fragments: DelayFragmentSchema[]
+): Promise<TIAAnalysisSchema> {
+	return request<TIAAnalysisSchema>('/api/v1/tia/analyze', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ project_id: projectId, fragments })
+	});
+}
+
+export async function getTIAAnalyses(): Promise<TIAListResponse> {
+	return request<TIAListResponse>('/api/v1/tia/analyses');
+}
+
+export async function getTIAAnalysis(id: string): Promise<TIAAnalysisSchema> {
+	return request<TIAAnalysisSchema>(`/api/v1/tia/analyses/${id}`);
+}
+
+export async function getTIASummary(id: string): Promise<TIAAnalysisSchema> {
+	return request<TIAAnalysisSchema>(`/api/v1/tia/analyses/${id}/summary`);
+}
+
+// ── Contract Compliance ─────────────────────────────────
+
+export async function contractCheck(analysisId: string): Promise<ContractCheckResponse> {
+	return request<ContractCheckResponse>('/api/v1/contract/check', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ analysis_id: analysisId })
+	});
+}
+
+export async function getContractProvisions(): Promise<ContractProvisionsResponse> {
+	return request<ContractProvisionsResponse>('/api/v1/contract/provisions');
 }

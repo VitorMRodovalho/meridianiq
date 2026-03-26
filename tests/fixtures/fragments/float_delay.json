@@ -1,0 +1,15 @@
+{
+  "fragment_id": "FRAG-002",
+  "name": "Equipment Delivery Delay",
+  "description": "Specialized equipment delivery delayed by 5 working days due to shipping",
+  "responsible_party": "contractor",
+  "activities": [
+    {
+      "fragment_activity_id": "FRAG-002-A",
+      "name": "Equipment Re-Delivery",
+      "duration_hours": 40,
+      "predecessors": [{"activity_code": "A1040", "rel_type": "FS", "lag_hours": 0}],
+      "successors": [{"activity_code": "A1050", "rel_type": "FS", "lag_hours": 0}]
+    }
+  ]
+}
