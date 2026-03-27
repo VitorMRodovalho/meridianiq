@@ -184,3 +184,35 @@ export async function getProjectAlerts(
 export async function getDashboard(): Promise<DashboardKPIs> {
 	return request<DashboardKPIs>('/api/v1/dashboard');
 }
+
+// ── PDF Reports ─────────────────────────────────────────
+
+export async function generateReport(
+	projectId: string,
+	reportType: string,
+	baselineId?: string
+): Promise<{ report_id: string; report_type: string; project_id: string; generated_at: string }> {
+	return request('/api/v1/reports/generate', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			project_id: projectId,
+			report_type: reportType,
+			baseline_id: baselineId || null,
+			options: {}
+		})
+	});
+}
+
+export async function downloadReport(reportId: string): Promise<Blob> {
+	const { data: { session: currentSession } } = await supabase.auth.getSession();
+	const token = currentSession?.access_token;
+	const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+	const res = await fetch(`${BASE}/api/v1/reports/${reportId}/download`, { headers });
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(text || `Download failed: ${res.status}`);
+	}
+	return res.blob();
+}

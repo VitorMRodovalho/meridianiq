@@ -69,6 +69,27 @@
 		if (score >= 50) return 'text-yellow-600';
 		return 'text-red-600';
 	}
+
+	function scoreBgColor(score: number): string {
+		if (score >= 85) return 'bg-green-500';
+		if (score >= 70) return 'bg-blue-500';
+		if (score >= 50) return 'bg-yellow-500';
+		return 'bg-red-500';
+	}
+
+	function scoreCircleBg(score: number): string {
+		if (score >= 85) return 'bg-green-100 text-green-700 border-green-300';
+		if (score >= 70) return 'bg-blue-100 text-blue-700 border-blue-300';
+		if (score >= 50) return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+		return 'bg-red-100 text-red-700 border-red-300';
+	}
+
+	// Find the most critical project from our loaded scores
+	const mostCriticalProject = $derived.by(() => {
+		if (!dashboard?.most_critical_project) return null;
+		const proj = projects.find(p => p.project_id === dashboard!.most_critical_project);
+		return proj ? proj.name || proj.project_id : dashboard!.most_critical_project;
+	});
 </script>
 
 <svelte:head>
@@ -97,27 +118,43 @@
 			<div class="bg-white border border-gray-200 rounded-lg p-5">
 				<p class="text-sm text-gray-500">Total Projects</p>
 				<p class="text-3xl font-bold text-gray-900">{dashboard.total_projects}</p>
+				<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
 			</div>
 			<div class="bg-white border border-gray-200 rounded-lg p-5">
 				<p class="text-sm text-gray-500">Avg Health Score</p>
-				<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
+				<div class="flex items-center gap-3 mt-1">
+					<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
+					<div class="flex-1">
+						<div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+							<div class="h-full rounded-full {scoreBgColor(dashboard.avg_health_score)}" style="width: {dashboard.avg_health_score}%"></div>
+						</div>
+					</div>
+				</div>
+				<p class="text-xs text-gray-400 mt-1">Portfolio average (0-100)</p>
 			</div>
 			<div class="bg-white border border-gray-200 rounded-lg p-5">
 				<p class="text-sm text-gray-500">Active Alerts</p>
 				<p class="text-3xl font-bold {dashboard.active_alerts > 0 ? 'text-red-600' : 'text-green-600'}">{dashboard.active_alerts}</p>
+				<p class="text-xs text-gray-400 mt-1">{dashboard.active_alerts === 0 ? 'No active warnings' : 'Requires attention'}</p>
 			</div>
 			{#if dashboard.most_critical_project}
 				<div class="bg-red-50 border border-red-200 rounded-lg p-5">
-					<p class="text-sm text-red-600">Most Critical</p>
-					<p class="text-lg font-bold text-red-700 truncate">{dashboard.most_critical_project}</p>
+					<p class="text-sm text-red-600 font-medium">Most Critical Project</p>
+					<p class="text-lg font-bold text-red-700 truncate mt-1">{mostCriticalProject || dashboard.most_critical_project}</p>
 					{#if dashboard.most_critical_score !== null && dashboard.most_critical_score !== undefined}
-						<p class="text-sm text-red-500">Score: {dashboard.most_critical_score.toFixed(0)}</p>
+						<div class="flex items-center gap-2 mt-1">
+							<div class="h-1.5 flex-1 rounded-full bg-red-100 overflow-hidden">
+								<div class="h-full rounded-full bg-red-500" style="width: {dashboard.most_critical_score}%"></div>
+							</div>
+							<span class="text-sm font-bold text-red-600">{dashboard.most_critical_score.toFixed(0)}</span>
+						</div>
 					{/if}
 				</div>
 			{:else}
-				<div class="bg-white border border-gray-200 rounded-lg p-5">
-					<p class="text-sm text-gray-500">Portfolio Status</p>
-					<p class="text-lg font-bold text-green-600">All Clear</p>
+				<div class="bg-green-50 border border-green-200 rounded-lg p-5">
+					<p class="text-sm text-green-600 font-medium">Portfolio Status</p>
+					<p class="text-lg font-bold text-green-700 mt-1">All Clear</p>
+					<p class="text-xs text-green-500 mt-1">No critical issues detected</p>
 				</div>
 			{/if}
 		</div>
@@ -174,31 +211,48 @@
 		</div>
 	{:else if projects.length > 0}
 		<div class="bg-white rounded-lg border border-gray-200 p-6">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Uploaded Projects</h2>
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-gray-900">Uploaded Projects</h2>
+				<span class="text-sm text-gray-400">{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
+			</div>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 				{#each projects as project}
 					<a
 						href="/projects/{project.project_id}"
-						class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+						class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
 					>
 						<div class="flex items-start justify-between">
-							<h3 class="font-medium text-gray-900 truncate flex-1">{project.name || project.project_id}</h3>
+							<h3 class="font-medium text-gray-900 truncate flex-1 group-hover:text-blue-700 transition-colors">{project.name || project.project_id}</h3>
 							{#if healthScores[project.project_id]}
 								{@const hs = healthScores[project.project_id]}
-								<span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border {ratingColor(hs.rating)}">
-									{hs.overall.toFixed(0)} {hs.trend_arrow}
-								</span>
+								<div class="ml-2 w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold {scoreCircleBg(hs.overall)}">
+									{hs.overall.toFixed(0)}
+								</div>
 							{/if}
 						</div>
-						<div class="mt-2 flex gap-4 text-sm text-gray-500">
-							<span>{project.activity_count} activities</span>
-							<span>{project.relationship_count} relationships</span>
+						{#if healthScores[project.project_id]}
+							{@const hs = healthScores[project.project_id]}
+							<div class="mt-2 flex items-center gap-2">
+								<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border {ratingColor(hs.rating)}">
+									{hs.rating} {hs.trend_arrow}
+								</span>
+							</div>
+						{/if}
+						<div class="mt-3 flex gap-4 text-xs text-gray-500">
+							<span class="flex items-center gap-1">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+								{project.activity_count} activities
+							</span>
+							<span class="flex items-center gap-1">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+								{project.relationship_count} rels
+							</span>
 						</div>
 						{#if healthScores[project.project_id]}
-							<div class="mt-2">
+							<div class="mt-3">
 								<div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
 									<div
-										class="h-full rounded-full {healthScores[project.project_id].overall >= 85 ? 'bg-green-500' : healthScores[project.project_id].overall >= 70 ? 'bg-blue-500' : healthScores[project.project_id].overall >= 50 ? 'bg-yellow-500' : 'bg-red-500'}"
+										class="h-full rounded-full transition-all {scoreBgColor(healthScores[project.project_id].overall)}"
 										style="width: {healthScores[project.project_id].overall}%"
 									></div>
 								</div>

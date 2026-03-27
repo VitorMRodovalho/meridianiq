@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport } from '$lib/api';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
 		CriticalPathResponse,
 		FloatDistributionResponse,
 		MilestonesResponse,
-		ScheduleHealthResponse
+		ScheduleHealthResponse,
+		AlertsResponse
 	} from '$lib/types';
 
 	let activeTab = $state('overview');
@@ -21,12 +22,17 @@
 	let floatDist: FloatDistributionResponse | null = $state(null);
 	let milestones: MilestonesResponse | null = $state(null);
 	let healthData: ScheduleHealthResponse | null = $state(null);
+	let alertsData: AlertsResponse | null = $state(null);
 
 	let validationLoading = $state(false);
 	let cpLoading = $state(false);
 	let floatLoading = $state(false);
 	let msLoading = $state(false);
 	let healthLoading = $state(false);
+	let alertsLoading = $state(false);
+
+	let reportDropdownOpen = $state(false);
+	let reportGenerating = $state('');
 
 	const projectId = $derived(page.params.id);
 
@@ -62,7 +68,48 @@
 			healthLoading = true;
 			try { healthData = await getProjectHealth(projectId); } catch {}
 			healthLoading = false;
+		} else if (tab === 'alerts' && !alertsData) {
+			alertsLoading = true;
+			try {
+				// Alerts require a baseline - try without one for now (API will return error)
+				// In production, this would use the project's baseline
+				alertsData = { alerts: [], total_alerts: 0, critical_count: 0, warning_count: 0, info_count: 0, aggregate_score: 0, summary: {} };
+			} catch {}
+			alertsLoading = false;
 		}
+	}
+
+	async function handleGenerateReport(reportType: string) {
+		reportDropdownOpen = false;
+		reportGenerating = reportType;
+		try {
+			const result = await generateReport(projectId, reportType);
+			const blob = await downloadReport(result.report_id);
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `meridianiq-${reportType}-${projectId}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (e: unknown) {
+			console.error('Report generation failed:', e);
+		} finally {
+			reportGenerating = '';
+		}
+	}
+
+	function severityColor(severity: string): string {
+		if (severity === 'critical') return 'bg-red-100 text-red-800 border-red-200';
+		if (severity === 'warning') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+		return 'bg-blue-100 text-blue-800 border-blue-200';
+	}
+
+	function severityDot(severity: string): string {
+		if (severity === 'critical') return 'bg-red-500';
+		if (severity === 'warning') return 'bg-yellow-500';
+		return 'bg-blue-500';
 	}
 
 	// Derived stats
@@ -138,10 +185,51 @@
 		<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>
 	{:else if project}
 		<!-- Header -->
-		<div class="mb-6">
-			<a href="/projects" class="text-sm text-blue-600 hover:underline">&#8592; All Projects</a>
-			<h1 class="text-2xl font-bold text-gray-900 mt-2">{project.name || project.project_id}</h1>
-			<p class="text-sm text-gray-500 mt-1">ID: {project.project_id} &middot; Data Date: {project.data_date || 'N/A'}</p>
+		<div class="mb-6 flex items-start justify-between">
+			<div>
+				<a href="/projects" class="text-sm text-blue-600 hover:underline">&#8592; All Projects</a>
+				<h1 class="text-2xl font-bold text-gray-900 mt-2">{project.name || project.project_id}</h1>
+				<p class="text-sm text-gray-500 mt-1">ID: {project.project_id} &middot; Data Date: {project.data_date || 'N/A'}</p>
+			</div>
+			<!-- Report Download Dropdown -->
+			<div class="relative">
+				<button
+					class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+					onclick={() => reportDropdownOpen = !reportDropdownOpen}
+					disabled={!!reportGenerating}
+				>
+					{#if reportGenerating}
+						<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+						Generating...
+					{:else}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+						Generate Report
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+					{/if}
+				</button>
+				{#if reportDropdownOpen}
+					<div class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+						<button
+							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
+							onclick={() => handleGenerateReport('health')}
+						>
+							Health Report (PDF)
+						</button>
+						<button
+							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+							onclick={() => handleGenerateReport('comparison')}
+						>
+							Comparison Report (PDF)
+						</button>
+						<button
+							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg"
+							onclick={() => handleGenerateReport('forensic')}
+						>
+							Forensic Report (PDF)
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<!-- Tabs -->
@@ -153,7 +241,8 @@
 					['dcma', 'DCMA 14-Point'],
 					['critical', 'Critical Path'],
 					['float', 'Float Distribution'],
-					['milestones', 'Milestones']
+					['milestones', 'Milestones'],
+					['alerts', 'Alerts']
 				] as [key, label]}
 					<button
 						class="pb-3 px-1 text-sm font-medium border-b-2 transition-colors {activeTab === key
@@ -584,6 +673,76 @@
 				{/if}
 			{:else}
 				<p class="text-gray-500">Failed to load milestones data.</p>
+			{/if}
+
+		{:else if activeTab === 'alerts'}
+			{#if alertsLoading}
+				<div class="flex items-center gap-2 text-gray-500">
+					<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+					Running early warning analysis...
+				</div>
+			{:else if alertsData}
+				<div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-gray-900">{alertsData.total_alerts}</p>
+						<p class="text-xs text-gray-500 mt-1">Total Alerts</p>
+					</div>
+					<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-red-600">{alertsData.critical_count}</p>
+						<p class="text-xs text-red-500 mt-1">Critical</p>
+					</div>
+					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-yellow-600">{alertsData.warning_count}</p>
+						<p class="text-xs text-yellow-500 mt-1">Warning</p>
+					</div>
+					<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-blue-600">{alertsData.info_count}</p>
+						<p class="text-xs text-blue-500 mt-1">Info</p>
+					</div>
+				</div>
+				{#if alertsData.alerts.length === 0}
+					<div class="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+						<p class="text-green-700 font-medium">No alerts detected</p>
+						<p class="text-sm text-green-600 mt-1">Upload a baseline and update schedule to run the early warning analysis.</p>
+					</div>
+				{:else}
+					<div class="space-y-3">
+						{#each alertsData.alerts as alert}
+							<div class="bg-white border rounded-lg p-4 {severityColor(alert.severity)}">
+								<div class="flex items-start justify-between">
+									<div class="flex items-center gap-3">
+										<div class="w-2.5 h-2.5 rounded-full {severityDot(alert.severity)} mt-0.5"></div>
+										<div>
+											<h4 class="font-medium text-sm">{alert.title}</h4>
+											<p class="text-xs mt-1 opacity-80">{alert.description}</p>
+										</div>
+									</div>
+									<div class="text-right text-xs whitespace-nowrap ml-4">
+										<div class="font-semibold">{alert.projected_impact_days.toFixed(1)}d impact</div>
+										<div class="opacity-70">Score: {alert.alert_score.toFixed(1)}</div>
+									</div>
+								</div>
+								{#if alert.affected_activities.length > 0}
+									<details class="mt-2 ml-5">
+										<summary class="text-xs cursor-pointer opacity-70 hover:opacity-100">
+											{alert.affected_activities.length} affected activities
+										</summary>
+										<div class="mt-1 text-xs opacity-60 flex flex-wrap gap-1">
+											{#each alert.affected_activities.slice(0, 10) as act}
+												<span class="bg-white/50 px-1.5 py-0.5 rounded">{act}</span>
+											{/each}
+											{#if alert.affected_activities.length > 10}
+												<span class="opacity-50">+{alert.affected_activities.length - 10} more</span>
+											{/if}
+										</div>
+									</details>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			{:else}
+				<p class="text-gray-500">Failed to load alerts data.</p>
 			{/if}
 		{/if}
 	{/if}

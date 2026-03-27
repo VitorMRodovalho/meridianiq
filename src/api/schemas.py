@@ -910,3 +910,24 @@ class DashboardKPIs(BaseModel):
     projects_trending_down: int = 0
     most_critical_project: Optional[str] = None
     most_critical_score: Optional[float] = None
+
+
+# ── Reports ─────────────────────────────────────────────
+
+
+class GenerateReportRequest(BaseModel):
+    """Request body for POST /api/v1/reports/generate."""
+
+    project_id: str
+    report_type: str  # 'health', 'comparison', 'forensic', 'tia', 'risk'
+    baseline_id: Optional[str] = None
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class GenerateReportResponse(BaseModel):
+    """Response for POST /api/v1/reports/generate."""
+
+    report_id: str
+    report_type: str
+    project_id: str
+    generated_at: str

@@ -16,9 +16,10 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.analytics.comparison import ScheduleComparison
+from src.analytics.report_generator import ReportGenerator
 from src.analytics.contract import ContractComplianceChecker
 from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
@@ -124,11 +125,13 @@ from .schemas import (
     DashboardKPIs,
     FloatTrendRequest,
     FloatTrendResponse,
+    GenerateReportRequest,
+    GenerateReportResponse,
     HealthRequest,
     ScheduleHealthResponse,
 )
 from .auth import optional_auth
-from .storage import EVMStore, ProjectStore, RiskStore, TIAStore, TimelineStore
+from .storage import EVMStore, ProjectStore, ReportStore, RiskStore, TIAStore, TimelineStore
 
 app = FastAPI(
     title="MeridianIQ",
@@ -167,6 +170,7 @@ _timeline_store = TimelineStore()
 _tia_store = TIAStore()
 _evm_store = EVMStore()
 _risk_store = RiskStore()
+_report_store = ReportStore()
 
 
 def get_store() -> ProjectStore:
@@ -207,6 +211,14 @@ def get_risk_store() -> RiskStore:
     Exposed as a function so tests can replace it via monkeypatching.
     """
     return _risk_store
+
+
+def get_report_store() -> ReportStore:
+    """Return the global report store.
+
+    Exposed as a function so tests can replace it via monkeypatching.
+    """
+    return _report_store
 
 
 # ------------------------------------------------------------------
@@ -1995,4 +2007,242 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
         projects_trending_down=0,
         most_critical_project=most_critical_id,
         most_critical_score=most_critical_score,
+    )
+
+
+# ══════════════════════════════════════════════════════════
+# PDF Report Generation
+# ══════════════════════════════════════════════════════════
+
+_VALID_REPORT_TYPES = {"health", "comparison", "forensic", "tia", "risk"}
+
+
+@app.post(
+    "/api/v1/reports/generate",
+    response_model=GenerateReportResponse,
+)
+def generate_report(
+    request: GenerateReportRequest,
+    _user: object = Depends(optional_auth),
+) -> GenerateReportResponse:
+    """Generate a PDF report. Returns report ID for download.
+
+    Supports 5 report types:
+    - health: Schedule Health Report (DCMA + health score + alerts)
+    - comparison: Comparison Report (requires baseline_id)
+    - forensic: Forensic Report (requires baseline_id for timeline)
+    - tia: TIA Report (requires baseline_id)
+    - risk: Risk Report (requires baseline_id)
+
+    Args:
+        request: Report generation parameters.
+
+    Raises:
+        HTTPException: If the project is not found or report type is invalid.
+    """
+    if request.report_type not in _VALID_REPORT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid report_type '{request.report_type}'. "
+                   f"Valid types: {', '.join(sorted(_VALID_REPORT_TYPES))}",
+        )
+
+    store = get_store()
+    schedule = store.get(request.project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    generator = ReportGenerator()
+    report_type = request.report_type
+
+    try:
+        if report_type == "health":
+            pdf_bytes = _generate_health_report(generator, schedule, request)
+        elif report_type == "comparison":
+            pdf_bytes = _generate_comparison_report(generator, schedule, request, store)
+        elif report_type == "forensic":
+            pdf_bytes = _generate_forensic_report(generator, schedule, request, store)
+        elif report_type == "tia":
+            pdf_bytes = _generate_tia_report(generator, schedule, request, store)
+        elif report_type == "risk":
+            pdf_bytes = _generate_risk_report(generator, schedule, request, store)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Report generation failed: {exc}")
+
+    from datetime import datetime as _dt
+    generated_at = _dt.now().isoformat()
+
+    report_store = get_report_store()
+    report_id = report_store.add(pdf_bytes, {
+        "report_type": report_type,
+        "project_id": request.project_id,
+        "generated_at": generated_at,
+    })
+
+    return GenerateReportResponse(
+        report_id=report_id,
+        report_type=report_type,
+        project_id=request.project_id,
+        generated_at=generated_at,
+    )
+
+
+def _generate_health_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+) -> bytes:
+    """Generate a health report PDF."""
+    from src.analytics.dcma14 import DCMA14Analyzer
+    from src.analytics.health_score import HealthScoreCalculator
+
+    dcma = DCMA14Analyzer(schedule)
+    dcma_result = dcma.analyze()
+
+    baseline = None
+    if request.baseline_id:
+        baseline = get_store().get(request.baseline_id)
+
+    calc = HealthScoreCalculator(schedule, baseline=baseline)
+    health = calc.calculate()
+
+    alerts_result = None
+    if baseline:
+        try:
+            engine = EarlyWarningEngine(baseline, schedule)
+            alerts_result = engine.analyze()
+        except Exception:
+            pass
+
+    return generator.generate_health_report(schedule, dcma_result, health, alerts_result)
+
+
+def _generate_comparison_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate a comparison report PDF."""
+    if not request.baseline_id:
+        raise HTTPException(
+            status_code=400,
+            detail="baseline_id is required for comparison reports",
+        )
+
+    baseline = store.get(request.baseline_id)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="Baseline project not found")
+
+    comparison = ScheduleComparison(baseline, schedule)
+    result = comparison.compare()
+
+    return generator.generate_comparison_report(baseline, schedule, result)
+
+
+def _generate_forensic_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate a forensic report PDF."""
+    if not request.baseline_id:
+        raise HTTPException(
+            status_code=400,
+            detail="baseline_id is required for forensic reports",
+        )
+
+    baseline = store.get(request.baseline_id)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="Baseline project not found")
+
+    analyzer = ForensicAnalyzer()
+    timeline = analyzer.create_timeline([baseline, schedule])
+
+    return generator.generate_forensic_report(timeline)
+
+
+def _generate_tia_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate a TIA report PDF."""
+    # Look for existing TIA analysis, or create a minimal one
+    tia_store = get_tia_store()
+    analyses = tia_store.list_all()
+    if analyses:
+        # Use the most recent TIA analysis
+        latest = analyses[-1]
+        analysis = tia_store.get(latest["analysis_id"])
+        if analysis:
+            return generator.generate_tia_report(analysis)
+
+    raise HTTPException(
+        status_code=400,
+        detail="No TIA analysis found. Please run a TIA analysis first.",
+    )
+
+
+def _generate_risk_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate a risk report PDF."""
+    risk_store = get_risk_store()
+    simulations = risk_store.list_all()
+    if simulations:
+        latest = simulations[-1]
+        result = risk_store.get(latest["simulation_id"])
+        if result:
+            return generator.generate_risk_report(result)
+
+    raise HTTPException(
+        status_code=400,
+        detail="No risk simulation found. Please run a Monte Carlo simulation first.",
+    )
+
+
+@app.get("/api/v1/reports/{report_id}/download")
+def download_report(
+    report_id: str,
+    _user: object = Depends(optional_auth),
+) -> StreamingResponse:
+    """Download a generated PDF report.
+
+    Args:
+        report_id: The report identifier from generate_report.
+
+    Raises:
+        HTTPException: If the report is not found.
+    """
+    report_store = get_report_store()
+    report = report_store.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    pdf_bytes = report["bytes"]
+    report_type = report.get("report_type", "report")
+
+    # Determine content type: PDF if starts with %PDF, otherwise HTML
+    content_type = "application/pdf"
+    extension = "pdf"
+    if not pdf_bytes[:5].startswith(b"%PDF"):
+        content_type = "text/html"
+        extension = "html"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="meridianiq-{report_type}-{report_id}.{extension}"',
+        },
     )

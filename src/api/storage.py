@@ -1,6 +1,6 @@
 # MIT License
-# Copyright (c) 2025 Vitor Maia Rodovalho
-"""In-memory storage for parsed projects, forensic timelines, TIA analyses, EVM analyses, and risk simulations (v0.5).
+# Copyright (c) 2026 Vitor Maia Rodovalho
+"""In-memory storage for parsed projects, forensic timelines, TIA analyses, EVM analyses, risk simulations, and reports.
 
 Provides simple dictionary-based stores for parsed schedules, their raw
 XER bytes, forensic analysis timelines, and TIA analyses.  Designed as
@@ -405,4 +405,75 @@ class RiskStore:
         """Remove all stored simulations."""
         with self._lock:
             self._simulations.clear()
+            self._counter = 0
+
+
+class ReportStore:
+    """In-memory storage for generated PDF reports.
+
+    Thread-safe via a simple lock.  Not intended for production use --
+    all data is lost when the process exits.
+
+    Usage::
+
+        store = ReportStore()
+        rid = store.add(pdf_bytes, {"report_type": "health", "project_id": "proj-0001"})
+        report = store.get(rid)
+        pdf = report["bytes"]
+    """
+
+    def __init__(self) -> None:
+        """Initialise an empty store."""
+        self._reports: dict[str, dict[str, Any]] = {}
+        self._counter: int = 0
+        self._lock = threading.Lock()
+
+    def add(self, pdf_bytes: bytes, metadata: dict[str, Any]) -> str:
+        """Store a generated report and return its report_id.
+
+        Args:
+            pdf_bytes: The PDF (or HTML fallback) bytes.
+            metadata: Dict with report_type, project_id, generated_at, etc.
+
+        Returns:
+            A unique report_id string.
+        """
+        with self._lock:
+            self._counter += 1
+            rid = f"report-{self._counter:04d}"
+            self._reports[rid] = {"bytes": pdf_bytes, **metadata}
+        return rid
+
+    def get(self, report_id: str) -> dict[str, Any] | None:
+        """Retrieve a report by report_id.
+
+        Args:
+            report_id: The identifier returned by ``add()``.
+
+        Returns:
+            Dict with 'bytes' and metadata, or ``None`` if not found.
+        """
+        return self._reports.get(report_id)
+
+    def list_all(self) -> list[dict[str, Any]]:
+        """List all stored reports with summary info (without bytes).
+
+        Returns:
+            A list of dictionaries with key report metadata.
+        """
+        return [
+            {
+                "report_id": rid,
+                "report_type": data.get("report_type", "unknown"),
+                "project_id": data.get("project_id", "unknown"),
+                "generated_at": data.get("generated_at", ""),
+                "size_bytes": len(data.get("bytes", b"")),
+            }
+            for rid, data in self._reports.items()
+        ]
+
+    def clear(self) -> None:
+        """Remove all stored reports."""
+        with self._lock:
+            self._reports.clear()
             self._counter = 0

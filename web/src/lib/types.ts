@@ -433,3 +433,12 @@ export interface DashboardKPIs {
 	most_critical_project: string | null;
 	most_critical_score: number | null;
 }
+
+// ── Reports ─────────────────────────────────────────────
+
+export interface GenerateReportResponse {
+	report_id: string;
+	report_type: string;
+	project_id: string;
+	generated_at: string;
+}
