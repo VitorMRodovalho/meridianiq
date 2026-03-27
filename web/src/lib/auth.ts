@@ -4,6 +4,10 @@ import type { Session, User } from '@supabase/supabase-js';
 import { writable, derived } from 'svelte/store';
 import { supabase } from './supabase';
 
+const REDIRECT_URL =
+	(import.meta.env.VITE_REDIRECT_URL as string) ||
+	`${typeof window !== 'undefined' ? window.location.origin : 'https://meridianiq.pages.dev'}/auth/callback`;
+
 // ---------------------------------------------------------------------------
 // Svelte stores — reactive auth state
 // ---------------------------------------------------------------------------
@@ -39,7 +43,7 @@ export async function signInWithGoogle(): Promise<void> {
 	const { error } = await supabase.auth.signInWithOAuth({
 		provider: 'google',
 		options: {
-			redirectTo: `${window.location.origin}/auth/callback`
+			redirectTo: REDIRECT_URL
 		}
 	});
 	if (error) throw error;
@@ -49,7 +53,7 @@ export async function signInWithAzure(): Promise<void> {
 	const { error } = await supabase.auth.signInWithOAuth({
 		provider: 'azure',
 		options: {
-			redirectTo: `${window.location.origin}/auth/callback`,
+			redirectTo: REDIRECT_URL,
 			scopes: 'email'
 		}
 	});
