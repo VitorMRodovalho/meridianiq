@@ -67,7 +67,7 @@ def get_current_user(
                 algorithms=["HS256"],
                 audience="authenticated",
             )
-        elif alg in ("RS256", "RS384", "RS512"):
+        elif alg in ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512"):
             # Newer Supabase: verify with JWKS public key
             jwks_client = _get_jwks_client()
             if not jwks_client:
