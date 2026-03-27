@@ -1,22 +1,41 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { getProjects } from '$lib/api';
+	import { isAuthenticated, isLoading as authLoading } from '$lib/auth';
 	import type { ProjectListItem } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
 	let loading = $state(true);
 	let error = $state('');
+	let authenticated = $state(false);
 
 	onMount(async () => {
+		// Wait for auth to initialize
+		const unsub = authLoading.subscribe((val) => {
+			if (!val) {
+				authenticated = get(isAuthenticated);
+				if (authenticated) {
+					loadProjects();
+				} else {
+					loading = false;
+				}
+				unsub();
+			}
+		});
+	});
+
+	async function loadProjects() {
 		try {
 			const res = await getProjects();
 			projects = res.projects;
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Failed to load projects';
+			// Silently handle — user may not be authenticated
+			error = '';
 		} finally {
 			loading = false;
 		}
-	});
+	}
 </script>
 
 <svelte:head>
@@ -30,6 +49,14 @@
 			Open-source Primavera P6 schedule validation, comparison, and forensic analysis
 		</p>
 	</div>
+
+	{#if !authenticated && !loading}
+		<div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-10">
+			<h2 class="text-lg font-semibold text-blue-900 mb-2">Welcome to MeridianIQ</h2>
+			<p class="text-sm text-blue-700 mb-4">Sign in to upload and analyze your Primavera P6 schedules. Your data is private and encrypted.</p>
+			<a href="/login" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">Sign in to get started</a>
+		</div>
+	{/if}
 
 	<!-- Action Cards -->
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
