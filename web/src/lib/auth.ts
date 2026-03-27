@@ -1,66 +1,85 @@
 // MIT License
 // Copyright (c) 2026 Vitor Maia Rodovalho
-import type { Session, User } from '@supabase/supabase-js';
 import { writable, derived } from 'svelte/store';
-import { supabase } from './supabase';
+import type { User, Session } from '@supabase/supabase-js';
 
-const REDIRECT_URL =
-	(import.meta.env.VITE_REDIRECT_URL as string) ||
-	`${typeof window !== 'undefined' ? window.location.origin : 'https://meridianiq.pages.dev'}/auth/callback`;
-
-// ---------------------------------------------------------------------------
-// Svelte stores — reactive auth state
-// ---------------------------------------------------------------------------
-
+// Stores
 export const user = writable<User | null>(null);
 export const session = writable<Session | null>(null);
-export const isLoading = writable<boolean>(true);
 export const isAuthenticated = derived(user, ($user) => $user !== null);
+export const isLoading = writable(true);
 
-// ---------------------------------------------------------------------------
-// Initialise — call once from the root layout
-// ---------------------------------------------------------------------------
+// Lazy init flag — prevents double initialization
+let _initialized = false;
 
-export async function initAuth(): Promise<void> {
-	// Restore existing session
-	const { data } = await supabase.auth.getSession();
-	session.set(data.session);
-	user.set(data.session?.user ?? null);
+/**
+ * Initialize auth state. Call this from the root layout's onMount().
+ * Uses dynamic import to break circular dependency with supabase.ts.
+ */
+export async function initAuth() {
+	if (_initialized) return;
+	_initialized = true;
+
+	const { supabase } = await import('./supabase');
+
+	// Get initial session
+	const {
+		data: { session: s }
+	} = await supabase.auth.getSession();
+	session.set(s);
+	user.set(s?.user ?? null);
 	isLoading.set(false);
 
-	// Keep state in sync with Supabase auth events
+	// Listen for auth changes
 	supabase.auth.onAuthStateChange((_event, s) => {
 		session.set(s);
 		user.set(s?.user ?? null);
+		isLoading.set(false);
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Sign-in helpers
-// ---------------------------------------------------------------------------
+// Auth actions — all use dynamic import
+export async function signInWithGoogle() {
+	const { supabase } = await import('./supabase');
+	const redirectUrl =
+		(import.meta.env.VITE_REDIRECT_URL as string) ||
+		`${window.location.origin}/auth/callback`;
 
-export async function signInWithGoogle(): Promise<void> {
 	const { error } = await supabase.auth.signInWithOAuth({
 		provider: 'google',
-		options: {
-			redirectTo: REDIRECT_URL
-		}
+		options: { redirectTo: redirectUrl }
 	});
 	if (error) throw error;
 }
 
-export async function signInWithAzure(): Promise<void> {
+export async function signInWithAzure() {
+	const { supabase } = await import('./supabase');
+	const redirectUrl =
+		(import.meta.env.VITE_REDIRECT_URL as string) ||
+		`${window.location.origin}/auth/callback`;
+
 	const { error } = await supabase.auth.signInWithOAuth({
 		provider: 'azure',
-		options: {
-			redirectTo: REDIRECT_URL,
-			scopes: 'email'
-		}
+		options: { redirectTo: redirectUrl, scopes: 'email profile openid' }
 	});
 	if (error) throw error;
 }
 
-export async function signOut(): Promise<void> {
+export async function signInWithLinkedIn() {
+	const { supabase } = await import('./supabase');
+	const redirectUrl =
+		(import.meta.env.VITE_REDIRECT_URL as string) ||
+		`${window.location.origin}/auth/callback`;
+
+	const { error } = await supabase.auth.signInWithOAuth({
+		provider: 'linkedin_oidc',
+		options: { redirectTo: redirectUrl }
+	});
+	if (error) throw error;
+}
+
+export async function signOut() {
+	const { supabase } = await import('./supabase');
 	const { error } = await supabase.auth.signOut();
 	if (error) throw error;
 }
