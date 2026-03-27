@@ -119,7 +119,7 @@ from .storage import EVMStore, ProjectStore, RiskStore, TIAStore, TimelineStore
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="0.5.0-dev",
+    version="0.6.0-dev",
 )
 
 app.add_middleware(
