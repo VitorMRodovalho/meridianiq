@@ -21,3 +21,4 @@ docs/v2-discovery/reference-docs/
 
 # Environment secrets
 .env
+.wrangler/
