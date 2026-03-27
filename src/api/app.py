@@ -183,6 +183,11 @@ def get_risk_store() -> RiskStore:
 # ------------------------------------------------------------------
 
 
+@app.get("/health")
+async def root_health():
+    return {"status": "ok", "version": "0.6.0-dev"}
+
+
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     """Health check endpoint."""
