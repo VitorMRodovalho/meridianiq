@@ -14,7 +14,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -114,12 +114,13 @@ from .schemas import (
     SimulationSummarySchema,
     TornadoResponse,
 )
+from .auth import optional_auth
 from .storage import EVMStore, ProjectStore, RiskStore, TIAStore, TimelineStore
 
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="0.6.0-dev",
+    version="0.7.0-dev",
 )
 
 app.add_middleware(
@@ -202,7 +203,7 @@ def get_risk_store() -> RiskStore:
 
 @app.get("/health")
 async def root_health():
-    return {"status": "ok", "version": "0.6.0-dev"}
+    return {"status": "ok", "version": "0.7.0-dev"}
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
@@ -217,7 +218,10 @@ def health_check() -> HealthResponse:
 
 
 @app.post("/api/v1/upload", response_model=ProjectSummary)
-async def upload_xer(file: UploadFile = File(...)) -> ProjectSummary:
+async def upload_xer(
+    file: UploadFile = File(...),
+    _user: object = Depends(optional_auth),
+) -> ProjectSummary:
     """Upload an XER file, parse it, and store the result.
 
     Args:
@@ -284,7 +288,7 @@ async def upload_xer(file: UploadFile = File(...)) -> ProjectSummary:
 
 
 @app.get("/api/v1/projects", response_model=ProjectListResponse)
-def list_projects() -> ProjectListResponse:
+def list_projects(_user: object = Depends(optional_auth)) -> ProjectListResponse:
     """List all uploaded projects."""
     store = get_store()
     items = [ProjectListItem(**p) for p in store.list_all()]
@@ -297,7 +301,7 @@ def list_projects() -> ProjectListResponse:
 
 
 @app.get("/api/v1/projects/{project_id}", response_model=ProjectDetailResponse)
-def get_project(project_id: str) -> ProjectDetailResponse:
+def get_project(project_id: str, _user: object = Depends(optional_auth)) -> ProjectDetailResponse:
     """Get full project data for a given project_id.
 
     Args:
@@ -433,7 +437,7 @@ def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
 
 
 @app.get("/api/v1/projects/{project_id}/validation", response_model=ValidationResponse)
-def get_validation(project_id: str) -> ValidationResponse:
+def get_validation(project_id: str, _user: object = Depends(optional_auth)) -> ValidationResponse:
     """Run DCMA 14-Point assessment for a project.
 
     Args:
@@ -482,7 +486,7 @@ def get_validation(project_id: str) -> ValidationResponse:
     "/api/v1/projects/{project_id}/critical-path",
     response_model=CriticalPathResponse,
 )
-def get_critical_path(project_id: str) -> CriticalPathResponse:
+def get_critical_path(project_id: str, _user: object = Depends(optional_auth)) -> CriticalPathResponse:
     """Compute and return the critical path for a project.
 
     Args:
@@ -528,7 +532,7 @@ def get_critical_path(project_id: str) -> CriticalPathResponse:
     "/api/v1/projects/{project_id}/float-distribution",
     response_model=FloatDistributionResponse,
 )
-def get_float_distribution(project_id: str) -> FloatDistributionResponse:
+def get_float_distribution(project_id: str, _user: object = Depends(optional_auth)) -> FloatDistributionResponse:
     """Return float distribution buckets for a project.
 
     Buckets: critical (TF=0), near-critical (0-10d), moderate (10-20d),
@@ -598,7 +602,7 @@ def get_float_distribution(project_id: str) -> FloatDistributionResponse:
     "/api/v1/projects/{project_id}/milestones",
     response_model=MilestonesResponse,
 )
-def get_milestones(project_id: str) -> MilestonesResponse:
+def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> MilestonesResponse:
     """Return all milestone activities for a project.
 
     Args:
@@ -641,7 +645,7 @@ def get_milestones(project_id: str) -> MilestonesResponse:
 
 
 @app.post("/api/v1/compare", response_model=CompareResponse)
-def compare_schedules(request: CompareRequest) -> CompareResponse:
+def compare_schedules(request: CompareRequest, _user: object = Depends(optional_auth)) -> CompareResponse:
     """Compare two uploaded projects (baseline vs update).
 
     Args:
@@ -752,7 +756,7 @@ def _window_to_schema(wr: Any) -> WindowSchema:
     "/api/v1/forensic/create-timeline",
     response_model=TimelineDetailSchema,
 )
-def create_timeline(request: CreateTimelineRequest) -> TimelineDetailSchema:
+def create_timeline(request: CreateTimelineRequest, _user: object = Depends(optional_auth)) -> TimelineDetailSchema:
     """Create a forensic CPA timeline from multiple schedule updates.
 
     Fetches each referenced project from the store, sorts by data date,
@@ -813,7 +817,7 @@ def create_timeline(request: CreateTimelineRequest) -> TimelineDetailSchema:
     "/api/v1/forensic/timelines",
     response_model=TimelineListResponse,
 )
-def list_timelines() -> TimelineListResponse:
+def list_timelines(_user: object = Depends(optional_auth)) -> TimelineListResponse:
     """List all forensic timelines."""
     tl_store = get_timeline_store()
     items = [TimelineSummarySchema(**t) for t in tl_store.list_all()]
@@ -824,7 +828,7 @@ def list_timelines() -> TimelineListResponse:
     "/api/v1/forensic/timelines/{timeline_id}",
     response_model=TimelineDetailSchema,
 )
-def get_timeline(timeline_id: str) -> TimelineDetailSchema:
+def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> TimelineDetailSchema:
     """Get full forensic timeline with all window results.
 
     Args:
@@ -862,7 +866,7 @@ def get_timeline(timeline_id: str) -> TimelineDetailSchema:
     "/api/v1/forensic/timelines/{timeline_id}/delay-trend",
     response_model=DelayTrendResponse,
 )
-def get_delay_trend(timeline_id: str) -> DelayTrendResponse:
+def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) -> DelayTrendResponse:
     """Return delay trend data for charting.
 
     Each point represents one analysis window's data date and the
@@ -1004,7 +1008,7 @@ def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
 
 
 @app.post("/api/v1/tia/analyze", response_model=TIAAnalysisSchema)
-def tia_analyze(request: TIAAnalyzeRequest) -> TIAAnalysisSchema:
+def tia_analyze(request: TIAAnalyzeRequest, _user: object = Depends(optional_auth)) -> TIAAnalysisSchema:
     """Run Time Impact Analysis on a project with delay fragments.
 
     Per AACE RP 52R-06, inserts each fragment into the schedule network,
@@ -1041,7 +1045,7 @@ def tia_analyze(request: TIAAnalyzeRequest) -> TIAAnalysisSchema:
 
 
 @app.get("/api/v1/tia/analyses", response_model=TIAListResponse)
-def list_tia_analyses() -> TIAListResponse:
+def list_tia_analyses(_user: object = Depends(optional_auth)) -> TIAListResponse:
     """List all TIA analyses."""
     tia_store = get_tia_store()
     items = [TIAAnalysisSummarySchema(**a) for a in tia_store.list_all()]
@@ -1052,7 +1056,7 @@ def list_tia_analyses() -> TIAListResponse:
     "/api/v1/tia/analyses/{analysis_id}",
     response_model=TIAAnalysisSchema,
 )
-def get_tia_analysis(analysis_id: str) -> TIAAnalysisSchema:
+def get_tia_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> TIAAnalysisSchema:
     """Get full TIA analysis with all fragment results.
 
     Args:
@@ -1073,7 +1077,7 @@ def get_tia_analysis(analysis_id: str) -> TIAAnalysisSchema:
     "/api/v1/tia/analyses/{analysis_id}/summary",
     response_model=TIASummaryResponse,
 )
-def get_tia_summary(analysis_id: str) -> TIASummaryResponse:
+def get_tia_summary(analysis_id: str, _user: object = Depends(optional_auth)) -> TIASummaryResponse:
     """Get delay-by-responsibility summary for a TIA analysis.
 
     Args:
@@ -1103,7 +1107,7 @@ def get_tia_summary(analysis_id: str) -> TIASummaryResponse:
 
 
 @app.post("/api/v1/contract/check", response_model=ContractCheckResponse)
-def contract_check(request: ContractCheckRequest) -> ContractCheckResponse:
+def contract_check(request: ContractCheckRequest, _user: object = Depends(optional_auth)) -> ContractCheckResponse:
     """Run contract compliance checks against a TIA analysis.
 
     Evaluates each fragment against standard construction contract
@@ -1156,7 +1160,7 @@ def contract_check(request: ContractCheckRequest) -> ContractCheckResponse:
     "/api/v1/contract/provisions",
     response_model=ContractProvisionsResponse,
 )
-def list_contract_provisions() -> ContractProvisionsResponse:
+def list_contract_provisions(_user: object = Depends(optional_auth)) -> ContractProvisionsResponse:
     """List default contract provisions used for compliance checking."""
     checker = ContractComplianceChecker()
     provisions = [
@@ -1265,7 +1269,7 @@ def _evm_result_to_schema(result: Any, project_id: str = "") -> EVMAnalysisSchem
 
 
 @app.post("/api/v1/evm/analyze/{project_id}", response_model=EVMAnalysisSchema)
-def run_evm_analysis(project_id: str) -> EVMAnalysisSchema:
+def run_evm_analysis(project_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
     """Run Earned Value Management analysis on a project.
 
     Computes SPI, CPI, SV, CV, EAC, ETC, VAC, TCPI from resource
@@ -1299,7 +1303,7 @@ def run_evm_analysis(project_id: str) -> EVMAnalysisSchema:
 
 
 @app.get("/api/v1/evm/analyses", response_model=EVMListResponse)
-def list_evm_analyses() -> EVMListResponse:
+def list_evm_analyses(_user: object = Depends(optional_auth)) -> EVMListResponse:
     """List all EVM analyses."""
     evm_store = get_evm_store()
     items = [EVMAnalysisSummarySchema(**a) for a in evm_store.list_all()]
@@ -1307,7 +1311,7 @@ def list_evm_analyses() -> EVMListResponse:
 
 
 @app.get("/api/v1/evm/analyses/{analysis_id}", response_model=EVMAnalysisSchema)
-def get_evm_analysis(analysis_id: str) -> EVMAnalysisSchema:
+def get_evm_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
     """Get full EVM analysis with all metrics.
 
     Args:
@@ -1325,7 +1329,7 @@ def get_evm_analysis(analysis_id: str) -> EVMAnalysisSchema:
 
 
 @app.get("/api/v1/evm/analyses/{analysis_id}/s-curve", response_model=SCurveResponse)
-def get_evm_s_curve(analysis_id: str) -> SCurveResponse:
+def get_evm_s_curve(analysis_id: str, _user: object = Depends(optional_auth)) -> SCurveResponse:
     """Get S-curve data for an EVM analysis.
 
     Returns time-phased cumulative PV, EV, and AC data points
@@ -1359,7 +1363,7 @@ def get_evm_s_curve(analysis_id: str) -> SCurveResponse:
     "/api/v1/evm/analyses/{analysis_id}/wbs-drill",
     response_model=WBSDrillResponse,
 )
-def get_evm_wbs_drill(analysis_id: str) -> WBSDrillResponse:
+def get_evm_wbs_drill(analysis_id: str, _user: object = Depends(optional_auth)) -> WBSDrillResponse:
     """Get WBS-level EVM breakdown for an analysis.
 
     Args:
@@ -1390,7 +1394,7 @@ def get_evm_wbs_drill(analysis_id: str) -> WBSDrillResponse:
     "/api/v1/evm/analyses/{analysis_id}/forecast",
     response_model=ForecastResponse,
 )
-def get_evm_forecast(analysis_id: str) -> ForecastResponse:
+def get_evm_forecast(analysis_id: str, _user: object = Depends(optional_auth)) -> ForecastResponse:
     """Get EAC scenario forecasts for an analysis.
 
     Returns multiple Estimate at Completion scenarios:
@@ -1486,7 +1490,9 @@ def _simulation_to_schema(result: Any) -> SimulationResultSchema:
     response_model=SimulationResultSchema,
 )
 def run_risk_simulation(
-    project_id: str, request: RunSimulationRequest
+    project_id: str,
+    request: RunSimulationRequest,
+    _user: object = Depends(optional_auth),
 ) -> SimulationResultSchema:
     """Run Monte Carlo schedule risk simulation (QSRA) on a project.
 
@@ -1558,7 +1564,7 @@ def run_risk_simulation(
 
 
 @app.get("/api/v1/risk/simulations", response_model=SimulationListResponse)
-def list_risk_simulations() -> SimulationListResponse:
+def list_risk_simulations(_user: object = Depends(optional_auth)) -> SimulationListResponse:
     """List all risk simulations."""
     risk_store = get_risk_store()
     items = [SimulationSummarySchema(**s) for s in risk_store.list_all()]
@@ -1569,7 +1575,7 @@ def list_risk_simulations() -> SimulationListResponse:
     "/api/v1/risk/simulations/{simulation_id}",
     response_model=SimulationResultSchema,
 )
-def get_risk_simulation(simulation_id: str) -> SimulationResultSchema:
+def get_risk_simulation(simulation_id: str, _user: object = Depends(optional_auth)) -> SimulationResultSchema:
     """Get full risk simulation result with all analysis data.
 
     Args:
@@ -1590,7 +1596,7 @@ def get_risk_simulation(simulation_id: str) -> SimulationResultSchema:
     "/api/v1/risk/simulations/{simulation_id}/histogram",
     response_model=HistogramResponse,
 )
-def get_risk_histogram(simulation_id: str) -> HistogramResponse:
+def get_risk_histogram(simulation_id: str, _user: object = Depends(optional_auth)) -> HistogramResponse:
     """Get histogram data for a risk simulation.
 
     Returns bin counts and P-value overlay lines suitable for
@@ -1634,7 +1640,7 @@ def get_risk_histogram(simulation_id: str) -> HistogramResponse:
     "/api/v1/risk/simulations/{simulation_id}/tornado",
     response_model=TornadoResponse,
 )
-def get_risk_tornado(simulation_id: str) -> TornadoResponse:
+def get_risk_tornado(simulation_id: str, _user: object = Depends(optional_auth)) -> TornadoResponse:
     """Get sensitivity / tornado data for a risk simulation.
 
     Returns Spearman rank correlations between each activity's
@@ -1672,7 +1678,7 @@ def get_risk_tornado(simulation_id: str) -> TornadoResponse:
     "/api/v1/risk/simulations/{simulation_id}/criticality",
     response_model=CriticalityResponse,
 )
-def get_risk_criticality(simulation_id: str) -> CriticalityResponse:
+def get_risk_criticality(simulation_id: str, _user: object = Depends(optional_auth)) -> CriticalityResponse:
     """Get criticality index data for a risk simulation.
 
     Returns the percentage of iterations in which each activity
@@ -1706,7 +1712,7 @@ def get_risk_criticality(simulation_id: str) -> CriticalityResponse:
     "/api/v1/risk/simulations/{simulation_id}/s-curve",
     response_model=RiskSCurveResponse,
 )
-def get_risk_s_curve(simulation_id: str) -> RiskSCurveResponse:
+def get_risk_s_curve(simulation_id: str, _user: object = Depends(optional_auth)) -> RiskSCurveResponse:
     """Get cumulative probability S-curve data for a risk simulation.
 
     Returns sorted completion durations with their cumulative

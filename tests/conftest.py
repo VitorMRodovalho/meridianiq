@@ -8,3 +8,4 @@ the InMemoryStore backend.
 import os
 
 os.environ["ENVIRONMENT"] = "development"
+os.environ["SUPABASE_JWT_SECRET"] = "test-secret"

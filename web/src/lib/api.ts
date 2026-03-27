@@ -17,10 +17,26 @@ import type {
 	ContractProvisionsResponse
 } from './types';
 
+import { auth } from './auth';
+
 const BASE = import.meta.env.VITE_API_URL || '';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(`${BASE}${url}`, init);
+	// Attach JWT when a session is available
+	const token = auth.session?.access_token;
+	const authHeaders: Record<string, string> = token
+		? { Authorization: `Bearer ${token}` }
+		: {};
+
+	const mergedInit: RequestInit = {
+		...init,
+		headers: {
+			...authHeaders,
+			...(init?.headers as Record<string, string> | undefined)
+		}
+	};
+
+	const res = await fetch(`${BASE}${url}`, mergedInit);
 	if (!res.ok) {
 		const text = await res.text();
 		throw new Error(text || `Request failed: ${res.status}`);

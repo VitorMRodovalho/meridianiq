@@ -27,6 +27,7 @@ class Settings:
         self.SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
         self.SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
         self.SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        self.SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
         self.ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     @property

@@ -1,6 +1,13 @@
 <script lang="ts">
 	import '../app.css';
+	import { onMount } from 'svelte';
+	import { auth, initAuth, signOut } from '$lib/auth';
+
 	let { children } = $props();
+
+	onMount(() => {
+		initAuth();
+	});
 </script>
 
 <div class="flex min-h-screen bg-gray-50">
@@ -86,9 +93,50 @@
 				Risk
 			</a>
 		</nav>
+
+		<!-- User section -->
+		<div class="px-4 py-4 border-t border-gray-700">
+			{#if auth.loading}
+				<div class="h-8 rounded bg-gray-700 animate-pulse"></div>
+			{:else if auth.user}
+				<div class="flex items-center gap-3 mb-3">
+					{#if auth.user.user_metadata?.avatar_url}
+						<img
+							src={auth.user.user_metadata.avatar_url}
+							alt="avatar"
+							class="w-8 h-8 rounded-full object-cover"
+						/>
+					{:else}
+						<div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold uppercase">
+							{(auth.user.email ?? '?')[0]}
+						</div>
+					{/if}
+					<div class="min-w-0 flex-1">
+						<p class="text-xs font-medium text-gray-200 truncate">
+							{auth.user.user_metadata?.full_name ?? auth.user.email ?? 'User'}
+						</p>
+						<p class="text-xs text-gray-500 truncate">{auth.user.email ?? ''}</p>
+					</div>
+				</div>
+				<button
+					onclick={signOut}
+					class="w-full text-left px-3 py-1.5 rounded-md text-xs text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+				>
+					Sign out
+				</button>
+			{:else}
+				<a
+					href="/login"
+					class="block w-full text-center rounded-md bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition-colors"
+				>
+					Sign in
+				</a>
+			{/if}
+		</div>
+
 		<div class="px-6 py-4 border-t border-gray-700">
 			<p class="text-xs text-gray-500">MeridianIQ &middot; MIT License &middot; &copy; 2025 Vitor Maia Rodovalho</p>
-			<p class="text-xs text-gray-500 mt-0.5">v0.5.0-dev</p>
+			<p class="text-xs text-gray-500 mt-0.5">v0.7.0-dev</p>
 		</div>
 	</aside>
 
