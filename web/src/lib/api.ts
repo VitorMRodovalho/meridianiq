@@ -17,14 +17,13 @@ import type {
 	ContractProvisionsResponse
 } from './types';
 
-import { get } from 'svelte/store';
-import { session } from './auth';
+import { supabase } from './supabase';
 
 const BASE = import.meta.env.VITE_API_URL || '';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-	// Attach JWT when a session is available
-	const currentSession = get(session);
+	// Get session directly from Supabase (reads localStorage, no store timing dependency)
+	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;
 	const authHeaders: Record<string, string> = token
 		? { Authorization: `Bearer ${token}` }
