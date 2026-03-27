@@ -147,8 +147,14 @@ flowchart LR
 | v0.3.0 | **Claims** | TIA + Contract Compliance | ✅ Released |
 | v0.4.0 | **Controls** | EVM / WBS-CBS-BOQ | ✅ Released |
 | v0.5.0 | **Risk** | Monte Carlo / QSRA | ✅ Released |
-| v1.0 | **Enterprise** | Multi-tenant · Persistent Storage · IPS | 🔜 Planned |
-| v2.0 | **Intelligence** | AI/ML Predictions · NLP | 🔮 Future |
+| v0.6 | **Cloud** | Supabase + Fly.io + CF Pages | 🚧 Next |
+| v0.7 | **Identity** | Auth + RLS + Ownership | 🔜 Planned |
+| v0.8 | **Intelligence** | Float Trends + Early Warning | 🔜 Planned |
+| v0.9 | **Polish** | UX + Performance + CI/CD | 🔜 Planned |
+| v1.0 | **Enterprise** | Teams + IPS Reconciliation + Audit | 🔜 Planned |
+| v2.0 | **AI** | ML Predictions · NLP · Anomaly Detection | 🔮 Future |
+
+See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_v20.md).
 
 ---
 
