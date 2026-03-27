@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { auth, initAuth, signOut } from '$lib/auth';
+	import { user, isLoading, initAuth, signOut } from '$lib/auth';
 
 	let { children } = $props();
 
@@ -96,26 +96,26 @@
 
 		<!-- User section -->
 		<div class="px-4 py-4 border-t border-gray-700">
-			{#if auth.loading}
+			{#if $isLoading}
 				<div class="h-8 rounded bg-gray-700 animate-pulse"></div>
-			{:else if auth.user}
+			{:else if $user}
 				<div class="flex items-center gap-3 mb-3">
-					{#if auth.user.user_metadata?.avatar_url}
+					{#if $user.user_metadata?.avatar_url}
 						<img
-							src={auth.user.user_metadata.avatar_url}
+							src={$user.user_metadata.avatar_url}
 							alt="avatar"
 							class="w-8 h-8 rounded-full object-cover"
 						/>
 					{:else}
 						<div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-xs font-bold uppercase">
-							{(auth.user.email ?? '?')[0]}
+							{($user.email ?? '?')[0]}
 						</div>
 					{/if}
 					<div class="min-w-0 flex-1">
 						<p class="text-xs font-medium text-gray-200 truncate">
-							{auth.user.user_metadata?.full_name ?? auth.user.email ?? 'User'}
+							{$user.user_metadata?.full_name ?? $user.email ?? 'User'}
 						</p>
-						<p class="text-xs text-gray-500 truncate">{auth.user.email ?? ''}</p>
+						<p class="text-xs text-gray-500 truncate">{$user.email ?? ''}</p>
 					</div>
 				</div>
 				<button

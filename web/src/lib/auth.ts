@@ -1,27 +1,17 @@
 // MIT License
 // Copyright (c) 2026 Vitor Maia Rodovalho
 import type { Session, User } from '@supabase/supabase-js';
+import { writable, derived } from 'svelte/store';
 import { supabase } from './supabase';
 
 // ---------------------------------------------------------------------------
-// Svelte 5 runes — reactive auth state
+// Svelte stores — reactive auth state
 // ---------------------------------------------------------------------------
 
-let _user = $state<User | null>(null);
-let _session = $state<Session | null>(null);
-let _loading = $state<boolean>(true);
-
-export const auth = {
-	get user() {
-		return _user;
-	},
-	get session() {
-		return _session;
-	},
-	get loading() {
-		return _loading;
-	}
-};
+export const user = writable<User | null>(null);
+export const session = writable<Session | null>(null);
+export const isLoading = writable<boolean>(true);
+export const isAuthenticated = derived(user, ($user) => $user !== null);
 
 // ---------------------------------------------------------------------------
 // Initialise — call once from the root layout
@@ -30,14 +20,14 @@ export const auth = {
 export async function initAuth(): Promise<void> {
 	// Restore existing session
 	const { data } = await supabase.auth.getSession();
-	_session = data.session;
-	_user = data.session?.user ?? null;
-	_loading = false;
+	session.set(data.session);
+	user.set(data.session?.user ?? null);
+	isLoading.set(false);
 
 	// Keep state in sync with Supabase auth events
-	supabase.auth.onAuthStateChange((_event, session) => {
-		_session = session;
-		_user = session?.user ?? null;
+	supabase.auth.onAuthStateChange((_event, s) => {
+		session.set(s);
+		user.set(s?.user ?? null);
 	});
 }
 

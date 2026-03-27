@@ -17,13 +17,15 @@ import type {
 	ContractProvisionsResponse
 } from './types';
 
-import { auth } from './auth';
+import { get } from 'svelte/store';
+import { session } from './auth';
 
 const BASE = import.meta.env.VITE_API_URL || '';
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	// Attach JWT when a session is available
-	const token = auth.session?.access_token;
+	const currentSession = get(session);
+	const token = currentSession?.access_token;
 	const authHeaders: Record<string, string> = token
 		? { Authorization: `Bearer ${token}` }
 		: {};
