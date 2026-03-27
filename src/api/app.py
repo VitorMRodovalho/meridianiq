@@ -22,7 +22,10 @@ from src.analytics.comparison import ScheduleComparison
 from src.analytics.contract import ContractComplianceChecker
 from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
+from src.analytics.early_warning import EarlyWarningEngine
 from src.analytics.evm import EVMAnalyzer
+from src.analytics.float_trends import FloatTrendAnalyzer
+from src.analytics.health_score import HealthScoreCalculator
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.risk import (
     DistributionType,
@@ -113,6 +116,16 @@ from .schemas import (
     SimulationResultSchema,
     SimulationSummarySchema,
     TornadoResponse,
+    # Intelligence v0.8 schemas
+    ActivityFloatTrendSchema,
+    AlertSchema,
+    AlertsRequest,
+    AlertsResponse,
+    DashboardKPIs,
+    FloatTrendRequest,
+    FloatTrendResponse,
+    HealthRequest,
+    ScheduleHealthResponse,
 )
 from .auth import optional_auth
 from .storage import EVMStore, ProjectStore, RiskStore, TIAStore, TimelineStore
@@ -120,7 +133,7 @@ from .storage import EVMStore, ProjectStore, RiskStore, TIAStore, TimelineStore
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="0.7.0-dev",
+    version="0.8.0-dev",
 )
 
 app.add_middleware(
@@ -1747,4 +1760,239 @@ def get_risk_s_curve(simulation_id: str, _user: object = Depends(optional_auth))
             )
             for pv in result.p_values
         ],
+    )
+
+
+# ══════════════════════════════════════════════════════════
+# Intelligence v0.8 — Health Score, Float Trends, Alerts, Dashboard
+# ══════════════════════════════════════════════════════════
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/health",
+    response_model=ScheduleHealthResponse,
+)
+def get_project_health(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> ScheduleHealthResponse:
+    """Get the composite schedule health score for a project.
+
+    Computes a 0-100 score combining DCMA structural quality, float
+    health, logic integrity, and trend direction.  If ``baseline_id``
+    is provided, the trend component uses the baseline for comparison.
+
+    Args:
+        project_id: The stored project identifier.
+        baseline_id: Optional baseline project for trend analysis.
+
+    Raises:
+        HTTPException: If the project is not found.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    baseline = None
+    if baseline_id:
+        baseline = store.get(baseline_id)
+        if baseline is None:
+            raise HTTPException(status_code=404, detail="Baseline project not found")
+
+    calc = HealthScoreCalculator(schedule, baseline=baseline)
+    score = calc.calculate()
+
+    return ScheduleHealthResponse(
+        overall=score.overall,
+        dcma_component=score.dcma_component,
+        float_component=score.float_component,
+        logic_component=score.logic_component,
+        trend_component=score.trend_component,
+        dcma_raw=score.dcma_raw,
+        float_raw=score.float_raw,
+        logic_raw=score.logic_raw,
+        trend_raw=score.trend_raw,
+        rating=score.rating,
+        trend_arrow=score.trend_arrow,
+        details=score.details,
+    )
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/float-trends",
+    response_model=FloatTrendResponse,
+)
+def get_float_trends(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> FloatTrendResponse:
+    """Get float trend data between a baseline and update schedule.
+
+    Computes Float Erosion Index, Near-Critical Drift, CP Stability,
+    and per-activity float deltas.
+
+    Args:
+        project_id: The update project identifier.
+        baseline_id: The baseline project identifier.
+
+    Raises:
+        HTTPException: If projects are not found.
+    """
+    store = get_store()
+    update = store.get(project_id)
+    if update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not baseline_id:
+        raise HTTPException(
+            status_code=400,
+            detail="baseline_id query parameter is required for float trend analysis",
+        )
+
+    baseline = store.get(baseline_id)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="Baseline project not found")
+
+    analyzer = FloatTrendAnalyzer(baseline, update)
+    result = analyzer.analyze()
+
+    return FloatTrendResponse(
+        fei=result.fei,
+        near_critical_drift=result.near_critical_drift,
+        cp_stability=result.cp_stability,
+        activity_trends=[
+            ActivityFloatTrendSchema(
+                task_code=t.task_code,
+                task_name=t.task_name,
+                wbs_id=t.wbs_id,
+                old_float_days=t.old_float_days,
+                new_float_days=t.new_float_days,
+                delta_days=t.delta_days,
+                direction=t.direction,
+                is_critical_baseline=t.is_critical_baseline,
+                is_critical_update=t.is_critical_update,
+                progress_pct=t.progress_pct,
+            )
+            for t in result.activity_trends
+        ],
+        wbs_velocity=result.wbs_velocity,
+        thresholds=result.thresholds,
+        days_between_updates=result.days_between_updates,
+        total_matched=result.total_matched,
+        summary=result.summary,
+    )
+
+
+@app.get(
+    "/api/v1/projects/{project_id}/alerts",
+    response_model=AlertsResponse,
+)
+def get_project_alerts(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> AlertsResponse:
+    """Get early warning alerts for a project.
+
+    Runs the 12-rule early warning engine comparing baseline and update
+    schedules.  Produces prioritized alerts ranked by severity, confidence,
+    and projected impact.
+
+    Args:
+        project_id: The update project identifier.
+        baseline_id: The baseline project identifier.
+
+    Raises:
+        HTTPException: If projects are not found.
+    """
+    store = get_store()
+    update = store.get(project_id)
+    if update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not baseline_id:
+        raise HTTPException(
+            status_code=400,
+            detail="baseline_id query parameter is required for early warning analysis",
+        )
+
+    baseline = store.get(baseline_id)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="Baseline project not found")
+
+    engine = EarlyWarningEngine(baseline, update)
+    result = engine.analyze()
+
+    return AlertsResponse(
+        alerts=[
+            AlertSchema(
+                rule_id=a.rule_id,
+                severity=a.severity,
+                title=a.title,
+                description=a.description,
+                affected_activities=a.affected_activities,
+                projected_impact_days=a.projected_impact_days,
+                confidence=a.confidence,
+                alert_score=a.alert_score,
+            )
+            for a in result.alerts
+        ],
+        total_alerts=result.total_alerts,
+        critical_count=result.critical_count,
+        warning_count=result.warning_count,
+        info_count=result.info_count,
+        aggregate_score=result.aggregate_score,
+        summary=result.summary,
+    )
+
+
+@app.get(
+    "/api/v1/dashboard",
+    response_model=DashboardKPIs,
+)
+def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
+    """Get portfolio-level dashboard KPIs.
+
+    Returns total projects, average health score, active alerts count,
+    and identifies the most critical project.  Computes health scores
+    on-the-fly for all loaded projects.
+    """
+    store = get_store()
+    project_ids = store.list_ids()
+
+    if not project_ids:
+        return DashboardKPIs()
+
+    health_scores: dict[str, float] = {}
+
+    for pid in project_ids:
+        schedule = store.get(pid)
+        if schedule is None:
+            continue
+
+        try:
+            calc = HealthScoreCalculator(schedule)
+            score = calc.calculate()
+            health_scores[pid] = score.overall
+        except Exception:
+            health_scores[pid] = 50.0
+
+    most_critical_id = min(health_scores, key=health_scores.get) if health_scores else None
+    most_critical_score = health_scores.get(most_critical_id, None) if most_critical_id else None
+
+    avg_health = (
+        sum(health_scores.values()) / len(health_scores) if health_scores else 0.0
+    )
+
+    return DashboardKPIs(
+        total_projects=len(project_ids),
+        active_alerts=0,
+        avg_health_score=round(avg_health, 1),
+        projects_trending_up=0,
+        projects_trending_down=0,
+        most_critical_project=most_critical_id,
+        most_critical_score=most_critical_score,
     )

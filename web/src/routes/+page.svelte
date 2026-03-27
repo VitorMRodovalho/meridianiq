@@ -1,22 +1,23 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
-	import { getProjects } from '$lib/api';
+	import { getProjects, getDashboard, getProjectHealth } from '$lib/api';
 	import { isAuthenticated, isLoading as authLoading } from '$lib/auth';
-	import type { ProjectListItem } from '$lib/types';
+	import type { ProjectListItem, DashboardKPIs } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
+	let dashboard: DashboardKPIs | null = $state(null);
+	let healthScores: Record<string, { overall: number; rating: string; trend_arrow: string }> = $state({});
 	let loading = $state(true);
 	let error = $state('');
 	let authenticated = $state(false);
 
 	onMount(async () => {
-		// Wait for auth to initialize
 		const unsub = authLoading.subscribe((val) => {
 			if (!val) {
 				authenticated = get(isAuthenticated);
 				if (authenticated) {
-					loadProjects();
+					loadData();
 				} else {
 					loading = false;
 				}
@@ -25,16 +26,48 @@
 		});
 	});
 
-	async function loadProjects() {
+	async function loadData() {
 		try {
-			const res = await getProjects();
-			projects = res.projects;
+			const [projRes, dashRes] = await Promise.all([
+				getProjects(),
+				getDashboard().catch(() => null)
+			]);
+			projects = projRes.projects;
+			dashboard = dashRes;
+
+			// Load health scores for each project
+			for (const p of projects) {
+				try {
+					const health = await getProjectHealth(p.project_id);
+					healthScores[p.project_id] = {
+						overall: health.overall,
+						rating: health.rating,
+						trend_arrow: health.trend_arrow
+					};
+					healthScores = { ...healthScores };
+				} catch {
+					// Skip projects where health calc fails
+				}
+			}
 		} catch (e: unknown) {
-			// Silently handle — user may not be authenticated
 			error = '';
 		} finally {
 			loading = false;
 		}
+	}
+
+	function ratingColor(rating: string): string {
+		if (rating === 'excellent') return 'text-green-600 bg-green-50 border-green-200';
+		if (rating === 'good') return 'text-blue-600 bg-blue-50 border-blue-200';
+		if (rating === 'fair') return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+		return 'text-red-600 bg-red-50 border-red-200';
+	}
+
+	function scoreColor(score: number): string {
+		if (score >= 85) return 'text-green-600';
+		if (score >= 70) return 'text-blue-600';
+		if (score >= 50) return 'text-yellow-600';
+		return 'text-red-600';
 	}
 </script>
 
@@ -55,6 +88,38 @@
 			<h2 class="text-lg font-semibold text-blue-900 mb-2">Welcome to MeridianIQ</h2>
 			<p class="text-sm text-blue-700 mb-4">Sign in to upload and analyze your Primavera P6 schedules. Your data is private and encrypted.</p>
 			<a href="/login" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">Sign in to get started</a>
+		</div>
+	{/if}
+
+	<!-- Dashboard KPIs -->
+	{#if dashboard && authenticated}
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+			<div class="bg-white border border-gray-200 rounded-lg p-5">
+				<p class="text-sm text-gray-500">Total Projects</p>
+				<p class="text-3xl font-bold text-gray-900">{dashboard.total_projects}</p>
+			</div>
+			<div class="bg-white border border-gray-200 rounded-lg p-5">
+				<p class="text-sm text-gray-500">Avg Health Score</p>
+				<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
+			</div>
+			<div class="bg-white border border-gray-200 rounded-lg p-5">
+				<p class="text-sm text-gray-500">Active Alerts</p>
+				<p class="text-3xl font-bold {dashboard.active_alerts > 0 ? 'text-red-600' : 'text-green-600'}">{dashboard.active_alerts}</p>
+			</div>
+			{#if dashboard.most_critical_project}
+				<div class="bg-red-50 border border-red-200 rounded-lg p-5">
+					<p class="text-sm text-red-600">Most Critical</p>
+					<p class="text-lg font-bold text-red-700 truncate">{dashboard.most_critical_project}</p>
+					{#if dashboard.most_critical_score !== null && dashboard.most_critical_score !== undefined}
+						<p class="text-sm text-red-500">Score: {dashboard.most_critical_score.toFixed(0)}</p>
+					{/if}
+				</div>
+			{:else}
+				<div class="bg-white border border-gray-200 rounded-lg p-5">
+					<p class="text-sm text-gray-500">Portfolio Status</p>
+					<p class="text-lg font-bold text-green-600">All Clear</p>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -94,7 +159,7 @@
 		</a>
 	</div>
 
-	<!-- Project Summary -->
+	<!-- Project Summary with Health Scores -->
 	{#if loading}
 		<div class="flex items-center gap-2 text-gray-500">
 			<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -116,11 +181,29 @@
 						href="/projects/{project.project_id}"
 						class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all"
 					>
-						<h3 class="font-medium text-gray-900 truncate">{project.name || project.project_id}</h3>
+						<div class="flex items-start justify-between">
+							<h3 class="font-medium text-gray-900 truncate flex-1">{project.name || project.project_id}</h3>
+							{#if healthScores[project.project_id]}
+								{@const hs = healthScores[project.project_id]}
+								<span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border {ratingColor(hs.rating)}">
+									{hs.overall.toFixed(0)} {hs.trend_arrow}
+								</span>
+							{/if}
+						</div>
 						<div class="mt-2 flex gap-4 text-sm text-gray-500">
 							<span>{project.activity_count} activities</span>
 							<span>{project.relationship_count} relationships</span>
 						</div>
+						{#if healthScores[project.project_id]}
+							<div class="mt-2">
+								<div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+									<div
+										class="h-full rounded-full {healthScores[project.project_id].overall >= 85 ? 'bg-green-500' : healthScores[project.project_id].overall >= 70 ? 'bg-blue-500' : healthScores[project.project_id].overall >= 50 ? 'bg-yellow-500' : 'bg-red-500'}"
+										style="width: {healthScores[project.project_id].overall}%"
+									></div>
+								</div>
+							</div>
+						{/if}
 					</a>
 				{/each}
 			</div>

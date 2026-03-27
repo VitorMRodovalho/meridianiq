@@ -14,7 +14,11 @@ import type {
 	TIAListResponse,
 	DelayFragmentSchema,
 	ContractCheckResponse,
-	ContractProvisionsResponse
+	ContractProvisionsResponse,
+	ScheduleHealthResponse,
+	FloatTrendResponse,
+	AlertsResponse,
+	DashboardKPIs
 } from './types';
 
 import { supabase } from './supabase';
@@ -147,4 +151,36 @@ export async function contractCheck(analysisId: string): Promise<ContractCheckRe
 
 export async function getContractProvisions(): Promise<ContractProvisionsResponse> {
 	return request<ContractProvisionsResponse>('/api/v1/contract/provisions');
+}
+
+// ── Intelligence v0.8 ─────────────────────────────────
+
+export async function getProjectHealth(
+	id: string,
+	baselineId?: string
+): Promise<ScheduleHealthResponse> {
+	const params = baselineId ? `?baseline_id=${baselineId}` : '';
+	return request<ScheduleHealthResponse>(`/api/v1/projects/${id}/health${params}`);
+}
+
+export async function getFloatTrends(
+	id: string,
+	baselineId: string
+): Promise<FloatTrendResponse> {
+	return request<FloatTrendResponse>(
+		`/api/v1/projects/${id}/float-trends?baseline_id=${baselineId}`
+	);
+}
+
+export async function getProjectAlerts(
+	id: string,
+	baselineId: string
+): Promise<AlertsResponse> {
+	return request<AlertsResponse>(
+		`/api/v1/projects/${id}/alerts?baseline_id=${baselineId}`
+	);
+}
+
+export async function getDashboard(): Promise<DashboardKPIs> {
+	return request<DashboardKPIs>('/api/v1/dashboard');
 }

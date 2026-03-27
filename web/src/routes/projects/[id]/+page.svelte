@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth } from '$lib/api';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
 		CriticalPathResponse,
 		FloatDistributionResponse,
-		MilestonesResponse
+		MilestonesResponse,
+		ScheduleHealthResponse
 	} from '$lib/types';
 
 	let activeTab = $state('overview');
@@ -19,11 +20,13 @@
 	let criticalPath: CriticalPathResponse | null = $state(null);
 	let floatDist: FloatDistributionResponse | null = $state(null);
 	let milestones: MilestonesResponse | null = $state(null);
+	let healthData: ScheduleHealthResponse | null = $state(null);
 
 	let validationLoading = $state(false);
 	let cpLoading = $state(false);
 	let floatLoading = $state(false);
 	let msLoading = $state(false);
+	let healthLoading = $state(false);
 
 	const projectId = $derived(page.params.id);
 
@@ -55,6 +58,10 @@
 			msLoading = true;
 			try { milestones = await getMilestones(projectId); } catch {}
 			msLoading = false;
+		} else if (tab === 'health' && !healthData) {
+			healthLoading = true;
+			try { healthData = await getProjectHealth(projectId); } catch {}
+			healthLoading = false;
 		}
 	}
 
@@ -142,6 +149,7 @@
 			<nav class="flex gap-6 -mb-px">
 				{#each [
 					['overview', 'Overview'],
+					['health', 'Health Score'],
 					['dcma', 'DCMA 14-Point'],
 					['critical', 'Critical Path'],
 					['float', 'Float Distribution'],
@@ -454,6 +462,74 @@
 				</div>
 			{:else}
 				<p class="text-gray-500">Failed to load float distribution data.</p>
+			{/if}
+
+		{:else if activeTab === 'health'}
+			{#if healthLoading}
+				<div class="flex items-center gap-2 text-gray-500">
+					<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+					Computing health score...
+				</div>
+			{:else if healthData}
+				<!-- Overall Score -->
+				<div class="flex items-center gap-6 mb-8">
+					<div class="w-28 h-28 rounded-full border-4 flex items-center justify-center {healthData.overall >= 85 ? 'text-green-600 border-green-300 bg-green-50' : healthData.overall >= 70 ? 'text-blue-600 border-blue-300 bg-blue-50' : healthData.overall >= 50 ? 'text-yellow-600 border-yellow-300 bg-yellow-50' : 'text-red-600 border-red-300 bg-red-50'}">
+						<div class="text-center">
+							<span class="text-3xl font-bold">{healthData.overall.toFixed(0)}</span>
+							<span class="text-lg ml-1">{healthData.trend_arrow}</span>
+						</div>
+					</div>
+					<div>
+						<h2 class="text-xl font-bold text-gray-900">Schedule Health Score</h2>
+						<p class="text-sm mt-1">
+							<span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase {healthData.rating === 'excellent' ? 'bg-green-100 text-green-800' : healthData.rating === 'good' ? 'bg-blue-100 text-blue-800' : healthData.rating === 'fair' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+								{healthData.rating}
+							</span>
+						</p>
+						<p class="text-xs text-gray-500 mt-2">
+							Per DCMA 14-Point + GAO Schedule Assessment Guide
+						</p>
+					</div>
+				</div>
+
+				<!-- Component Breakdown -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+					<div class="bg-white border border-gray-200 rounded-lg p-4">
+						<p class="text-xs text-gray-500 uppercase tracking-wide">DCMA Quality (40%)</p>
+						<p class="text-2xl font-bold text-gray-900 mt-1">{healthData.dcma_raw.toFixed(0)}<span class="text-sm text-gray-400">/100</span></p>
+						<div class="h-1.5 rounded-full bg-gray-100 mt-2 overflow-hidden">
+							<div class="h-full rounded-full bg-blue-500" style="width: {healthData.dcma_raw}%"></div>
+						</div>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4">
+						<p class="text-xs text-gray-500 uppercase tracking-wide">Float Health (25%)</p>
+						<p class="text-2xl font-bold text-gray-900 mt-1">{healthData.float_raw.toFixed(0)}<span class="text-sm text-gray-400">/100</span></p>
+						<div class="h-1.5 rounded-full bg-gray-100 mt-2 overflow-hidden">
+							<div class="h-full rounded-full bg-green-500" style="width: {healthData.float_raw}%"></div>
+						</div>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4">
+						<p class="text-xs text-gray-500 uppercase tracking-wide">Logic Integrity (20%)</p>
+						<p class="text-2xl font-bold text-gray-900 mt-1">{healthData.logic_raw.toFixed(0)}<span class="text-sm text-gray-400">/100</span></p>
+						<div class="h-1.5 rounded-full bg-gray-100 mt-2 overflow-hidden">
+							<div class="h-full rounded-full bg-purple-500" style="width: {healthData.logic_raw}%"></div>
+						</div>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4">
+						<p class="text-xs text-gray-500 uppercase tracking-wide">Trend Direction (15%)</p>
+						<p class="text-2xl font-bold text-gray-900 mt-1">{healthData.trend_raw.toFixed(0)}<span class="text-sm text-gray-400">/100</span></p>
+						<div class="h-1.5 rounded-full bg-gray-100 mt-2 overflow-hidden">
+							<div class="h-full rounded-full bg-orange-500" style="width: {healthData.trend_raw}%"></div>
+						</div>
+					</div>
+				</div>
+
+				<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+					<strong>Formula:</strong> Health = 0.40 x DCMA + 0.25 x Float Health + 0.20 x Logic Integrity + 0.15 x Trend Direction.
+					Standards: DCMA 14-Point Assessment, GAO Schedule Assessment Guide (4 characteristics), AACE RP 49R-06.
+				</div>
+			{:else}
+				<p class="text-gray-500">Failed to load health score data.</p>
 			{/if}
 
 		{:else if activeTab === 'milestones'}

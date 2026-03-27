@@ -77,6 +77,15 @@ class ProjectStore:
         """
         return self._xer_data.get(project_id)
 
+    def list_ids(self) -> list[str]:
+        """Return all stored project IDs.
+
+        Returns:
+            A list of project_id strings.
+        """
+        with self._lock:
+            return list(self._projects.keys())
+
     def list_all(self) -> list[dict[str, Any]]:
         """List all stored projects with summary info.
 

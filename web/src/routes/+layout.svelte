@@ -136,7 +136,7 @@
 
 		<div class="px-6 py-4 border-t border-gray-700">
 			<p class="text-xs text-gray-500">MeridianIQ &middot; MIT License &middot; &copy; 2025 Vitor Maia Rodovalho</p>
-			<p class="text-xs text-gray-500 mt-0.5">v0.7.0-dev</p>
+			<p class="text-xs text-gray-500 mt-0.5">v0.8.0-dev</p>
 		</div>
 	</aside>
 

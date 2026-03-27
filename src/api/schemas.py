@@ -16,7 +16,7 @@ class HealthResponse(BaseModel):
     """Response for GET /api/v1/health."""
 
     status: str = "ok"
-    version: str = "0.5.0-dev"
+    version: str = "0.8.0-dev"
 
 
 # ── Upload ───────────────────────────────────────────────
@@ -794,3 +794,119 @@ class RiskSCurveResponse(BaseModel):
     deterministic_days: float = 0.0
     points: list[RiskSCurvePointSchema] = Field(default_factory=list)
     p_values: list[PValueSchema] = Field(default_factory=list)
+
+
+# ── Intelligence (v0.8) ─────────────────────────────────
+
+
+class ActivityFloatTrendSchema(BaseModel):
+    """Per-activity float trend data."""
+
+    task_code: str
+    task_name: str = ""
+    wbs_id: str = ""
+    old_float_days: float = 0.0
+    new_float_days: float = 0.0
+    delta_days: float = 0.0
+    direction: str = "stable"
+    is_critical_baseline: bool = False
+    is_critical_update: bool = False
+    progress_pct: float = 0.0
+
+
+class FloatTrendThresholdSchema(BaseModel):
+    """Threshold status for a float trend metric."""
+
+    value: float = 0.0
+    status: str = "green"
+    unit: str = ""
+    percentage: Optional[float] = None
+
+
+class FloatTrendResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/float-trends."""
+
+    fei: float = 0.0
+    near_critical_drift: int = 0
+    cp_stability: float = 100.0
+    activity_trends: list[ActivityFloatTrendSchema] = Field(default_factory=list)
+    wbs_velocity: dict[str, float] = Field(default_factory=dict)
+    thresholds: dict[str, Any] = Field(default_factory=dict)
+    days_between_updates: float = 0.0
+    total_matched: int = 0
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class FloatTrendRequest(BaseModel):
+    """Request body for POST /api/v1/float-trends/analyze."""
+
+    baseline_id: str
+    update_id: str
+
+
+class AlertSchema(BaseModel):
+    """A single early warning alert."""
+
+    rule_id: str
+    severity: str
+    title: str
+    description: str
+    affected_activities: list[str] = Field(default_factory=list)
+    projected_impact_days: float = 0.0
+    confidence: float = 0.5
+    alert_score: float = 0.0
+
+
+class AlertsResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/alerts."""
+
+    alerts: list[AlertSchema] = Field(default_factory=list)
+    total_alerts: int = 0
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    aggregate_score: float = 0.0
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class AlertsRequest(BaseModel):
+    """Request body for POST /api/v1/alerts/analyze."""
+
+    baseline_id: str
+    update_id: str
+
+
+class ScheduleHealthResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/health."""
+
+    overall: float = 0.0
+    dcma_component: float = 0.0
+    float_component: float = 0.0
+    logic_component: float = 0.0
+    trend_component: float = 0.0
+    dcma_raw: float = 0.0
+    float_raw: float = 0.0
+    logic_raw: float = 0.0
+    trend_raw: float = 0.0
+    rating: str = "poor"
+    trend_arrow: str = "→"
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class HealthRequest(BaseModel):
+    """Request body for POST /api/v1/health/analyze."""
+
+    project_id: str
+    baseline_id: Optional[str] = None
+
+
+class DashboardKPIs(BaseModel):
+    """Response for GET /api/v1/dashboard."""
+
+    total_projects: int = 0
+    active_alerts: int = 0
+    avg_health_score: float = 0.0
+    projects_trending_up: int = 0
+    projects_trending_down: int = 0
+    most_critical_project: Optional[str] = None
+    most_critical_score: Optional[float] = None

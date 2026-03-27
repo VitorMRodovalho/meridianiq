@@ -360,3 +360,76 @@ export interface ContractProvisionSchema {
 export interface ContractProvisionsResponse {
 	provisions: ContractProvisionSchema[];
 }
+
+// ── Intelligence v0.8 ─────────────────────────────────
+
+export interface ScheduleHealthResponse {
+	overall: number;
+	dcma_component: number;
+	float_component: number;
+	logic_component: number;
+	trend_component: number;
+	dcma_raw: number;
+	float_raw: number;
+	logic_raw: number;
+	trend_raw: number;
+	rating: string;
+	trend_arrow: string;
+	details: Record<string, unknown>;
+}
+
+export interface ActivityFloatTrendSchema {
+	task_code: string;
+	task_name: string;
+	wbs_id: string;
+	old_float_days: number;
+	new_float_days: number;
+	delta_days: number;
+	direction: string;
+	is_critical_baseline: boolean;
+	is_critical_update: boolean;
+	progress_pct: number;
+}
+
+export interface FloatTrendResponse {
+	fei: number;
+	near_critical_drift: number;
+	cp_stability: number;
+	activity_trends: ActivityFloatTrendSchema[];
+	wbs_velocity: Record<string, number>;
+	thresholds: Record<string, unknown>;
+	days_between_updates: number;
+	total_matched: number;
+	summary: Record<string, unknown>;
+}
+
+export interface AlertSchema {
+	rule_id: string;
+	severity: string;
+	title: string;
+	description: string;
+	affected_activities: string[];
+	projected_impact_days: number;
+	confidence: number;
+	alert_score: number;
+}
+
+export interface AlertsResponse {
+	alerts: AlertSchema[];
+	total_alerts: number;
+	critical_count: number;
+	warning_count: number;
+	info_count: number;
+	aggregate_score: number;
+	summary: Record<string, unknown>;
+}
+
+export interface DashboardKPIs {
+	total_projects: number;
+	active_alerts: number;
+	avg_health_score: number;
+	projects_trending_up: number;
+	projects_trending_down: number;
+	most_critical_project: string | null;
+	most_critical_score: number | null;
+}
