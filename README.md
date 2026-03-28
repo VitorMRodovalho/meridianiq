@@ -12,8 +12,9 @@ Open-source schedule intelligence platform — from validation to prediction.
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.0-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![NetworkX](https://img.shields.io/badge/NetworkX-CPM%20Engine-4C9A2A)](https://networkx.org)
 [![NumPy](https://img.shields.io/badge/NumPy-Monte%20Carlo-013243?logo=numpy&logoColor=white)](https://numpy.org)
-[![Tests](https://img.shields.io/badge/Tests-222%20passing-brightgreen)]()
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![Tests](https://img.shields.io/badge/Tests-332%20passing-brightgreen)]()
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.pages.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.pages.dev)
 
 [**Documentation**](docs/) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](BUGS.md)
 
@@ -35,13 +36,14 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 8 (Parser · CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo) |
-| Tests passing | 222 |
-| Python source lines | ~9,150 |
-| Frontend pages | 12 |
-| API endpoints | 32 |
-| Released versions | 5 (v0.1.0 → v0.5.0) |
-| Monthly infra cost | $0 |
+| Analysis engines | 10 (Parser · CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Float Trends · Health Score) |
+| Tests passing | 332 |
+| Python source lines | ~12,000+ |
+| Frontend pages | 16+ |
+| API endpoints | 40+ |
+| Released versions | 8 (v0.1.0 → v0.8.1) |
+| Live platform | [meridianiq.pages.dev](https://meridianiq.pages.dev) |
+| Monthly infra cost | $0 (free tier) |
 
 ---
 
@@ -58,6 +60,10 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | **Contract Compliance** — Automated provision checks | AIA A201, SCL Protocol | v0.3 |
 | **Earned Value Management** — SPI, CPI, EAC, S-Curve | ANSI/EIA-748 | v0.4 |
 | **Monte Carlo Simulation** — QSRA with PERT-Beta distributions | AACE RP 57R-09 | v0.5 |
+| **Float Trend Analysis** — Track float distribution across schedule updates | AACE RP 49R-06 | v0.8 |
+| **Early Warning System** — 12-rule alert engine for proactive monitoring | DCMA EVMS | v0.8 |
+| **Schedule Health Score** — Composite metric combining all indicators | — | v0.8 |
+| **PDF Reports** — WeasyPrint-generated reports for all analysis modules | — | v0.8 |
 
 ---
 
@@ -65,38 +71,31 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 ```mermaid
 graph TB
-    subgraph Client
-        A[Browser] --> B[SvelteKit + Tailwind]
-        B --> C[SVG Charts]
+    subgraph "Edge Layer — Cloudflare"
+        CF_PAGES["CF Pages<br/>SvelteKit Frontend<br/>(global edge delivery)"]
     end
 
-    subgraph "FastAPI Backend"
-        D[REST API<br/>32 endpoints]
-        D --> E[XER Parser<br/>Streaming · Encoding Detection]
-        D --> F[CPM Engine<br/>NetworkX]
-        D --> G[DCMA 14-Point<br/>Validation]
-        D --> H[Comparison Engine<br/>Multi-layer Matching]
-        D --> I[Forensics<br/>CPA · Window Analysis]
-        D --> J[TIA Engine<br/>Fragment Insertion]
-        D --> K[EVM Engine<br/>SPI · CPI · S-Curve]
-        D --> L[Risk Engine<br/>Monte Carlo · PERT-Beta]
+    subgraph "Compute Layer — Fly.io"
+        FASTAPI["FastAPI Container<br/>Analysis Engines (10)<br/>40+ endpoints"]
     end
 
-    subgraph "Data Layer"
-        M[(In-Memory Store<br/>v0.x prototype)]
-        N[(SQLite → PostgreSQL<br/>v1.0 planned)]
+    subgraph "Platform Layer — Supabase"
+        AUTH["Auth<br/>Google · LinkedIn · MS<br/>JWT + RLS"]
+        DB[("PostgreSQL<br/>16+ entities<br/>RLS enforced")]
+        STORAGE["Storage<br/>XER files · PDFs<br/>RLS buckets"]
     end
 
-    B <-->|HTTP| D
-    E --> M
-    F --> M
-    D --> M
+    CF_PAGES <-->|"REST"| FASTAPI
+    FASTAPI <-->|"SQL"| DB
+    FASTAPI -->|"Store/Read"| STORAGE
+    FASTAPI -->|"Verify JWT"| AUTH
+    CF_PAGES -->|"Direct auth flow"| AUTH
 
-    style A fill:#1a1a2e,color:#fff
-    style D fill:#009688,color:#fff
-    style F fill:#4C9A2A,color:#fff
-    style L fill:#013243,color:#fff
-    style M fill:#3FCF8E,color:#fff
+    style CF_PAGES fill:#F38020,color:#fff
+    style FASTAPI fill:#009688,color:#fff
+    style DB fill:#3FCF8E,color:#fff
+    style AUTH fill:#3FCF8E,color:#fff
+    style STORAGE fill:#3FCF8E,color:#fff
 ```
 
 ---
@@ -130,10 +129,16 @@ flowchart LR
     O --> Q[Tornado<br/>Sensitivity]
     O --> R[Criticality<br/>Index]
 
+    B --> S[Float Trends<br/>Multi-update]
+    S --> T[Early Warning<br/>12 Rules]
+    T --> U[Health Score<br/>Composite]
+    U --> V[PDF Report]
+
     style A fill:#FF3E00,color:#fff
     style G fill:#009688,color:#fff
     style I fill:#D97757,color:#fff
     style P fill:#013243,color:#fff
+    style U fill:#3FCF8E,color:#fff
 ```
 
 ---
@@ -147,10 +152,10 @@ flowchart LR
 | v0.3.0 | **Claims** | TIA + Contract Compliance | ✅ Released |
 | v0.4.0 | **Controls** | EVM / WBS-CBS-BOQ | ✅ Released |
 | v0.5.0 | **Risk** | Monte Carlo / QSRA | ✅ Released |
-| v0.6 | **Cloud** | Supabase + Fly.io + CF Pages | 🚧 Next |
-| v0.7 | **Identity** | Auth + RLS + Ownership | 🔜 Planned |
-| v0.8 | **Intelligence** | Float Trends + Early Warning | 🔜 Planned |
-| v0.9 | **Polish** | UX + Performance + CI/CD | 🔜 Planned |
+| v0.6 | **Cloud** | Supabase + Fly.io + CF Pages | ✅ Released |
+| v0.7 | **Identity** | Auth + RLS + Ownership | ✅ Released |
+| v0.8 | **Intelligence** | Float Trends + Early Warning + Health Score | ✅ Released |
+| v0.9 | **Polish** | UX + Performance + CI/CD | 🚧 Next |
 | v1.0 | **Enterprise** | Teams + IPS Reconciliation + Audit | 🔜 Planned |
 | v2.0 | **AI** | ML Predictions · NLP · Anomaly Detection | 🔮 Future |
 
@@ -160,10 +165,22 @@ See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.12+
+- Node.js 20+
+- A [Supabase](https://supabase.com) project (free tier) with URL and anon/service keys
+
+### Local Development
+
 ```bash
 # Clone
 git clone https://github.com/VitorMRodovalho/meridianiq.git
 cd meridianiq
+
+# Configure environment
+cp .env.example .env
+# Edit .env: set SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
 # Backend
 pip install -e ".[dev]"
@@ -182,6 +199,10 @@ npm run dev -- --port 5173
 docker compose up
 ```
 
+### Live Platform
+
+The platform is deployed and available at **[meridianiq.pages.dev](https://meridianiq.pages.dev)**.
+
 ---
 
 ## Technical Stack
@@ -191,10 +212,15 @@ docker compose up
 | **Backend** | Python 3.12+ · FastAPI · Pydantic v2 |
 | **CPM Engine** | NetworkX (BSD) |
 | **Monte Carlo** | NumPy (BSD) |
+| **PDF Generation** | WeasyPrint |
 | **Frontend** | SvelteKit · Tailwind CSS v4 |
 | **Charts** | SVG (hand-crafted, zero dependencies) |
-| **Deployment** | Docker · docker-compose |
-| **Testing** | pytest (222 tests, <2s) |
+| **Database** | Supabase PostgreSQL (managed, RLS enforced) |
+| **File Storage** | Supabase Storage (RLS buckets) |
+| **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
+| **Backend Hosting** | Fly.io (Docker, auto-deploy) |
+| **Frontend Hosting** | Cloudflare Pages (global edge) |
+| **Testing** | pytest (332 passing, <30s) |
 
 ---
 
@@ -205,6 +231,7 @@ MeridianIQ implements methodologies from these published standards:
 | Standard | Application |
 |----------|------------|
 | AACE RP 29R-03 | Forensic Schedule Analysis |
+| AACE RP 49R-06 | Documenting the Schedule Basis |
 | AACE RP 52R-06 | Time Impact Analysis |
 | AACE RP 57R-09 | Integrated Cost and Schedule Risk Analysis |
 | AACE RP 10S-90 | Cost Engineering Terminology |
@@ -233,12 +260,19 @@ meridianiq/
 │   │   ├── tia.py        # TIA per AACE RP 52R-06
 │   │   ├── contract.py   # Contract compliance
 │   │   ├── evm.py        # EVM per ANSI/EIA-748
-│   │   └── risk.py       # Monte Carlo per AACE RP 57R-09
+│   │   ├── risk.py       # Monte Carlo per AACE RP 57R-09
+│   │   ├── float_trends.py     # Float trend tracking
+│   │   ├── early_warning.py    # 12-rule early warning engine
+│   │   ├── health_score.py     # Composite schedule health metric
+│   │   └── report_generator.py # WeasyPrint PDF reports
+│   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
-│       ├── app.py        # FastAPI (32 endpoints)
+│       ├── app.py        # FastAPI (40+ endpoints)
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind
-├── tests/                # 222 tests
+├── tests/                # 332 tests
+├── supabase/
+│   └── migrations/       # PostgreSQL schema migrations
 ├── docs/                 # Discovery & definition documents
 ├── v1-reader/            # Legacy P6 reader (upstream attribution)
 ├── v1-compare/           # Original XER compare tool
@@ -258,11 +292,11 @@ meridianiq/
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Areas where help is needed:**
-- 🌍 Additional schedule formats (Microsoft Project XML, Asta Powerproject)
-- 🔬 Methodology validation against real-world experience
-- 🏗️ International contract compliance (FIDIC, NEC, JCT)
-- ⚡ Performance optimization for 50,000+ activity schedules
-- 📊 Additional chart types and visualizations
+- Additional schedule formats (Microsoft Project XML, Asta Powerproject)
+- Methodology validation against real-world experience
+- International contract compliance (FIDIC, NEC, JCT)
+- Performance optimization for 50,000+ activity schedules
+- Additional chart types and visualizations
 
 ---
 

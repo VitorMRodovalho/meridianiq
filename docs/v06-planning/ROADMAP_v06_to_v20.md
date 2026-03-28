@@ -1,10 +1,10 @@
-<!-- Last updated: 2026-03-27 -->
+<!-- Last updated: 2026-03-28 -->
 # MeridianIQ — Roadmap v0.6 → v2.0
 
 **Document Type:** Planning Specification
 **Status:** Approved
 **Author:** Vitor Maia Rodovalho
-**Date:** 2026-03-27
+**Date:** 2026-03-28
 
 ---
 
@@ -19,8 +19,8 @@ The following decisions were made during the v0.6 planning session, resolving al
 | 1 | Open-source vs open-core | **MIT pure** — entire platform free, zero paywall | Academic/portfolio project. MIT "AS IS" clause provides legal protection. Open-core remains possible in the future via separate enterprise module without changing core license. |
 | 2 | SQLite vs PostgreSQL | **Supabase PostgreSQL directly** — skip SQLite | Author has production Supabase experience. RLS built-in, managed service, free tier covers v0.6→v1.0. |
 | 3 | Epic count (10 vs 16) | **16 epics acknowledged** — 6 new from expert consultation integrated into roadmap | New epics (11-16) mapped to v0.8-v2.0 based on priority. |
-| 4 | API paths | **`/api/v1/` prefix is canonical** — ARCHITECTURE_DRAFT.md paths are historical | Current implementation (32+ endpoints) is the authority. |
-| 5 | Version labeling | **Git tags are canonical** — MVP_DEFINITION.md is historical | v0.1.0-v0.5.0 released and tagged. Roadmap continues from v0.6. |
+| 4 | API paths | **`/api/v1/` prefix is canonical** — ARCHITECTURE_DRAFT.md paths are historical | Current implementation (40+ endpoints) is the authority. |
+| 5 | Version labeling | **Git tags are canonical** — MVP_DEFINITION.md is historical | v0.1.0-v0.5.0, v0.7.0, v0.8.0 released and tagged. Roadmap continues from v0.9. |
 
 ### Architecture Decisions
 
@@ -41,11 +41,10 @@ The following decisions were made during the v0.6 planning session, resolving al
 graph TB
     subgraph "Edge Layer — Cloudflare"
         CF_PAGES["CF Pages<br/>SvelteKit Frontend<br/>(global edge delivery)"]
-        CF_WORKER["CF Workers<br/>API Gateway<br/>(CORS · routing · rate limit)"]
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (8)<br/>ML Models (v2.0)"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (10)<br/>40+ endpoints"]
         QUEUE["Job Queue<br/>Celery + Redis<br/>(v2.0: batch + ML)"]
     end
 
@@ -60,8 +59,7 @@ graph TB
         POSTHOG["PostHog<br/>Analytics"]
     end
 
-    CF_PAGES <-->|"REST"| CF_WORKER
-    CF_WORKER <-->|"Proxy"| FASTAPI
+    CF_PAGES <-->|"REST"| FASTAPI
     FASTAPI <-->|"SQL"| DB
     FASTAPI -->|"Store/Read"| STORAGE
     FASTAPI -->|"Verify JWT"| AUTH
@@ -72,7 +70,6 @@ graph TB
     FASTAPI --> SENTRY
 
     style CF_PAGES fill:#F38020,color:#fff
-    style CF_WORKER fill:#F38020,color:#fff
     style FASTAPI fill:#009688,color:#fff
     style DB fill:#3FCF8E,color:#fff
     style AUTH fill:#3FCF8E,color:#fff
@@ -86,18 +83,18 @@ graph TB
 | Supabase | 500MB DB, 1GB storage, 50K auth users | v1.0+ | $25/mo (Pro) |
 | Cloudflare Pages | Unlimited bandwidth, 500 builds/mo | v2.0 | Free forever |
 | Cloudflare Workers | 100K requests/day | v2.0 | $5/mo |
-| Fly.io | 3 shared VMs, 160GB outbound | ~v0.8 | $5-10/mo |
+| Fly.io | 3 shared VMs, 160GB outbound | ~v0.9 | $5-10/mo |
 | Sentry | 5K errors/mo | v1.0 | Free forever (OSS plan) |
 | PostHog | 1M events/mo | v1.0 | Free forever (OSS plan) |
-| **Total** | **$0/mo** | **~v0.8** | **~$10-35/mo** |
+| **Total** | **$0/mo** | **~v0.9** | **~$10-35/mo** |
 
 ---
 
 ## Version Roadmap
 
-### v0.5.0 "Risk" — ✅ RELEASED (Current)
+### v0.5.0 "Risk" — ✅ RELEASED
 
-**What exists today:**
+**What existed at v0.5.0:**
 - 8 analysis engines (Parser, CPM, DCMA, Comparison, CPA, TIA, EVM, Monte Carlo)
 - 222 tests passing
 - ~9,150 lines Python, 32+ endpoints
@@ -109,78 +106,125 @@ graph TB
 
 ---
 
-### v0.6 "Cloud" — From localhost to the world
+### v0.6 "Cloud" — ✅ RELEASED
 
-**Objective:** Any scheduler in the world visits the platform, uploads an XER, and sees analysis results. No login required for basic use.
+**Objective:** Any scheduler in the world visits the platform, uploads an XER, and sees analysis results.
+
+**What was delivered:**
+- Supabase PostgreSQL project, schema, and data layer abstraction
+- In-memory → Supabase PostgreSQL migration for all schedule data
+- Supabase Storage integration — XER files stored in RLS buckets
+- Fly.io deployment — Dockerfile, fly.toml, auto-deploy from GitHub main
+- Cloudflare Pages deployment — SvelteKit adapter-cloudflare, live at meridianiq.pages.dev
+- Environment configuration — .env management for Supabase/Fly.io secrets
+- Basic error handling — global exception handler, structured errors
+
+**NOT delivered in v0.6:**
+- CF Workers API proxy (direct CF Pages → Fly.io instead)
+- Custom domain (meridianiq.app / .dev)
+- Sentry integration
 
 **Scope:**
 
-| # | Item | Description | Effort | Priority |
-|---|------|-------------|--------|----------|
-| 1 | Supabase project setup | Create project, configure schema for 16+ entities | High | P0 |
-| 2 | Database migration | Replace in-memory dict store with Supabase PostgreSQL | High | P0 |
-| 3 | Parser versioning | Each parsed XER stored with parser_version | Medium | P1 |
-| 4 | Supabase Storage integration | XER file uploads persist in Supabase Storage bucket | Medium | P0 |
-| 5 | Fly.io deployment | Dockerfile + fly.toml. Auto-deploy from GitHub main branch | Medium | P0 |
-| 6 | Cloudflare Pages deployment | SvelteKit adapter-cloudflare. Build from web/ directory | Medium | P0 |
-| 7 | CF Workers API proxy | Route /api/* requests to Fly.io backend | Medium | P1 |
-| 8 | Domain setup | meridianiq.app or meridianiq.dev — CF DNS + SSL | Low | P1 |
-| 9 | PDF export | Generate PDF reports for DCMA, comparison, forensic results | Medium | P2 |
-| 10 | Environment configuration | .env management for Supabase URL/keys, Fly.io secrets | Low | P0 |
-| 11 | Basic error handling | Global exception handler, structured errors, Sentry integration | Low | P1 |
-
-**Does NOT include:** Authentication, user accounts, rate limiting, CI/CD.
-
-**Exit criteria:** A public URL where anyone can upload an XER and see DCMA + milestones + float + critical path + comparison results. Data persists across server restarts.
+| # | Item | Description | Effort | Priority | Status |
+|---|------|-------------|--------|----------|--------|
+| 1 | Supabase project setup | Create project, configure schema for 16+ entities | High | P0 | ✅ Done |
+| 2 | Database migration | Replace in-memory dict store with Supabase PostgreSQL | High | P0 | ✅ Done |
+| 3 | Parser versioning | Each parsed XER stored with parser_version | Medium | P1 | ❌ Deferred |
+| 4 | Supabase Storage integration | XER file uploads persist in Supabase Storage bucket | Medium | P0 | ✅ Done |
+| 5 | Fly.io deployment | Dockerfile + fly.toml. Auto-deploy from GitHub main branch | Medium | P0 | ✅ Done |
+| 6 | Cloudflare Pages deployment | SvelteKit adapter-cloudflare. Build from web/ directory | Medium | P0 | ✅ Done |
+| 7 | CF Workers API proxy | Route /api/* requests to Fly.io backend | Medium | P1 | ❌ Not implemented |
+| 8 | Domain setup | meridianiq.app or meridianiq.dev — CF DNS + SSL | Low | P1 | ❌ Not done |
+| 9 | PDF export | Generate PDF reports for DCMA, comparison, forensic results | Medium | P2 | ↗ Deferred to v0.8 |
+| 10 | Environment configuration | .env management for Supabase URL/keys, Fly.io secrets | Low | P0 | ✅ Done |
+| 11 | Basic error handling | Global exception handler, structured errors, Sentry integration | Low | P1 | ✅ Partial (no Sentry) |
 
 ---
 
-### v0.7 "Identity" — Who is the user
+### v0.7 "Identity" — ✅ RELEASED
 
 **Objective:** Users create accounts. Uploads belong to their profile. Data is private by default.
 
+**What was delivered:**
+- Google + Microsoft + LinkedIn OAuth via Supabase Auth
+- ES256 JWT with JWKS endpoint for backend verification
+- Row Level Security (RLS) policies — users only see own data
+- API authentication — Bearer token on all protected endpoints
+- Frontend auth flow — login page, OAuth redirect, session management, logout
+- User ownership on all ScheduleUpload records
+
+**NOT delivered in v0.7:**
+- Anonymous/demo mode (unauthenticated access to sample data)
+- Account settings page (view profile, usage stats)
+
 **Scope:**
 
-| # | Item | Description | Effort | Priority |
-|---|------|-------------|--------|----------|
-| 1 | Supabase Auth integration | Google + LinkedIn + Microsoft OAuth. JWT tokens | Medium | P0 |
-| 2 | User profiles table | id, name, email, company, role, created_at | Low | P0 |
-| 3 | Project ownership | Every ScheduleUpload has user_id FK | Medium | P0 |
-| 4 | Row Level Security | PostgreSQL RLS policies: user only sees own data | Medium | P0 |
-| 5 | API authentication | Bearer token on all /api/v1/* endpoints | Medium | P0 |
-| 6 | Frontend auth flow | Login page, OAuth redirect, session management, logout | Medium | P0 |
-| 7 | Anonymous/demo mode | Unauthenticated access to sample data | Low | P2 |
-| 8 | Account settings page | View profile, change display name, usage stats | Low | P2 |
+| # | Item | Description | Effort | Priority | Status |
+|---|------|-------------|--------|----------|--------|
+| 1 | Supabase Auth integration | Google + LinkedIn + Microsoft OAuth. JWT tokens | Medium | P0 | ✅ Done |
+| 2 | User profiles table | id, name, email, company, role, created_at | Low | P0 | ✅ Done |
+| 3 | Project ownership | Every ScheduleUpload has user_id FK | Medium | P0 | ✅ Done |
+| 4 | Row Level Security | PostgreSQL RLS policies: user only sees own data | Medium | P0 | ✅ Done |
+| 5 | API authentication | Bearer token on all /api/v1/* endpoints | Medium | P0 | ✅ Done |
+| 6 | Frontend auth flow | Login page, OAuth redirect, session management, logout | Medium | P0 | ✅ Done |
+| 7 | Anonymous/demo mode | Unauthenticated access to sample data | Low | P2 | ❌ Deferred |
+| 8 | Account settings page | View profile, change display name, usage stats | Low | P2 | ❌ Deferred |
 
 **Does NOT include:** Teams, organizations, sharing, admin panel.
 
-**Exit criteria:** User logs in with Google/LinkedIn/Microsoft. Uploads are private. Cannot see other users' data.
-
 ---
 
-### v0.8 "Intelligence" — The killer differentiator
+### v0.8 "Intelligence" — ✅ RELEASED
 
 **Objective:** Features that no open-source competitor offers. Proactive schedule monitoring.
 
+**What was delivered:**
+- Float trend tracking — track float distribution across sequential uploads
+- Early Warning System — 12 configurable alert rules (float velocity, CP changes, DCMA threshold breaches, etc.)
+- Schedule Health Score — composite metric combining DCMA score, float health, critical path stability, and early warning signals
+- PDF Reports — 5 report types via WeasyPrint (DCMA, comparison, forensic, EVM, health summary)
+- Auto-pipeline — upload → parse → validate → compute trends → check alerts → update health score
+- Enhanced dashboard — KPIs, project alerts panel, health score widget
+
+**NOT delivered in v0.8:**
+- Enhanced manipulation scoring (Normal / Suspicious / Red Flag classification)
+- Monthly review template (standardized workflow, exportable PDF)
+- Novel metrics (float entropy, constraint accumulation rate)
+
 **Scope:**
 
-| # | Item | Description | Effort | Priority |
-|---|------|-------------|--------|----------|
-| 1 | Float trend tracking | Track float distribution across sequential uploads | High | P0 |
-| 2 | Early Warning System | Alert thresholds for float velocity, CP changes | High | P0 |
-| 3 | Schedule Review Pipeline | Automated upload → validate → report → notify | High | P0 |
-| 4 | Enhanced manipulation scoring | Normal / Suspicious / Red Flag classification | Medium | P1 |
-| 5 | Schedule Health Score | Composite metric combining all indicators | Medium | P1 |
-| 6 | Monthly review template | Standardized workflow, exportable PDF | Medium | P2 |
-| 7 | Novel metrics | Float velocity, float entropy, constraint accumulation rate | Low | P2 |
+| # | Item | Description | Effort | Priority | Status |
+|---|------|-------------|--------|----------|--------|
+| 1 | Float trend tracking | Track float distribution across sequential uploads | High | P0 | ✅ Done |
+| 2 | Early Warning System | Alert thresholds for float velocity, CP changes | High | P0 | ✅ Done (12 rules) |
+| 3 | Schedule Review Pipeline | Automated upload → validate → report → notify | High | P0 | ✅ Done |
+| 4 | Enhanced manipulation scoring | Normal / Suspicious / Red Flag classification | Medium | P1 | ❌ Deferred |
+| 5 | Schedule Health Score | Composite metric combining all indicators | Medium | P1 | ✅ Done |
+| 6 | Monthly review template | Standardized workflow, exportable PDF | Medium | P2 | ❌ Deferred |
+| 7 | Novel metrics | Float velocity, float entropy, constraint accumulation rate | Low | P2 | ❌ Deferred (float velocity done; entropy/CAR not) |
 
 **Does NOT include:** ML-based prediction, NLP, federated learning.
 
-**Exit criteria:** Dashboard shows float trend over time. Alert fires when float deteriorates beyond threshold. One-click review generates comprehensive PDF report.
+---
+
+### "What exists today" — v0.8.1 State
+
+- **10 analysis engines:** Parser, CPM, DCMA, Comparison, CPA, TIA, EVM, Monte Carlo, Float Trends + Early Warning, Health Score
+- **332 tests passing** (6 skipped)
+- **~12,000+ lines Python**, 40+ endpoints
+- **SvelteKit frontend** — 16+ pages
+- **Supabase PostgreSQL** — persistent data, RLS enforced
+- **Supabase Storage** — XER files and generated PDFs
+- **Supabase Auth** — Google + Microsoft + LinkedIn OAuth, ES256 JWT
+- **Fly.io** — containerised backend, auto-deploy from main
+- **Cloudflare Pages** — live at [meridianiq.pages.dev](https://meridianiq.pages.dev)
+- **Supabase migrations** — 4 migration files (001–004)
+- **Known issue:** Fly.io cold start ~10s causes 502 + CORS on first request
 
 ---
 
-### v0.9 "Polish" — Production-grade quality
+### v0.9 "Polish" — 🚧 Next
 
 **Objective:** Transform from developer prototype to professional tool.
 
@@ -197,6 +241,9 @@ graph TB
 | 7 | Documentation site | User guides, API reference, video walkthroughs | Medium | P2 |
 | 8 | Onboarding flow | Guided first-time user experience | Low | P2 |
 | 9 | Internationalization | i18n infrastructure. EN default, PT-BR and ES ready | Medium | P2 |
+| 10 | Fix cold start | Resolve Fly.io ~10s cold start causing 502+CORS on first request | Medium | P0 |
+| 11 | Anonymous/demo mode | Unauthenticated access to sample data (deferred from v0.7) | Low | P2 |
+| 12 | Account settings page | View profile, change display name, usage stats (deferred from v0.7) | Low | P2 |
 
 **Does NOT include:** New analysis features. Quality, not features.
 
@@ -262,20 +309,16 @@ gantt
     v0.3 Claims              :done, v03, 2026-03, 2026-03
     v0.4 Controls            :done, v04, 2026-03, 2026-03
     v0.5 Risk                :done, v05, 2026-03, 2026-03
+    v0.6 Cloud               :done, v06, 2026-03, 2026-03
+    v0.7 Identity            :done, v07, 2026-03, 2026-03
+    v0.8 Intelligence        :done, v08, 2026-03, 2026-03
 
-    section Cloud & Identity
-    v0.6 Cloud               :active, v06, 2026-04, 2026-05
-    v0.7 Identity            :v07, 2026-05, 2026-06
-
-    section Intelligence & Polish
-    v0.8 Intelligence        :v08, 2026-06, 2026-08
-    v0.9 Polish              :v09, 2026-08, 2026-10
-
-    section Enterprise
-    v1.0 Enterprise          :v10, 2026-10, 2027-02
+    section Polish & Enterprise
+    v0.9 Polish              :active, v09, 2026-04, 2026-06
+    v1.0 Enterprise          :v10, 2026-06, 2026-10
 
     section AI
-    v2.0 AI/ML               :v20, 2027-02, 2027-08
+    v2.0 AI/ML               :v20, 2026-10, 2027-04
 ```
 
 | Version | Codename | Focus | Key Deliverable |
@@ -285,9 +328,9 @@ gantt
 | ~~v0.3~~ | ~~Claims~~ | ~~TIA + Contract Compliance~~ | ✅ Released |
 | ~~v0.4~~ | ~~Controls~~ | ~~EVM + Rebrand~~ | ✅ Released |
 | ~~v0.5~~ | ~~Risk~~ | ~~Monte Carlo / QSRA~~ | ✅ Released |
-| **v0.6** | **Cloud** | **Supabase + Fly.io + CF Pages** | Public URL, persistent data |
-| **v0.7** | **Identity** | **Auth + RLS + Ownership** | User accounts, private data |
-| **v0.8** | **Intelligence** | **Float trends + Early Warning** | Proactive monitoring |
+| ~~v0.6~~ | ~~Cloud~~ | ~~Supabase + Fly.io + CF Pages~~ | ✅ Released |
+| ~~v0.7~~ | ~~Identity~~ | ~~Auth + RLS + Ownership~~ | ✅ Released |
+| ~~v0.8~~ | ~~Intelligence~~ | ~~Float Trends + Early Warning + Health Score~~ | ✅ Released |
 | **v0.9** | **Polish** | **UX + Performance + CI/CD** | Production quality |
 | **v1.0** | **Enterprise** | **Teams + IPS + Audit** | Multi-org, litigation-ready |
 | **v2.0** | **AI** | **ML + NLP + Prediction** | Predictive intelligence |
@@ -299,12 +342,13 @@ gantt
 | Standard | Applied In |
 |----------|-----------|
 | AACE RP 29R-03 | Forensic Schedule Analysis (v0.2), Recovery Schedule Validation (v1.0) |
+| AACE RP 49R-06 | Documenting the Schedule Basis — Float Trend Tracking (v0.8) |
 | AACE RP 52R-06 | Time Impact Analysis (v0.3) |
 | AACE RP 57R-09 | Monte Carlo QSRA (v0.5) |
 | AACE RP 10S-90 | EVM Terminology (v0.4) |
 | AACE RP 71R-12 | IPS Reconciliation (v1.0) |
 | ANSI/EIA-748 | Earned Value Management (v0.4) |
-| DCMA EVMS | 14-Point Assessment (v0.1) |
+| DCMA EVMS | 14-Point Assessment (v0.1), Early Warning thresholds (v0.8) |
 | GAO Schedule Guide | Schedule Assessment Methodology (v0.1) |
 | SCL Protocol | Delay and Disruption Protocol (v0.3) |
 | AIA A201 | Contract Compliance (v0.3) |

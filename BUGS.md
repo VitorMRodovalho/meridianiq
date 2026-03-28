@@ -1,59 +1,105 @@
-# Known Bugs — v0.1.0
+# Known Issues — v0.8.1
 
-## BUG-001: Milestones not detected in real XER files
-- **Status:** FIXED (2026-03-25)
-- **Severity:** HIGH
-- **Root Cause:** Milestone filter in `src/api/app.py` used case-sensitive matching (`"TT_mile", "TT_finmile"`). P6 versions export task_type values in varying case (`TT_Mile`, `TT_mile`, `TT_FinMile`, `TT_finmile`).
-- **Fix:** Changed to case-insensitive comparison using `.lower()` against a set of lowercase milestone types.
-- **Files changed:** `src/api/app.py` (milestones endpoint)
-- **Verified:** Sample XER now returns 5 milestones (3 TT_mile + 2 TT_finmile)
-
-## BUG-002: Case sensitivity in task_type and status_code matching
-- **Status:** FIXED (2026-03-25)
-- **Severity:** MEDIUM
-- **Root Cause:** Multiple locations in DCMA analyzer and API endpoints used case-sensitive string comparisons for task_type and status_code values.
-- **Fix:** Applied `.lower()` normalization across all comparisons in:
-  - `src/analytics/dcma14.py` — incomplete/countable filters, missed tasks, BEI, resource check
-  - `src/api/app.py` — float distribution filter, milestones filter
-- **Verified:** All 14 DCMA checks work correctly regardless of P6 version case conventions
-
-## BUG-003: Calendar-aware duration calculation not implemented
-- **Status:** OPEN
-- **Severity:** MEDIUM
-- **Description:** CPM engine uses raw duration hours divided by 8 (assumed 8hr day). Real P6 schedules have per-calendar work hours (day_hr_cnt, week_hr_cnt) and non-work days. The CPM forward/backward pass should use the assigned calendar for each activity.
-- **Fix location:** `src/analytics/cpm.py`
-- **Impact:** Duration and float calculations may be slightly off for schedules with non-standard calendars (e.g., 6-day weeks, 10-hour days)
-
-## BUG-004: Frontend types may not match API response shapes
-- **Status:** OPEN
-- **Severity:** LOW
-- **Description:** TypeScript interfaces in `web/src/lib/types.ts` were written to match expected API schemas but actual response key names may differ. New `wbs_stats` field added to ProjectDetailResponse needs frontend type update.
-- **Fix:** Run frontend against live backend and fix type mismatches as they surface
-- **Fix location:** `web/src/lib/types.ts`, page components
-
-## BUG-005: DCMA Pass/Fail Logic for Zero-Threshold Checks
-- **Status:** VERIFIED NOT A BUG (2026-03-25)
-- **Severity:** N/A
-- **Description:** Reported that Leads=0% and Invalid Dates=0% showed FAIL. Investigation found the source code already used `<=` for "lower is better" checks, which correctly evaluates `0.0 <= 0.0 = True (PASS)`. The issue was likely in the frontend rendering, not the backend logic.
-- **Verified:** Backend correctly returns `passed: true` for Leads=0.0% and Invalid Dates=0.0%
-
-## OBS-001: WBS Elements Display Enhancement
-- **Status:** FIXED (2026-03-25)
-- **Severity:** MEDIUM (enhancement)
-- **Description:** Overview tab showed only "WBS Elements: 4" — just the total count. Real schedules have deep WBS hierarchies (5-7 levels) and need richer analysis.
-- **Fix:** Added `WBSStats` schema and `_compute_wbs_stats()` function to project detail endpoint. Now returns: total elements, max depth, count by level, avg/min/max activities per WBS node, WBS nodes with no activities.
-- **Files changed:** `src/api/schemas.py` (added WBSStats, WBSLevelCount), `src/api/app.py` (added _compute_wbs_stats, updated project detail endpoint)
-- **Verified:** Sample XER returns: 10 elements, 3 levels, avg 3.0 activities/WBS
+Bug tracking for MeridianIQ. Entries are prioritized P1 (production-blocking) → P3 (minor).
 
 ---
 
-## PENDING REAL-WORLD TESTING
-- [ ] Overview tab — verify with real XER (activity counts, status distribution)
-- [ ] DCMA 14-Point — verify scoring accuracy vs Schedule Validator output
-- [ ] Critical Path — verify CP identification (calendar/workday issues possible)
-- [ ] Float Distribution — verify bucketing with real float values (P6 stores in hours, need conversion)
-- [ ] Compare — test with two consecutive real schedule updates
-- [x] Milestones — fixed case-insensitive detection (BUG-001)
-- [ ] Upload — test with large XER files (1000+ activities)
-- [ ] Encoding — test with XER files containing special characters (accents, symbols)
-- [ ] WBS Stats — verify hierarchy depth calculation with real deep WBS
+## P1 — Production Issues
+
+### BUG-006: ReferenceError — circular store dependency in production build
+
+- **Status:** OPEN
+- **Severity:** P1 — breaks production frontend
+- **Description:** SvelteKit production build (`npm run build`) throws a `ReferenceError` caused by a circular dependency between Svelte stores (auth store ↔ project store). Works correctly in dev mode (`npm run dev`). Likely introduced during v0.8.1 dashboard wiring.
+- **Symptom:** Page renders blank or crashes on first load in deployed CF Pages environment.
+- **Fix location:** `web/src/lib/stores/` — identify and break the circular import
+- **Workaround:** None. Must be fixed before any frontend deploy from a clean build.
+
+### BUG-007: Fly.io cold start causes 502 + CORS on first request
+
+- **Status:** OPEN
+- **Severity:** P1 — degrades first-use experience
+- **Description:** Fly.io free-tier machines scale to zero after inactivity. Cold start takes approximately 10 seconds. During startup, the first request(s) receive a 502 from Fly.io's proxy, which the browser interprets as a CORS failure (no CORS headers on the 502 response).
+- **Symptom:** First API call after period of inactivity fails with `Failed to fetch` / CORS error in browser console. Subsequent calls succeed normally.
+- **Fix options:** (a) Keep-alive ping from CF Pages edge on a schedule, (b) Fly.io `min_machines_running = 1` (costs ~$2/mo), (c) Frontend retry with exponential backoff and user-visible "warming up…" message.
+- **Fix location:** `fly.toml` and/or `web/src/lib/api.ts`
+
+---
+
+## P2 — Functional Issues
+
+### BUG-008: DCMA checks #2 and #9 — threshold display inconsistency
+
+- **Status:** OPEN
+- **Severity:** P2 — misleading UI output
+- **Description:** DCMA checks #2 (Leads) and #9 (Invalid Dates) display a non-zero percentage in the frontend even when the backend returns `value: 0.0` and `passed: true`. The threshold label also sometimes shows `> 0%` instead of `= 0%` for zero-tolerance checks.
+- **Fix location:** Frontend component rendering the DCMA results table — likely `web/src/routes/projects/[id]/+page.svelte` or a shared DCMA component.
+
+### BUG-009: Orphan project from pre-v0.8.1 uploads
+
+- **Status:** OPEN
+- **Severity:** P2 — data integrity
+- **Description:** Projects uploaded before the v0.8.1 storage refactor (migration `004_storage_refactor.sql`) have `xer_storage_path = NULL` and `user_id = NULL` because the upload pipeline previously stored files inline. These orphan rows appear in the projects list but fail to load analysis results.
+- **Fix location:** `src/database/store.py` — add null-guard on `xer_storage_path`; optionally backfill or soft-delete orphan rows via a one-time migration.
+
+---
+
+## P3 — Minor Issues
+
+### BUG-010: v0.6 git tag missing from history
+
+- **Status:** OPEN
+- **Severity:** P3 — documentation/history only
+- **Description:** Git tags exist for v0.1.0–v0.5.0, v0.7.0, and v0.8.0. The `v0.6.0` tag was never created. The v0.6 Cloud release was delivered across several commits but not formally tagged.
+- **Fix:** `git tag v0.6.0 <commit-sha>` and `git push origin v0.6.0` — identify the commit that completed Cloudflare Pages deployment as the tag target.
+
+---
+
+## Previously Fixed
+
+| ID | Description | Fixed In |
+|----|-------------|---------|
+| BUG-001 | Milestones not detected — case-sensitive task_type matching | 2026-03-25 |
+| BUG-002 | Case sensitivity in task_type/status_code across DCMA + API | 2026-03-25 |
+| OBS-001 | WBS display showed count only — added WBSStats hierarchy | 2026-03-25 |
+
+---
+
+## Deferred Backlog (not bugs — planned features)
+
+These were scoped for earlier versions but deferred. Tracked here to avoid losing context.
+
+| Item | Original Version | Notes |
+|------|-----------------|-------|
+| Parser versioning | v0.6 P1 | Each parsed XER stored with `parser_version` field |
+| Enhanced manipulation scoring | v0.8 P1 | Normal / Suspicious / Red Flag classification with scoring rationale |
+| Monthly review template | v0.8 P2 | Standardized workflow, exportable PDF |
+| Novel metrics — float entropy | v0.8 P2 | Entropy-based float distribution analysis |
+| Novel metrics — constraint accumulation rate | v0.8 P2 | Track constraint growth over schedule updates |
+| Anonymous/demo mode | v0.7 P2 | Unauthenticated access to curated sample project |
+| Account settings page | v0.7 P2 | View profile, display name, usage statistics |
+
+---
+
+## Open Testing Checklist
+
+Real-world XER testing (in addition to unit tests):
+
+- [ ] Upload — test with large XER files (1,000+ activities)
+- [ ] Upload — test with XER files containing special characters (accents, symbols)
+- [ ] DCMA 14-Point — verify scoring accuracy against Schedule Validator reference output
+- [ ] Critical Path — verify CP identification on calendar with non-standard work hours
+- [ ] Float Distribution — verify P6 hours → days conversion on non-8hr calendars
+- [ ] Compare — test with two consecutive real-world schedule updates
+- [ ] Float Trends — verify trend calculation with 3+ sequential uploads
+- [ ] Early Warning — verify all 12 rules fire correctly against known test cases
+- [ ] PDF Reports — verify layout and data accuracy for all 5 report types
+- [ ] Auth — test token expiry and refresh flow
+
+---
+
+<div align="center">
+
+**MeridianIQ** · MIT License · © 2025 Vitor Maia Rodovalho
+
+</div>
