@@ -1,5 +1,5 @@
 <script lang="ts">
-	const API = import.meta.env.VITE_API_URL || "";
+	import { getEVMAnalyses, createEVMAnalysis, getProjects } from '$lib/api';
 
 	let analyses: any[] = $state([]);
 	let projects: any[] = $state([]);
@@ -9,8 +9,7 @@
 
 	async function loadAnalyses() {
 		try {
-			const res = await fetch(`${API}/api/v1/evm/analyses`);
-			const data = await res.json();
+			const data = await getEVMAnalyses();
 			analyses = data.analyses || [];
 		} catch {
 			/* ignore */
@@ -19,8 +18,7 @@
 
 	async function loadProjects() {
 		try {
-			const res = await fetch(`${API}/api/v1/projects`);
-			const data = await res.json();
+			const data = await getProjects();
 			projects = data.projects || [];
 		} catch {
 			/* ignore */
@@ -32,18 +30,10 @@
 		loading = true;
 		error = '';
 		try {
-			const res = await fetch(`${API}/api/v1/evm/analyze/${selectedProject}`, {
-				method: 'POST'
-			});
-			if (!res.ok) {
-				const err = await res.json();
-				error = err.detail || 'Analysis failed';
-				return;
-			}
-			const result = await res.json();
+			const result = await createEVMAnalysis(selectedProject);
 			window.location.href = `/evm/${result.analysis_id}`;
 		} catch (e: any) {
-			error = e.message || 'Network error';
+			error = e.message || 'Analysis failed';
 		} finally {
 			loading = false;
 		}

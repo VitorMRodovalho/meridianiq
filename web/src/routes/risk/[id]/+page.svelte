@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-
-	const API = (import.meta.env.VITE_API_URL || "") + "/api/v1";
+	import { page } from '$app/state';
+	import { getRiskSimulation } from '$lib/api';
 
 	interface PValue { percentile: number; duration_days: number; delta_days: number; }
 	interface HistogramBin { bin_start: number; bin_end: number; count: number; frequency: number; }
@@ -9,7 +8,7 @@
 	interface SensitivityEntry { activity_id: string; activity_name: string; correlation: number; }
 	interface SCurvePoint { duration_days: number; cumulative_probability: number; }
 
-	let simulationId = $derived($page.params.id);
+	const simulationId = $derived(page.params.id);
 	let loading = $state(true);
 	let error = $state('');
 
@@ -29,9 +28,7 @@
 		loading = true;
 		error = '';
 		try {
-			const res = await fetch(`${API}/risk/simulations/${simulationId}`);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = await res.json();
+			const data = await getRiskSimulation(simulationId);
 			projectName = data.project_name;
 			iterations = data.iterations;
 			deterministicDays = data.deterministic_days;
@@ -62,9 +59,6 @@
 	function histogramBars() {
 		if (!histogram.length) return [];
 		const maxCount = Math.max(...histogram.map(b => b.count));
-		const minX = histogram[0].bin_start;
-		const maxX = histogram[histogram.length - 1].bin_end;
-		const xRange = maxX - minX || 1;
 		const barW = (W - 2 * PAD) / histogram.length;
 
 		return histogram.map((b, i) => ({

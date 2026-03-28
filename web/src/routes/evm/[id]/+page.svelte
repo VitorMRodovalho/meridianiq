@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-
-	const API = import.meta.env.VITE_API_URL || "";
+	import { getEVMAnalysis } from '$lib/api';
 
 	let analysis: any = $state(null);
 	let loading = $state(true);
@@ -12,12 +11,7 @@
 	async function loadAnalysis() {
 		loading = true;
 		try {
-			const res = await fetch(`${API}/api/v1/evm/analyses/${id}`);
-			if (!res.ok) {
-				error = 'Analysis not found';
-				return;
-			}
-			analysis = await res.json();
+			analysis = await getEVMAnalysis(id);
 		} catch (e: any) {
 			error = e.message || 'Failed to load';
 		} finally {

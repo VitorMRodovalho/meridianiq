@@ -204,6 +204,36 @@ export async function generateReport(
 	});
 }
 
+// ── EVM (Earned Value Management) ─────────────────────────
+export async function getEVMAnalyses(): Promise<{ analyses: any[] }> {
+	return request<{ analyses: any[] }>('/api/v1/evm/analyses');
+}
+
+export async function createEVMAnalysis(projectId: string): Promise<any> {
+	return request<any>(`/api/v1/evm/analyze/${projectId}`, { method: 'POST' });
+}
+
+export async function getEVMAnalysis(id: string): Promise<any> {
+	return request<any>(`/api/v1/evm/analyses/${id}`);
+}
+
+// ── Risk (Monte Carlo QSRA) ────────────────────────────────
+export async function getRiskSimulations(): Promise<{ simulations: any[] }> {
+	return request<{ simulations: any[] }>('/api/v1/risk/simulations');
+}
+
+export async function createRiskSimulation(projectId: string, config: any): Promise<any> {
+	return request<any>(`/api/v1/risk/simulate/${projectId}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(config)
+	});
+}
+
+export async function getRiskSimulation(id: string): Promise<any> {
+	return request<any>(`/api/v1/risk/simulations/${id}`);
+}
+
 export async function downloadReport(reportId: string): Promise<Blob> {
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;

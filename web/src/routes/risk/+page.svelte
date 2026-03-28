@@ -1,5 +1,5 @@
 <script lang="ts">
-	const API = (import.meta.env.VITE_API_URL || "") + "/api/v1";
+	import { getRiskSimulations, createRiskSimulation, getProjects } from '$lib/api';
 
 	interface SimulationSummary {
 		simulation_id: string;
@@ -35,9 +35,7 @@
 		loading = true;
 		error = '';
 		try {
-			const res = await fetch(`${API}/risk/simulations`);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = await res.json();
+			const data = await getRiskSimulations();
 			simulations = data.simulations;
 		} catch (e: any) {
 			error = e.message;
@@ -48,9 +46,7 @@
 
 	async function loadProjects() {
 		try {
-			const res = await fetch(`${API}/projects`);
-			if (!res.ok) return;
-			const data = await res.json();
+			const data = await getProjects();
 			projects = data.projects;
 		} catch { }
 	}
@@ -72,15 +68,7 @@
 			};
 			if (seed) body.config.seed = parseInt(seed);
 
-			const res = await fetch(`${API}/risk/simulate/${selectedProject}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(body),
-			});
-			if (!res.ok) {
-				const detail = await res.json();
-				throw new Error(detail.detail || `HTTP ${res.status}`);
-			}
+			await createRiskSimulation(selectedProject, body);
 			await loadSimulations();
 		} catch (e: any) {
 			error = e.message;

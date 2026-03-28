@@ -210,22 +210,10 @@
 				{#if reportDropdownOpen}
 					<div class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
 						<button
-							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
+							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
 							onclick={() => handleGenerateReport('health')}
 						>
 							Health Report (PDF)
-						</button>
-						<button
-							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-							onclick={() => handleGenerateReport('comparison')}
-						>
-							Comparison Report (PDF)
-						</button>
-						<button
-							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg"
-							onclick={() => handleGenerateReport('forensic')}
-						>
-							Forensic Report (PDF)
 						</button>
 					</div>
 				{/if}
