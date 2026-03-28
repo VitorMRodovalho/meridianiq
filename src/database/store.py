@@ -4,7 +4,8 @@
 
 ``InMemoryStore`` delegates to the existing v0.5 storage classes so that
 all current behaviour is preserved byte-for-byte.  ``SupabaseStore``
-persists the same data to PostgreSQL via the Supabase client.
+persists XER files to Supabase Storage and metadata to PostgreSQL —
+no large JSONB blobs.
 
 Use the ``get_store()`` factory to obtain the correct backend based on
 the ``ENVIRONMENT`` setting.
@@ -12,7 +13,10 @@ the ``ENVIRONMENT`` setting.
 from __future__ import annotations
 
 import json
+import logging
+import tempfile
 import uuid
+from pathlib import Path
 from typing import Any
 
 from src.analytics.evm import EVMAnalysisResult
@@ -20,6 +24,8 @@ from src.analytics.forensics import ForensicTimeline
 from src.analytics.risk import SimulationResult
 from src.analytics.tia import TIAAnalysis
 from src.parser.models import ParsedSchedule
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------ #
@@ -93,6 +99,10 @@ class InMemoryStore:
         if user_id and project_id in self._project_owners:
             if self._project_owners[project_id] != user_id:
                 return None
+        return self._projects.get(project_id)
+
+    def get_parsed_schedule(self, project_id: str) -> ParsedSchedule | None:
+        """Return the stored ParsedSchedule directly (no re-parse needed in memory)."""
         return self._projects.get(project_id)
 
     def get_xer_bytes(self, project_id: str) -> bytes | None:
@@ -240,17 +250,22 @@ class InMemoryStore:
 
 
 # ------------------------------------------------------------------ #
-# SupabaseStore — PostgreSQL via supabase-py                         #
+# SupabaseStore — Storage bucket + PostgreSQL metadata               #
 # ------------------------------------------------------------------ #
 
 
 class SupabaseStore:
-    """Supabase/PostgreSQL backend.
+    """Supabase backend: XER files in Storage bucket, metadata in PostgreSQL.
 
-    For v0.6 Phase 1 the core methods (upload, project, get/list) use
-    proper table inserts.  Analytics methods store results as JSONB in
-    their respective tables.
+    XER binary files are uploaded to the ``xer-files`` Storage bucket.
+    Only lightweight metadata (project name, counts, storage path) is
+    stored in the ``projects`` table — no large JSONB ``schedule_data``.
+
+    When analysis endpoints need the full ``ParsedSchedule``, the XER is
+    downloaded from the bucket and re-parsed on the fly.
     """
+
+    BUCKET = "xer-files"
 
     def __init__(self) -> None:
         from .client import get_supabase_client
@@ -270,9 +285,10 @@ class SupabaseStore:
         self,
         table: str,
         filters: dict[str, Any] | None = None,
+        columns: str = "*",
     ) -> list[dict[str, Any]]:
         """Select rows from a table with optional equality filters."""
-        query = self._client.table(table).select("*")
+        query = self._client.table(table).select(columns)
         if filters:
             for col, val in filters.items():
                 query = query.eq(col, val)
@@ -307,7 +323,7 @@ class SupabaseStore:
         xer_bytes: bytes | None = None,
         user_id: str | None = None,
     ) -> str:
-        """Persist a parsed schedule into the projects table."""
+        """Persist metadata + upload XER to Storage bucket.  No JSONB blob."""
         proj_name = ""
         data_date = None
         if schedule.projects:
@@ -319,6 +335,23 @@ class SupabaseStore:
             if dd:
                 data_date = dd.isoformat()
 
+        # Determine storage path
+        user_folder = user_id or "anonymous"
+        storage_path = f"{user_folder}/{upload_id}/{proj_name or 'schedule'}.xer"
+
+        # Upload XER binary to Storage bucket
+        if xer_bytes:
+            try:
+                self._client.storage.from_(self.BUCKET).upload(
+                    path=storage_path,
+                    file=xer_bytes,
+                    file_options={"content-type": "application/octet-stream"},
+                )
+            except Exception as exc:
+                logger.warning("Storage upload failed, continuing with metadata only: %s", exc)
+                storage_path = ""
+
+        # Insert metadata only — NO schedule_data JSONB
         data: dict[str, Any] = {
             "upload_id": upload_id,
             "project_name": proj_name,
@@ -327,19 +360,57 @@ class SupabaseStore:
             "relationship_count": len(schedule.relationships),
             "calendar_count": len(schedule.calendars),
             "wbs_count": len(schedule.wbs_nodes),
-            "schedule_data": json.loads(schedule.model_dump_json()),
+            "storage_path": storage_path,
         }
         if user_id:
             data["user_id"] = user_id
         row = self._insert("projects", data)
         return str(row["id"])
 
+    def get_parsed_schedule(self, project_id: str) -> ParsedSchedule | None:
+        """Download XER from bucket, re-parse, and return ParsedSchedule."""
+        rows = self._select(
+            "projects",
+            {"id": project_id},
+            columns="storage_path",
+        )
+        if not rows or not rows[0].get("storage_path"):
+            return None
+
+        storage_path = rows[0]["storage_path"]
+        try:
+            file_bytes = self._client.storage.from_(self.BUCKET).download(storage_path)
+        except Exception as exc:
+            logger.error("Failed to download XER from bucket: %s", exc)
+            return None
+
+        # Parse from bytes via temp file (XERReader requires a file path)
+        tmp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".xer", delete=False) as tmp:
+                tmp.write(file_bytes)
+                tmp_path = Path(tmp.name)
+
+            from src.parser.xer_reader import XERReader
+
+            return XERReader(tmp_path).parse()
+        except Exception as exc:
+            logger.error("Failed to re-parse XER from bucket: %s", exc)
+            return None
+        finally:
+            if tmp_path:
+                tmp_path.unlink(missing_ok=True)
+
     def get_projects(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        """List all projects stored in Supabase, optionally filtered by user."""
+        """List all projects — metadata only (no re-parse)."""
         filters: dict[str, Any] | None = None
         if user_id:
             filters = {"user_id": user_id}
-        rows = self._select("projects", filters)
+        rows = self._select(
+            "projects",
+            filters,
+            columns="id,project_name,activity_count,relationship_count",
+        )
         return [
             {
                 "project_id": str(r["id"]),
@@ -351,21 +422,34 @@ class SupabaseStore:
         ]
 
     def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
-        """Retrieve a parsed schedule from Supabase by project id."""
-        filters: dict[str, Any] = {"id": project_id}
+        """Retrieve a parsed schedule by downloading XER from the bucket."""
+        # Check ownership if user_id is provided
         if user_id:
-            filters["user_id"] = user_id
-        rows = self._select("projects", filters)
-        if not rows:
-            return None
-        data = rows[0].get("schedule_data")
-        if data is None:
-            return None
-        return ParsedSchedule.model_validate(data)
+            rows = self._select(
+                "projects",
+                {"id": project_id, "user_id": user_id},
+                columns="id",
+            )
+            if not rows:
+                return None
+        return self.get_parsed_schedule(project_id)
 
     def get_xer_bytes(self, project_id: str) -> bytes | None:
-        """XER bytes retrieval — not yet implemented for Supabase."""
-        return None
+        """Download raw XER bytes from the Storage bucket."""
+        rows = self._select(
+            "projects",
+            {"id": project_id},
+            columns="storage_path",
+        )
+        if not rows or not rows[0].get("storage_path"):
+            return None
+        try:
+            return self._client.storage.from_(self.BUCKET).download(
+                rows[0]["storage_path"]
+            )
+        except Exception as exc:
+            logger.error("Failed to download XER bytes: %s", exc)
+            return None
 
     # -- legacy aliases for app.py compatibility -------------------------
 
@@ -384,7 +468,7 @@ class SupabaseStore:
 
     def list_ids(self) -> list[str]:
         """List all project IDs from Supabase."""
-        rows = self._select("projects")
+        rows = self._select("projects", columns="id")
         return [str(r["id"]) for r in rows]
 
     def clear(self) -> None:

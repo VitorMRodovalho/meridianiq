@@ -282,3 +282,65 @@ class TestInMemoryStoreRisk:
         store.save_risk_simulation(self._make_risk())
         items = store.list_risk_simulations()
         assert len(items) == 1
+
+
+# -- InMemoryStore: get_parsed_schedule --------------------------------
+
+
+class TestInMemoryStoreParsedSchedule:
+    """Tests for the get_parsed_schedule method added in storage refactor."""
+
+    def test_get_parsed_schedule_returns_valid_schedule(self) -> None:
+        """get_parsed_schedule should return the same schedule stored via add()."""
+        store = InMemoryStore()
+        schedule = _make_schedule("ReParseTest", num_activities=5)
+        pid = store.add(schedule, b"xer-data")
+        retrieved = store.get_parsed_schedule(pid)
+        assert retrieved is not None
+        assert retrieved.projects[0].proj_short_name == "ReParseTest"
+        assert len(retrieved.activities) == 5
+        assert len(retrieved.relationships) == 1
+
+    def test_get_parsed_schedule_nonexistent_returns_none(self) -> None:
+        """get_parsed_schedule should return None for unknown project_id."""
+        store = InMemoryStore()
+        assert store.get_parsed_schedule("proj-9999") is None
+
+    def test_get_parsed_schedule_matches_get(self) -> None:
+        """get_parsed_schedule and get() should return the same object."""
+        store = InMemoryStore()
+        schedule = _make_schedule("SameObj")
+        pid = store.add(schedule, b"bytes")
+        assert store.get_parsed_schedule(pid) is store.get(pid)
+
+
+# -- InMemoryStore: metadata-only list ---------------------------------
+
+
+class TestMetadataOnlyList:
+    """Verify list_all returns metadata, not full ParsedSchedule objects."""
+
+    def test_list_all_returns_metadata_not_full_schedule(self) -> None:
+        """list_all items should contain metadata keys only, not schedule data."""
+        store = InMemoryStore()
+        store.add(_make_schedule("Meta1", num_activities=10), b"")
+        store.add(_make_schedule("Meta2", num_activities=7), b"")
+        items = store.list_all()
+        assert len(items) == 2
+        for item in items:
+            assert "project_id" in item
+            assert "name" in item
+            assert "activity_count" in item
+            assert "relationship_count" in item
+            # Should NOT contain a full schedule object or schedule_data key
+            assert "schedule" not in item
+            assert "schedule_data" not in item
+
+    def test_list_all_activity_counts_are_correct(self) -> None:
+        """list_all should report correct counts from metadata."""
+        store = InMemoryStore()
+        store.add(_make_schedule("CountTest", num_activities=15), b"")
+        items = store.list_all()
+        assert len(items) == 1
+        assert items[0]["activity_count"] == 15
+        assert items[0]["name"] == "CountTest"
