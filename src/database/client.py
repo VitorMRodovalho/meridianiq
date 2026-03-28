@@ -33,11 +33,13 @@ def get_supabase_client() -> Any:
 
     from .config import settings
 
-    if not settings.SUPABASE_URL or not settings.SUPABASE_ANON_KEY:
+    # Use service_role_key for backend operations (bypasses RLS)
+    key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY
+    if not settings.SUPABASE_URL or not key:
         raise RuntimeError(
-            "SUPABASE_URL and SUPABASE_ANON_KEY must be set in the environment "
-            "or in a .env file."
+            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) "
+            "must be set in the environment or in a .env file."
         )
 
-    _client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+    _client = create_client(settings.SUPABASE_URL, key)
     return _client
