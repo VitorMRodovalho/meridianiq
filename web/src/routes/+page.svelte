@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 	import { getProjects, getDashboard, getProjectHealth } from '$lib/api';
-	import { isAuthenticated, isLoading as authLoading } from '$lib/auth';
+	import { supabase } from '$lib/supabase';
 	import type { ProjectListItem, DashboardKPIs } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
@@ -13,17 +12,14 @@
 	let authenticated = $state(false);
 
 	onMount(async () => {
-		const unsub = authLoading.subscribe((val) => {
-			if (!val) {
-				authenticated = get(isAuthenticated);
-				if (authenticated) {
-					loadData();
-				} else {
-					loading = false;
-				}
-				unsub();
-			}
-		});
+		// Check auth directly from Supabase (no store dependency)
+		const { data: { session } } = await supabase.auth.getSession();
+		authenticated = !!session;
+		if (authenticated) {
+			await loadData();
+		} else {
+			loading = false;
+		}
 	});
 
 	async function loadData() {

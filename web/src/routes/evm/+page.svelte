@@ -1,5 +1,5 @@
 <script lang="ts">
-	const API = 'http://localhost:8000';
+	const API = import.meta.env.VITE_API_URL || "";
 
 	let analyses: any[] = $state([]);
 	let projects: any[] = $state([]);
