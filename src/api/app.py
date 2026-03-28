@@ -131,7 +131,8 @@ from .schemas import (
     ScheduleHealthResponse,
 )
 from .auth import optional_auth
-from .storage import EVMStore, ProjectStore, ReportStore, RiskStore, TIAStore, TimelineStore
+from .storage import EVMStore, ReportStore, RiskStore, TIAStore, TimelineStore
+from src.database.store import get_store as _get_db_store
 
 app = FastAPI(
     title="MeridianIQ",
@@ -164,8 +165,9 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-# Global in-memory stores (singletons for the app lifetime)
-_store = ProjectStore()
+# Global stores (singletons for the app lifetime)
+# _store uses the database factory: SupabaseStore in production, InMemoryStore in dev
+_store = _get_db_store()
 _timeline_store = TimelineStore()
 _tia_store = TIAStore()
 _evm_store = EVMStore()
@@ -173,7 +175,7 @@ _risk_store = RiskStore()
 _report_store = ReportStore()
 
 
-def get_store() -> ProjectStore:
+def get_store():
     """Return the global project store.
 
     Exposed as a function so tests can replace it via monkeypatching.
@@ -285,7 +287,8 @@ async def upload_xer(
         raise HTTPException(status_code=400, detail="XER file contains no activities")
 
     store = get_store()
-    project_id = store.add(schedule, xer_bytes)
+    user_id = _user["id"] if _user else None
+    project_id = store.add(schedule, xer_bytes, user_id=user_id)
 
     data_date = None
     name = ""
@@ -316,7 +319,8 @@ async def upload_xer(
 def list_projects(_user: object = Depends(optional_auth)) -> ProjectListResponse:
     """List all uploaded projects."""
     store = get_store()
-    items = [ProjectListItem(**p) for p in store.list_all()]
+    user_id = _user["id"] if _user else None
+    items = [ProjectListItem(**p) for p in store.list_all(user_id=user_id)]
     return ProjectListResponse(projects=items)
 
 
@@ -336,7 +340,8 @@ def get_project(project_id: str, _user: object = Depends(optional_auth)) -> Proj
         HTTPException: If the project is not found.
     """
     store = get_store()
-    schedule = store.get(project_id)
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 

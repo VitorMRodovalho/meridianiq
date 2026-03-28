@@ -38,12 +38,13 @@ class ProjectStore:
         self._counter: int = 0
         self._lock = threading.Lock()
 
-    def add(self, schedule: ParsedSchedule, xer_bytes: bytes) -> str:
+    def add(self, schedule: ParsedSchedule, xer_bytes: bytes, user_id: str | None = None) -> str:
         """Store a parsed schedule and return its project_id.
 
         Args:
             schedule: The parsed schedule to store.
             xer_bytes: The raw XER file bytes.
+            user_id: Optional user identifier (ignored in memory store).
 
         Returns:
             A unique project_id string.
@@ -55,11 +56,12 @@ class ProjectStore:
             self._xer_data[project_id] = xer_bytes
         return project_id
 
-    def get(self, project_id: str) -> ParsedSchedule | None:
+    def get(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Retrieve a parsed schedule by project_id.
 
         Args:
             project_id: The identifier returned by ``add()``.
+            user_id: Optional user identifier (ignored in memory store).
 
         Returns:
             The stored ``ParsedSchedule``, or ``None`` if not found.
@@ -86,8 +88,11 @@ class ProjectStore:
         with self._lock:
             return list(self._projects.keys())
 
-    def list_all(self) -> list[dict[str, Any]]:
+    def list_all(self, user_id: str | None = None) -> list[dict[str, Any]]:
         """List all stored projects with summary info.
+
+        Args:
+            user_id: Optional user identifier (ignored in memory store).
 
         Returns:
             A list of dictionaries with ``project_id``, ``name``,

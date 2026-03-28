@@ -50,6 +50,7 @@ class InMemoryStore:
         self._risk = RiskStore()
         self._analyses: dict[str, dict[str, Any]] = {}
         self._comparisons: dict[str, dict[str, Any]] = {}
+        self._project_owners: dict[str, str] = {}  # project_id -> user_id
 
     # -- upload / project ------------------------------------------------
 
@@ -58,6 +59,7 @@ class InMemoryStore:
         filename: str,
         file_bytes: bytes,
         parser_version: str = "0.6.0-dev",
+        user_id: str | None = None,
     ) -> str:
         """Store raw file bytes and return an upload_id."""
         upload_id = f"upload-{uuid.uuid4().hex[:8]}"
@@ -68,16 +70,29 @@ class InMemoryStore:
         upload_id: str,
         schedule: ParsedSchedule,
         xer_bytes: bytes | None = None,
+        user_id: str | None = None,
     ) -> str:
         """Persist a parsed schedule and return a project_id."""
-        return self._projects.add(schedule, xer_bytes or b"")
+        pid = self._projects.add(schedule, xer_bytes or b"")
+        if user_id:
+            self._project_owners[pid] = user_id
+        return pid
 
-    def get_projects(self) -> list[dict[str, Any]]:
-        """List all stored projects with summary info."""
-        return self._projects.list_all()
+    def get_projects(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """List all stored projects with summary info, optionally filtered by user."""
+        items = self._projects.list_all()
+        if user_id:
+            owned_pids = {pid for pid, uid in self._project_owners.items() if uid == user_id}
+            unowned_pids = {pid for pid in self._projects.list_ids() if pid not in self._project_owners}
+            allowed = owned_pids | unowned_pids
+            items = [i for i in items if i["project_id"] in allowed]
+        return items
 
-    def get_project(self, project_id: str) -> ParsedSchedule | None:
+    def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Retrieve a parsed schedule by project_id."""
+        if user_id and project_id in self._project_owners:
+            if self._project_owners[project_id] != user_id:
+                return None
         return self._projects.get(project_id)
 
     def get_xer_bytes(self, project_id: str) -> bytes | None:
@@ -86,21 +101,29 @@ class InMemoryStore:
 
     # -- legacy project-store delegation (used by app.py) ----------------
 
-    def add(self, schedule: ParsedSchedule, xer_bytes: bytes) -> str:
+    def add(self, schedule: ParsedSchedule, xer_bytes: bytes, user_id: str | None = None) -> str:
         """Alias for ``save_project`` matching the v0.5 ProjectStore API."""
-        return self._projects.add(schedule, xer_bytes)
+        pid = self._projects.add(schedule, xer_bytes)
+        if user_id:
+            self._project_owners[pid] = user_id
+        return pid
 
-    def get(self, project_id: str) -> ParsedSchedule | None:
+    def get(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Alias for ``get_project`` matching the v0.5 ProjectStore API."""
-        return self._projects.get(project_id)
+        return self.get_project(project_id, user_id=user_id)
 
-    def list_all(self) -> list[dict[str, Any]]:
+    def list_all(self, user_id: str | None = None) -> list[dict[str, Any]]:
         """Alias for ``get_projects`` matching the v0.5 ProjectStore API."""
-        return self._projects.list_all()
+        return self.get_projects(user_id=user_id)
+
+    def list_ids(self) -> list[str]:
+        """Delegate to underlying ProjectStore."""
+        return self._projects.list_ids()
 
     def clear(self) -> None:
         """Clear the underlying project store."""
         self._projects.clear()
+        self._project_owners.clear()
 
     # -- analysis results ------------------------------------------------
 
@@ -263,17 +286,18 @@ class SupabaseStore:
         filename: str,
         file_bytes: bytes,
         parser_version: str = "0.6.0-dev",
+        user_id: str | None = None,
     ) -> str:
         """Persist upload metadata and return the upload_id (UUID)."""
-        row = self._insert(
-            "schedule_uploads",
-            {
-                "original_filename": filename,
-                "file_size_bytes": len(file_bytes),
-                "parser_version": parser_version,
-                "status": "parsed",
-            },
-        )
+        data: dict[str, Any] = {
+            "original_filename": filename,
+            "file_size_bytes": len(file_bytes),
+            "parser_version": parser_version,
+            "status": "parsed",
+        }
+        if user_id:
+            data["user_id"] = user_id
+        row = self._insert("schedule_uploads", data)
         return str(row["id"])
 
     def save_project(
@@ -281,6 +305,7 @@ class SupabaseStore:
         upload_id: str,
         schedule: ParsedSchedule,
         xer_bytes: bytes | None = None,
+        user_id: str | None = None,
     ) -> str:
         """Persist a parsed schedule into the projects table."""
         proj_name = ""
@@ -294,24 +319,27 @@ class SupabaseStore:
             if dd:
                 data_date = dd.isoformat()
 
-        row = self._insert(
-            "projects",
-            {
-                "upload_id": upload_id,
-                "project_name": proj_name,
-                "data_date": data_date,
-                "activity_count": len(schedule.activities),
-                "relationship_count": len(schedule.relationships),
-                "calendar_count": len(schedule.calendars),
-                "wbs_count": len(schedule.wbs_nodes),
-                "schedule_data": json.loads(schedule.model_dump_json()),
-            },
-        )
+        data: dict[str, Any] = {
+            "upload_id": upload_id,
+            "project_name": proj_name,
+            "data_date": data_date,
+            "activity_count": len(schedule.activities),
+            "relationship_count": len(schedule.relationships),
+            "calendar_count": len(schedule.calendars),
+            "wbs_count": len(schedule.wbs_nodes),
+            "schedule_data": json.loads(schedule.model_dump_json()),
+        }
+        if user_id:
+            data["user_id"] = user_id
+        row = self._insert("projects", data)
         return str(row["id"])
 
-    def get_projects(self) -> list[dict[str, Any]]:
-        """List all projects stored in Supabase."""
-        rows = self._select("projects")
+    def get_projects(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """List all projects stored in Supabase, optionally filtered by user."""
+        filters: dict[str, Any] | None = None
+        if user_id:
+            filters = {"user_id": user_id}
+        rows = self._select("projects", filters)
         return [
             {
                 "project_id": str(r["id"]),
@@ -322,9 +350,12 @@ class SupabaseStore:
             for r in rows
         ]
 
-    def get_project(self, project_id: str) -> ParsedSchedule | None:
+    def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Retrieve a parsed schedule from Supabase by project id."""
-        rows = self._select("projects", {"id": project_id})
+        filters: dict[str, Any] = {"id": project_id}
+        if user_id:
+            filters["user_id"] = user_id
+        rows = self._select("projects", filters)
         if not rows:
             return None
         data = rows[0].get("schedule_data")
@@ -338,18 +369,23 @@ class SupabaseStore:
 
     # -- legacy aliases for app.py compatibility -------------------------
 
-    def add(self, schedule: ParsedSchedule, xer_bytes: bytes) -> str:
+    def add(self, schedule: ParsedSchedule, xer_bytes: bytes, user_id: str | None = None) -> str:
         """v0.5-compatible add method."""
-        upload_id = self.save_upload("upload.xer", xer_bytes)
-        return self.save_project(upload_id, schedule, xer_bytes)
+        upload_id = self.save_upload("upload.xer", xer_bytes, user_id=user_id)
+        return self.save_project(upload_id, schedule, xer_bytes, user_id=user_id)
 
-    def get(self, project_id: str) -> ParsedSchedule | None:
+    def get(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """v0.5-compatible get method."""
-        return self.get_project(project_id)
+        return self.get_project(project_id, user_id=user_id)
 
-    def list_all(self) -> list[dict[str, Any]]:
+    def list_all(self, user_id: str | None = None) -> list[dict[str, Any]]:
         """v0.5-compatible list_all method."""
-        return self.get_projects()
+        return self.get_projects(user_id=user_id)
+
+    def list_ids(self) -> list[str]:
+        """List all project IDs from Supabase."""
+        rows = self._select("projects")
+        return [str(r["id"]) for r in rows]
 
     def clear(self) -> None:
         """Clear is a no-op for Supabase (use migrations)."""
