@@ -409,7 +409,7 @@ class SupabaseStore:
         rows = self._select(
             "projects",
             filters,
-            columns="id,project_name,activity_count,relationship_count",
+            columns="id,project_name,activity_count,relationship_count,storage_path",
         )
         return [
             {
@@ -419,6 +419,8 @@ class SupabaseStore:
                 "relationship_count": r.get("relationship_count", 0),
             }
             for r in rows
+            # Guard: skip orphan rows where the XER file was never uploaded
+            if r.get("storage_path")
         ]
 
     def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
