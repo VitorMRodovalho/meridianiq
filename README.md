@@ -14,7 +14,7 @@ Open-source schedule intelligence platform — from validation to prediction.
 [![NumPy](https://img.shields.io/badge/NumPy-Monte%20Carlo-013243?logo=numpy&logoColor=white)](https://numpy.org)
 [![Tests](https://img.shields.io/badge/Tests-342%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.pages.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.pages.dev)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
 [**Documentation**](docs/) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](BUGS.md)
 
@@ -42,7 +42,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Frontend pages | 16+ |
 | API endpoints | 40+ |
 | Released versions | 8 (v0.1.0 → v0.8.1) |
-| Live platform | [meridianiq.pages.dev](https://meridianiq.pages.dev) |
+| Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
 ---
@@ -201,7 +201,7 @@ docker compose up
 
 ### Live Platform
 
-The platform is deployed and available at **[meridianiq.pages.dev](https://meridianiq.pages.dev)**.
+The platform is deployed and available at **[meridianiq.vitormr.dev](https://meridianiq.vitormr.dev)**.
 
 ---
 

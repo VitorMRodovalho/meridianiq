@@ -34,8 +34,9 @@
 			dashboard = dashRes;
 			programs = progRes.programs;
 
-			// Load health scores for each project
+			// Load health scores for each project (skip projects without activities)
 			for (const p of projects) {
+				if (!p.activity_count) continue;
 				try {
 					const health = await getProjectHealth(p.project_id);
 					healthScores[p.project_id] = {

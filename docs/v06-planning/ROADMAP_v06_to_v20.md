@@ -115,7 +115,7 @@ graph TB
 - In-memory → Supabase PostgreSQL migration for all schedule data
 - Supabase Storage integration — XER files stored in RLS buckets
 - Fly.io deployment — Dockerfile, fly.toml, auto-deploy from GitHub main
-- Cloudflare Pages deployment — SvelteKit adapter-cloudflare, live at meridianiq.pages.dev
+- Cloudflare Pages deployment — SvelteKit adapter-cloudflare, live at meridianiq.vitormr.dev
 - Environment configuration — .env management for Supabase/Fly.io secrets
 - Basic error handling — global exception handler, structured errors
 
@@ -218,7 +218,7 @@ graph TB
 - **Supabase Storage** — XER files and generated PDFs
 - **Supabase Auth** — Google + Microsoft + LinkedIn OAuth, ES256 JWT
 - **Fly.io** — containerised backend, auto-deploy from main
-- **Cloudflare Pages** — live at [meridianiq.pages.dev](https://meridianiq.pages.dev)
+- **Cloudflare Pages** — live at [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev)
 - **Supabase migrations** — 4 migration files (001–004)
 - **Known issue:** Fly.io cold start ~10s causes 502 + CORS on first request
 
