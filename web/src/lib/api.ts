@@ -18,7 +18,8 @@ import type {
 	ScheduleHealthResponse,
 	FloatTrendResponse,
 	AlertsResponse,
-	DashboardKPIs
+	DashboardKPIs,
+	ProgramTrends
 } from './types';
 
 import { supabase } from './supabase';
@@ -74,6 +75,10 @@ export async function updateProgram(id: string, body: { name?: string; descripti
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
+}
+
+export async function getProgramTrends(programId: string): Promise<ProgramTrends> {
+	return request<ProgramTrends>(`/api/v1/programs/${programId}/trends`);
 }
 
 export async function getProject(id: string): Promise<ProjectDetailResponse> {

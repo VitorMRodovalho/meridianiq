@@ -458,6 +458,18 @@ export interface DashboardKPIs {
 	most_critical_score: number | null;
 }
 
+// ── Program Trends ───────────────────────────────────────
+
+export interface ProgramTrends {
+	revision_count: number;
+	labels: string[];
+	health_scores: (number | null)[];
+	dcma_scores: (number | null)[];
+	alert_counts: (number | null)[];
+	activity_counts: (number | null)[];
+	revisions: { id: string; revision_number: number; data_date: string | null; filename: string }[];
+}
+
 // ── Reports ─────────────────────────────────────────────
 
 export interface GenerateReportResponse {

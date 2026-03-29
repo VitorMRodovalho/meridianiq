@@ -12,7 +12,7 @@ Open-source schedule intelligence platform — from validation to prediction.
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.0-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![NetworkX](https://img.shields.io/badge/NetworkX-CPM%20Engine-4C9A2A)](https://networkx.org)
 [![NumPy](https://img.shields.io/badge/NumPy-Monte%20Carlo-013243?logo=numpy&logoColor=white)](https://numpy.org)
-[![Tests](https://img.shields.io/badge/Tests-332%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-342%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.pages.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.pages.dev)
 
@@ -37,7 +37,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Indicator | Value |
 |-----------|-------|
 | Analysis engines | 10 (Parser · CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Float Trends · Health Score) |
-| Tests passing | 332 |
+| Tests passing | 342 |
 | Python source lines | ~12,000+ |
 | Frontend pages | 16+ |
 | API endpoints | 40+ |
@@ -220,7 +220,7 @@ The platform is deployed and available at **[meridianiq.pages.dev](https://merid
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (332 passing, <30s) |
+| **Testing** | pytest (342 passing, <30s) |
 
 ---
 
@@ -270,7 +270,7 @@ meridianiq/
 │       ├── app.py        # FastAPI (40+ endpoints)
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind
-├── tests/                # 332 tests
+├── tests/                # 342 tests
 ├── supabase/
 │   └── migrations/       # PostgreSQL schema migrations
 ├── docs/                 # Discovery & definition documents
