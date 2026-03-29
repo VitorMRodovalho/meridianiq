@@ -12,7 +12,7 @@ Open-source schedule intelligence platform — from validation to prediction.
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.0-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![NetworkX](https://img.shields.io/badge/NetworkX-CPM%20Engine-4C9A2A)](https://networkx.org)
 [![NumPy](https://img.shields.io/badge/NumPy-Monte%20Carlo-013243?logo=numpy&logoColor=white)](https://numpy.org)
-[![Tests](https://img.shields.io/badge/Tests-342%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-358%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -37,11 +37,11 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Indicator | Value |
 |-----------|-------|
 | Analysis engines | 10 (Parser · CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Float Trends · Health Score) |
-| Tests passing | 342 |
-| Python source lines | ~12,000+ |
-| Frontend pages | 16+ |
-| API endpoints | 40+ |
-| Released versions | 8 (v0.1.0 → v0.8.1) |
+| Tests passing | 358 |
+| Python source lines | ~14,000+ |
+| Frontend pages | 20 |
+| API endpoints | 45 |
+| Released versions | 9 (v0.1.0 → v0.9) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -76,7 +76,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (10)<br/>40+ endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (10)<br/>45 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -155,7 +155,7 @@ flowchart LR
 | v0.6 | **Cloud** | Supabase + Fly.io + CF Pages | ✅ Released |
 | v0.7 | **Identity** | Auth + RLS + Ownership | ✅ Released |
 | v0.8 | **Intelligence** | Float Trends + Early Warning + Health Score | ✅ Released |
-| v0.9 | **Polish** | UX + Performance + CI/CD | 🚧 Next |
+| v0.9 | **Polish** | UX + CI/CD + E2E + i18n + Demo | ✅ Released |
 | v1.0 | **Enterprise** | Teams + IPS Reconciliation + Audit | 🔜 Planned |
 | v2.0 | **AI** | ML Predictions · NLP · Anomaly Detection | 🔮 Future |
 
@@ -220,7 +220,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (342 passing, <30s) |
+| **Testing** | pytest (358 passing) · Playwright E2E (25 passing) |
 
 ---
 
@@ -267,16 +267,19 @@ meridianiq/
 │   │   └── report_generator.py # WeasyPrint PDF reports
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
-│       ├── app.py        # FastAPI (40+ endpoints)
+│       ├── app.py        # FastAPI (45 endpoints)
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind
-├── tests/                # 342 tests
+├── tests/                # 358 backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations
+│   └── migrations/       # PostgreSQL schema migrations (6 files)
+├── .github/
+│   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents
 ├── v1-reader/            # Legacy P6 reader (upstream attribution)
 ├── v1-compare/           # Original XER compare tool
 ├── v1-program-schedule/  # Production schedule analytics
+├── CLAUDE.md             # Claude Code project instructions
 ├── docker-compose.yml
 ├── pyproject.toml
 ├── LICENSE (MIT)

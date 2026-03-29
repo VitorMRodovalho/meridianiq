@@ -13,7 +13,6 @@
 	let authenticated = $state(false);
 
 	onMount(async () => {
-		// Check auth directly from Supabase (no store dependency)
 		const { data: { session } } = await supabase.auth.getSession();
 		authenticated = !!session;
 		if (authenticated) {
@@ -34,7 +33,6 @@
 			dashboard = dashRes;
 			programs = progRes.programs;
 
-			// Load health scores for each project (skip projects without activities)
 			for (const p of projects) {
 				if (!p.activity_count) continue;
 				try {
@@ -49,7 +47,7 @@
 					// Skip projects where health calc fails
 				}
 			}
-		} catch (e: unknown) {
+		} catch {
 			error = '';
 		} finally {
 			loading = false;
@@ -84,222 +82,364 @@
 		return 'bg-red-100 text-red-700 border-red-300';
 	}
 
-	// Find the most critical project from our loaded scores
 	const mostCriticalProject = $derived.by(() => {
 		if (!dashboard?.most_critical_project) return null;
 		const proj = projects.find(p => p.project_id === dashboard!.most_critical_project);
 		return proj ? proj.name || proj.project_id : dashboard!.most_critical_project;
 	});
+
+	const capabilities = [
+		{ title: 'DCMA 14-Point', desc: 'Automated schedule assessment per DCMA EVMS guidelines', tag: 'Validation', color: 'bg-blue-500' },
+		{ title: 'Critical Path', desc: 'NetworkX CPM engine with forward/backward pass and float', tag: 'Analysis', color: 'bg-green-500' },
+		{ title: 'Schedule Compare', desc: 'Multi-layer matching with manipulation detection', tag: 'Comparison', color: 'bg-purple-500' },
+		{ title: 'Forensic CPA', desc: 'Window analysis and delay waterfall per AACE RP 29R-03', tag: 'Claims', color: 'bg-orange-500' },
+		{ title: 'Time Impact Analysis', desc: 'Delay fragments, impacted CPM per AACE RP 52R-06', tag: 'Claims', color: 'bg-orange-500' },
+		{ title: 'Earned Value', desc: 'SPI, CPI, EAC, S-Curve per ANSI/EIA-748', tag: 'Controls', color: 'bg-cyan-500' },
+		{ title: 'Monte Carlo QSRA', desc: '1,000-iteration risk simulation per AACE RP 57R-09', tag: 'Risk', color: 'bg-red-500' },
+		{ title: 'Float Trends', desc: 'Track float distribution across schedule updates', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'Early Warning', desc: '12-rule alert engine for proactive monitoring', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'Health Score', desc: 'Composite 0-100 metric combining all indicators', tag: 'Intelligence', color: 'bg-indigo-500' },
+	];
 </script>
 
 <svelte:head>
-	<title>MeridianIQ</title>
+	<title>MeridianIQ — Schedule Intelligence Platform</title>
 </svelte:head>
 
-<div class="p-8 max-w-6xl mx-auto">
-	<div class="mb-10">
-		<h1 class="text-3xl font-bold text-gray-900">MeridianIQ — Schedule Intelligence Platform</h1>
-		<p class="mt-2 text-lg text-gray-600">
-			Open-source Primavera P6 schedule validation, comparison, and forensic analysis
-		</p>
-	</div>
-
+<div class="max-w-6xl mx-auto">
+	<!-- HERO — unauthenticated landing -->
 	{#if !authenticated && !loading}
-		<div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-10">
-			<h2 class="text-lg font-semibold text-blue-900 mb-2">Welcome to MeridianIQ</h2>
-			<p class="text-sm text-blue-700 mb-4">Sign in to upload and analyze your Primavera P6 schedules. Your data is private and encrypted.</p>
-			<a href="/login" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">Sign in to get started</a>
-		</div>
-	{/if}
-
-	<!-- Dashboard KPIs -->
-	{#if dashboard && authenticated}
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-			<div class="bg-white border border-gray-200 rounded-lg p-5">
-				<p class="text-sm text-gray-500">Total Projects</p>
-				<p class="text-3xl font-bold text-gray-900">{dashboard.total_projects}</p>
-				<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
-			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-5">
-				<p class="text-sm text-gray-500">Avg Health Score</p>
-				<div class="flex items-center gap-3 mt-1">
-					<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
-					<div class="flex-1">
-						<div class="h-2 rounded-full bg-gray-100 overflow-hidden">
-							<div class="h-full rounded-full {scoreBgColor(dashboard.avg_health_score)}" style="width: {dashboard.avg_health_score}%"></div>
-						</div>
-					</div>
+		<div class="px-8 pt-16 pb-12">
+			<div class="text-center max-w-3xl mx-auto">
+				<p class="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Open Source</p>
+				<h1 class="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
+					The intelligence standard for project schedules
+				</h1>
+				<p class="mt-6 text-lg text-gray-600 leading-relaxed">
+					Upload a Primavera P6 XER file and get instant schedule validation, critical path analysis,
+					forensic delay analysis, earned value metrics, and Monte Carlo risk simulation.
+					Every methodology traceable to published standards.
+				</p>
+				<div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+					<a
+						href="/login"
+						class="px-8 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+					>
+						Get started free
+					</a>
+					<a
+						href="/demo"
+						class="px-8 py-3 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-300 hover:border-gray-400 hover:bg-gray-50 shadow-sm transition-colors"
+					>
+						Try with sample data
+					</a>
 				</div>
-				<p class="text-xs text-gray-400 mt-1">Portfolio average (0-100)</p>
+				<p class="mt-4 text-center">
+					<a
+						href="https://github.com/VitorMRodovalho/meridianiq"
+						target="_blank"
+						rel="noopener"
+						class="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+					>
+						View on GitHub
+					</a>
+				</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-5">
-				<p class="text-sm text-gray-500">Active Alerts</p>
-				<p class="text-3xl font-bold {dashboard.active_alerts > 0 ? 'text-red-600' : 'text-green-600'}">{dashboard.active_alerts}</p>
-				<p class="text-xs text-gray-400 mt-1">{dashboard.active_alerts === 0 ? 'No active warnings' : 'Requires attention'}</p>
+
+			<!-- Key numbers -->
+			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+				<div>
+					<p class="text-3xl font-bold text-gray-900">10</p>
+					<p class="text-sm text-gray-500 mt-1">Analysis Engines</p>
+				</div>
+				<div>
+					<p class="text-3xl font-bold text-gray-900">45</p>
+					<p class="text-sm text-gray-500 mt-1">API Endpoints</p>
+				</div>
+				<div>
+					<p class="text-3xl font-bold text-gray-900">358</p>
+					<p class="text-sm text-gray-500 mt-1">Tests Passing</p>
+				</div>
+				<div>
+					<p class="text-3xl font-bold text-gray-900">$0</p>
+					<p class="text-sm text-gray-500 mt-1">Monthly Cost</p>
+				</div>
 			</div>
-			{#if dashboard.most_critical_project}
-				<div class="bg-red-50 border border-red-200 rounded-lg p-5">
-					<p class="text-sm text-red-600 font-medium">Most Critical Project</p>
-					<p class="text-lg font-bold text-red-700 truncate mt-1">{mostCriticalProject || dashboard.most_critical_project}</p>
-					{#if dashboard.most_critical_score !== null && dashboard.most_critical_score !== undefined}
-						<div class="flex items-center gap-2 mt-1">
-							<div class="h-1.5 flex-1 rounded-full bg-red-100 overflow-hidden">
-								<div class="h-full rounded-full bg-red-500" style="width: {dashboard.most_critical_score}%"></div>
+		</div>
+
+		<!-- Capabilities grid -->
+		<div class="px-8 pb-12">
+			<h2 class="text-2xl font-bold text-gray-900 text-center mb-8">10 Analysis Engines</h2>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				{#each capabilities as cap}
+					<div class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
+						<div class="flex items-center gap-2 mb-2">
+							<span class="inline-block w-2 h-2 rounded-full {cap.color}"></span>
+							<span class="text-xs font-medium text-gray-500 uppercase">{cap.tag}</span>
+						</div>
+						<h3 class="font-semibold text-gray-900">{cap.title}</h3>
+						<p class="text-sm text-gray-600 mt-1">{cap.desc}</p>
+					</div>
+				{/each}
+			</div>
+		</div>
+
+		<!-- Standards -->
+		<div class="px-8 pb-16">
+			<div class="bg-gray-900 rounded-2xl p-8 sm:p-12 text-center">
+				<h2 class="text-2xl font-bold text-white mb-4">Built on published standards</h2>
+				<p class="text-gray-400 text-sm max-w-2xl mx-auto mb-8">
+					Every methodology is traceable to its source. No black boxes.
+				</p>
+				<div class="flex flex-wrap justify-center gap-3">
+					{#each ['AACE RP 29R-03', 'AACE RP 52R-06', 'AACE RP 57R-09', 'ANSI/EIA-748', 'DCMA EVMS', 'GAO Schedule Guide', 'SCL Protocol'] as std}
+						<span class="px-3 py-1.5 bg-gray-800 text-gray-300 text-xs font-mono rounded-full">{std}</span>
+					{/each}
+				</div>
+			</div>
+		</div>
+
+	<!-- DASHBOARD — authenticated users -->
+	{:else if authenticated}
+		<div class="p-8">
+			<div class="mb-10">
+				<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+				<p class="mt-2 text-gray-600">Portfolio overview and quick actions</p>
+			</div>
+
+			<!-- Dashboard KPIs -->
+			{#if dashboard}
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+					<div class="bg-white border border-gray-200 rounded-lg p-5">
+						<p class="text-sm text-gray-500">Total Projects</p>
+						<p class="text-3xl font-bold text-gray-900">{dashboard.total_projects}</p>
+						<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-5">
+						<p class="text-sm text-gray-500">Avg Health Score</p>
+						<div class="flex items-center gap-3 mt-1">
+							<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
+							<div class="flex-1">
+								<div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+									<div class="h-full rounded-full {scoreBgColor(dashboard.avg_health_score)}" style="width: {dashboard.avg_health_score}%"></div>
+								</div>
 							</div>
-							<span class="text-sm font-bold text-red-600">{dashboard.most_critical_score.toFixed(0)}</span>
+						</div>
+						<p class="text-xs text-gray-400 mt-1">Portfolio average (0-100)</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-5">
+						<p class="text-sm text-gray-500">Active Alerts</p>
+						<p class="text-3xl font-bold {dashboard.active_alerts > 0 ? 'text-red-600' : 'text-green-600'}">{dashboard.active_alerts}</p>
+						<p class="text-xs text-gray-400 mt-1">{dashboard.active_alerts === 0 ? 'No active warnings' : 'Requires attention'}</p>
+					</div>
+					{#if dashboard.most_critical_project}
+						<div class="bg-red-50 border border-red-200 rounded-lg p-5">
+							<p class="text-sm text-red-600 font-medium">Most Critical</p>
+							<p class="text-lg font-bold text-red-700 truncate mt-1">{mostCriticalProject || dashboard.most_critical_project}</p>
+							{#if dashboard.most_critical_score !== null && dashboard.most_critical_score !== undefined}
+								<div class="flex items-center gap-2 mt-1">
+									<div class="h-1.5 flex-1 rounded-full bg-red-100 overflow-hidden">
+										<div class="h-full rounded-full bg-red-500" style="width: {dashboard.most_critical_score}%"></div>
+									</div>
+									<span class="text-sm font-bold text-red-600">{dashboard.most_critical_score.toFixed(0)}</span>
+								</div>
+							{/if}
+						</div>
+					{:else}
+						<div class="bg-green-50 border border-green-200 rounded-lg p-5">
+							<p class="text-sm text-green-600 font-medium">Portfolio Status</p>
+							<p class="text-lg font-bold text-green-700 mt-1">All Clear</p>
+							<p class="text-xs text-green-500 mt-1">No critical issues detected</p>
 						</div>
 					{/if}
 				</div>
+			{/if}
+
+			<!-- Quick Actions -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+				<a
+					href="/upload"
+					class="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all"
+				>
+					<div class="flex items-center gap-4">
+						<div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+							<svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+							</svg>
+						</div>
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">Upload XER File</h2>
+							<p class="text-sm text-gray-500">Parse and analyze a Primavera P6 schedule export</p>
+						</div>
+					</div>
+				</a>
+				<a
+					href="/compare"
+					class="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all"
+				>
+					<div class="flex items-center gap-4">
+						<div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+							<svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+							</svg>
+						</div>
+						<div>
+							<h2 class="text-lg font-semibold text-gray-900">Compare Schedules</h2>
+							<p class="text-sm text-gray-500">Detect changes and manipulation between versions</p>
+						</div>
+					</div>
+				</a>
+			</div>
+
+			<!-- Programs -->
+			{#if programs.length > 0}
+				<div class="bg-white rounded-lg border border-gray-200 p-6 mb-10">
+					<div class="flex items-center justify-between mb-4">
+						<h2 class="text-lg font-semibold text-gray-900">Programs</h2>
+						<span class="text-sm text-gray-400">{programs.length} program{programs.length !== 1 ? 's' : ''}</span>
+					</div>
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+						{#each programs as program}
+							<a
+								href="/programs/{program.id}"
+								class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+							>
+								<h3 class="font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">{program.name}</h3>
+								<div class="mt-2 flex gap-4 text-xs text-gray-500">
+									<span class="flex items-center gap-1">
+										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+										{program.revision_count} revision{program.revision_count !== 1 ? 's' : ''}
+									</span>
+									{#if program.latest_revision}
+										<span class="flex items-center gap-1">
+											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+											{program.latest_revision.activity_count} activities
+										</span>
+									{/if}
+								</div>
+								{#if program.description}
+									<p class="mt-2 text-xs text-gray-400 truncate">{program.description}</p>
+								{/if}
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Projects with Health Scores -->
+			{#if loading}
+				<div class="flex items-center gap-2 text-gray-500">
+					<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+					</svg>
+					Loading projects...
+				</div>
+			{:else if error}
+				<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+					Could not connect to backend: {error}
+				</div>
+			{:else if projects.length > 0}
+				<div class="bg-white rounded-lg border border-gray-200 p-6">
+					<div class="flex items-center justify-between mb-4">
+						<h2 class="text-lg font-semibold text-gray-900">Uploaded Projects</h2>
+						<span class="text-sm text-gray-400">{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
+					</div>
+					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+						{#each projects as project}
+							<a
+								href="/projects/{project.project_id}"
+								class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+							>
+								<div class="flex items-start justify-between">
+									<h3 class="font-medium text-gray-900 truncate flex-1 group-hover:text-blue-700 transition-colors">{project.name || project.project_id}</h3>
+									{#if healthScores[project.project_id]}
+										{@const hs = healthScores[project.project_id]}
+										<div class="ml-2 w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold shrink-0 {scoreCircleBg(hs.overall)}">
+											{hs.overall.toFixed(0)}
+										</div>
+									{/if}
+								</div>
+								{#if healthScores[project.project_id]}
+									{@const hs = healthScores[project.project_id]}
+									<div class="mt-2 flex items-center gap-2">
+										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border {ratingColor(hs.rating)}">
+											{hs.rating} {hs.trend_arrow}
+										</span>
+									</div>
+								{/if}
+								<div class="mt-3 flex gap-4 text-xs text-gray-500">
+									<span class="flex items-center gap-1">
+										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+										{project.activity_count} activities
+									</span>
+									<span class="flex items-center gap-1">
+										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+										{project.relationship_count} rels
+									</span>
+								</div>
+								{#if healthScores[project.project_id]}
+									<div class="mt-3">
+										<div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+											<div
+												class="h-full rounded-full transition-all {scoreBgColor(healthScores[project.project_id].overall)}"
+												style="width: {healthScores[project.project_id].overall}%"
+											></div>
+										</div>
+									</div>
+								{/if}
+							</a>
+						{/each}
+					</div>
+				</div>
 			{:else}
-				<div class="bg-green-50 border border-green-200 rounded-lg p-5">
-					<p class="text-sm text-green-600 font-medium">Portfolio Status</p>
-					<p class="text-lg font-bold text-green-700 mt-1">All Clear</p>
-					<p class="text-xs text-green-500 mt-1">No critical issues detected</p>
+				<!-- Onboarding for first-time authenticated users -->
+				<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+					<div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white">
+						<h2 class="text-2xl font-bold">Welcome to MeridianIQ</h2>
+						<p class="mt-2 text-blue-100">Let's analyze your first schedule. Here's how it works:</p>
+					</div>
+					<div class="p-8">
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+							<div class="text-center">
+								<div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+									<span class="text-xl font-bold text-blue-600">1</span>
+								</div>
+								<h3 class="font-semibold text-gray-900 mb-2">Upload</h3>
+								<p class="text-sm text-gray-500">Export your schedule from Primavera P6 as an XER file and upload it here. We parse 17+ table types automatically.</p>
+							</div>
+							<div class="text-center">
+								<div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+									<span class="text-xl font-bold text-blue-600">2</span>
+								</div>
+								<h3 class="font-semibold text-gray-900 mb-2">Analyze</h3>
+								<p class="text-sm text-gray-500">Instant DCMA 14-Point validation, critical path analysis, float distribution, and health scoring. All automated.</p>
+							</div>
+							<div class="text-center">
+								<div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+									<span class="text-xl font-bold text-blue-600">3</span>
+								</div>
+								<h3 class="font-semibold text-gray-900 mb-2">Compare & Report</h3>
+								<p class="text-sm text-gray-500">Upload a second version to unlock comparison, forensic delay analysis, float trends, and early warning alerts.</p>
+							</div>
+						</div>
+						<div class="mt-8 text-center">
+							<a href="/upload" class="inline-block px-8 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors">
+								Upload your first XER file
+							</a>
+							<p class="mt-3 text-xs text-gray-400">Supports Primavera P6 XER exports (v7.0+). Max file size depends on server memory.</p>
+						</div>
+					</div>
 				</div>
 			{/if}
 		</div>
-	{/if}
-
-	<!-- Action Cards -->
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-		<a
-			href="/upload"
-			class="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all"
-		>
-			<div class="flex items-center gap-4">
-				<div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-					<svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-					</svg>
-				</div>
-				<div>
-					<h2 class="text-lg font-semibold text-gray-900">Upload XER File</h2>
-					<p class="text-sm text-gray-500">Parse and analyze a Primavera P6 schedule export</p>
-				</div>
-			</div>
-		</a>
-		<a
-			href="/compare"
-			class="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all"
-		>
-			<div class="flex items-center gap-4">
-				<div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-					<svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-					</svg>
-				</div>
-				<div>
-					<h2 class="text-lg font-semibold text-gray-900">Compare Schedules</h2>
-					<p class="text-sm text-gray-500">Detect changes and manipulation between schedule versions</p>
-				</div>
-			</div>
-		</a>
-	</div>
-
-	<!-- Programs (revision-grouped) -->
-	{#if programs.length > 0 && authenticated}
-		<div class="bg-white rounded-lg border border-gray-200 p-6 mb-10">
-			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-lg font-semibold text-gray-900">Programs</h2>
-				<span class="text-sm text-gray-400">{programs.length} program{programs.length !== 1 ? 's' : ''}</span>
-			</div>
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-				{#each programs as program}
-					<a
-						href="/programs/{program.id}"
-						class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
-					>
-						<h3 class="font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">{program.name}</h3>
-						<div class="mt-2 flex gap-4 text-xs text-gray-500">
-							<span class="flex items-center gap-1">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-								{program.revision_count} revision{program.revision_count !== 1 ? 's' : ''}
-							</span>
-							{#if program.latest_revision}
-								<span class="flex items-center gap-1">
-									<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-									{program.latest_revision.activity_count} activities
-								</span>
-							{/if}
-						</div>
-						{#if program.description}
-							<p class="mt-2 text-xs text-gray-400 truncate">{program.description}</p>
-						{/if}
-					</a>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Project Summary with Health Scores -->
-	{#if loading}
-		<div class="flex items-center gap-2 text-gray-500">
-			<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+	{:else}
+		<!-- Loading state -->
+		<div class="flex items-center justify-center h-64">
+			<svg class="animate-spin h-8 w-8 text-gray-400" viewBox="0 0 24 24">
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading projects...
-		</div>
-	{:else if error}
-		<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-			Could not connect to backend: {error}
-		</div>
-	{:else if projects.length > 0}
-		<div class="bg-white rounded-lg border border-gray-200 p-6">
-			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-lg font-semibold text-gray-900">Uploaded Projects</h2>
-				<span class="text-sm text-gray-400">{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
-			</div>
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-				{#each projects as project}
-					<a
-						href="/projects/{project.project_id}"
-						class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
-					>
-						<div class="flex items-start justify-between">
-							<h3 class="font-medium text-gray-900 truncate flex-1 group-hover:text-blue-700 transition-colors">{project.name || project.project_id}</h3>
-							{#if healthScores[project.project_id]}
-								{@const hs = healthScores[project.project_id]}
-								<div class="ml-2 w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold {scoreCircleBg(hs.overall)}">
-									{hs.overall.toFixed(0)}
-								</div>
-							{/if}
-						</div>
-						{#if healthScores[project.project_id]}
-							{@const hs = healthScores[project.project_id]}
-							<div class="mt-2 flex items-center gap-2">
-								<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border {ratingColor(hs.rating)}">
-									{hs.rating} {hs.trend_arrow}
-								</span>
-							</div>
-						{/if}
-						<div class="mt-3 flex gap-4 text-xs text-gray-500">
-							<span class="flex items-center gap-1">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-								{project.activity_count} activities
-							</span>
-							<span class="flex items-center gap-1">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-								{project.relationship_count} rels
-							</span>
-						</div>
-						{#if healthScores[project.project_id]}
-							<div class="mt-3">
-								<div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-									<div
-										class="h-full rounded-full transition-all {scoreBgColor(healthScores[project.project_id].overall)}"
-										style="width: {healthScores[project.project_id].overall}%"
-									></div>
-								</div>
-							</div>
-						{/if}
-					</a>
-				{/each}
-			</div>
-		</div>
-	{:else}
-		<div class="bg-white rounded-lg border border-gray-200 p-6 text-center text-gray-500">
-			<p>No projects uploaded yet. Start by uploading an XER file.</p>
 		</div>
 	{/if}
 </div>

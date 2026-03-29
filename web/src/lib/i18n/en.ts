@@ -1,0 +1,61 @@
+export default {
+	// Navigation
+	'nav.dashboard': 'Dashboard',
+	'nav.upload': 'Upload',
+	'nav.projects': 'Projects',
+	'nav.compare': 'Compare',
+	'nav.forensic': 'Forensic',
+	'nav.tia': 'TIA',
+	'nav.contract': 'Contract',
+	'nav.evm': 'EVM',
+	'nav.risk': 'Risk',
+	'nav.settings': 'Settings',
+
+	// Landing page
+	'landing.badge': 'Open Source',
+	'landing.title': 'The intelligence standard for project schedules',
+	'landing.subtitle': 'Upload a Primavera P6 XER file and get instant schedule validation, critical path analysis, forensic delay analysis, earned value metrics, and Monte Carlo risk simulation. Every methodology traceable to published standards.',
+	'landing.cta.start': 'Get started free',
+	'landing.cta.demo': 'Try with sample data',
+	'landing.cta.github': 'View on GitHub',
+	'landing.stats.engines': 'Analysis Engines',
+	'landing.stats.endpoints': 'API Endpoints',
+	'landing.stats.tests': 'Tests Passing',
+	'landing.stats.cost': 'Monthly Cost',
+	'landing.capabilities.title': '10 Analysis Engines',
+	'landing.standards.title': 'Built on published standards',
+	'landing.standards.subtitle': 'Every methodology is traceable to its source. No black boxes.',
+
+	// Dashboard
+	'dashboard.title': 'Dashboard',
+	'dashboard.subtitle': 'Portfolio overview and quick actions',
+	'dashboard.total_projects': 'Total Projects',
+	'dashboard.avg_health': 'Avg Health Score',
+	'dashboard.active_alerts': 'Active Alerts',
+	'dashboard.portfolio_status': 'Portfolio Status',
+	'dashboard.all_clear': 'All Clear',
+	'dashboard.most_critical': 'Most Critical',
+
+	// Upload
+	'upload.title': 'Upload XER File',
+	'upload.drag': 'Drag and drop your .xer file here, or',
+	'upload.browse': 'Browse files',
+	'upload.hint': 'Primavera P6 XER export files only',
+	'upload.parsing': 'Parsing XER file...',
+	'upload.success': 'Upload Successful',
+	'upload.view': 'View Project Details',
+
+	// Common
+	'common.loading': 'Loading...',
+	'common.error': 'An error occurred',
+	'common.sign_in': 'Sign in',
+	'common.sign_out': 'Sign out',
+	'common.back': 'Back',
+	'common.activities': 'Activities',
+	'common.relationships': 'Relationships',
+	'common.pass': 'PASS',
+	'common.fail': 'FAIL',
+
+	// Warm-up
+	'warmup.message': 'Warming up the analysis server... This takes a few seconds on first visit.',
+} as Record<string, string>;

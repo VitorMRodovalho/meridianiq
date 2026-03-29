@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the Intelligence v0.8 API endpoints."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.app import app, get_store
+from src.api.app import app
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SAMPLE_XER = FIXTURES / "sample.xer"
@@ -79,9 +80,7 @@ class TestAlertsEndpoint:
         resp = client.get(f"/api/v1/projects/{uploaded_ids['update']}/alerts")
         assert resp.status_code == 400
 
-    def test_alerts_with_baseline(
-        self, client: TestClient, uploaded_ids: dict[str, str]
-    ) -> None:
+    def test_alerts_with_baseline(self, client: TestClient, uploaded_ids: dict[str, str]) -> None:
         """Alerts should return valid response with baseline."""
         resp = client.get(
             f"/api/v1/projects/{uploaded_ids['update']}/alerts"

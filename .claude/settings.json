@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest *)",
+      "Bash(python -m uvicorn *)",
+      "Bash(ruff *)",
+      "Bash(mypy *)",
+      "Bash(npm run *)",
+      "Bash(npm install*)",
+      "Bash(npx *)",
+      "Bash(cd *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(gh *)",
+      "Bash(pip install*)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(find *)",
+      "Bash(mkdir *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(pip uninstall*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo \"$TOOL_INPUT\" | jq -r '.file_path // empty') && if [ -n \"$FILE\" ] && echo \"$FILE\" | grep -q '\\.py$'; then ruff format --quiet \"$FILE\" 2>/dev/null && ruff check --fix --quiet \"$FILE\" 2>/dev/null; fi; exit 0",
+            "timeout": 15000
+          }
+        ]
+      }
+    ]
+  }
+}

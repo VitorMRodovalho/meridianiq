@@ -36,7 +36,7 @@
 	let reportGenerating = $state('');
 	let availableReports = $state<ReportAvailabilityEntry[]>([]);
 
-	const projectId = $derived(page.params.id);
+	const projectId = $derived(page.params.id!);
 
 	onMount(async () => {
 		try {
@@ -403,7 +403,7 @@
 							<p class="text-2xl font-bold {metric.passed ? 'text-green-700' : 'text-red-700'}">
 								{metric.value.toFixed(1)}{metric.unit}
 							</p>
-							<p class="text-xs text-gray-500 mt-1">Threshold: {metric.threshold}{metric.unit}</p>
+							<p class="text-xs text-gray-500 mt-1">Threshold: {metric.direction === 'min' ? '<=' : '>='} {metric.threshold}{metric.unit}</p>
 						</div>
 					{/each}
 				</div>

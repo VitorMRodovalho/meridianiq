@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the TIA and contract compliance API endpoints."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -54,12 +55,8 @@ def _make_fragment_payload(
                 "fragment_activity_id": f"{fragment_id}-A",
                 "name": "Delay Activity",
                 "duration_hours": duration_hours,
-                "predecessors": [
-                    {"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}
-                ],
-                "successors": [
-                    {"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}
-                ],
+                "predecessors": [{"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}],
+                "successors": [{"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}],
             }
         ],
     }

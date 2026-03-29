@@ -8,6 +8,7 @@ Covers:
 - Missing token returns None (optional_auth) / raises 401 (require_auth)
 - Invalid/tampered token raises 401
 """
+
 from __future__ import annotations
 
 import time
@@ -18,7 +19,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from src.api.auth import get_current_user, optional_auth, require_auth
+from src.api.auth import get_current_user, require_auth
 
 _SECRET = "test-secret"
 _ALGORITHM = "HS256"
@@ -46,6 +47,7 @@ def _make_token(extra: dict[str, Any] | None = None, expired: bool = False) -> s
 # Test 1: Valid JWT returns user dict
 # ---------------------------------------------------------------------------
 
+
 def test_valid_jwt_returns_user():
     """A well-formed, unexpired JWT signed with the correct secret decodes correctly."""
     token = _make_token()
@@ -61,6 +63,7 @@ def test_valid_jwt_returns_user():
 # Test 2: Expired JWT raises 401
 # ---------------------------------------------------------------------------
 
+
 def test_expired_jwt_raises_401():
     """An expired JWT raises HTTP 401 with 'Token expired' detail."""
     token = _make_token(expired=True)
@@ -74,6 +77,7 @@ def test_expired_jwt_raises_401():
 # ---------------------------------------------------------------------------
 # Test 3: Missing token returns None (get_current_user / optional_auth)
 # ---------------------------------------------------------------------------
+
 
 def test_missing_token_returns_none():
     """No credentials yields None from get_current_user (dev-mode optional auth)."""
@@ -91,6 +95,7 @@ def test_require_auth_raises_401_when_no_token():
 # ---------------------------------------------------------------------------
 # Test 4: Invalid / tampered token raises 401
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_token_raises_401():
     """A token signed with the wrong secret raises HTTP 401."""

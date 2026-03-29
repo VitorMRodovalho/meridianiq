@@ -7,7 +7,8 @@ This project builds upon concepts from [Xer-Reader-PowerBI](https://github.com/d
 This project was developed with assistance from Claude (Anthropic), an AI assistant used for code generation, documentation drafting, and requirements analysis. All intellectual decisions, domain expertise, methodology choices, and professional judgment are the sole responsibility of the author.
 
 ## Standards
-- AACE International -- Recommended Practices 29R-03, 52R-06, 10S-90
+- AACE International -- Recommended Practices 29R-03, 49R-06, 52R-06, 57R-09, 10S-90
+- ANSI/EIA-748 -- Earned Value Management Systems
 - DCMA -- Earned Value Management System guidelines
 - SCL -- Delay and Disruption Protocol
 - GAO -- Schedule Assessment Guide (GAO-16-89G)

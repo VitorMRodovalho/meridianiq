@@ -5,6 +5,7 @@
 Lazily initialises a single ``supabase.Client`` so the connection is
 shared across the application lifetime.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -27,8 +28,7 @@ def get_supabase_client() -> Any:
         from supabase import create_client
     except ImportError as exc:
         raise RuntimeError(
-            "supabase-py is required for production mode. "
-            "Install it with: pip install supabase"
+            "supabase-py is required for production mode. Install it with: pip install supabase"
         ) from exc
 
     from .config import settings

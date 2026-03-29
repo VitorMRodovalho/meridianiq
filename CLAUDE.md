@@ -1,0 +1,86 @@
+# MeridianIQ
+
+Open-source P6 XER schedule intelligence platform. Python/FastAPI backend, SvelteKit frontend, Supabase PostgreSQL.
+
+## Build & Run
+
+```bash
+# Backend
+pip install -e ".[dev]"
+python -m uvicorn src.api.app:app --reload --port 8080
+
+# Frontend
+cd web && npm install && npm run dev -- --port 5173
+
+# Docker (API only — no web/Dockerfile yet)
+docker compose up meridianiq-api
+```
+
+## Test
+
+```bash
+# Backend (358 tests, ~30s)
+python -m pytest tests/ -q
+
+# Frontend type check
+cd web && npm run check
+
+# Full verification
+python -m pytest tests/ -q && cd web && npm run build
+```
+
+## Lint & Format
+
+```bash
+ruff check src/ tests/          # lint
+ruff format src/ tests/         # format
+mypy src/ --strict              # type check
+```
+
+## Architecture
+
+- **10 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
+- **API**: FastAPI with 45 endpoints under `/api/v1/`
+- **Frontend**: SvelteKit + Tailwind v4, 20 pages, Svelte 5 runes ($state, $derived, $effect)
+- **Database**: Supabase PostgreSQL with RLS, 5 migrations in `supabase/migrations/`
+- **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
+- **Storage**: Supabase Storage for XER files and PDFs
+- **Deploy**: Fly.io (backend, port 8080) + Cloudflare Pages (frontend)
+
+## Code Standards
+
+- Python 3.12+, type hints on all public functions
+- Pydantic v2 models for all API request/response schemas
+- Every analysis methodology must cite its published standard (AACE RP, DCMA, etc.)
+- No client names, proprietary data, or credentials in code
+- Test fixtures must be synthetic — never commit real project data
+- MIT license header awareness — no GPL dependencies
+
+## Key Patterns
+
+- Parser: `src/parser/xer_reader.py` — streaming, encoding detection, composite keys
+- CPM: NetworkX digraph, forward/backward pass
+- Store: `src/database/store.py` — Supabase client abstraction
+- Auth: `src/api/auth.py` — JWT verification via JWKS, `optional_auth` decorator
+- Frontend auth: `web/src/lib/stores/auth.ts` — lazy init to avoid circular deps
+
+## Environment Variables
+
+Required in `.env`:
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `FLY_API_TOKEN` (deploy only)
+
+## Known Gotchas
+
+- Supabase uses port 6543 (pooler), not 5432
+- JWT algorithm is ES256 (not HS256/RS256) — JWKS auto-detects
+- WeasyPrint needs system deps: libpango, libcairo (in Dockerfile)
+- Fly.io cold start ~10s causes 502+CORS on first request (BUG-007)
+- `web/src/lib/stores/auth.ts` uses dynamic import to break circular dependency
+
+## Workflow
+
+- Run relevant tests after changes, not always the full suite
+- Reference `BUGS.md` for known issues before investigating errors
+- See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
+- Version: v0.8.1 — next milestone is v0.9 "Polish"

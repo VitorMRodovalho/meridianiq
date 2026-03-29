@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for Supabase persistence wiring — user_id filtering in InMemoryStore."""
+
 from __future__ import annotations
 
 import os
@@ -17,11 +18,7 @@ def _make_schedule(name: str = "TestProj", num_activities: int = 3) -> ParsedSch
         Task(task_id=f"T{i}", task_code=f"A{i:04d}", task_name=f"Activity {i}")
         for i in range(1, num_activities + 1)
     ]
-    relationships = (
-        [Relationship(task_id="T2", pred_task_id="T1")]
-        if num_activities >= 2
-        else []
-    )
+    relationships = [Relationship(task_id="T2", pred_task_id="T1")] if num_activities >= 2 else []
     return ParsedSchedule(
         projects=[Project(proj_id="P1", proj_short_name=name)],
         activities=activities,

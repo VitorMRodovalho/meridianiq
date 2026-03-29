@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the DCMA 14-point assessment module."""
+
 from __future__ import annotations
 
 from datetime import datetime

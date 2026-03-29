@@ -6,15 +6,15 @@ Builds a directed activity-on-node graph from parsed P6 schedule data,
 performs forward and backward passes, and identifies the critical path
 based on total float.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 import networkx as nx
 
-from src.parser.models import ParsedSchedule, Relationship, Task
+from src.parser.models import ParsedSchedule, Task
 
 logger = logging.getLogger(__name__)
 
@@ -288,9 +288,7 @@ class CPMCalculator:
                 if succ_ar is None:
                     continue
 
-                imposed = self._backward_constraint(
-                    succ_ar, ar.duration, rel_type, lag
-                )
+                imposed = self._backward_constraint(succ_ar, ar.duration, rel_type, lag)
                 if imposed < lf:
                     lf = imposed
 

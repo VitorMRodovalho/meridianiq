@@ -106,6 +106,7 @@ export interface MetricSchema {
 	threshold: number;
 	unit: string;
 	passed: boolean;
+	direction: string;
 	details: string;
 }
 
@@ -293,12 +294,19 @@ export interface DelayTrendResponse {
 
 // ── TIA (Time Impact Analysis) ─────────────────────────
 
+export interface FragmentRelationship {
+	activity_code: string;
+	lag_hours?: number;
+	rel_type?: string;
+	relationship_type?: string;
+}
+
 export interface FragmentActivitySchema {
 	fragment_activity_id: string;
 	name: string;
 	duration_hours: number;
-	predecessors: Record<string, unknown>[];
-	successors: Record<string, unknown>[];
+	predecessors: FragmentRelationship[];
+	successors: FragmentRelationship[];
 }
 
 export interface DelayFragmentSchema {
@@ -350,6 +358,18 @@ export interface TIAListResponse {
 }
 
 // ── Contract Compliance ─────────────────────────────────
+
+export interface ComplianceCheckSchema {
+	fragment_id: string;
+	fragment_name: string;
+	provision_id: string;
+	provision_name: string;
+	provision_category: string;
+	status: string;
+	finding: string;
+	recommendation: string;
+	details: Record<string, unknown>;
+}
 
 export interface ComplianceCheckSchema {
 	fragment_id: string;

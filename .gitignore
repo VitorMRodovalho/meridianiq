@@ -22,3 +22,11 @@ docs/v2-discovery/reference-docs/
 # Environment secrets
 .env
 .wrangler/
+
+# Claude Code local overrides
+.claude/settings.local.json
+
+# Playwright
+web/test-results/
+web/playwright-report/
+web/blob-report/

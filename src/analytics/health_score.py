@@ -17,14 +17,15 @@ Standards:
     - GAO Schedule Assessment Guide §9 — Trend surveillance
     - GAO 4 Characteristics: Comprehensive, Well-constructed, Credible, Controlled
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.analytics.dcma14 import DCMA14Analyzer, DCMA14Result
-from src.analytics.float_trends import FloatTrendAnalyzer, FloatTrendResult
+from src.analytics.dcma14 import DCMA14Analyzer
+from src.analytics.float_trends import FloatTrendAnalyzer
 from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
@@ -34,8 +35,8 @@ _HOURS_PER_DAY = 8.0
 # Rating thresholds aligned with GAO 4 characteristics
 _RATING_THRESHOLDS = {
     "excellent": 85.0,  # Comprehensive + Well-constructed + Credible + Controlled
-    "good": 70.0,       # Minor gaps in 1 characteristic
-    "fair": 50.0,       # Significant gaps in 2+ characteristics
+    "good": 70.0,  # Minor gaps in 1 characteristic
+    "fair": 50.0,  # Significant gaps in 2+ characteristics
 }
 
 
@@ -196,9 +197,7 @@ class HealthScoreCalculator:
             DCMA composite score (0–100).
         """
         try:
-            analyzer = DCMA14Analyzer(
-                self.schedule, hours_per_day=self.hours_per_day
-            )
+            analyzer = DCMA14Analyzer(self.schedule, hours_per_day=self.hours_per_day)
             dcma_result = analyzer.analyze()
             return dcma_result.overall_score
         except Exception:
@@ -224,7 +223,8 @@ class HealthScoreCalculator:
             Float health score (0–100).
         """
         incomplete = [
-            t for t in self.schedule.activities
+            t
+            for t in self.schedule.activities
             if t.status_code.lower() != "tk_complete"
             and t.task_type.lower() not in ("tt_loe", "tt_wbs")
         ]
@@ -271,8 +271,7 @@ class HealthScoreCalculator:
             Logic integrity score (0–100).
         """
         all_countable = [
-            t for t in self.schedule.activities
-            if t.task_type.lower() not in ("tt_loe", "tt_wbs")
+            t for t in self.schedule.activities if t.task_type.lower() not in ("tt_loe", "tt_wbs")
         ]
 
         if not all_countable:
@@ -332,12 +331,8 @@ class HealthScoreCalculator:
             logger.warning("Float trend analysis failed in health score calculation")
             return 50.0
 
-        improving = sum(
-            1 for t in ft_result.activity_trends if t.direction == "improving"
-        )
-        deteriorating = sum(
-            1 for t in ft_result.activity_trends if t.direction == "deteriorating"
-        )
+        improving = sum(1 for t in ft_result.activity_trends if t.direction == "improving")
+        deteriorating = sum(1 for t in ft_result.activity_trends if t.direction == "deteriorating")
         total = improving + deteriorating
 
         if total == 0:

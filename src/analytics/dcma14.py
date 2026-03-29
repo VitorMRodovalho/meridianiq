@@ -7,6 +7,7 @@ to assess the health of a project schedule.  Each metric is compared
 against industry-standard thresholds and the overall result is reported
 as a composite score.
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,17 +60,17 @@ class DCMA14Analyzer:
     """
 
     # Threshold constants for standard DCMA checks
-    LOGIC_THRESHOLD = 90.0          # >= 90% with both pred and succ
-    LEADS_THRESHOLD = 0.0           # 0% with negative lag
-    LAGS_THRESHOLD = 5.0            # <= 5% with positive lag
-    FS_THRESHOLD = 90.0             # >= 90% FS relationships
-    CONSTRAINTS_THRESHOLD = 5.0     # <= 5% with constraints
-    HIGH_FLOAT_THRESHOLD = 5.0      # <= 5% with TF > 44 days
+    LOGIC_THRESHOLD = 90.0  # >= 90% with both pred and succ
+    LEADS_THRESHOLD = 0.0  # 0% with negative lag
+    LAGS_THRESHOLD = 5.0  # <= 5% with positive lag
+    FS_THRESHOLD = 90.0  # >= 90% FS relationships
+    CONSTRAINTS_THRESHOLD = 5.0  # <= 5% with constraints
+    HIGH_FLOAT_THRESHOLD = 5.0  # <= 5% with TF > 44 days
     NEGATIVE_FLOAT_THRESHOLD = 0.0  # 0% with negative TF
-    HIGH_DURATION_THRESHOLD = 5.0   # <= 5% with dur > 44 working days
-    INVALID_DATES_THRESHOLD = 0.0   # 0% with future actual dates
-    RESOURCES_THRESHOLD = 90.0      # >= 90% with resources
-    MISSED_TASKS_THRESHOLD = 5.0    # <= 5% missed tasks
+    HIGH_DURATION_THRESHOLD = 5.0  # <= 5% with dur > 44 working days
+    INVALID_DATES_THRESHOLD = 0.0  # 0% with future actual dates
+    RESOURCES_THRESHOLD = 90.0  # >= 90% with resources
+    MISSED_TASKS_THRESHOLD = 5.0  # <= 5% missed tasks
 
     # 44 working days threshold in hours (assuming 8h/day)
     HIGH_FLOAT_HOURS = 44.0 * 8.0
@@ -104,12 +105,10 @@ class DCMA14Analyzer:
         self._task_ids_with_pred: set[str] = set()
         self._task_ids_with_succ: set[str] = set()
         for rel in schedule.relationships:
-            self._task_ids_with_pred.add(rel.task_id)       # successor has a pred
+            self._task_ids_with_pred.add(rel.task_id)  # successor has a pred
             self._task_ids_with_succ.add(rel.pred_task_id)  # predecessor has a succ
 
-        self._task_ids_with_resources: set[str] = {
-            tr.task_id for tr in schedule.task_resources
-        }
+        self._task_ids_with_resources: set[str] = {tr.task_id for tr in schedule.task_resources}
 
         # Filter to incomplete activities only (non-LOE, non-WBS summary)
         # Use case-insensitive comparison — P6 versions vary in case
@@ -122,9 +121,7 @@ class DCMA14Analyzer:
 
         # All non-LOE/WBS activities
         self._all_countable: list[Any] = [
-            t
-            for t in schedule.activities
-            if t.task_type.lower() not in ("tt_loe", "tt_wbs")
+            t for t in schedule.activities if t.task_type.lower() not in ("tt_loe", "tt_wbs")
         ]
 
     # ------------------------------------------------------------------
@@ -162,9 +159,7 @@ class DCMA14Analyzer:
 
         # Overall score: each of the 14 checks is worth equal weight
         if result.metrics:
-            result.overall_score = round(
-                (result.passed_count / len(result.metrics)) * 100, 1
-            )
+            result.overall_score = round((result.passed_count / len(result.metrics)) * 100, 1)
 
         return result
 
@@ -187,8 +182,7 @@ class DCMA14Analyzer:
         with_both = sum(
             1
             for t in self._all_countable
-            if t.task_id in self._task_ids_with_pred
-            and t.task_id in self._task_ids_with_succ
+            if t.task_id in self._task_ids_with_pred and t.task_id in self._task_ids_with_succ
         )
         pct = self._safe_pct(with_both, total)
         return MetricResult(
@@ -208,9 +202,7 @@ class DCMA14Analyzer:
         Target: 0%.
         """
         total = len(self.schedule.relationships)
-        with_leads = sum(
-            1 for r in self.schedule.relationships if r.lag_hr_cnt < 0
-        )
+        with_leads = sum(1 for r in self.schedule.relationships if r.lag_hr_cnt < 0)
         pct = self._safe_pct(with_leads, total)
         return MetricResult(
             number=2,
@@ -229,9 +221,7 @@ class DCMA14Analyzer:
         Target: <= 5%.
         """
         total = len(self.schedule.relationships)
-        with_lags = sum(
-            1 for r in self.schedule.relationships if r.lag_hr_cnt > 0
-        )
+        with_lags = sum(1 for r in self.schedule.relationships if r.lag_hr_cnt > 0)
         pct = self._safe_pct(with_lags, total)
         return MetricResult(
             number=3,
@@ -250,11 +240,7 @@ class DCMA14Analyzer:
         Target: >= 90%.
         """
         total = len(self.schedule.relationships)
-        fs_count = sum(
-            1
-            for r in self.schedule.relationships
-            if r.pred_type in ("PR_FS", "FS")
-        )
+        fs_count = sum(1 for r in self.schedule.relationships if r.pred_type in ("PR_FS", "FS"))
         pct = self._safe_pct(fs_count, total)
         return MetricResult(
             number=4,
@@ -273,11 +259,7 @@ class DCMA14Analyzer:
         Target: <= 5%.
         """
         total = len(self._all_countable)
-        constrained = sum(
-            1
-            for t in self._all_countable
-            if t.cstr_type and t.cstr_type.strip()
-        )
+        constrained = sum(1 for t in self._all_countable if t.cstr_type and t.cstr_type.strip())
         pct = self._safe_pct(constrained, total)
         return MetricResult(
             number=5,
@@ -299,8 +281,7 @@ class DCMA14Analyzer:
         high = sum(
             1
             for t in self._incomplete
-            if t.total_float_hr_cnt is not None
-            and t.total_float_hr_cnt > self.HIGH_FLOAT_HOURS
+            if t.total_float_hr_cnt is not None and t.total_float_hr_cnt > self.HIGH_FLOAT_HOURS
         )
         pct = self._safe_pct(high, total)
         return MetricResult(
@@ -343,11 +324,7 @@ class DCMA14Analyzer:
         Target: <= 5%.
         """
         total = len(self._incomplete)
-        high = sum(
-            1
-            for t in self._incomplete
-            if t.remain_drtn_hr_cnt > self.HIGH_DURATION_HOURS
-        )
+        high = sum(1 for t in self._incomplete if t.remain_drtn_hr_cnt > self.HIGH_DURATION_HOURS)
         pct = self._safe_pct(high, total)
         return MetricResult(
             number=8,
@@ -401,19 +378,12 @@ class DCMA14Analyzer:
 
         Target: >= 90%.
         """
-        total = len(self._all_countable)
         # Exclude milestones from resource check as they typically have none
         non_milestone = [
-            t
-            for t in self._all_countable
-            if t.task_type.lower() not in ("tt_mile", "tt_finmile")
+            t for t in self._all_countable if t.task_type.lower() not in ("tt_mile", "tt_finmile")
         ]
         total_nm = len(non_milestone)
-        with_res = sum(
-            1
-            for t in non_milestone
-            if t.task_id in self._task_ids_with_resources
-        )
+        with_res = sum(1 for t in non_milestone if t.task_id in self._task_ids_with_resources)
         pct = self._safe_pct(with_res, total_nm)
         return MetricResult(
             number=10,
@@ -525,11 +495,7 @@ class DCMA14Analyzer:
         project_end = proj.scd_end_date or proj.plan_end_date
         if not project_end:
             # Try to find from activity dates
-            end_dates = [
-                t.early_end_date
-                for t in self.schedule.activities
-                if t.early_end_date
-            ]
+            end_dates = [t.early_end_date for t in self.schedule.activities if t.early_end_date]
             project_end = max(end_dates) if end_dates else None
 
         if not project_end:
@@ -561,18 +527,14 @@ class DCMA14Analyzer:
             )
 
         # Sum of total float on critical path in days
-        cp_float_days = 0.0
         cp_activities = [
             t
             for t in self._incomplete
-            if t.total_float_hr_cnt is not None
-            and abs(t.total_float_hr_cnt) < 1.0
+            if t.total_float_hr_cnt is not None and abs(t.total_float_hr_cnt) < 1.0
         ]
         if cp_activities:
             # CP length in working days (simplified)
-            cp_duration_hrs = sum(
-                t.remain_drtn_hr_cnt for t in cp_activities
-            )
+            cp_duration_hrs = sum(t.remain_drtn_hr_cnt for t in cp_activities)
             cp_length_days = cp_duration_hrs / self.hours_per_day
             cpli = (cp_length_days + remaining_days) / remaining_days if remaining_days > 0 else 1.0
             # Normalise: a well-scheduled project has CPLI ~= 1.0

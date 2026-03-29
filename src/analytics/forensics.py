@@ -10,6 +10,7 @@ References:
     - AACE RP 29R-03 Forensic Schedule Analysis, MIP 3.3
     - SCL Delay and Disruption Protocol, 2nd ed., Core Principle 2
 """
+
 from __future__ import annotations
 
 import logging
@@ -248,7 +249,9 @@ class ForensicAnalyzer:
 
         return fallback_date
 
-    def _get_critical_path_codes(self, schedule: ParsedSchedule) -> tuple[list[str], CPMResult | None]:
+    def _get_critical_path_codes(
+        self, schedule: ParsedSchedule
+    ) -> tuple[list[str], CPMResult | None]:
         """Get the critical path activity codes for a schedule.
 
         Args:
@@ -291,8 +294,7 @@ class ForensicAnalyzer:
                 latest_task = None
                 for task in schedule.activities:
                     if task.early_end_date and (
-                        latest_task is None
-                        or task.early_end_date > latest_task.early_end_date
+                        latest_task is None or task.early_end_date > latest_task.early_end_date
                     ):
                         latest_task = task
                 return latest_task.task_code if latest_task else ""
@@ -407,8 +409,7 @@ class ForensicAnalyzer:
             default=None,
         )
         cp_changed_count = sum(
-            1 for w in timeline.windows
-            if w.cp_activities_joined or w.cp_activities_left
+            1 for w in timeline.windows if w.cp_activities_joined or w.cp_activities_left
         )
 
         return {
@@ -418,18 +419,20 @@ class ForensicAnalyzer:
             "windows_with_delay": windows_with_delay,
             "windows_with_acceleration": windows_with_acceleration,
             "max_single_window_delay": max_delay_window.delay_days if max_delay_window else 0.0,
-            "max_single_window_delay_id": max_delay_window.window.window_id if max_delay_window else "",
-            "max_single_window_acceleration": max_accel_window.delay_days if max_accel_window else 0.0,
-            "max_single_window_acceleration_id": max_accel_window.window.window_id if max_accel_window else "",
+            "max_single_window_delay_id": max_delay_window.window.window_id
+            if max_delay_window
+            else "",
+            "max_single_window_acceleration": max_accel_window.delay_days
+            if max_accel_window
+            else 0.0,
+            "max_single_window_acceleration_id": max_accel_window.window.window_id
+            if max_accel_window
+            else "",
             "cp_changed_windows": cp_changed_count,
             "contract_completion": (
-                timeline.contract_completion.isoformat()
-                if timeline.contract_completion
-                else None
+                timeline.contract_completion.isoformat() if timeline.contract_completion else None
             ),
             "current_completion": (
-                timeline.current_completion.isoformat()
-                if timeline.current_completion
-                else None
+                timeline.current_completion.isoformat() if timeline.current_completion else None
             ),
         }

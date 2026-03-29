@@ -6,13 +6,25 @@ Provides REST endpoints for uploading XER files, querying parsed
 schedule data, running DCMA assessments, CPM analysis, comparing
 schedule versions, and forensic (CPA/window) analysis.
 """
+
 from __future__ import annotations
 
 import io
+import os
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+import sentry_sdk
+
+if dsn := os.environ.get("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=dsn,
+        traces_sample_rate=0.1,
+        environment=os.environ.get("ENVIRONMENT", "development"),
+        release="meridianiq-api@0.9.0",
+    )
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -103,16 +115,13 @@ from .schemas import (
     # Risk schemas
     CriticalityEntrySchema,
     CriticalityResponse,
-    DurationRiskSchema,
     HistogramBinSchema,
     HistogramResponse,
     PValueSchema,
-    RiskEventSchema,
     RiskSCurvePointSchema,
     RiskSCurveResponse,
     RunSimulationRequest,
     SensitivityEntrySchema,
-    SimulationConfigSchema,
     SimulationListResponse,
     SimulationResultSchema,
     SimulationSummarySchema,
@@ -120,24 +129,21 @@ from .schemas import (
     # Intelligence v0.8 schemas
     ActivityFloatTrendSchema,
     AlertSchema,
-    AlertsRequest,
     AlertsResponse,
     DashboardKPIs,
-    FloatTrendRequest,
     FloatTrendResponse,
     GenerateReportRequest,
     GenerateReportResponse,
-    HealthRequest,
     ScheduleHealthResponse,
 )
 from .auth import optional_auth
-from .storage import EVMStore, ReportStore, RiskStore, TIAStore, TimelineStore
+from .storage import EVMStore, ProjectStore, ReportStore, RiskStore, TIAStore, TimelineStore
 from src.database.store import get_store as _get_db_store
 
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="0.8.0-dev",
+    version="0.9.0",
 )
 
 app.add_middleware(
@@ -230,13 +236,78 @@ def get_report_store() -> ReportStore:
 
 @app.get("/health")
 async def root_health():
-    return {"status": "ok", "version": "0.7.0-dev"}
+    return {"status": "ok", "version": "0.9.0"}
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse()
+
+
+# ------------------------------------------------------------------
+# Demo (unauthenticated sample data)
+# ------------------------------------------------------------------
+
+
+@app.get("/api/v1/demo/project")
+def demo_project():
+    """Return a pre-analyzed demo project from the sample XER fixture.
+
+    No authentication required. Used by the landing page "Try with sample data" flow.
+    """
+    sample_path = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "sample.xer"
+    if not sample_path.exists():
+        raise HTTPException(status_code=404, detail="Demo data not available")
+
+    from src.parser.xer_reader import XerReader
+    from src.analytics.cpm import CPMEngine
+
+    reader = XerReader()
+    schedule = reader.parse(sample_path.read_text(encoding="utf-8"))
+    analyzer = DCMA14Analyzer(schedule)
+    dcma = analyzer.analyze()
+
+    cpm = CPMEngine(schedule)
+    cpm_result = cpm.calculate()
+
+    return {
+        "project": {
+            "name": schedule.project.proj_short_name if schedule.project else "Demo Project",
+            "activity_count": len(schedule.activities),
+            "relationship_count": len(schedule.relationships),
+            "calendar_count": len(schedule.calendars),
+            "wbs_count": len(schedule.wbs_nodes),
+        },
+        "validation": {
+            "overall_score": dcma.overall_score,
+            "passed_count": dcma.passed_count,
+            "failed_count": dcma.failed_count,
+            "metrics": [
+                {
+                    "number": m.number,
+                    "name": m.name,
+                    "value": round(m.value, 1),
+                    "threshold": m.threshold,
+                    "unit": m.unit,
+                    "passed": m.passed,
+                    "direction": m.direction,
+                }
+                for m in dcma.metrics
+            ],
+        },
+        "critical_path": {
+            "length": len(cpm_result.critical_path),
+            "activities": [
+                {
+                    "task_code": a.task_code,
+                    "task_name": a.task_name,
+                    "total_float": round((a.total_float_hr_cnt or 0) / 8, 1),
+                }
+                for a in cpm_result.critical_path[:20]
+            ],
+        },
+    }
 
 
 # ------------------------------------------------------------------
@@ -372,7 +443,11 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
     """Trend data across all revisions for charting."""
     store = get_store()
     user_id = _user["id"] if _user else None
-    revisions = store.get_program_revisions(program_id, user_id) if hasattr(store, 'get_program_revisions') else []
+    revisions = (
+        store.get_program_revisions(program_id, user_id)
+        if hasattr(store, "get_program_revisions")
+        else []
+    )
     if not revisions:
         raise HTTPException(status_code=404, detail="Program not found or no revisions")
 
@@ -386,7 +461,7 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
         "dcma_scores": [],
         "alert_counts": [],
         "activity_counts": [],
-        "revisions": []
+        "revisions": [],
     }
 
     for rev in revisions:
@@ -409,12 +484,14 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
         else:
             trends["alert_counts"].append(None)
         trends["activity_counts"].append(rev.get("activity_count"))
-        trends["revisions"].append({
-            "id": rev.get("id"),
-            "revision_number": rev.get("revision_number"),
-            "data_date": rev.get("data_date"),
-            "filename": rev.get("filename"),
-        })
+        trends["revisions"].append(
+            {
+                "id": rev.get("id"),
+                "revision_number": rev.get("revision_number"),
+                "data_date": rev.get("data_date"),
+                "filename": rev.get("filename"),
+            }
+        )
 
     return trends
 
@@ -499,15 +576,13 @@ def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
         return WBSStats()
 
     # Build parent→children map and find root(s)
-    wbs_by_id: dict[str, Any] = {w.wbs_id: w for w in wbs_nodes}
     child_ids: set[str] = set()
     for w in wbs_nodes:
         if w.parent_wbs_id and w.parent_wbs_id != w.wbs_id:
             child_ids.add(w.wbs_id)
 
     # Calculate depth for each WBS node via BFS from roots
-    roots = [w for w in wbs_nodes if w.wbs_id not in child_ids
-             or w.proj_node_flag.upper() == "Y"]
+    roots = [w for w in wbs_nodes if w.wbs_id not in child_ids or w.proj_node_flag.upper() == "Y"]
     levels: dict[str, int] = {}
     queue = [(r.wbs_id, 1) for r in roots]
     for wbs_id, level in queue:
@@ -530,10 +605,7 @@ def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
     level_counts: dict[int, int] = {}
     for lvl in levels.values():
         level_counts[lvl] = level_counts.get(lvl, 0) + 1
-    by_level = [
-        WBSLevelCount(level=lvl, count=cnt)
-        for lvl, cnt in sorted(level_counts.items())
-    ]
+    by_level = [WBSLevelCount(level=lvl, count=cnt) for lvl, cnt in sorted(level_counts.items())]
 
     # Activities per WBS node
     act_per_wbs: dict[str, int] = {w.wbs_id: 0 for w in wbs_nodes}
@@ -588,6 +660,7 @@ def get_validation(project_id: str, _user: object = Depends(optional_auth)) -> V
             threshold=m.threshold,
             unit=m.unit,
             passed=m.passed,
+            direction=m.direction,
             details=m.details,
         )
         for m in dcma.metrics
@@ -611,7 +684,9 @@ def get_validation(project_id: str, _user: object = Depends(optional_auth)) -> V
     "/api/v1/projects/{project_id}/critical-path",
     response_model=CriticalPathResponse,
 )
-def get_critical_path(project_id: str, _user: object = Depends(optional_auth)) -> CriticalPathResponse:
+def get_critical_path(
+    project_id: str, _user: object = Depends(optional_auth)
+) -> CriticalPathResponse:
     """Compute and return the critical path for a project.
 
     Args:
@@ -657,7 +732,9 @@ def get_critical_path(project_id: str, _user: object = Depends(optional_auth)) -
     "/api/v1/projects/{project_id}/float-distribution",
     response_model=FloatDistributionResponse,
 )
-def get_float_distribution(project_id: str, _user: object = Depends(optional_auth)) -> FloatDistributionResponse:
+def get_float_distribution(
+    project_id: str, _user: object = Depends(optional_auth)
+) -> FloatDistributionResponse:
     """Return float distribution buckets for a project.
 
     Buckets: critical (TF=0), near-critical (0-10d), moderate (10-20d),
@@ -676,7 +753,8 @@ def get_float_distribution(project_id: str, _user: object = Depends(optional_aut
 
     # Filter to countable activities (case-insensitive)
     countable = [
-        t for t in schedule.activities
+        t
+        for t in schedule.activities
         if t.task_type.lower() not in ("tt_loe", "tt_wbs")
         and t.status_code.lower() != "tk_complete"
     ]
@@ -770,7 +848,9 @@ def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> M
 
 
 @app.post("/api/v1/compare", response_model=CompareResponse)
-def compare_schedules(request: CompareRequest, _user: object = Depends(optional_auth)) -> CompareResponse:
+def compare_schedules(
+    request: CompareRequest, _user: object = Depends(optional_auth)
+) -> CompareResponse:
     """Compare two uploaded projects (baseline vs update).
 
     Args:
@@ -797,18 +877,12 @@ def compare_schedules(request: CompareRequest, _user: object = Depends(optional_
     result = comparison.compare()
 
     return CompareResponse(
-        activities_added=[
-            ActivityChangeSchema(**asdict(c)) for c in result.activities_added
-        ],
-        activities_deleted=[
-            ActivityChangeSchema(**asdict(c)) for c in result.activities_deleted
-        ],
+        activities_added=[ActivityChangeSchema(**asdict(c)) for c in result.activities_added],
+        activities_deleted=[ActivityChangeSchema(**asdict(c)) for c in result.activities_deleted],
         activity_modifications=[
             ActivityChangeSchema(**asdict(c)) for c in result.activity_modifications
         ],
-        duration_changes=[
-            ActivityChangeSchema(**asdict(c)) for c in result.duration_changes
-        ],
+        duration_changes=[ActivityChangeSchema(**asdict(c)) for c in result.duration_changes],
         relationships_added=[
             RelationshipChangeSchema(**asdict(c)) for c in result.relationships_added
         ],
@@ -821,12 +895,8 @@ def compare_schedules(request: CompareRequest, _user: object = Depends(optional_
         significant_float_changes=[
             FloatChangeSchema(**asdict(c)) for c in result.significant_float_changes
         ],
-        constraint_changes=[
-            ActivityChangeSchema(**asdict(c)) for c in result.constraint_changes
-        ],
-        manipulation_flags=[
-            ManipulationFlagSchema(**asdict(c)) for c in result.manipulation_flags
-        ],
+        constraint_changes=[ActivityChangeSchema(**asdict(c)) for c in result.constraint_changes],
+        manipulation_flags=[ManipulationFlagSchema(**asdict(c)) for c in result.manipulation_flags],
         code_restructuring=[
             CodeRestructuringSchema(**asdict(c)) for c in result.code_restructuring
         ],
@@ -881,7 +951,9 @@ def _window_to_schema(wr: Any) -> WindowSchema:
     "/api/v1/forensic/create-timeline",
     response_model=TimelineDetailSchema,
 )
-def create_timeline(request: CreateTimelineRequest, _user: object = Depends(optional_auth)) -> TimelineDetailSchema:
+def create_timeline(
+    request: CreateTimelineRequest, _user: object = Depends(optional_auth)
+) -> TimelineDetailSchema:
     """Create a forensic CPA timeline from multiple schedule updates.
 
     Fetches each referenced project from the store, sorts by data date,
@@ -901,9 +973,7 @@ def create_timeline(request: CreateTimelineRequest, _user: object = Depends(opti
     for pid in request.project_ids:
         schedule = store.get(pid)
         if schedule is None:
-            raise HTTPException(
-                status_code=404, detail=f"Project not found: {pid}"
-            )
+            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
         schedules.append(schedule)
 
     try:
@@ -912,9 +982,7 @@ def create_timeline(request: CreateTimelineRequest, _user: object = Depends(opti
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Forensic analysis failed: {exc}"
-        )
+        raise HTTPException(status_code=500, detail=f"Forensic analysis failed: {exc}")
 
     tid = tl_store.add(timeline)
 
@@ -924,14 +992,10 @@ def create_timeline(request: CreateTimelineRequest, _user: object = Depends(opti
         schedule_count=timeline.schedule_count,
         total_delay_days=timeline.total_delay_days,
         contract_completion=(
-            timeline.contract_completion.isoformat()
-            if timeline.contract_completion
-            else None
+            timeline.contract_completion.isoformat() if timeline.contract_completion else None
         ),
         current_completion=(
-            timeline.current_completion.isoformat()
-            if timeline.current_completion
-            else None
+            timeline.current_completion.isoformat() if timeline.current_completion else None
         ),
         windows=[_window_to_schema(w) for w in timeline.windows],
         summary=timeline.summary,
@@ -973,14 +1037,10 @@ def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> Ti
         schedule_count=timeline.schedule_count,
         total_delay_days=timeline.total_delay_days,
         contract_completion=(
-            timeline.contract_completion.isoformat()
-            if timeline.contract_completion
-            else None
+            timeline.contract_completion.isoformat() if timeline.contract_completion else None
         ),
         current_completion=(
-            timeline.current_completion.isoformat()
-            if timeline.current_completion
-            else None
+            timeline.current_completion.isoformat() if timeline.current_completion else None
         ),
         windows=[_window_to_schema(w) for w in timeline.windows],
         summary=timeline.summary,
@@ -1014,13 +1074,9 @@ def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) ->
             DelayTrendPoint(
                 window_id=wr.window.window_id,
                 window_number=wr.window.window_number,
-                data_date=(
-                    wr.window.end_date.isoformat() if wr.window.end_date else None
-                ),
+                data_date=(wr.window.end_date.isoformat() if wr.window.end_date else None),
                 completion_date=(
-                    wr.completion_date_end.isoformat()
-                    if wr.completion_date_end
-                    else None
+                    wr.completion_date_end.isoformat() if wr.completion_date_end else None
                 ),
                 delay_days=wr.delay_days,
                 cumulative_delay=wr.cumulative_delay,
@@ -1030,9 +1086,7 @@ def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) ->
     return DelayTrendResponse(
         timeline_id=timeline.timeline_id,
         contract_completion=(
-            timeline.contract_completion.isoformat()
-            if timeline.contract_completion
-            else None
+            timeline.contract_completion.isoformat() if timeline.contract_completion else None
         ),
         points=points,
     )
@@ -1133,7 +1187,9 @@ def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
 
 
 @app.post("/api/v1/tia/analyze", response_model=TIAAnalysisSchema)
-def tia_analyze(request: TIAAnalyzeRequest, _user: object = Depends(optional_auth)) -> TIAAnalysisSchema:
+def tia_analyze(
+    request: TIAAnalyzeRequest, _user: object = Depends(optional_auth)
+) -> TIAAnalysisSchema:
     """Run Time Impact Analysis on a project with delay fragments.
 
     Per AACE RP 52R-06, inserts each fragment into the schedule network,
@@ -1150,9 +1206,7 @@ def tia_analyze(request: TIAAnalyzeRequest, _user: object = Depends(optional_aut
 
     schedule = store.get(request.project_id)
     if schedule is None:
-        raise HTTPException(
-            status_code=404, detail=f"Project not found: {request.project_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Project not found: {request.project_id}")
 
     # Convert schemas to domain models
     fragments = [_fragment_schema_to_model(f) for f in request.fragments]
@@ -1161,11 +1215,9 @@ def tia_analyze(request: TIAAnalyzeRequest, _user: object = Depends(optional_aut
         analyzer = TimeImpactAnalyzer(schedule)
         analysis = analyzer.analyze_all(fragments)
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"TIA analysis failed: {exc}"
-        )
+        raise HTTPException(status_code=500, detail=f"TIA analysis failed: {exc}")
 
-    aid = tia_store.add(analysis)
+    tia_store.add(analysis)
     return _analysis_to_schema(analysis)
 
 
@@ -1232,7 +1284,9 @@ def get_tia_summary(analysis_id: str, _user: object = Depends(optional_auth)) ->
 
 
 @app.post("/api/v1/contract/check", response_model=ContractCheckResponse)
-def contract_check(request: ContractCheckRequest, _user: object = Depends(optional_auth)) -> ContractCheckResponse:
+def contract_check(
+    request: ContractCheckRequest, _user: object = Depends(optional_auth)
+) -> ContractCheckResponse:
     """Run contract compliance checks against a TIA analysis.
 
     Evaluates each fragment against standard construction contract
@@ -1419,9 +1473,7 @@ def run_evm_analysis(project_id: str, _user: object = Depends(optional_auth)) ->
         result = analyzer.analyze()
         result.project_id = project_id
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"EVM analysis failed: {exc}"
-        )
+        raise HTTPException(status_code=500, detail=f"EVM analysis failed: {exc}")
 
     evm_store.add(result)
     return _evm_result_to_schema(result, project_id)
@@ -1638,9 +1690,7 @@ def run_risk_simulation(
 
     schedule = store.get(project_id)
     if schedule is None:
-        raise HTTPException(
-            status_code=404, detail=f"Project not found: {project_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
 
     # Convert request schemas to domain models
     config = None
@@ -1653,36 +1703,42 @@ def run_risk_simulation(
             confidence_levels=request.config.confidence_levels,
         )
 
-    duration_risks = [
-        DurationRisk(
-            activity_id=r.activity_id,
-            distribution=DistributionType(r.distribution),
-            min_duration=r.min_duration,
-            most_likely=r.most_likely,
-            max_duration=r.max_duration,
-        )
-        for r in request.duration_risks
-    ] if request.duration_risks else None
+    duration_risks = (
+        [
+            DurationRisk(
+                activity_id=r.activity_id,
+                distribution=DistributionType(r.distribution),
+                min_duration=r.min_duration,
+                most_likely=r.most_likely,
+                max_duration=r.max_duration,
+            )
+            for r in request.duration_risks
+        ]
+        if request.duration_risks
+        else None
+    )
 
-    risk_events = [
-        RiskEvent(
-            risk_id=e.risk_id,
-            name=e.name,
-            probability=e.probability,
-            impact_hours=e.impact_hours,
-            affected_activities=e.affected_activities,
-        )
-        for e in request.risk_events
-    ] if request.risk_events else None
+    risk_events = (
+        [
+            RiskEvent(
+                risk_id=e.risk_id,
+                name=e.name,
+                probability=e.probability,
+                impact_hours=e.impact_hours,
+                affected_activities=e.affected_activities,
+            )
+            for e in request.risk_events
+        ]
+        if request.risk_events
+        else None
+    )
 
     try:
         simulator = MonteCarloSimulator(schedule, config)
         result = simulator.simulate(duration_risks, risk_events)
         result.project_id = project_id
     except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Risk simulation failed: {exc}"
-        )
+        raise HTTPException(status_code=500, detail=f"Risk simulation failed: {exc}")
 
     risk_store.add(result)
     return _simulation_to_schema(result)
@@ -1700,7 +1756,9 @@ def list_risk_simulations(_user: object = Depends(optional_auth)) -> SimulationL
     "/api/v1/risk/simulations/{simulation_id}",
     response_model=SimulationResultSchema,
 )
-def get_risk_simulation(simulation_id: str, _user: object = Depends(optional_auth)) -> SimulationResultSchema:
+def get_risk_simulation(
+    simulation_id: str, _user: object = Depends(optional_auth)
+) -> SimulationResultSchema:
     """Get full risk simulation result with all analysis data.
 
     Args:
@@ -1721,7 +1779,9 @@ def get_risk_simulation(simulation_id: str, _user: object = Depends(optional_aut
     "/api/v1/risk/simulations/{simulation_id}/histogram",
     response_model=HistogramResponse,
 )
-def get_risk_histogram(simulation_id: str, _user: object = Depends(optional_auth)) -> HistogramResponse:
+def get_risk_histogram(
+    simulation_id: str, _user: object = Depends(optional_auth)
+) -> HistogramResponse:
     """Get histogram data for a risk simulation.
 
     Returns bin counts and P-value overlay lines suitable for
@@ -1803,7 +1863,9 @@ def get_risk_tornado(simulation_id: str, _user: object = Depends(optional_auth))
     "/api/v1/risk/simulations/{simulation_id}/criticality",
     response_model=CriticalityResponse,
 )
-def get_risk_criticality(simulation_id: str, _user: object = Depends(optional_auth)) -> CriticalityResponse:
+def get_risk_criticality(
+    simulation_id: str, _user: object = Depends(optional_auth)
+) -> CriticalityResponse:
     """Get criticality index data for a risk simulation.
 
     Returns the percentage of iterations in which each activity
@@ -1837,7 +1899,9 @@ def get_risk_criticality(simulation_id: str, _user: object = Depends(optional_au
     "/api/v1/risk/simulations/{simulation_id}/s-curve",
     response_model=RiskSCurveResponse,
 )
-def get_risk_s_curve(simulation_id: str, _user: object = Depends(optional_auth)) -> RiskSCurveResponse:
+def get_risk_s_curve(
+    simulation_id: str, _user: object = Depends(optional_auth)
+) -> RiskSCurveResponse:
     """Get cumulative probability S-curve data for a risk simulation.
 
     Returns sorted completion durations with their cumulative
@@ -2095,9 +2159,7 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
     most_critical_id = min(health_scores, key=health_scores.get) if health_scores else None
     most_critical_score = health_scores.get(most_critical_id, None) if most_critical_id else None
 
-    avg_health = (
-        sum(health_scores.values()) / len(health_scores) if health_scores else 0.0
-    )
+    avg_health = sum(health_scores.values()) / len(health_scores) if health_scores else 0.0
 
     return DashboardKPIs(
         total_projects=len(project_ids),
@@ -2144,7 +2206,7 @@ def generate_report(
         raise HTTPException(
             status_code=400,
             detail=f"Invalid report_type '{request.report_type}'. "
-                   f"Valid types: {', '.join(sorted(_VALID_REPORT_TYPES))}",
+            f"Valid types: {', '.join(sorted(_VALID_REPORT_TYPES))}",
         )
 
     store = get_store()
@@ -2174,14 +2236,18 @@ def generate_report(
         raise HTTPException(status_code=500, detail=f"Report generation failed: {exc}")
 
     from datetime import datetime as _dt
+
     generated_at = _dt.now().isoformat()
 
     report_store = get_report_store()
-    report_id = report_store.add(pdf_bytes, {
-        "report_type": report_type,
-        "project_id": request.project_id,
-        "generated_at": generated_at,
-    })
+    report_id = report_store.add(
+        pdf_bytes,
+        {
+            "report_type": report_type,
+            "project_id": request.project_id,
+            "generated_at": generated_at,
+        },
+    )
 
     return GenerateReportResponse(
         report_id=report_id,

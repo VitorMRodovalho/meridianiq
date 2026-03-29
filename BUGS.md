@@ -1,57 +1,8 @@
-# Known Issues — v0.8.1
+# Known Issues — v0.9.0
 
 Bug tracking for MeridianIQ. Entries are prioritized P1 (production-blocking) → P3 (minor).
 
----
-
-## P1 — Production Issues
-
-### BUG-006: ReferenceError — circular store dependency in production build
-
-- **Status:** OPEN
-- **Severity:** P1 — breaks production frontend
-- **Description:** SvelteKit production build (`npm run build`) throws a `ReferenceError` caused by a circular dependency between Svelte stores (auth store ↔ project store). Works correctly in dev mode (`npm run dev`). Likely introduced during v0.8.1 dashboard wiring.
-- **Symptom:** Page renders blank or crashes on first load in deployed CF Pages environment.
-- **Fix location:** `web/src/lib/stores/` — identify and break the circular import
-- **Workaround:** None. Must be fixed before any frontend deploy from a clean build.
-
-### BUG-007: Fly.io cold start causes 502 + CORS on first request
-
-- **Status:** OPEN
-- **Severity:** P1 — degrades first-use experience
-- **Description:** Fly.io free-tier machines scale to zero after inactivity. Cold start takes approximately 10 seconds. During startup, the first request(s) receive a 502 from Fly.io's proxy, which the browser interprets as a CORS failure (no CORS headers on the 502 response).
-- **Symptom:** First API call after period of inactivity fails with `Failed to fetch` / CORS error in browser console. Subsequent calls succeed normally.
-- **Fix options:** (a) Keep-alive ping from CF Pages edge on a schedule, (b) Fly.io `min_machines_running = 1` (costs ~$2/mo), (c) Frontend retry with exponential backoff and user-visible "warming up…" message.
-- **Fix location:** `fly.toml` and/or `web/src/lib/api.ts`
-
----
-
-## P2 — Functional Issues
-
-### BUG-008: DCMA checks #2 and #9 — threshold display inconsistency
-
-- **Status:** OPEN
-- **Severity:** P2 — misleading UI output
-- **Description:** DCMA checks #2 (Leads) and #9 (Invalid Dates) display a non-zero percentage in the frontend even when the backend returns `value: 0.0` and `passed: true`. The threshold label also sometimes shows `> 0%` instead of `= 0%` for zero-tolerance checks.
-- **Fix location:** Frontend component rendering the DCMA results table — likely `web/src/routes/projects/[id]/+page.svelte` or a shared DCMA component.
-
-### BUG-009: Orphan project from pre-v0.8.1 uploads
-
-- **Status:** OPEN
-- **Severity:** P2 — data integrity
-- **Description:** Projects uploaded before the v0.8.1 storage refactor (migration `004_storage_refactor.sql`) have `xer_storage_path = NULL` and `user_id = NULL` because the upload pipeline previously stored files inline. These orphan rows appear in the projects list but fail to load analysis results.
-- **Fix location:** `src/database/store.py` — add null-guard on `xer_storage_path`; optionally backfill or soft-delete orphan rows via a one-time migration.
-
----
-
-## P3 — Minor Issues
-
-### BUG-010: v0.6 git tag missing from history
-
-- **Status:** OPEN
-- **Severity:** P3 — documentation/history only
-- **Description:** Git tags exist for v0.1.0–v0.5.0, v0.7.0, and v0.8.0. The `v0.6.0` tag was never created. The v0.6 Cloud release was delivered across several commits but not formally tagged.
-- **Fix:** `git tag v0.6.0 <commit-sha>` and `git push origin v0.6.0` — identify the commit that completed Cloudflare Pages deployment as the tag target.
+All bugs from v0.8.1 have been resolved. See "Previously Fixed" below.
 
 ---
 
@@ -62,6 +13,12 @@ Bug tracking for MeridianIQ. Entries are prioritized P1 (production-blocking) �
 | BUG-001 | Milestones not detected — case-sensitive task_type matching | 2026-03-25 |
 | BUG-002 | Case sensitivity in task_type/status_code across DCMA + API | 2026-03-25 |
 | OBS-001 | WBS display showed count only — added WBSStats hierarchy | 2026-03-25 |
+| BUG-006 | ReferenceError — circular store dependency in production build (auth.ts lazy init) | v0.8.1 |
+| BUG-007 | Fly.io cold start 502+CORS — retry with backoff + warm-up banner | v0.8.1 docs sync |
+| BUG-008 | DCMA threshold display — added `direction` field, correct `<=`/`>=` operators | v0.8.1 docs sync |
+| BUG-009 | Orphan DB rows — soft-delete migration (006), RLS policy update | v0.8.1 docs sync |
+| BUG-010 | v0.6 git tag missing — tagged `dcb699a` as v0.6.0 | v0.8.1 docs sync |
+| BUG-011 | docker-compose port mismatch — corrected to 8080, commented out web service | v0.8.1 docs sync |
 
 ---
 
@@ -95,6 +52,7 @@ Real-world XER testing (in addition to unit tests):
 - [ ] Early Warning — verify all 12 rules fire correctly against known test cases
 - [ ] PDF Reports — verify layout and data accuracy for all 5 report types
 - [ ] Auth — test token expiry and refresh flow
+- [ ] Contract Compliance — test provision checks against TIA with known violations
 
 ---
 

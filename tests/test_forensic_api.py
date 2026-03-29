@@ -5,6 +5,7 @@
 Verifies timeline creation, listing, retrieval, and delay trend data
 through the FastAPI test client.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,9 +13,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.app import app, get_store, get_timeline_store
+from src.api.app import app
 from src.api.storage import ProjectStore, TimelineStore
-from src.parser.xer_reader import XERReader
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

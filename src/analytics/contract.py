@@ -12,6 +12,7 @@ References:
     - AACE RP 52R-06 Time Impact Analysis
     - AACE RP 29R-03 Forensic Schedule Analysis
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,6 @@ from typing import Any
 
 from src.analytics.tia import (
     DelayFragment,
-    DelayType,
     ResponsibleParty,
     TIAResult,
 )
@@ -208,9 +208,7 @@ class ContractComplianceChecker:
         ),
     ]
 
-    def __init__(
-        self, provisions: list[ContractProvision] | None = None
-    ) -> None:
+    def __init__(self, provisions: list[ContractProvision] | None = None) -> None:
         """Initialise with contract provisions.
 
         Args:
@@ -272,9 +270,7 @@ class ContractComplianceChecker:
         for fragment in fragments:
             tia_result = result_map.get(fragment.fragment_id)
             if tia_result is None:
-                logger.warning(
-                    "No TIA result found for fragment %s", fragment.fragment_id
-                )
+                logger.warning("No TIA result found for fragment %s", fragment.fragment_id)
                 continue
             checks = self.check_fragment(fragment, tia_result)
             all_checks.extend(checks)
@@ -301,9 +297,7 @@ class ContractComplianceChecker:
             category=ProvisionCategory.NOTICE,
         )
 
-    def _check_notice(
-        self, fragment: DelayFragment, result: TIAResult
-    ) -> ComplianceCheck:
+    def _check_notice(self, fragment: DelayFragment, result: TIAResult) -> ComplianceCheck:
         """Check if timely notice requirements can be met.
 
         Standard construction contracts require notice within 5-21 days
@@ -332,9 +326,7 @@ class ContractComplianceChecker:
                 "No project delay caused. Notice requirements are "
                 "less critical when no delay to completion occurs."
             )
-            check.recommendation = (
-                "Document the event for the project record regardless."
-            )
+            check.recommendation = "Document the event for the project record regardless."
         elif result.delay_days > 0:
             check.status = ComplianceStatus.WARNING
             check.finding = (
@@ -355,9 +347,7 @@ class ContractComplianceChecker:
 
         return check
 
-    def _check_float_ownership(
-        self, fragment: DelayFragment, result: TIAResult
-    ) -> ComplianceCheck:
+    def _check_float_ownership(self, fragment: DelayFragment, result: TIAResult) -> ComplianceCheck:
         """Analyze float consumption -- project float vs activity float.
 
         Checks whether the fragment consumes shared project float and
@@ -403,9 +393,7 @@ class ContractComplianceChecker:
             )
         else:
             check.status = ComplianceStatus.PASS
-            check.finding = (
-                "Fragment does not significantly consume project float."
-            )
+            check.finding = "Fragment does not significantly consume project float."
             check.recommendation = "No action required."
 
         check.details = {
@@ -416,9 +404,7 @@ class ContractComplianceChecker:
 
         return check
 
-    def _check_pacing(
-        self, fragment: DelayFragment, result: TIAResult
-    ) -> ComplianceCheck:
+    def _check_pacing(self, fragment: DelayFragment, result: TIAResult) -> ComplianceCheck:
         """Detect if the delay is actually a pacing delay.
 
         A pacing delay occurs when an activity is deliberately slowed
@@ -481,9 +467,7 @@ class ContractComplianceChecker:
 
         return check
 
-    def _check_concurrent(
-        self, fragment: DelayFragment, result: TIAResult
-    ) -> ComplianceCheck:
+    def _check_concurrent(self, fragment: DelayFragment, result: TIAResult) -> ComplianceCheck:
         """Check concurrent delay implications.
 
         If the fragment has been marked as concurrent with other
@@ -530,9 +514,7 @@ class ContractComplianceChecker:
 
         return check
 
-    def _check_force_majeure(
-        self, fragment: DelayFragment, result: TIAResult
-    ) -> ComplianceCheck:
+    def _check_force_majeure(self, fragment: DelayFragment, result: TIAResult) -> ComplianceCheck:
         """Check force majeure classification requirements.
 
         Force majeure events must meet specific contractual criteria:
@@ -555,10 +537,10 @@ class ContractComplianceChecker:
 
         check.status = ComplianceStatus.WARNING
         check.finding = (
-            f"Fragment is classified as force majeure. Verify that the "
-            f"event meets all contractual criteria: (1) beyond control "
-            f"of both parties, (2) could not have been foreseen, "
-            f"(3) effects could not have been avoided or overcome."
+            "Fragment is classified as force majeure. Verify that the "
+            "event meets all contractual criteria: (1) beyond control "
+            "of both parties, (2) could not have been foreseen, "
+            "(3) effects could not have been avoided or overcome."
         )
         check.recommendation = (
             "Gather supporting documentation including government orders, "
@@ -573,9 +555,7 @@ class ContractComplianceChecker:
 
         return check
 
-    def _check_time_extension(
-        self, fragment: DelayFragment, result: TIAResult
-    ) -> ComplianceCheck:
+    def _check_time_extension(self, fragment: DelayFragment, result: TIAResult) -> ComplianceCheck:
         """Evaluate time extension entitlement.
 
         A valid time extension requires: qualifying event, timely notice,
@@ -600,7 +580,8 @@ class ContractComplianceChecker:
         qualifies = (
             result.delay_days > 0
             and result.critical_path_affected
-            and fragment.responsible_party in (
+            and fragment.responsible_party
+            in (
                 ResponsibleParty.OWNER,
                 ResponsibleParty.FORCE_MAJEURE,
                 ResponsibleParty.THIRD_PARTY,
@@ -618,8 +599,7 @@ class ContractComplianceChecker:
                 f"path, and has no concurrent contractor delays."
             )
             check.recommendation = (
-                "Prepare a formal time extension request with this TIA "
-                "as supporting documentation."
+                "Prepare a formal time extension request with this TIA as supporting documentation."
             )
         elif qualifies and has_concurrent:
             check.status = ComplianceStatus.WARNING
@@ -650,14 +630,11 @@ class ContractComplianceChecker:
                 "Liquidated damages may apply."
             )
             check.recommendation = (
-                "Evaluate mitigation options. The contractor should "
-                "prepare a recovery schedule."
+                "Evaluate mitigation options. The contractor should prepare a recovery schedule."
             )
         else:
             check.status = ComplianceStatus.INFO
-            check.finding = (
-                "No project delay caused by this fragment."
-            )
+            check.finding = "No project delay caused by this fragment."
             check.recommendation = "No action required."
 
         check.details = {

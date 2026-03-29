@@ -8,7 +8,7 @@
 	interface SensitivityEntry { activity_id: string; activity_name: string; correlation: number; }
 	interface SCurvePoint { duration_days: number; cumulative_probability: number; }
 
-	const simulationId = $derived(page.params.id);
+	const simulationId = $derived(page.params.id!);
 	let loading = $state(true);
 	let error = $state('');
 

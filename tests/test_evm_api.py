@@ -5,6 +5,7 @@
 Verifies the REST API for running EVM analyses, fetching results,
 S-curve data, WBS drilldowns, and forecast scenarios.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -13,9 +14,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.app import app, get_evm_store, get_store
+from src.api.app import app
 from src.api.storage import EVMStore, ProjectStore
-from src.parser.xer_reader import XERReader
 from tests.fixtures.sample_xer_generator import generate_sample_xer
 
 

@@ -17,6 +17,7 @@ Standards:
 References:
     - GAO Schedule Assessment Guide §7.3 — Critical Path Stability
 """
+
 from __future__ import annotations
 
 import logging
@@ -126,9 +127,12 @@ class FloatTrendAnalyzer:
 
     # Threshold definitions per DCMA + industry consensus
     THRESHOLDS = {
-        "fei": {"green": 10.0, "yellow": 25.0},            # < 10% green, 10-25% yellow, > 25% red
-        "near_critical_drift_pct": {"green": 5.0, "yellow": 15.0},  # < 5% green, 5-15% yellow, > 15% red
-        "cp_stability": {"green": 80.0, "yellow": 60.0},   # > 80% green, 60-80% yellow, < 60% red
+        "fei": {"green": 10.0, "yellow": 25.0},  # < 10% green, 10-25% yellow, > 25% red
+        "near_critical_drift_pct": {
+            "green": 5.0,
+            "yellow": 15.0,
+        },  # < 5% green, 5-15% yellow, > 15% red
+        "cp_stability": {"green": 80.0, "yellow": 60.0},  # > 80% green, 60-80% yellow, < 60% red
     }
 
     def __init__(
@@ -148,8 +152,8 @@ class FloatTrendAnalyzer:
         self._upd_by_code: dict[str, Task] = {
             t.task_code: t for t in update.activities if t.task_code
         }
-        self._matched_codes: set[str] = (
-            set(self._base_by_code.keys()) & set(self._upd_by_code.keys())
+        self._matched_codes: set[str] = set(self._base_by_code.keys()) & set(
+            self._upd_by_code.keys()
         )
 
     # ------------------------------------------------------------------
@@ -308,9 +312,7 @@ class FloatTrendAnalyzer:
     # Critical Path Stability
     # ------------------------------------------------------------------
 
-    def _compute_cp_stability(
-        self, base_cp_codes: set[str], upd_cp_codes: set[str]
-    ) -> float:
+    def _compute_cp_stability(self, base_cp_codes: set[str], upd_cp_codes: set[str]) -> float:
         """Compute Critical Path Stability metric.
 
         CP Stability = % of baseline CP activities that remain on the CP in
@@ -429,9 +431,7 @@ class FloatTrendAnalyzer:
 
         # Map task_id back to task_code
         id_to_code = {t.task_id: t.task_code for t in schedule.activities if t.task_code}
-        return {
-            id_to_code[tid] for tid in cpm_result.critical_path if tid in id_to_code
-        }
+        return {id_to_code[tid] for tid in cpm_result.critical_path if tid in id_to_code}
 
     def _calendar_days_between(self) -> float:
         """Compute calendar days between baseline and update data dates.
@@ -461,9 +461,7 @@ class FloatTrendAnalyzer:
     def _build_summary(self, result: FloatTrendResult) -> dict[str, Any]:
         """Build aggregate summary statistics."""
         improving = sum(1 for t in result.activity_trends if t.direction == "improving")
-        deteriorating = sum(
-            1 for t in result.activity_trends if t.direction == "deteriorating"
-        )
+        deteriorating = sum(1 for t in result.activity_trends if t.direction == "deteriorating")
         stable = sum(1 for t in result.activity_trends if t.direction == "stable")
 
         return {

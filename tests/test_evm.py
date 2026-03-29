@@ -5,13 +5,14 @@
 Verifies EVM metric calculations per ANSI/EIA-748 and AACE RP 10S-90
 using known inputs and expected outputs.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
 
 import pytest
 
-from src.analytics.evm import EVMAnalyzer, EVMMetrics, HealthClassification
+from src.analytics.evm import EVMAnalyzer, EVMMetrics
 from src.parser.models import (
     ParsedSchedule,
     Project,
@@ -175,15 +176,21 @@ class TestWBSLevelEVM:
         ]
         activities = [
             Task(
-                task_id="T1", proj_id="TEST", wbs_id="W1",
-                task_type="TT_Task", status_code="TK_Complete",
+                task_id="T1",
+                proj_id="TEST",
+                wbs_id="W1",
+                task_type="TT_Task",
+                status_code="TK_Complete",
                 phys_complete_pct=100,
                 target_start_date=datetime(2024, 1, 1),
                 target_end_date=datetime(2024, 3, 1),
             ),
             Task(
-                task_id="T2", proj_id="TEST", wbs_id="W2",
-                task_type="TT_Task", status_code="TK_Active",
+                task_id="T2",
+                proj_id="TEST",
+                wbs_id="W2",
+                task_type="TT_Task",
+                status_code="TK_Active",
                 phys_complete_pct=50,
                 target_start_date=datetime(2024, 3, 1),
                 target_end_date=datetime(2024, 6, 1),
@@ -215,8 +222,11 @@ class TestSCurveGeneration:
         """Verify S-curve produces ordered data points with cumulative values."""
         activities = [
             Task(
-                task_id="T1", proj_id="TEST", wbs_id="W1",
-                task_type="TT_Task", status_code="TK_Complete",
+                task_id="T1",
+                proj_id="TEST",
+                wbs_id="W1",
+                task_type="TT_Task",
+                status_code="TK_Complete",
                 phys_complete_pct=100,
                 target_start_date=datetime(2024, 1, 1),
                 target_end_date=datetime(2024, 3, 1),
@@ -248,8 +258,11 @@ class TestNoCostData:
         """Schedule with no TASKRSRC records should produce zero metrics."""
         activities = [
             Task(
-                task_id="T1", proj_id="TEST", wbs_id="W1",
-                task_type="TT_Task", status_code="TK_Active",
+                task_id="T1",
+                proj_id="TEST",
+                wbs_id="W1",
+                task_type="TT_Task",
+                status_code="TK_Active",
                 phys_complete_pct=50,
                 target_start_date=datetime(2024, 1, 1),
                 target_end_date=datetime(2024, 6, 1),
@@ -274,8 +287,11 @@ class TestHundredPercentComplete:
         """Fully complete project should have EV = BAC."""
         activities = [
             Task(
-                task_id="T1", proj_id="TEST", wbs_id="W1",
-                task_type="TT_Task", status_code="TK_Complete",
+                task_id="T1",
+                proj_id="TEST",
+                wbs_id="W1",
+                task_type="TT_Task",
+                status_code="TK_Complete",
                 phys_complete_pct=100,
                 target_start_date=datetime(2024, 1, 1),
                 target_end_date=datetime(2024, 3, 1),
@@ -283,8 +299,11 @@ class TestHundredPercentComplete:
                 act_end_date=datetime(2024, 3, 1),
             ),
             Task(
-                task_id="T2", proj_id="TEST", wbs_id="W1",
-                task_type="TT_Task", status_code="TK_Complete",
+                task_id="T2",
+                proj_id="TEST",
+                wbs_id="W1",
+                task_type="TT_Task",
+                status_code="TK_Complete",
                 phys_complete_pct=100,
                 target_start_date=datetime(2024, 3, 1),
                 target_end_date=datetime(2024, 6, 1),

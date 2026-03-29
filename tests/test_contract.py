@@ -5,6 +5,7 @@
 Validates compliance checks against standard construction contract
 provisions per AIA A201, ConsensusDocs 200, and FIDIC conditions.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,18 +13,14 @@ from pathlib import Path
 import pytest
 
 from src.analytics.contract import (
-    ComplianceCheck,
     ComplianceStatus,
     ContractComplianceChecker,
-    ContractProvision,
     ProvisionCategory,
 )
 from src.analytics.tia import (
     DelayFragment,
-    DelayType,
     FragmentActivity,
     ResponsibleParty,
-    TIAResult,
     TimeImpactAnalyzer,
 )
 from src.parser import XERReader, ParsedSchedule
@@ -65,12 +62,8 @@ def _make_cp_fragment(
                 fragment_activity_id="FRAG-TEST-A",
                 name="Delay Activity",
                 duration_hours=duration_hours,
-                predecessors=[
-                    {"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}
-                ],
-                successors=[
-                    {"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}
-                ],
+                predecessors=[{"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}],
+                successors=[{"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}],
             )
         ],
     )
@@ -88,12 +81,8 @@ def _make_noncritical_fragment(duration_hours: float = 16.0) -> DelayFragment:
                 fragment_activity_id="FRAG-NC-A",
                 name="Minor Delay",
                 duration_hours=duration_hours,
-                predecessors=[
-                    {"activity_code": "A5030", "rel_type": "FS", "lag_hours": 0}
-                ],
-                successors=[
-                    {"activity_code": "A6010", "rel_type": "FS", "lag_hours": 0}
-                ],
+                predecessors=[{"activity_code": "A5030", "rel_type": "FS", "lag_hours": 0}],
+                successors=[{"activity_code": "A6010", "rel_type": "FS", "lag_hours": 0}],
             )
         ],
     )
@@ -116,23 +105,15 @@ class TestDefaultProvisions:
             assert p.description
             assert p.category
 
-    def test_notice_provision_exists(
-        self, checker: ContractComplianceChecker
-    ) -> None:
+    def test_notice_provision_exists(self, checker: ContractComplianceChecker) -> None:
         """There should be a notice provision."""
-        notice_provs = [
-            p for p in checker.provisions
-            if p.category == ProvisionCategory.NOTICE
-        ]
+        notice_provs = [p for p in checker.provisions if p.category == ProvisionCategory.NOTICE]
         assert len(notice_provs) >= 1
 
-    def test_float_ownership_provision_exists(
-        self, checker: ContractComplianceChecker
-    ) -> None:
+    def test_float_ownership_provision_exists(self, checker: ContractComplianceChecker) -> None:
         """There should be a float ownership provision."""
         float_provs = [
-            p for p in checker.provisions
-            if p.category == ProvisionCategory.FLOAT_OWNERSHIP
+            p for p in checker.provisions if p.category == ProvisionCategory.FLOAT_OWNERSHIP
         ]
         assert len(float_provs) >= 1
 
@@ -151,8 +132,7 @@ class TestFloatOwnershipCheck:
         checks = checker.check_fragment(fragment, tia_result)
 
         float_checks = [
-            c for c in checks
-            if c.provision.category == ProvisionCategory.FLOAT_OWNERSHIP
+            c for c in checks if c.provision.category == ProvisionCategory.FLOAT_OWNERSHIP
         ]
         assert len(float_checks) == 1
         # CP fragment: warning about no float available
@@ -169,8 +149,7 @@ class TestFloatOwnershipCheck:
         checks = checker.check_fragment(fragment, tia_result)
 
         float_checks = [
-            c for c in checks
-            if c.provision.category == ProvisionCategory.FLOAT_OWNERSHIP
+            c for c in checks if c.provision.category == ProvisionCategory.FLOAT_OWNERSHIP
         ]
         assert len(float_checks) == 1
 
@@ -195,12 +174,8 @@ class TestConcurrentCheck:
                         fragment_activity_id="FRAG-CC1-A",
                         name="Owner Wait",
                         duration_hours=40.0,
-                        predecessors=[
-                            {"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}
-                        ],
-                        successors=[
-                            {"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}
-                        ],
+                        predecessors=[{"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}],
+                        successors=[{"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}],
                     )
                 ],
             ),
@@ -214,12 +189,8 @@ class TestConcurrentCheck:
                         fragment_activity_id="FRAG-CC2-A",
                         name="Contractor Wait",
                         duration_hours=40.0,
-                        predecessors=[
-                            {"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}
-                        ],
-                        successors=[
-                            {"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}
-                        ],
+                        predecessors=[{"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}],
+                        successors=[{"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}],
                     )
                 ],
             ),
@@ -232,7 +203,8 @@ class TestConcurrentCheck:
 
         # Should have concurrent delay checks with warnings
         concurrent_checks = [
-            c for c in all_checks
+            c
+            for c in all_checks
             if c.provision.category == ProvisionCategory.CONCURRENT_DELAY
             and c.status == ComplianceStatus.WARNING
         ]
@@ -254,7 +226,5 @@ class TestCheckAll:
 
         assert len(all_checks) > 0
         # Each fragment should produce at least 4 checks (notice, float, pacing, concurrent, time_ext)
-        frag_checks = [
-            c for c in all_checks if c.fragment_id == "FRAG-TEST"
-        ]
+        frag_checks = [c for c in all_checks if c.fragment_id == "FRAG-TEST"]
         assert len(frag_checks) >= 4

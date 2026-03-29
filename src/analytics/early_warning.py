@@ -14,6 +14,7 @@ Standards:
     - PMI Practice Standard for Scheduling §6.7 — Resource Management
     - PMI PMBOK 7th Ed §4.6 — Measurement Performance Domain
 """
+
 from __future__ import annotations
 
 import logging
@@ -239,8 +240,8 @@ class EarlyWarningEngine:
         self._upd_by_code: dict[str, Task] = {
             t.task_code: t for t in update.activities if t.task_code
         }
-        self._matched_codes: set[str] = (
-            set(self._base_by_code.keys()) & set(self._upd_by_code.keys())
+        self._matched_codes: set[str] = set(self._base_by_code.keys()) & set(
+            self._upd_by_code.keys()
         )
 
         # Pre-compute comparison
@@ -269,9 +270,7 @@ class EarlyWarningEngine:
             self._base_cpm = CPMCalculator(
                 self.baseline, hours_per_day=self.hours_per_day
             ).calculate()
-            self._upd_cpm = CPMCalculator(
-                self.update, hours_per_day=self.hours_per_day
-            ).calculate()
+            self._upd_cpm = CPMCalculator(self.update, hours_per_day=self.hours_per_day).calculate()
         except Exception:
             logger.warning("CPM failed during early warning analysis")
 
@@ -511,8 +510,7 @@ class EarlyWarningEngine:
             return []
 
         retro_flags = [
-            f for f in self._comparison.manipulation_flags
-            if f.indicator == "retroactive_date"
+            f for f in self._comparison.manipulation_flags if f.indicator == "retroactive_date"
         ]
 
         if not retro_flags:

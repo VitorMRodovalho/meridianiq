@@ -1,5 +1,7 @@
 # v2 Roadmap -- Beyond Power BI
 
+> **HISTORICAL DOCUMENT** — This document predates MeridianIQ v0.1 and describes the original vision for moving beyond Power BI. The vision has been realized. See [ROADMAP_v06_to_v20.md](v06-planning/ROADMAP_v06_to_v20.md) for the current roadmap.
+
 ## Current Limitation
 
 XER parsing is currently embedded in Power BI Power Query (M language), creating a dependency on Microsoft's ecosystem. Users must have Power BI Desktop (Windows only) to use these tools. The DAX measures require the Power BI engine for evaluation.

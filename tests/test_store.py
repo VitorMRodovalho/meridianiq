@@ -1,11 +1,18 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the unified data-store interface (InMemoryStore)."""
+
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
-import pytest
+if TYPE_CHECKING:
+    from src.analytics.evm import EVMAnalysisResult
+    from src.analytics.forensics import ForensicTimeline
+    from src.analytics.risk import SimulationResult
+    from src.analytics.tia import TIAAnalysis
+
 
 os.environ["ENVIRONMENT"] = "development"
 
@@ -25,9 +32,13 @@ def _make_schedule(
         Task(task_id=f"T{i}", task_code=f"A{i:04d}", task_name=f"Activity {i}")
         for i in range(1, num_activities + 1)
     ]
-    relationships = [
-        Relationship(task_id="T2", pred_task_id="T1"),
-    ] if num_activities >= 2 else []
+    relationships = (
+        [
+            Relationship(task_id="T2", pred_task_id="T1"),
+        ]
+        if num_activities >= 2
+        else []
+    )
     return ParsedSchedule(
         projects=[Project(proj_id="P1", proj_short_name=name)],
         activities=activities,
@@ -221,15 +232,22 @@ class TestInMemoryStoreEVM:
             project_id="P1",
             data_date="2025-01-01",
             metrics=EVMMetrics(
-                bac=1000, ev=500, pv=600, ac=550,
+                bac=1000,
+                ev=500,
+                pv=600,
+                ac=550,
             ),
             schedule_health=HealthClassification(
-                index_name="SPI", value=0.833,
-                status="warning", label="Behind Schedule",
+                index_name="SPI",
+                value=0.833,
+                status="warning",
+                label="Behind Schedule",
             ),
             cost_health=HealthClassification(
-                index_name="CPI", value=0.909,
-                status="warning", label="Over Budget",
+                index_name="CPI",
+                value=0.909,
+                status="warning",
+                label="Over Budget",
             ),
             s_curve=[],
         )

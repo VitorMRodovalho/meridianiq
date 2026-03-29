@@ -23,8 +23,26 @@ import type {
 } from './types';
 
 import { supabase } from './supabase';
+import { writable } from 'svelte/store';
 
 const BASE = import.meta.env.VITE_API_URL || '';
+
+/** True while the backend is waking up from cold start */
+export const isWarmingUp = writable(false);
+
+const MAX_RETRIES = 3;
+const INITIAL_DELAY_MS = 1500;
+
+async function sleep(ms: number): Promise<void> {
+	return new Promise((r) => setTimeout(r, ms));
+}
+
+function isColdStartError(res: Response | null, err: unknown): boolean {
+	// Fly.io returns 502 during cold start; browser sees as network/CORS error
+	if (res && (res.status === 502 || res.status === 503)) return true;
+	if (err instanceof TypeError && String(err.message).includes('fetch')) return true;
+	return false;
+}
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
@@ -42,12 +60,54 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 		}
 	};
 
-	const res = await fetch(`${BASE}${url}`, mergedInit);
-	if (!res.ok) {
-		const text = await res.text();
-		throw new Error(text || `Request failed: ${res.status}`);
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		let res: Response | null = null;
+		try {
+			res = await fetch(`${BASE}${url}`, mergedInit);
+			if (res.ok) {
+				isWarmingUp.set(false);
+				return res.json();
+			}
+			if (!isColdStartError(res, null) || attempt === MAX_RETRIES) {
+				const text = await res.text();
+				throw new Error(text || `Request failed: ${res.status}`);
+			}
+		} catch (err) {
+			if (!isColdStartError(res, err) || attempt === MAX_RETRIES) {
+				throw err;
+			}
+			lastError = err;
+		}
+		// Cold start detected — retry with backoff
+		isWarmingUp.set(true);
+		await sleep(INITIAL_DELAY_MS * Math.pow(2, attempt));
 	}
-	return res.json();
+	throw lastError;
+}
+
+/**
+ * Ping the backend health endpoint to wake it from cold start.
+ * Returns true if backend is reachable, false otherwise.
+ */
+export async function warmUp(): Promise<boolean> {
+	try {
+		isWarmingUp.set(true);
+		const res = await fetch(`${BASE}/health`);
+		isWarmingUp.set(false);
+		return res.ok;
+	} catch {
+		// Try once more after a delay
+		await sleep(2000);
+		try {
+			const res = await fetch(`${BASE}/health`);
+			isWarmingUp.set(false);
+			return res.ok;
+		} catch {
+			isWarmingUp.set(false);
+			return false;
+		}
+	}
 }
 
 export async function uploadXER(file: File): Promise<ProjectSummary> {

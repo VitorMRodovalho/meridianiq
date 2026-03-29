@@ -6,6 +6,7 @@ Provides simple dictionary-based stores for parsed schedules, their raw
 XER bytes, forensic analysis timelines, and TIA analyses.  Designed as
 a placeholder until a persistent database layer is introduced.
 """
+
 from __future__ import annotations
 
 import threading
@@ -103,12 +104,14 @@ class ProjectStore:
             name = ""
             if schedule.projects:
                 name = schedule.projects[0].proj_short_name
-            result.append({
-                "project_id": pid,
-                "name": name,
-                "activity_count": len(schedule.activities),
-                "relationship_count": len(schedule.relationships),
-            })
+            result.append(
+                {
+                    "project_id": pid,
+                    "name": name,
+                    "activity_count": len(schedule.activities),
+                    "relationship_count": len(schedule.relationships),
+                }
+            )
         return result
 
     def clear(self) -> None:
@@ -394,16 +397,18 @@ class RiskStore:
                     p50 = pv.duration_days
                 if pv.percentile == 80:
                     p80 = pv.duration_days
-            results.append({
-                "simulation_id": s.simulation_id,
-                "project_name": s.project_name,
-                "project_id": s.project_id,
-                "iterations": s.iterations,
-                "deterministic_days": s.deterministic_days,
-                "mean_days": s.mean_days,
-                "p50_days": p50,
-                "p80_days": p80,
-            })
+            results.append(
+                {
+                    "simulation_id": s.simulation_id,
+                    "project_name": s.project_name,
+                    "project_id": s.project_id,
+                    "iterations": s.iterations,
+                    "deterministic_days": s.deterministic_days,
+                    "mean_days": s.mean_days,
+                    "p50_days": p50,
+                    "p80_days": p80,
+                }
+            )
         return results
 
     def clear(self) -> None:

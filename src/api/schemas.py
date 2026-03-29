@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Pydantic request/response schemas for the FastAPI endpoints."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -126,6 +127,7 @@ class MetricSchema(BaseModel):
     threshold: float
     unit: str = "%"
     passed: bool = True
+    direction: str = "max"
     details: str = ""
 
 
@@ -589,12 +591,8 @@ class EVMAnalysisSchema(BaseModel):
     metrics: EVMMetricsSchema = Field(default_factory=EVMMetricsSchema)
     wbs_breakdown: list[WBSMetricsSchema] = Field(default_factory=list)
     s_curve: list[SCurvePointSchema] = Field(default_factory=list)
-    schedule_health: HealthClassificationSchema = Field(
-        default_factory=HealthClassificationSchema
-    )
-    cost_health: HealthClassificationSchema = Field(
-        default_factory=HealthClassificationSchema
-    )
+    schedule_health: HealthClassificationSchema = Field(default_factory=HealthClassificationSchema)
+    cost_health: HealthClassificationSchema = Field(default_factory=HealthClassificationSchema)
     forecast: dict[str, float] = Field(default_factory=dict)
     summary: dict[str, Any] = Field(default_factory=dict)
 
@@ -675,9 +673,7 @@ class SimulationConfigSchema(BaseModel):
     default_distribution: str = "pert"
     default_uncertainty: float = 0.2
     seed: Optional[int] = None
-    confidence_levels: list[int] = Field(
-        default_factory=lambda: [10, 25, 50, 75, 80, 90]
-    )
+    confidence_levels: list[int] = Field(default_factory=lambda: [10, 25, 50, 75, 80, 90])
 
 
 class RunSimulationRequest(BaseModel):

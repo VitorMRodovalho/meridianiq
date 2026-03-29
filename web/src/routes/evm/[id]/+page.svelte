@@ -6,7 +6,7 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	const id = $derived(page.params.id);
+	const id = $derived(page.params.id!);
 
 	async function loadAnalysis() {
 		loading = true;

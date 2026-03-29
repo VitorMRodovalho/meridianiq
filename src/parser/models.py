@@ -1,10 +1,11 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Pydantic models for Oracle P6 XER file tables."""
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field
 

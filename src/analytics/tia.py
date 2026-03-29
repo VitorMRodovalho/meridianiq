@@ -20,6 +20,7 @@ References:
     - AACE RP 52R-06 Time Impact Analysis -- As Applied in Construction
     - AACE RP 29R-03 Forensic Schedule Analysis
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,7 +31,7 @@ from typing import Any
 
 import networkx as nx
 
-from src.analytics.cpm import CPMCalculator, CPMResult, ActivityResult
+from src.analytics.cpm import CPMCalculator
 from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
@@ -458,9 +459,7 @@ class TimeImpactAnalyzer:
     # CPM on impacted graph
     # ------------------------------------------------------------------
 
-    def _run_impacted_cpm(
-        self, graph: nx.DiGraph
-    ) -> tuple[float, list[str]]:
+    def _run_impacted_cpm(self, graph: nx.DiGraph) -> tuple[float, list[str]]:
         """Run forward/backward pass on impacted graph.
 
         Replicates the CPM logic from CPMCalculator on a raw NetworkX
@@ -655,10 +654,7 @@ class TimeImpactAnalyzer:
         Args:
             results: List of TIA results to check for concurrency.
         """
-        cp_fragments = [
-            r for r in results
-            if r.delay_days > 0 and r.critical_path_affected
-        ]
+        cp_fragments = [r for r in results if r.delay_days > 0 and r.critical_path_affected]
 
         if len(cp_fragments) < 2:
             return
@@ -686,9 +682,7 @@ class TimeImpactAnalyzer:
         Returns:
             Estimated float consumed in hours.
         """
-        total_fragment_duration_hours = sum(
-            a.duration_hours for a in fragment.activities
-        )
+        total_fragment_duration_hours = sum(a.duration_hours for a in fragment.activities)
 
         # Find the tie-in activity's float
         max_float_hours = 0.0
@@ -717,15 +711,9 @@ class TimeImpactAnalyzer:
         Returns:
             Dictionary with summary metrics.
         """
-        fragments_on_cp = sum(
-            1 for r in analysis.results if r.critical_path_affected
-        )
-        fragments_with_delay = sum(
-            1 for r in analysis.results if r.delay_days > 0
-        )
-        concurrent_count = sum(
-            1 for r in analysis.results if r.delay_type == DelayType.CONCURRENT
-        )
+        fragments_on_cp = sum(1 for r in analysis.results if r.critical_path_affected)
+        fragments_with_delay = sum(1 for r in analysis.results if r.delay_days > 0)
+        concurrent_count = sum(1 for r in analysis.results if r.delay_type == DelayType.CONCURRENT)
 
         return {
             "fragment_count": len(analysis.fragments),
@@ -738,9 +726,6 @@ class TimeImpactAnalyzer:
             "total_shared_delay": round(analysis.total_shared_delay, 2),
             "net_delay": round(analysis.net_delay, 2),
             "delay_by_type": {
-                dt.value: sum(
-                    1 for r in analysis.results if r.delay_type == dt
-                )
-                for dt in DelayType
+                dt.value: sum(1 for r in analysis.results if r.delay_type == dt) for dt in DelayType
             },
         }

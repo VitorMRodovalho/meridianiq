@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the XER validator module."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,17 +29,11 @@ class TestOpenEndsDetected:
     """Verify that open-start and open-finish activities are flagged."""
 
     def test_open_starts_exist(self, result: ValidationResult) -> None:
-        open_start_issues = [
-            i for i in result.issues
-            if "Open start" in i.message
-        ]
+        open_start_issues = [i for i in result.issues if "Open start" in i.message]
         assert len(open_start_issues) > 0
 
     def test_open_finishes_exist(self, result: ValidationResult) -> None:
-        open_finish_issues = [
-            i for i in result.issues
-            if "Open finish" in i.message
-        ]
+        open_finish_issues = [i for i in result.issues if "Open finish" in i.message]
         assert len(open_finish_issues) > 0
 
     def test_open_end_counts(self, result: ValidationResult) -> None:
@@ -50,10 +45,7 @@ class TestConstraintsDetected:
     """Verify constrained activities are flagged."""
 
     def test_constraints_found(self, result: ValidationResult) -> None:
-        constraint_issues = [
-            i for i in result.issues
-            if "Constraint" in i.message
-        ]
+        constraint_issues = [i for i in result.issues if "Constraint" in i.message]
         assert len(constraint_issues) >= 2  # T-026, T-028
 
     def test_constrained_count(self, result: ValidationResult) -> None:

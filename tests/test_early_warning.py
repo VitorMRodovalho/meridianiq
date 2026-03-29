@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the early warning rules engine (12 rules)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,7 +10,6 @@ import pytest
 
 from src.analytics.early_warning import (
     RULES,
-    Alert,
     EarlyWarningEngine,
     EarlyWarningResult,
 )
@@ -57,9 +57,7 @@ class TestEarlyWarningBasic:
     def test_severity_counts_match(self, warning_result: EarlyWarningResult) -> None:
         """Severity counts should sum to total_alerts."""
         assert (
-            warning_result.critical_count
-            + warning_result.warning_count
-            + warning_result.info_count
+            warning_result.critical_count + warning_result.warning_count + warning_result.info_count
             == warning_result.total_alerts
         )
 

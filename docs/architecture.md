@@ -20,7 +20,7 @@ graph TB
     end
 
     subgraph "API Layer — FastAPI"
-        API[REST API Gateway<br/>32+ endpoints]
+        API[REST API Gateway<br/>45 endpoints]
     end
 
     subgraph "Analysis Engines"
@@ -34,11 +34,15 @@ graph TB
         CON[Contract<br/>contract.py]
         EVM_E[EVM Engine<br/>evm.py]
         RISK[Monte Carlo<br/>risk.py · NumPy]
+        FT[Float Trends<br/>float_trends.py]
+        EW[Early Warning<br/>early_warning.py]
+        HS[Health Score<br/>health_score.py]
     end
 
-    subgraph "Data Layer"
-        MEM[(In-Memory Store<br/>v0.x)]
-        DB[(SQLite → PostgreSQL<br/>v1.0 planned)]
+    subgraph "Data Layer — Supabase"
+        DB[("PostgreSQL<br/>16+ entities<br/>RLS enforced")]
+        AUTH["Auth<br/>Google · LinkedIn · MS<br/>JWT + RLS"]
+        STORAGE["Storage<br/>XER files · PDFs<br/>RLS buckets"]
     end
 
     Dashboard & Upload & Projects & Compare & Forensic & TIA & EVM & Risk <-->|HTTP| API
@@ -51,15 +55,22 @@ graph TB
     API --> CON
     API --> EVM_E
     API --> RISK
-    P --> MEM
-    CPM --> MEM
-    COMP --> MEM
+    API --> FT
+    API --> EW
+    API --> HS
+    P --> DB
+    CPM --> DB
+    COMP --> DB
+    API -->|"Verify JWT"| AUTH
+    API -->|"Store/Read"| STORAGE
 
     style UI fill:#FF3E00,color:#fff
     style API fill:#009688,color:#fff
     style CPM fill:#4C9A2A,color:#fff
     style RISK fill:#013243,color:#fff
-    style MEM fill:#3FCF8E,color:#fff
+    style DB fill:#3FCF8E,color:#fff
+    style AUTH fill:#3FCF8E,color:#fff
+    style STORAGE fill:#3FCF8E,color:#fff
 ```
 
 ---
@@ -73,7 +84,7 @@ sequenceDiagram
     participant B as Browser
     participant A as FastAPI
     participant P as XER Parser
-    participant S as In-Memory Store
+    participant S as Supabase PostgreSQL
     participant E as Analysis Engines
 
     B->>A: POST /api/v1/upload (XER file)
@@ -238,6 +249,9 @@ flowchart TD
 | **Contract** | `src/analytics/contract.py` | 671 | AIA A201, SCL Protocol | — |
 | **EVM** | `src/analytics/evm.py` | 685 | ANSI/EIA-748 | — |
 | **Monte Carlo** | `src/analytics/risk.py` | 723 | AACE RP 57R-09 | NumPy |
+| **Float Trends** | `src/analytics/float_trends.py` | — | AACE RP 49R-06 | — |
+| **Early Warning** | `src/analytics/early_warning.py` | — | DCMA EVMS | — |
+| **Health Score** | `src/analytics/health_score.py` | — | — | — |
 
 ---
 
@@ -344,13 +358,9 @@ erDiagram
     }
 ```
 
-### In-Memory Store (v0.x)
+### Data Layer — Supabase PostgreSQL
 
-All parsed data lives in Python dictionaries keyed by `project_id`. Each restart clears the store. Planned migration path:
-
-```
-v0.x: In-Memory (dict) → v1.0: SQLite → v1.x: PostgreSQL
-```
+All data is persisted in Supabase PostgreSQL with Row Level Security (RLS) enforced. XER files and generated PDFs are stored in Supabase Storage RLS buckets. Authentication uses Supabase Auth (Google, LinkedIn, Microsoft OAuth) with ES256 JWT verification.
 
 ---
 
@@ -378,7 +388,7 @@ v0.x: In-Memory (dict) → v1.0: SQLite → v1.x: PostgreSQL
 
 1. **Modular Engines** — Each analysis engine is a standalone Python module with no cross-dependencies. Engines communicate only through the data layer.
 2. **Standards-First** — Every methodology traceable to a published standard. Code comments cite the relevant AACE RP, DCMA guideline, or academic reference.
-3. **Progressive Complexity** — v0.x uses in-memory storage for rapid prototyping. Persistence (SQLite/PostgreSQL) planned for v1.0 without changing the API contract.
+3. **Cloud-Native** — Supabase PostgreSQL with RLS, Supabase Storage for files, Supabase Auth for identity. Deployed on Fly.io (backend) and Cloudflare Pages (frontend).
 4. **Custom Parser** — MIT-licensed XER parser (cannot use GPL alternatives). Streaming, encoding-aware, handles real production files (8,000+ activities).
 5. **Zero Cost** — No paid dependencies. All libraries are MIT/BSD compatible.
 

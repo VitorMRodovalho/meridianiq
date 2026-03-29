@@ -5,7 +5,7 @@
 	import TrendChart from '$lib/components/TrendChart.svelte';
 	import type { ProgramTrends } from '$lib/types';
 
-	const programId = $derived($page.params.id);
+	const programId = $derived($page.params.id!);
 
 	let program: Record<string, unknown> | null = $state(null);
 	let revisions: Record<string, unknown>[] = $state([]);
@@ -15,7 +15,7 @@
 
 	onMount(async () => {
 		try {
-			const id = $page.params.id;
+			const id = $page.params.id!;
 			const [detailRes, trendsRes] = await Promise.allSettled([
 				getProgramDetail(id),
 				getProgramTrends(id)

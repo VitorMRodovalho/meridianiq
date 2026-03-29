@@ -5,6 +5,7 @@
 Loads settings from environment variables (with optional ``.env`` file
 support via *python-dotenv*).
 """
+
 from __future__ import annotations
 
 import os

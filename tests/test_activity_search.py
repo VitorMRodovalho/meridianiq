@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for GET /api/v1/projects/{project_id}/activities (P4)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -67,9 +68,7 @@ class TestActivitySearch:
         sample_name = all_acts[0]["task_name"]
         query = sample_name[:4] if len(sample_name) >= 4 else sample_name
 
-        resp = client.get(
-            f"/api/v1/projects/{project_id}/activities?q={query}&limit=50"
-        )
+        resp = client.get(f"/api/v1/projects/{project_id}/activities?q={query}&limit=50")
         assert resp.status_code == 200
         data = resp.json()
 
@@ -112,9 +111,7 @@ class TestActivitySearch:
 
     def test_search_no_results(self, client: TestClient, project_id: str) -> None:
         """Query that matches nothing returns empty list, total unchanged."""
-        resp = client.get(
-            f"/api/v1/projects/{project_id}/activities?q=ZZZNOMATCH999"
-        )
+        resp = client.get(f"/api/v1/projects/{project_id}/activities?q=ZZZNOMATCH999")
         assert resp.status_code == 200
         data = resp.json()
         assert data["activities"] == []

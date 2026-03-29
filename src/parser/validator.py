@@ -6,6 +6,7 @@ Provides a set of automated checks to identify structural issues,
 missing logic, date anomalies, and other common scheduling problems
 in a parsed P6 XER schedule.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -87,14 +88,10 @@ class XERValidator:
             result: The result object to append issues to.
         """
         if not self.schedule.projects:
-            result.issues.append(
-                ValidationIssue("error", "structure", "No PROJECT records found")
-            )
+            result.issues.append(ValidationIssue("error", "structure", "No PROJECT records found"))
             result.is_valid = False
         if not self.schedule.activities:
-            result.issues.append(
-                ValidationIssue("error", "structure", "No TASK records found")
-            )
+            result.issues.append(ValidationIssue("error", "structure", "No TASK records found"))
             result.is_valid = False
         if not self.schedule.calendars:
             result.issues.append(
@@ -121,9 +118,7 @@ class XERValidator:
             return
 
         # Check for activities with blank task_code
-        blank_code_count = sum(
-            1 for t in self.schedule.activities if not t.task_code.strip()
-        )
+        blank_code_count = sum(1 for t in self.schedule.activities if not t.task_code.strip())
         if blank_code_count > 0:
             result.issues.append(
                 ValidationIssue(
@@ -245,10 +240,7 @@ class XERValidator:
                         ValidationIssue(
                             "error",
                             "dates",
-                            (
-                                f"Actual start > actual finish for "
-                                f"{task.task_code}"
-                            ),
+                            (f"Actual start > actual finish for {task.task_code}"),
                             activity_id=task.task_code,
                         )
                     )
@@ -261,10 +253,7 @@ class XERValidator:
                         ValidationIssue(
                             "warning",
                             "dates",
-                            (
-                                f"Early start > early finish for "
-                                f"{task.task_code}"
-                            ),
+                            (f"Early start > early finish for {task.task_code}"),
                             activity_id=task.task_code,
                         )
                     )
@@ -286,12 +275,6 @@ class XERValidator:
         result.summary["status_counts"] = status_counts
         result.summary["type_counts"] = type_counts
         result.summary["total_issues"] = len(result.issues)
-        result.summary["errors"] = sum(
-            1 for i in result.issues if i.severity == "error"
-        )
-        result.summary["warnings"] = sum(
-            1 for i in result.issues if i.severity == "warning"
-        )
-        result.summary["info"] = sum(
-            1 for i in result.issues if i.severity == "info"
-        )
+        result.summary["errors"] = sum(1 for i in result.issues if i.severity == "error")
+        result.summary["warnings"] = sum(1 for i in result.issues if i.severity == "warning")
+        result.summary["info"] = sum(1 for i in result.issues if i.severity == "info")

@@ -9,6 +9,7 @@ risk events, seed reproducibility, and default uncertainty.
 References:
     - AACE RP 57R-09: Integrated Cost and Schedule Risk Analysis
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -124,9 +125,7 @@ class TestSimulationDeterministic:
 
     def test_completion_matches_deterministic(self, schedule) -> None:
         """With FIXED durations, every iteration should match the CPM result."""
-        config = SimulationConfig(
-            iterations=100, seed=42, default_uncertainty=0
-        )
+        config = SimulationConfig(iterations=100, seed=42, default_uncertainty=0)
         sim = MonteCarloSimulator(schedule, config)
 
         # Create FIXED risks for all activities (using remaining durations
@@ -181,9 +180,7 @@ class TestCriticalityIndex:
 
     def test_cp_activity_high_criticality(self, schedule) -> None:
         """An activity on the deterministic CP should have high criticality."""
-        config = SimulationConfig(
-            iterations=500, seed=42, default_uncertainty=0.1
-        )
+        config = SimulationConfig(iterations=500, seed=42, default_uncertainty=0.1)
         sim = MonteCarloSimulator(schedule, config)
         result = sim.simulate()
 
@@ -196,8 +193,7 @@ class TestCriticalityIndex:
 
         # At least one CP activity should have >50% criticality
         cp_crits = [
-            c for c in result.criticality
-            if c.activity_id in base_cp and c.criticality_pct > 50
+            c for c in result.criticality if c.activity_id in base_cp and c.criticality_pct > 50
         ]
         assert len(cp_crits) > 0, (
             f"No CP activities with >50% criticality. "
@@ -211,9 +207,7 @@ class TestSensitivityPositive:
 
     def test_positive_correlation(self, schedule) -> None:
         """At least one activity should have positive sensitivity."""
-        config = SimulationConfig(
-            iterations=500, seed=42, default_uncertainty=0.2
-        )
+        config = SimulationConfig(iterations=500, seed=42, default_uncertainty=0.2)
         sim = MonteCarloSimulator(schedule, config)
         result = sim.simulate()
 
@@ -255,7 +249,10 @@ class TestSCurveMonotonic:
         assert len(result.s_curve) > 2
 
         for i in range(1, len(result.s_curve)):
-            assert result.s_curve[i].cumulative_probability >= result.s_curve[i - 1].cumulative_probability
+            assert (
+                result.s_curve[i].cumulative_probability
+                >= result.s_curve[i - 1].cumulative_probability
+            )
             assert result.s_curve[i].duration_days >= result.s_curve[i - 1].duration_days
 
 
@@ -264,15 +261,10 @@ class TestRiskEvents:
 
     def test_always_fires(self, schedule) -> None:
         """A 100% probability event should always add impact."""
-        config = SimulationConfig(
-            iterations=200, seed=42, default_uncertainty=0
-        )
+        config = SimulationConfig(iterations=200, seed=42, default_uncertainty=0)
         sim = MonteCarloSimulator(schedule, config)
 
         # Use FIXED durations so the only variability is the risk event
-        key = list(sim._activities.keys())[0]
-        task = sim._activities[key]
-
         risks = [
             DurationRisk(
                 activity_id=k,
@@ -331,9 +323,7 @@ class TestDefaultUncertainty:
 
     def test_default_creates_spread(self, schedule) -> None:
         """With default 20% uncertainty, std dev should be positive."""
-        config = SimulationConfig(
-            iterations=500, seed=42, default_uncertainty=0.2
-        )
+        config = SimulationConfig(iterations=500, seed=42, default_uncertainty=0.2)
         sim = MonteCarloSimulator(schedule, config)
         result = sim.simulate()
 

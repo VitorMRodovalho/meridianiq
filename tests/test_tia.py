@@ -5,20 +5,18 @@
 Validates fragment insertion, CPM recalculation, delay classification,
 and concurrency detection per AACE RP 52R-06.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from src.analytics.cpm import CPMCalculator
 from src.analytics.tia import (
     DelayFragment,
     DelayType,
     FragmentActivity,
     ResponsibleParty,
-    TIAAnalysis,
-    TIAResult,
     TimeImpactAnalyzer,
 )
 from src.parser import XERReader, ParsedSchedule
@@ -59,12 +57,8 @@ def _make_cp_fragment(
                 fragment_activity_id=f"{fragment_id}-A",
                 name="Delay Activity",
                 duration_hours=duration_hours,
-                predecessors=[
-                    {"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}
-                ],
-                successors=[
-                    {"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}
-                ],
+                predecessors=[{"activity_code": "A3050", "rel_type": "FS", "lag_hours": 0}],
+                successors=[{"activity_code": "A4010", "rel_type": "FS", "lag_hours": 0}],
             )
         ],
     )
@@ -90,12 +84,8 @@ def _make_noncritical_fragment(
                 fragment_activity_id=f"{fragment_id}-A",
                 name="Minor Equipment Wait",
                 duration_hours=duration_hours,
-                predecessors=[
-                    {"activity_code": "A5030", "rel_type": "FS", "lag_hours": 0}
-                ],
-                successors=[
-                    {"activity_code": "A6010", "rel_type": "FS", "lag_hours": 0}
-                ],
+                predecessors=[{"activity_code": "A5030", "rel_type": "FS", "lag_hours": 0}],
+                successors=[{"activity_code": "A6010", "rel_type": "FS", "lag_hours": 0}],
             )
         ],
     )
@@ -109,9 +99,7 @@ class TestSingleFragmentOnCP:
         fragment = _make_cp_fragment(duration_hours=80.0)
         result = analyzer.analyze_fragment(fragment)
 
-        assert result.delay_days > 0, (
-            f"Expected positive delay, got {result.delay_days}"
-        )
+        assert result.delay_days > 0, f"Expected positive delay, got {result.delay_days}"
         assert result.impacted_completion_days > result.unimpacted_completion_days
 
     def test_cp_fragment_delay_magnitude(self, analyzer: TimeImpactAnalyzer) -> None:
@@ -125,9 +113,7 @@ class TestSingleFragmentOnCP:
             f"Expected ~{expected_delay} days delay, got {result.delay_days}"
         )
 
-    def test_cp_fragment_affects_critical_path(
-        self, analyzer: TimeImpactAnalyzer
-    ) -> None:
+    def test_cp_fragment_affects_critical_path(self, analyzer: TimeImpactAnalyzer) -> None:
         """Fragment on CP should be marked as critical_path_affected."""
         fragment = _make_cp_fragment()
         result = analyzer.analyze_fragment(fragment)
@@ -144,13 +130,9 @@ class TestSingleFragmentOffCP:
         fragment = _make_noncritical_fragment(duration_hours=16.0)
         result = analyzer.analyze_fragment(fragment)
 
-        assert result.delay_days <= 0.01, (
-            f"Expected no project delay, got {result.delay_days}"
-        )
+        assert result.delay_days <= 0.01, f"Expected no project delay, got {result.delay_days}"
 
-    def test_noncritical_fragment_not_on_cp(
-        self, analyzer: TimeImpactAnalyzer
-    ) -> None:
+    def test_noncritical_fragment_not_on_cp(self, analyzer: TimeImpactAnalyzer) -> None:
         """Small fragment on non-CP should not be marked as CP-affecting."""
         fragment = _make_noncritical_fragment(duration_hours=16.0)
         result = analyzer.analyze_fragment(fragment)
@@ -162,9 +144,7 @@ class TestSingleFragmentOffCP:
 class TestOwnerDelayClassification:
     """Test: owner fragment should be classified as excusable compensable."""
 
-    def test_owner_delay_classification(
-        self, analyzer: TimeImpactAnalyzer
-    ) -> None:
+    def test_owner_delay_classification(self, analyzer: TimeImpactAnalyzer) -> None:
         """Owner-caused delay on CP -> EXCUSABLE_COMPENSABLE."""
         fragment = _make_cp_fragment(
             fragment_id="FRAG-OWNER",
@@ -178,9 +158,7 @@ class TestOwnerDelayClassification:
 class TestContractorDelayClassification:
     """Test: contractor fragment should be classified as non-excusable."""
 
-    def test_contractor_delay_classification(
-        self, analyzer: TimeImpactAnalyzer
-    ) -> None:
+    def test_contractor_delay_classification(self, analyzer: TimeImpactAnalyzer) -> None:
         """Contractor-caused delay on CP -> NON_EXCUSABLE."""
         fragment = _make_cp_fragment(
             fragment_id="FRAG-CONTR",
@@ -305,6 +283,4 @@ class TestZeroDurationFragment:
         )
         result = analyzer.analyze_fragment(fragment)
 
-        assert abs(result.delay_days) < 0.01, (
-            f"Expected zero delay, got {result.delay_days}"
-        )
+        assert abs(result.delay_days) < 0.01, f"Expected zero delay, got {result.delay_days}"

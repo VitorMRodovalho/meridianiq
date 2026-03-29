@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the XER parser module."""
+
 from __future__ import annotations
 
 import tempfile
@@ -10,7 +11,6 @@ from pathlib import Path
 import pytest
 
 from src.parser import XERReader, ParsedSchedule
-from src.parser.models import XERHeader
 
 SAMPLE_XER = Path(__file__).parent / "fixtures" / "sample.xer"
 
@@ -276,13 +276,7 @@ class TestUnmappedTables:
     """Test that unrecognised tables are stored in raw_tables."""
 
     def test_unmapped_table_captured(self) -> None:
-        content = (
-            "ERMHDR\t22.0\n"
-            "%T\tCUSTOMTABLE\n"
-            "%F\tcol_a\tcol_b\n"
-            "%R\tval1\tval2\n"
-            "%E\n"
-        )
+        content = "ERMHDR\t22.0\n%T\tCUSTOMTABLE\n%F\tcol_a\tcol_b\n%R\tval1\tval2\n%E\n"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xer", delete=False) as f:
             f.write(content)
             f.flush()

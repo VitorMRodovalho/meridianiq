@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for GET /api/v1/projects/{project_id}/available-reports (P3)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -86,9 +87,7 @@ class TestAvailableReports:
         resp = client.get("/api/v1/projects/nonexistent/available-reports")
         assert resp.status_code == 404
 
-    def test_available_reports_comparison_with_sibling(
-        self, client: TestClient
-    ) -> None:
+    def test_available_reports_comparison_with_sibling(self, client: TestClient) -> None:
         """Comparison report becomes ready when a program has two revisions."""
         # Both sample XERs share the same proj_short_name so they land in
         # the same program as revision 1 and revision 2.

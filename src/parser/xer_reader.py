@@ -6,6 +6,7 @@ Reads Oracle Primavera P6 XER export files and converts them into typed
 Python objects using Pydantic models.  The parser handles encoding
 detection, date format variations, and gracefully skips malformed rows.
 """
+
 from __future__ import annotations
 
 import logging
@@ -254,9 +255,7 @@ class XERReader:
             header.export_date = parts[6].strip()
         return header
 
-    def _build_row_dict(
-        self, fields: list[str], values: list[str]
-    ) -> dict[str, str]:
+    def _build_row_dict(self, fields: list[str], values: list[str]) -> dict[str, str]:
         """Build a field-to-value dictionary, handling mismatched lengths.
 
         If there are fewer values than fields the missing entries are set to
@@ -299,9 +298,7 @@ class XERReader:
         logger.warning("Unable to parse date: '%s'", value)
         return None
 
-    def _coerce_row(
-        self, row: dict[str, str], model_cls: type[Any]
-    ) -> dict[str, Any]:
+    def _coerce_row(self, row: dict[str, str], model_cls: type[Any]) -> dict[str, Any]:
         """Convert raw string values to the types expected by *model_cls*.
 
         Handles date parsing, float/int conversion, and maps empty strings
@@ -378,9 +375,7 @@ class XERReader:
                 record = model_cls(**coerced)
                 getattr(schedule, field_name).append(record)
             except (ValidationError, TypeError) as exc:
-                logger.warning(
-                    "Skipping %s row at line %d: %s", table_name, line_num, exc
-                )
+                logger.warning("Skipping %s row at line %d: %s", table_name, line_num, exc)
         else:
             # Store in raw_tables
             if table_name not in schedule.raw_tables:

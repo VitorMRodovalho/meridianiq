@@ -12,6 +12,7 @@ References:
     - PMI Practice Standard for Earned Value Management
     - GAO-16-89G: Schedule Assessment Guide (Chapter 10: EVM Integration)
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from src.parser.models import ParsedSchedule, Task, TaskResource, WBS
+from src.parser.models import ParsedSchedule, Task, WBS
 
 logger = logging.getLogger(__name__)
 
@@ -495,12 +496,14 @@ class EVMAnalyzer:
                 ac=round(ac, 2),
             )
 
-            wbs_results.append(WBSMetrics(
-                wbs_id=wbs_id,
-                wbs_name=wbs_name,
-                metrics=metrics,
-                activity_count=cost_task_count,
-            ))
+            wbs_results.append(
+                WBSMetrics(
+                    wbs_id=wbs_id,
+                    wbs_name=wbs_name,
+                    metrics=metrics,
+                    activity_count=cost_task_count,
+                )
+            )
 
         return wbs_results
 
@@ -608,12 +611,14 @@ class EVMAnalyzer:
                                 cum_ev += earned * frac
                                 cum_ac += actual_cost * frac
 
-            points.append(SCurvePoint(
-                date=current.strftime("%Y-%m-%d"),
-                cumulative_pv=round(cum_pv, 2),
-                cumulative_ev=round(cum_ev, 2),
-                cumulative_ac=round(cum_ac, 2),
-            ))
+            points.append(
+                SCurvePoint(
+                    date=current.strftime("%Y-%m-%d"),
+                    cumulative_pv=round(cum_pv, 2),
+                    cumulative_ev=round(cum_ev, 2),
+                    cumulative_ac=round(cum_ac, 2),
+                )
+            )
 
             current += timedelta(days=interval_days)
 

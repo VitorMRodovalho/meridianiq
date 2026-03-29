@@ -37,10 +37,13 @@ Thank you for your interest in contributing to MeridianIQ. This document outline
 
 - **XER format edge cases:** P6 versions produce subtle format variations; more test files help
 - **Calendar-aware duration calculations:** Converting hours to workdays using P6 calendar definitions
-- **Monte Carlo simulation (v0.5):** Risk analysis engine with correlation support
-- **Database persistence (v1.0):** PostgreSQL/SQLite backend for production deployment
-- **Additional export formats:** PDF reports, Excel workbooks, Power BI integration
-- **Internationalization:** Date format handling, currency support, translations
+- **CI/CD pipeline:** GitHub Actions for test, lint, build, deploy on merge to main
+- **E2E tests:** Playwright test suite for critical user flows
+- **Additional schedule formats:** Microsoft Project XML, Asta Powerproject
+- **Internationalization:** Date format handling, currency support, translations (i18n infrastructure)
+- **Methodology validation:** Testing against real-world schedules and industry expert review
+- **International contract compliance:** FIDIC, NEC, JCT provisions
+- **Performance optimization:** 50,000+ activity schedules
 
 ## Code of Conduct
 

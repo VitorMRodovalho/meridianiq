@@ -5,6 +5,7 @@
 Verifies the REST API for running simulations, fetching results,
 histogram, tornado, criticality, and S-curve data.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -105,9 +106,7 @@ class TestListSimulations:
         assert resp.status_code == 200
         assert resp.json()["simulations"] == []
 
-    def test_list_after_simulation(
-        self, client: TestClient, uploaded_project: str
-    ) -> None:
+    def test_list_after_simulation(self, client: TestClient, uploaded_project: str) -> None:
         """List includes simulation after running one."""
         body = {
             "config": {"iterations": 100, "seed": 42},
@@ -232,7 +231,10 @@ class TestGetSCurve:
 
         # Cumulative probability should be monotonically increasing
         for i in range(1, len(data["points"])):
-            assert data["points"][i]["cumulative_probability"] >= data["points"][i - 1]["cumulative_probability"]
+            assert (
+                data["points"][i]["cumulative_probability"]
+                >= data["points"][i - 1]["cumulative_probability"]
+            )
 
         # Last point should reach ~1.0
         assert data["points"][-1]["cumulative_probability"] >= 0.99

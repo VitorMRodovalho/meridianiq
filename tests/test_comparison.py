@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the schedule comparison engine."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -96,8 +97,7 @@ class TestManipulationFlags:
     def test_detect_retroactive_date(self, comparison_result: ComparisonResult) -> None:
         """Retroactive date change on A1010 (Site Survey) should be flagged."""
         retro_flags = [
-            f for f in comparison_result.manipulation_flags
-            if f.indicator == "retroactive_date"
+            f for f in comparison_result.manipulation_flags if f.indicator == "retroactive_date"
         ]
         retro_task_ids = {f.task_id for f in retro_flags}
         assert "A1010" in retro_task_ids
@@ -105,8 +105,7 @@ class TestManipulationFlags:
     def test_detect_oos_progress(self, comparison_result: ComparisonResult) -> None:
         """Out-of-sequence progress should be detected."""
         oos_flags = [
-            f for f in comparison_result.manipulation_flags
-            if f.indicator == "oos_progress"
+            f for f in comparison_result.manipulation_flags if f.indicator == "oos_progress"
         ]
         assert len(oos_flags) > 0
 

@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the composite schedule health score calculator."""
+
 from __future__ import annotations
 
 from pathlib import Path

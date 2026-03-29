@@ -23,10 +23,10 @@ Standards:
     - AACE RP 52R-06 -- Time Impact Analysis
     - AACE RP 57R-09 -- Schedule Risk Analysis
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
@@ -218,7 +218,9 @@ def _score_class(rating: str) -> str:
 
 def _threshold_badge(status: str) -> str:
     """Return badge for threshold status."""
-    return _severity_badge({"green": "green", "yellow": "warning", "red": "critical"}.get(status, status))
+    return _severity_badge(
+        {"green": "green", "yellow": "warning", "red": "critical"}.get(status, status)
+    )
 
 
 def _format_date(dt: datetime | None) -> str:
@@ -350,11 +352,10 @@ class ReportGenerator:
         """
         try:
             from weasyprint import HTML
+
             return HTML(string=html).write_pdf()
         except ImportError:
-            logger.warning(
-                "weasyprint not installed -- returning raw HTML bytes instead of PDF"
-            )
+            logger.warning("weasyprint not installed -- returning raw HTML bytes instead of PDF")
             return html.encode("utf-8")
         except Exception as exc:
             logger.warning("weasyprint PDF generation failed: %s -- returning HTML", exc)
@@ -397,7 +398,7 @@ class ReportGenerator:
     def _section(self, title: str, content: str, page_break: bool = False) -> str:
         """Build an HTML section with optional page break."""
         pb = ' class="page-break"' if page_break else ""
-        return f'<div{pb}><h2>{_esc(title)}</h2>{content}</div>'
+        return f"<div{pb}><h2>{_esc(title)}</h2>{content}</div>"
 
     def _methodology_box(self, text: str) -> str:
         """Build a methodology citation box."""
@@ -545,20 +546,58 @@ class ReportGenerator:
         </div>
         """
 
-        score_html += self._kpi_grid([
-            (f"{health_score.dcma_raw:.0f}", f"DCMA Score (x{health_score.details.get('weights', {}).get('dcma', 0.4):.0%})", "#1e40af"),
-            (f"{health_score.float_raw:.0f}", f"Float Health (x{health_score.details.get('weights', {}).get('float', 0.25):.0%})", "#0891b2"),
-            (f"{health_score.logic_raw:.0f}", f"Logic Integrity (x{health_score.details.get('weights', {}).get('logic', 0.2):.0%})", "#7c3aed"),
-            (f"{health_score.trend_raw:.0f}", f"Trend Direction (x{health_score.details.get('weights', {}).get('trend', 0.15):.0%})", "#059669"),
-        ])
+        score_html += self._kpi_grid(
+            [
+                (
+                    f"{health_score.dcma_raw:.0f}",
+                    f"DCMA Score (x{health_score.details.get('weights', {}).get('dcma', 0.4):.0%})",
+                    "#1e40af",
+                ),
+                (
+                    f"{health_score.float_raw:.0f}",
+                    f"Float Health (x{health_score.details.get('weights', {}).get('float', 0.25):.0%})",
+                    "#0891b2",
+                ),
+                (
+                    f"{health_score.logic_raw:.0f}",
+                    f"Logic Integrity (x{health_score.details.get('weights', {}).get('logic', 0.2):.0%})",
+                    "#7c3aed",
+                ),
+                (
+                    f"{health_score.trend_raw:.0f}",
+                    f"Trend Direction (x{health_score.details.get('weights', {}).get('trend', 0.15):.0%})",
+                    "#059669",
+                ),
+            ]
+        )
 
         score_html += self._table(
             ["Component", "Raw Score", "Weight", "Weighted"],
             [
-                ["DCMA Structural Quality", f"{health_score.dcma_raw:.1f}", "40%", f"{health_score.dcma_component:.1f}"],
-                ["Float Health", f"{health_score.float_raw:.1f}", "25%", f"{health_score.float_component:.1f}"],
-                ["Logic Integrity", f"{health_score.logic_raw:.1f}", "20%", f"{health_score.logic_component:.1f}"],
-                ["Trend Direction", f"{health_score.trend_raw:.1f}", "15%", f"{health_score.trend_component:.1f}"],
+                [
+                    "DCMA Structural Quality",
+                    f"{health_score.dcma_raw:.1f}",
+                    "40%",
+                    f"{health_score.dcma_component:.1f}",
+                ],
+                [
+                    "Float Health",
+                    f"{health_score.float_raw:.1f}",
+                    "25%",
+                    f"{health_score.float_component:.1f}",
+                ],
+                [
+                    "Logic Integrity",
+                    f"{health_score.logic_raw:.1f}",
+                    "20%",
+                    f"{health_score.logic_component:.1f}",
+                ],
+                [
+                    "Trend Direction",
+                    f"{health_score.trend_raw:.1f}",
+                    "15%",
+                    f"{health_score.trend_component:.1f}",
+                ],
                 ["<strong>Total</strong>", "", "", f"<strong>{overall:.1f}</strong>"],
             ],
         )
@@ -571,13 +610,15 @@ class ReportGenerator:
             rows = []
             for m in dcma_result.metrics:
                 status = _severity_badge("green" if m.passed else "critical")
-                rows.append([
-                    f"#{m.number}",
-                    _esc(m.name),
-                    f"{m.value:.1f}{m.unit}",
-                    f"{m.threshold}{m.unit}",
-                    status,
-                ])
+                rows.append(
+                    [
+                        f"#{m.number}",
+                        _esc(m.name),
+                        f"{m.value:.1f}{m.unit}",
+                        f"{m.threshold}{m.unit}",
+                        status,
+                    ]
+                )
             dcma_html += self._table(
                 ["#", "Check", "Value", "Threshold", "Status"],
                 rows,
@@ -596,13 +637,15 @@ class ReportGenerator:
 
             rows = []
             for a in alerts.alerts[:20]:
-                rows.append([
-                    _severity_badge(a.severity),
-                    _esc(a.title),
-                    f"{a.projected_impact_days:.1f}d",
-                    f"{a.confidence:.0%}",
-                    f"{a.alert_score:.1f}",
-                ])
+                rows.append(
+                    [
+                        _severity_badge(a.severity),
+                        _esc(a.title),
+                        f"{a.projected_impact_days:.1f}d",
+                        f"{a.confidence:.0%}",
+                        f"{a.alert_score:.1f}",
+                    ]
+                )
             alert_html += self._table(
                 ["Severity", "Alert", "Impact", "Confidence", "Score"],
                 rows,
@@ -615,9 +658,13 @@ class ReportGenerator:
         if rating in ("poor", "fair"):
             conclusions += "<li>The schedule requires significant corrective action to meet quality standards.</li>"
         if dcma_failed > 3:
-            conclusions += f"<li>{dcma_failed} DCMA checks failed, indicating structural quality issues.</li>"
+            conclusions += (
+                f"<li>{dcma_failed} DCMA checks failed, indicating structural quality issues.</li>"
+            )
         if alerts and hasattr(alerts, "critical_count") and alerts.critical_count > 0:
-            conclusions += f"<li>{alerts.critical_count} critical alerts require immediate attention.</li>"
+            conclusions += (
+                f"<li>{alerts.critical_count} critical alerts require immediate attention.</li>"
+            )
         if rating == "excellent":
             conclusions += "<li>The schedule meets all quality criteria and can be relied upon for project management decisions.</li>"
         conclusions += "</ul>"
@@ -625,7 +672,9 @@ class ReportGenerator:
         if rating in ("poor", "fair"):
             conclusions += "Address failed DCMA checks and critical alerts before using this schedule for baseline purposes."
         else:
-            conclusions += "Continue monitoring schedule health through regular updates and trend analysis."
+            conclusions += (
+                "Continue monitoring schedule health through regular updates and trend analysis."
+            )
         conclusions += "</p>"
 
         body += self._section(
@@ -654,7 +703,9 @@ class ReportGenerator:
         body = ""
 
         # Executive summary
-        n_mods = len(result.activity_modifications) if hasattr(result, "activity_modifications") else 0
+        n_mods = (
+            len(result.activity_modifications) if hasattr(result, "activity_modifications") else 0
+        )
         n_added = len(result.activities_added) if hasattr(result, "activities_added") else 0
         n_deleted = len(result.activities_deleted) if hasattr(result, "activities_deleted") else 0
         n_flags = len(result.manipulation_flags) if hasattr(result, "manipulation_flags") else 0
@@ -696,17 +747,25 @@ class ReportGenerator:
         body += self._section("3. Data Summary", data_html)
 
         # Delta Summary
-        delta_html = self._kpi_grid([
-            (str(n_added), "Activities Added", "#059669"),
-            (str(n_deleted), "Activities Deleted", "#dc2626"),
-            (str(n_mods), "Activities Modified", "#2563eb"),
-            (f"{changed_pct:.1f}%", "Changed", "#7c3aed"),
-        ])
+        delta_html = self._kpi_grid(
+            [
+                (str(n_added), "Activities Added", "#059669"),
+                (str(n_deleted), "Activities Deleted", "#dc2626"),
+                (str(n_mods), "Activities Modified", "#2563eb"),
+                (f"{changed_pct:.1f}%", "Changed", "#7c3aed"),
+            ]
+        )
 
         # Relationship changes
-        rels_added = len(result.relationships_added) if hasattr(result, "relationships_added") else 0
-        rels_deleted = len(result.relationships_deleted) if hasattr(result, "relationships_deleted") else 0
-        rels_modified = len(result.relationships_modified) if hasattr(result, "relationships_modified") else 0
+        rels_added = (
+            len(result.relationships_added) if hasattr(result, "relationships_added") else 0
+        )
+        rels_deleted = (
+            len(result.relationships_deleted) if hasattr(result, "relationships_deleted") else 0
+        )
+        rels_modified = (
+            len(result.relationships_modified) if hasattr(result, "relationships_modified") else 0
+        )
 
         delta_html += self._table(
             ["Change Type", "Count"],
@@ -717,7 +776,10 @@ class ReportGenerator:
                 ["Relationships Added", str(rels_added)],
                 ["Relationships Deleted", str(rels_deleted)],
                 ["Relationships Modified", str(rels_modified)],
-                ["Critical Path Changed", "Yes" if getattr(result, "critical_path_changed", False) else "No"],
+                [
+                    "Critical Path Changed",
+                    "Yes" if getattr(result, "critical_path_changed", False) else "No",
+                ],
             ],
         )
 
@@ -728,12 +790,14 @@ class ReportGenerator:
             flag_html = f"<p>{n_flags} potential manipulation indicators detected:</p>"
             rows = []
             for f in result.manipulation_flags[:30]:
-                rows.append([
-                    _severity_badge(f.severity),
-                    _esc(f.indicator),
-                    _esc(f.task_name if hasattr(f, "task_name") else f.task_id),
-                    _esc(f.description),
-                ])
+                rows.append(
+                    [
+                        _severity_badge(f.severity),
+                        _esc(f.indicator),
+                        _esc(f.task_name if hasattr(f, "task_name") else f.task_id),
+                        _esc(f.description),
+                    ]
+                )
             flag_html += self._table(
                 ["Severity", "Indicator", "Activity", "Description"],
                 rows,
@@ -746,14 +810,18 @@ class ReportGenerator:
             float_html = f"<p>{len(float_changes)} significant float changes detected:</p>"
             rows = []
             for fc in float_changes[:30]:
-                direction = _severity_badge("critical" if fc.direction == "deteriorating" else "green")
-                rows.append([
-                    _esc(fc.task_name if hasattr(fc, "task_name") else fc.task_id),
-                    f"{fc.old_float:.1f}",
-                    f"{fc.new_float:.1f}",
-                    f"{fc.delta:.1f}",
-                    direction,
-                ])
+                direction = _severity_badge(
+                    "critical" if fc.direction == "deteriorating" else "green"
+                )
+                rows.append(
+                    [
+                        _esc(fc.task_name if hasattr(fc, "task_name") else fc.task_id),
+                        f"{fc.old_float:.1f}",
+                        f"{fc.new_float:.1f}",
+                        f"{fc.delta:.1f}",
+                        direction,
+                    ]
+                )
             float_html += self._table(
                 ["Activity", "Old Float", "New Float", "Delta", "Direction"],
                 rows,
@@ -815,14 +883,16 @@ class ReportGenerator:
         if hasattr(timeline, "windows") and timeline.windows:
             rows = []
             for w in timeline.windows:
-                rows.append([
-                    str(w.window_number),
-                    _format_date(getattr(w, "start_date", None)),
-                    _format_date(getattr(w, "end_date", None)),
-                    f"{w.delay_days:.1f}",
-                    f"{w.cumulative_delay:.1f}",
-                    _esc(getattr(w, "driving_activity", "N/A")),
-                ])
+                rows.append(
+                    [
+                        str(w.window_number),
+                        _format_date(getattr(w, "start_date", None)),
+                        _format_date(getattr(w, "end_date", None)),
+                        f"{w.delay_days:.1f}",
+                        f"{w.cumulative_delay:.1f}",
+                        _esc(getattr(w, "driving_activity", "N/A")),
+                    ]
+                )
             windows_html = self._table(
                 ["Window", "Start", "End", "Delay (d)", "Cumulative (d)", "Driving Activity"],
                 rows,
@@ -832,12 +902,14 @@ class ReportGenerator:
         # Delay waterfall
         body += self._section(
             "4. Delay Summary",
-            self._kpi_grid([
-                (f"{total_delay:.0f}d", "Total Delay", "#dc2626"),
-                (str(n_windows), "Windows Analyzed", "#2563eb"),
-                (contract, "Contract Completion", "#64748b"),
-                (current, "Current Completion", "#dc2626"),
-            ]),
+            self._kpi_grid(
+                [
+                    (f"{total_delay:.0f}d", "Total Delay", "#dc2626"),
+                    (str(n_windows), "Windows Analyzed", "#2563eb"),
+                    (contract, "Contract Completion", "#64748b"),
+                    (current, "Current Completion", "#dc2626"),
+                ]
+            ),
             page_break=True,
         )
 
@@ -889,25 +961,29 @@ class ReportGenerator:
 
         body += self._section(
             "3. Delay Summary",
-            self._kpi_grid([
-                (f"{net_delay:.0f}d", "Net Delay", "#dc2626"),
-                (f"{owner_delay:.0f}d", "Owner Delay", "#f59e0b"),
-                (f"{contractor_delay:.0f}d", "Contractor Delay", "#2563eb"),
-                (str(n_fragments), "Fragments", "#7c3aed"),
-            ]),
+            self._kpi_grid(
+                [
+                    (f"{net_delay:.0f}d", "Net Delay", "#dc2626"),
+                    (f"{owner_delay:.0f}d", "Owner Delay", "#f59e0b"),
+                    (f"{contractor_delay:.0f}d", "Contractor Delay", "#2563eb"),
+                    (str(n_fragments), "Fragments", "#7c3aed"),
+                ]
+            ),
         )
 
         # Fragment results
         if hasattr(analysis, "results") and analysis.results:
             rows = []
             for r in analysis.results:
-                rows.append([
-                    _esc(r.fragment_name),
-                    _esc(r.responsible_party),
-                    f"{r.delay_days:.1f}d",
-                    "Yes" if r.critical_path_affected else "No",
-                    _esc(r.delay_type),
-                ])
+                rows.append(
+                    [
+                        _esc(r.fragment_name),
+                        _esc(r.responsible_party),
+                        f"{r.delay_days:.1f}d",
+                        "Yes" if r.critical_path_affected else "No",
+                        _esc(r.delay_type),
+                    ]
+                )
             body += self._section(
                 "4. Fragment Analysis Results",
                 self._table(
@@ -973,24 +1049,30 @@ class ReportGenerator:
 
         body += self._section(
             "3. Simulation Results",
-            self._kpi_grid([
-                (f"{deterministic:.0f}d", "Deterministic", "#64748b"),
-                (f"{mean_days:.0f}d", "Mean", "#2563eb"),
-                (f"{p50:.0f}d", "P50", "#059669"),
-                (f"{p80:.0f}d", "P80", "#f59e0b"),
-                (f"{p90:.0f}d", "P90", "#dc2626"),
-            ]),
+            self._kpi_grid(
+                [
+                    (f"{deterministic:.0f}d", "Deterministic", "#64748b"),
+                    (f"{mean_days:.0f}d", "Mean", "#2563eb"),
+                    (f"{p50:.0f}d", "P50", "#059669"),
+                    (f"{p80:.0f}d", "P80", "#f59e0b"),
+                    (f"{p90:.0f}d", "P90", "#dc2626"),
+                ]
+            ),
         )
 
         # P-value table
         if p_values:
             rows = []
             for pv in p_values:
-                rows.append([
-                    f"P{pv.percentile}",
-                    f"{pv.duration_days:.1f}",
-                    _format_date(pv.completion_date) if hasattr(pv, "completion_date") and pv.completion_date else "N/A",
-                ])
+                rows.append(
+                    [
+                        f"P{pv.percentile}",
+                        f"{pv.duration_days:.1f}",
+                        _format_date(pv.completion_date)
+                        if hasattr(pv, "completion_date") and pv.completion_date
+                        else "N/A",
+                    ]
+                )
             body += self._table(
                 ["Percentile", "Duration (days)", "Completion Date"],
                 rows,
@@ -1016,12 +1098,16 @@ class ReportGenerator:
         if sensitivity:
             rows = []
             for s in sensitivity[:15]:
-                rows.append([
-                    _esc(getattr(s, "task_code", s.task_id if hasattr(s, "task_id") else "N/A")),
-                    _esc(getattr(s, "task_name", "N/A")),
-                    f"{s.correlation:.3f}",
-                    f"{getattr(s, 'contribution_pct', 0):.1f}%",
-                ])
+                rows.append(
+                    [
+                        _esc(
+                            getattr(s, "task_code", s.task_id if hasattr(s, "task_id") else "N/A")
+                        ),
+                        _esc(getattr(s, "task_name", "N/A")),
+                        f"{s.correlation:.3f}",
+                        f"{getattr(s, 'contribution_pct', 0):.1f}%",
+                    ]
+                )
             body += self._section(
                 "5. Sensitivity Analysis",
                 "<p>Activities most correlated with project completion:</p>"

@@ -166,7 +166,7 @@
 			<!-- Fragments -->
 			<div class="mb-4">
 				<div class="flex items-center justify-between mb-2">
-					<label class="block text-sm font-medium text-gray-700">Delay Fragments</label>
+					<span class="block text-sm font-medium text-gray-700">Delay Fragments</span>
 					<button
 						onclick={addFragment}
 						class="text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -195,19 +195,17 @@
 							</button>
 						</div>
 						<div class="grid grid-cols-2 gap-3 mb-3">
-							<div>
-								<label class="block text-xs text-gray-500 mb-1">Name</label>
+							<label class="block">
+								<span class="block text-xs text-gray-500 mb-1">Name</span>
 								<input
 									type="text"
 									bind:value={frag.name}
 									placeholder="e.g., Permit Delay"
 									class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
 								/>
-							</div>
-							<div>
-								<label class="block text-xs text-gray-500 mb-1"
-									>Responsible Party</label
-								>
+							</label>
+							<label class="block">
+								<span class="block text-xs text-gray-500 mb-1">Responsible Party</span>
 								<select
 									bind:value={frag.responsible_party}
 									class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
@@ -216,17 +214,17 @@
 										<option value={rp.value}>{rp.label}</option>
 									{/each}
 								</select>
-							</div>
+							</label>
 						</div>
-						<div class="mb-3">
-							<label class="block text-xs text-gray-500 mb-1">Description</label>
+						<label class="block mb-3">
+							<span class="block text-xs text-gray-500 mb-1">Description</span>
 							<input
 								type="text"
 								bind:value={frag.description}
 								placeholder="Description of the delay event"
 								class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
 							/>
-						</div>
+						</label>
 
 						<!-- Activities within fragment -->
 						{#each frag.activities as act, ai}
@@ -235,33 +233,27 @@
 									Activity: {act.fragment_activity_id}
 								</div>
 								<div class="grid grid-cols-3 gap-2 mb-2">
-									<div>
-										<label class="block text-xs text-gray-500 mb-1"
-											>Activity Name</label
-										>
+									<label class="block">
+										<span class="block text-xs text-gray-500 mb-1">Activity Name</span>
 										<input
 											type="text"
 											bind:value={act.name}
 											class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
 										/>
-									</div>
-									<div>
-										<label class="block text-xs text-gray-500 mb-1"
-											>Duration (hours)</label
-										>
+									</label>
+									<label class="block">
+										<span class="block text-xs text-gray-500 mb-1">Duration (hours)</span>
 										<input
 											type="number"
 											bind:value={act.duration_hours}
 											class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
 										/>
-									</div>
+									</label>
 									<div></div>
 								</div>
 								<div class="grid grid-cols-2 gap-2">
 									<div>
-										<label class="block text-xs text-gray-500 mb-1"
-											>Predecessor Activity Code</label
-										>
+										<span class="block text-xs text-gray-500 mb-1">Predecessor Activity Code</span>
 										{#if selectedProjectId}
 											<ActivityPicker
 												projectId={selectedProjectId}
@@ -274,18 +266,19 @@
 												}}
 											/>
 										{:else}
-											<input
-												type="text"
-												bind:value={act.predecessors[0].activity_code}
-												placeholder="e.g., A3050"
-												class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-											/>
+											<label class="block">
+												<span class="sr-only">Predecessor Activity Code</span>
+												<input
+													type="text"
+													bind:value={act.predecessors[0].activity_code}
+													placeholder="e.g., A3050"
+													class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+												/>
+											</label>
 										{/if}
 									</div>
 									<div>
-										<label class="block text-xs text-gray-500 mb-1"
-											>Successor Activity Code</label
-										>
+										<span class="block text-xs text-gray-500 mb-1">Successor Activity Code</span>
 										{#if selectedProjectId}
 											<ActivityPicker
 												projectId={selectedProjectId}
@@ -298,12 +291,15 @@
 												}}
 											/>
 										{:else}
-											<input
-												type="text"
-												bind:value={act.successors[0].activity_code}
-												placeholder="e.g., A4010"
-												class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-											/>
+											<label class="block">
+												<span class="sr-only">Successor Activity Code</span>
+												<input
+													type="text"
+													bind:value={act.successors[0].activity_code}
+													placeholder="e.g., A4010"
+													class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+												/>
+											</label>
 										{/if}
 									</div>
 								</div>

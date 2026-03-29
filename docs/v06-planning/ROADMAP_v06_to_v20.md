@@ -211,15 +211,20 @@ graph TB
 ### "What exists today" — v0.8.1 State
 
 - **10 analysis engines:** Parser, CPM, DCMA, Comparison, CPA, TIA, EVM, Monte Carlo, Float Trends + Early Warning, Health Score
-- **332 tests passing** (6 skipped)
-- **~12,000+ lines Python**, 40+ endpoints
-- **SvelteKit frontend** — 16+ pages
+- **358 tests passing** (6 skipped)
+- **~14,000+ lines Python**, 45 endpoints
+- **SvelteKit frontend** — 17 pages
 - **Supabase PostgreSQL** — persistent data, RLS enforced
 - **Supabase Storage** — XER files and generated PDFs
 - **Supabase Auth** — Google + Microsoft + LinkedIn OAuth, ES256 JWT
 - **Fly.io** — containerised backend, auto-deploy from main
-- **Cloudflare Pages** — live at [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev)
-- **Supabase migrations** — 4 migration files (001–004)
+- **Cloudflare Pages** — live at [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) (custom domain)
+- **Supabase migrations** — 5 migration files (001–005)
+- **Programs/Revisions model** — multi-program support with revision tracking
+- **Report availability API** — check which reports are available per project
+- **Activity search** — search across activities within a project
+- **LinkedIn OAuth** — added alongside Google and Microsoft
+- **Dashboard guard** — orphan projects hidden from project list
 - **Known issue:** Fly.io cold start ~10s causes 502 + CORS on first request
 
 ---
@@ -230,20 +235,20 @@ graph TB
 
 **Scope:**
 
-| # | Item | Description | Effort | Priority |
-|---|------|-------------|--------|----------|
-| 1 | Frontend redesign | Design system, responsive layout, dark mode, WCAG 2.1 AA | High | P0 |
-| 2 | Performance optimization | Monte Carlo <5s for 10K activities, pagination, indexed queries | High | P0 |
-| 3 | CI/CD pipeline | GitHub Actions: test, lint, build, deploy on merge to main | Medium | P0 |
-| 4 | E2E tests | Playwright for critical flows | Medium | P1 |
-| 5 | Sentry integration | Error tracking with source maps and tracebacks | Low | P1 |
-| 6 | PostHog integration | Feature usage analytics, funnel analysis | Low | P2 |
-| 7 | Documentation site | User guides, API reference, video walkthroughs | Medium | P2 |
-| 8 | Onboarding flow | Guided first-time user experience | Low | P2 |
-| 9 | Internationalization | i18n infrastructure. EN default, PT-BR and ES ready | Medium | P2 |
-| 10 | Fix cold start | Resolve Fly.io ~10s cold start causing 502+CORS on first request | Medium | P0 |
-| 11 | Anonymous/demo mode | Unauthenticated access to sample data (deferred from v0.7) | Low | P2 |
-| 12 | Account settings page | View profile, change display name, usage stats (deferred from v0.7) | Low | P2 |
+| # | Item | Description | Effort | Priority | Status |
+|---|------|-------------|--------|----------|--------|
+| 1 | Frontend redesign | Responsive sidebar (hamburger mobile), landing page hero, onboarding stepper | High | P0 | ✅ Done |
+| 2 | Performance optimization | Monte Carlo <5s for 10K activities, pagination, indexed queries | High | P0 | ↗ v1.0 |
+| 3 | CI/CD pipeline | GitHub Actions: test, lint, build, deploy on merge to main | Medium | P0 | ✅ Done |
+| 4 | E2E tests | Playwright: 25 tests covering landing, navigation, mobile, all pages | Medium | P1 | ✅ Done |
+| 5 | Sentry integration | Backend SDK (FastAPI) + frontend error handler | Low | P1 | ✅ Done |
+| 6 | PostHog integration | Conditional init, upload funnel tracking (success/error events) | Low | P2 | ✅ Done |
+| 7 | Documentation site | In-app /docs route: 10 sections covering all engines + API reference | Medium | P2 | ✅ Done |
+| 8 | Onboarding flow | 3-step guided onboarding for first-time users (Upload → Analyze → Compare) | Low | P2 | ✅ Done |
+| 9 | Internationalization | i18n infrastructure: EN, PT-BR, ES translation files + locale detection | Medium | P2 | ✅ Done |
+| 10 | Fix cold start | Retry with exponential backoff + warm-up banner | Medium | P0 | ✅ Done |
+| 11 | Anonymous/demo mode | /demo route + /api/v1/demo/project endpoint (no auth, sample XER) | Low | P2 | ✅ Done |
+| 12 | Account settings page | Profile, auth provider, usage stats, data privacy info | Low | P2 | ✅ Done |
 
 **Does NOT include:** New analysis features. Quality, not features.
 

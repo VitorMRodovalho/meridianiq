@@ -6,11 +6,11 @@ Compares a *baseline* and *update* ``ParsedSchedule`` to identify activity
 changes, relationship changes, float shifts, constraint modifications,
 progress issues, and schedule manipulation indicators.
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 
 from src.analytics.cpm import CPMCalculator
@@ -19,9 +19,9 @@ from src.parser.models import ParsedSchedule, Relationship, Task
 logger = logging.getLogger(__name__)
 
 # Float change severity thresholds (in hours, 8h/day)
-_FLOAT_THRESHOLD_MINOR = 5 * 8.0   # 5 days
+_FLOAT_THRESHOLD_MINOR = 5 * 8.0  # 5 days
 _FLOAT_THRESHOLD_MODERATE = 10 * 8.0  # 10 days
-_FLOAT_THRESHOLD_MAJOR = 20 * 8.0   # 20 days
+_FLOAT_THRESHOLD_MAJOR = 20 * 8.0  # 20 days
 
 
 @dataclass
@@ -30,7 +30,9 @@ class ActivityChange:
 
     task_id: str
     task_name: str
-    change_type: str  # "added", "deleted", "duration", "description", "status", "dates", "calendar", "type"
+    change_type: (
+        str  # "added", "deleted", "duration", "description", "status", "dates", "calendar", "type"
+    )
     old_value: str = ""
     new_value: str = ""
     severity: str = "info"  # "info", "warning", "critical"
@@ -220,11 +222,13 @@ class ScheduleComparison:
 
         # Tier 2: Match remaining by task_code (fallback)
         remaining_base = {
-            t.task_code: t for t in base_activities
+            t.task_code: t
+            for t in base_activities
             if t.task_id not in matched_base_ids and t.task_code
         }
         remaining_upd = {
-            t.task_code: t for t in upd_activities
+            t.task_code: t
+            for t in upd_activities
             if t.task_id not in matched_upd_ids and t.task_code
         }
         code_matches = set(remaining_base.keys()) & set(remaining_upd.keys())
@@ -624,7 +628,6 @@ class ScheduleComparison:
             result: The result object to populate.
         """
         for base_t, upd_t in self._matched:
-
             # Only flag if the activity was already started in the baseline
             if base_t.act_start_date is None:
                 continue
@@ -661,8 +664,7 @@ class ScheduleComparison:
                         task_name=upd_t.task_name,
                         indicator="retroactive_date",
                         description=(
-                            f"Actual end changed from {base_t.act_end_date} "
-                            f"to {upd_t.act_end_date}"
+                            f"Actual end changed from {base_t.act_end_date} to {upd_t.act_end_date}"
                         ),
                     )
                 )
@@ -697,7 +699,10 @@ class ScheduleComparison:
                     continue
 
                 # Predecessor not finished but successor has started
-                if pred_task.status_code.lower() != "tk_complete" and pred_task.act_end_date is None:
+                if (
+                    pred_task.status_code.lower() != "tk_complete"
+                    and pred_task.act_end_date is None
+                ):
                     result.manipulation_flags.append(
                         ManipulationFlag(
                             task_id=task.task_code,
@@ -857,10 +862,6 @@ class ScheduleComparison:
 
         added = len(result.activities_added)
         deleted = len(result.activities_deleted)
-        modified = (
-            len(result.activity_modifications)
-            + len(result.duration_changes)
-        )
         # Deduplicate: count unique modified task_ids
         modified_ids: set[str] = set()
         for change in result.activity_modifications:
@@ -887,11 +888,7 @@ class ScheduleComparison:
             + len(result.relationships_deleted)
             + len(result.relationships_modified)
         )
-        rel_churn = (
-            round((rel_changes / total_base_rels) * 100, 2)
-            if total_base_rels > 0
-            else 0.0
-        )
+        rel_churn = round((rel_changes / total_base_rels) * 100, 2) if total_base_rels > 0 else 0.0
 
         result.summary = {
             "baseline_activity_count": total_baseline,

@@ -8,11 +8,12 @@ Tests verify that:
 3. All 5 report types work
 4. API endpoints for report generation and download function correctly
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -100,12 +101,16 @@ class MockDCMAResult:
     overall_score: float = 78.6
     passed_count: int = 11
     failed_count: int = 3
-    metrics: list = field(default_factory=lambda: [
-        MockMetric(number=1, name="Logic Density", value=85.0, threshold=80.0, passed=True),
-        MockMetric(number=2, name="Leads", value=2.0, threshold=5.0, unit="%", passed=True),
-        MockMetric(number=3, name="Lags", value=15.0, threshold=20.0, unit="%", passed=True),
-        MockMetric(number=4, name="Negative Float", value=8.0, threshold=5.0, unit="%", passed=False),
-    ])
+    metrics: list = field(
+        default_factory=lambda: [
+            MockMetric(number=1, name="Logic Density", value=85.0, threshold=80.0, passed=True),
+            MockMetric(number=2, name="Leads", value=2.0, threshold=5.0, unit="%", passed=True),
+            MockMetric(number=3, name="Lags", value=15.0, threshold=20.0, unit="%", passed=True),
+            MockMetric(
+                number=4, name="Negative Float", value=8.0, threshold=5.0, unit="%", passed=False
+            ),
+        ]
+    )
 
 
 @dataclass
@@ -121,10 +126,17 @@ class MockHealthScore:
     trend_raw: float = 50.0
     rating: str = "good"
     trend_arrow: str = "→"
-    details: dict = field(default_factory=lambda: {
-        "weights": {"dcma": 0.4, "float": 0.25, "logic": 0.2, "trend": 0.15},
-        "raw_scores": {"dcma": 78.6, "float_health": 74.0, "logic_integrity": 80.0, "trend_direction": 50.0},
-    })
+    details: dict = field(
+        default_factory=lambda: {
+            "weights": {"dcma": 0.4, "float": 0.25, "logic": 0.2, "trend": 0.15},
+            "raw_scores": {
+                "dcma": 78.6,
+                "float_health": 74.0,
+                "logic_integrity": 80.0,
+                "trend_direction": 50.0,
+            },
+        }
+    )
 
 
 @dataclass
@@ -242,12 +254,14 @@ class MockSimulationResult:
     deterministic_days: float = 220.0
     mean_days: float = 245.0
     std_dev_days: float = 18.5
-    p_values: list = field(default_factory=lambda: [
-        MockPValue(percentile=10, duration_days=220.0),
-        MockPValue(percentile=50, duration_days=245.0),
-        MockPValue(percentile=80, duration_days=260.0),
-        MockPValue(percentile=90, duration_days=270.0),
-    ])
+    p_values: list = field(
+        default_factory=lambda: [
+            MockPValue(percentile=10, duration_days=220.0),
+            MockPValue(percentile=50, duration_days=245.0),
+            MockPValue(percentile=80, duration_days=260.0),
+            MockPValue(percentile=90, duration_days=270.0),
+        ]
+    )
     sensitivity: list = field(default_factory=list)
 
 
@@ -260,18 +274,14 @@ class TestHealthReport:
     def test_health_report_generates_output(self):
         """Verify health report returns bytes."""
         gen = ReportGenerator()
-        result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore()
-        )
+        result = gen.generate_health_report(MockSchedule(), MockDCMAResult(), MockHealthScore())
         assert isinstance(result, bytes)
         assert len(result) > 0
 
     def test_health_report_contains_project_name(self):
         """Verify report HTML contains the project name."""
         gen = ReportGenerator()
-        result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore()
-        )
+        result = gen.generate_health_report(MockSchedule(), MockDCMAResult(), MockHealthScore())
         # Without weasyprint, we get HTML bytes
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -280,9 +290,7 @@ class TestHealthReport:
     def test_health_report_contains_methodology(self):
         """Verify report contains methodology citations."""
         gen = ReportGenerator()
-        result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore()
-        )
+        result = gen.generate_health_report(MockSchedule(), MockDCMAResult(), MockHealthScore())
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
             assert "DCMA 14-Point" in html
@@ -292,9 +300,7 @@ class TestHealthReport:
     def test_health_report_contains_score(self):
         """Verify report contains the health score value."""
         gen = ReportGenerator()
-        result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore()
-        )
+        result = gen.generate_health_report(MockSchedule(), MockDCMAResult(), MockHealthScore())
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
             assert "72" in html or "73" in html  # overall score ~72.5
@@ -303,8 +309,7 @@ class TestHealthReport:
         """Verify report includes alerts section when alerts provided."""
         gen = ReportGenerator()
         result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
-            alerts=MockEarlyWarningResult()
+            MockSchedule(), MockDCMAResult(), MockHealthScore(), alerts=MockEarlyWarningResult()
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -314,9 +319,7 @@ class TestHealthReport:
     def test_health_report_contains_dcma_results(self):
         """Verify report contains DCMA check results."""
         gen = ReportGenerator()
-        result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore()
-        )
+        result = gen.generate_health_report(MockSchedule(), MockDCMAResult(), MockHealthScore())
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
             assert "Logic Density" in html
@@ -325,9 +328,7 @@ class TestHealthReport:
     def test_health_report_footer_branding(self):
         """Verify report contains MeridianIQ branding in footer."""
         gen = ReportGenerator()
-        result = gen.generate_health_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore()
-        )
+        result = gen.generate_health_report(MockSchedule(), MockDCMAResult(), MockHealthScore())
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
             assert "MeridianIQ" in html
@@ -415,17 +416,15 @@ class TestReportAPI:
     def test_report_api_generate_and_download(self):
         """Test the full generate → download flow via the API."""
         from fastapi.testclient import TestClient
-        from src.api.app import app, get_store, get_report_store
-        from src.api.storage import ProjectStore, ReportStore
+        from src.api.app import app
 
         client = TestClient(app)
 
         # We need to upload a project first
         # Use the test fixture XER file
         import os
-        fixture_path = os.path.join(
-            os.path.dirname(__file__), "fixtures", "simple.xer"
-        )
+
+        fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "simple.xer")
         if not os.path.exists(fixture_path):
             pytest.skip("Test fixture simple.xer not found")
 
@@ -456,8 +455,7 @@ class TestReportAPI:
     def test_invalid_report_type(self):
         """Test that invalid report types are rejected."""
         from fastapi.testclient import TestClient
-        from src.api.app import app, get_store
-        from src.api.storage import ProjectStore
+        from src.api.app import app
 
         client = TestClient(app)
 

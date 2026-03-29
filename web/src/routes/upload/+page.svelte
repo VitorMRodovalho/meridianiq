@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { uploadXER } from '$lib/api';
+	import { trackEvent } from '$lib/analytics';
 	import type { ProjectSummary } from '$lib/types';
 
 	let dragging = $state(false);
@@ -39,8 +40,13 @@
 		result = null;
 		try {
 			result = await uploadXER(file);
+			trackEvent('xer_upload_success', {
+				activity_count: result.activity_count,
+				relationship_count: result.relationship_count,
+			});
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Upload failed';
+			trackEvent('xer_upload_error', { error });
 		} finally {
 			loading = false;
 		}

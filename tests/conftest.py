@@ -5,6 +5,7 @@
 Forces the ENVIRONMENT to ``development`` so tests always use
 the InMemoryStore backend.
 """
+
 import os
 
 os.environ["ENVIRONMENT"] = "development"

@@ -8,6 +8,7 @@ Tests verify that:
 3. Health endpoint returns correct score structure
 4. Alerts endpoint validates parameters
 """
+
 from __future__ import annotations
 
 import os
@@ -27,9 +28,7 @@ def client():
 @pytest.fixture
 def uploaded_project(client):
     """Upload a test XER file and return the project_id."""
-    fixture_path = os.path.join(
-        os.path.dirname(__file__), "fixtures", "simple.xer"
-    )
+    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "simple.xer")
     if not os.path.exists(fixture_path):
         pytest.skip("Test fixture simple.xer not found")
 

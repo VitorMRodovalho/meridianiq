@@ -4,7 +4,7 @@
 	import { getTIAAnalysis, contractCheck } from '$lib/api';
 	import type { TIAAnalysisSchema, ContractCheckResponse } from '$lib/types';
 
-	let analysisId = $derived($page.params.id);
+	let analysisId = $derived($page.params.id!);
 	let analysis: TIAAnalysisSchema | null = $state(null);
 	let compliance: ContractCheckResponse | null = $state(null);
 	let loading = $state(true);

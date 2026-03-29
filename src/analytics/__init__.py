@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Schedule analytics -- CPM engine, DCMA 14-point assessment, comparison, TIA, and contract."""
+
 from .comparison import (
     ActivityChange,
     ComparisonResult,

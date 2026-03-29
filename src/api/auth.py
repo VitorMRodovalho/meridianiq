@@ -5,6 +5,7 @@
 Supports both HS256 (classic Supabase) and RS256 (newer Supabase projects).
 Auto-detects the algorithm from the token header.
 """
+
 from __future__ import annotations
 
 import logging
@@ -83,9 +84,7 @@ def get_current_user(
                 audience="authenticated",
             )
         else:
-            raise HTTPException(
-                status_code=401, detail=f"Unsupported JWT algorithm: {alg}"
-            )
+            raise HTTPException(status_code=401, detail=f"Unsupported JWT algorithm: {alg}")
 
         user_id = payload.get("sub")
         if not user_id:

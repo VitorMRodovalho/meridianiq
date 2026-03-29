@@ -2,12 +2,20 @@ services:
   meridianiq-api:
     build: .
     ports:
-      - "8000:8000"
-  meridianiq-web:
-    build: ./web
-    ports:
-      - "3000:3000"
-    depends_on:
-      - meridianiq-api
+      - "8080:8080"
     environment:
-      - API_URL=http://meridianiq-api:8000
+      - PORT=8080
+    # Note: Requires .env with SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+    env_file:
+      - .env
+
+  # NOTE: web service requires a web/Dockerfile (not yet created).
+  # For local frontend dev, use: cd web && npm run dev
+  # meridianiq-web:
+  #   build: ./web
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - meridianiq-api
+  #   environment:
+  #     - VITE_API_URL=http://localhost:8080

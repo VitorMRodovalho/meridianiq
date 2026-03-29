@@ -13,6 +13,7 @@ References:
     - AACE RP 65R-11: Integrated Cost and Schedule Risk Analysis Using
       Monte Carlo Simulation
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,7 @@ from typing import Any
 import networkx as nx
 import numpy as np
 
-from src.analytics.cpm import CPMCalculator, _FS, _FF, _SS, _SF, _TYPE_ALIASES
+from src.analytics.cpm import CPMCalculator, _FS, _FF, _SS, _SF
 from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
@@ -101,9 +102,7 @@ class SimulationConfig:
     default_distribution: DistributionType = DistributionType.PERT
     default_uncertainty: float = 0.2
     seed: int | None = None
-    confidence_levels: list[int] = field(
-        default_factory=lambda: [10, 25, 50, 75, 80, 90]
-    )
+    confidence_levels: list[int] = field(default_factory=lambda: [10, 25, 50, 75, 80, 90])
 
 
 # ── Result data classes ──────────────────────────────────────────────
@@ -394,25 +393,25 @@ class MonteCarloSimulator:
                         cp_counts[key] = cp_counts.get(key, 0) + 1
 
         return self._build_results(
-            completion_durations, cp_counts, duration_matrix,
-            activity_keys, duration_risks, risk_events,
+            completion_durations,
+            cp_counts,
+            duration_matrix,
+            activity_keys,
+            duration_risks,
+            risk_events,
         )
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_risk_map(
-        self, duration_risks: list[DurationRisk] | None
-    ) -> dict[str, DurationRisk]:
+    def _build_risk_map(self, duration_risks: list[DurationRisk] | None) -> dict[str, DurationRisk]:
         """Build a mapping of activity_id -> DurationRisk."""
         if not duration_risks:
             return {}
         return {r.activity_id: r for r in duration_risks}
 
-    def _build_event_map(
-        self, risk_events: list[RiskEvent] | None
-    ) -> dict[str, list[RiskEvent]]:
+    def _build_event_map(self, risk_events: list[RiskEvent] | None) -> dict[str, list[RiskEvent]]:
         """Build a mapping of activity_id -> list of applicable RiskEvents."""
         if not risk_events:
             return {}
@@ -454,7 +453,6 @@ class MonteCarloSimulator:
             # PERT-Beta distribution using the standard parameterisation.
             # mean = (min + lambda*mode + max) / (lambda + 2)
             lam = 4.0
-            mu = (lo + lam * ml + hi) / (lam + 2)
             if abs(hi - lo) < 1e-12:
                 return ml
             # Compute alpha1 from the PERT mean and range
@@ -478,7 +476,7 @@ class MonteCarloSimulator:
             variance = ((hi - lo) / 6) ** 2
             if mean <= 0 or variance <= 0:
                 return ml
-            sigma2 = np.log(1 + variance / (mean ** 2))
+            sigma2 = np.log(1 + variance / (mean**2))
             mu_ln = np.log(mean) - sigma2 / 2
             sigma_ln = np.sqrt(sigma2)
             sample = float(rng.lognormal(mu_ln, sigma_ln))
@@ -605,22 +603,26 @@ class MonteCarloSimulator:
         p_values: list[PValueEntry] = []
         for pct in self.config.confidence_levels:
             val = float(np.percentile(completion_durations, pct))
-            p_values.append(PValueEntry(
-                percentile=pct,
-                duration_days=round(val, 2),
-                delta_days=round(val - det, 2),
-            ))
+            p_values.append(
+                PValueEntry(
+                    percentile=pct,
+                    duration_days=round(val, 2),
+                    delta_days=round(val - det, 2),
+                )
+            )
 
         # Histogram (30 bins)
         counts_arr, bin_edges = np.histogram(completion_durations, bins=30)
         histogram: list[HistogramBin] = []
         for i in range(len(counts_arr)):
-            histogram.append(HistogramBin(
-                bin_start=round(float(bin_edges[i]), 2),
-                bin_end=round(float(bin_edges[i + 1]), 2),
-                count=int(counts_arr[i]),
-                frequency=round(float(counts_arr[i]) / n, 4),
-            ))
+            histogram.append(
+                HistogramBin(
+                    bin_start=round(float(bin_edges[i]), 2),
+                    bin_end=round(float(bin_edges[i + 1]), 2),
+                    count=int(counts_arr[i]),
+                    frequency=round(float(counts_arr[i]) / n, 4),
+                )
+            )
 
         # Criticality index
         criticality: list[CriticalityEntry] = []
@@ -628,11 +630,13 @@ class MonteCarloSimulator:
             cnt = cp_counts.get(key, 0)
             task = self._activities.get(key)
             name = task.task_name if task else key
-            criticality.append(CriticalityEntry(
-                activity_id=key,
-                activity_name=name,
-                criticality_pct=round(cnt / n * 100, 1),
-            ))
+            criticality.append(
+                CriticalityEntry(
+                    activity_id=key,
+                    activity_name=name,
+                    criticality_pct=round(cnt / n * 100, 1),
+                )
+            )
         # Sort by criticality descending
         criticality.sort(key=lambda c: c.criticality_pct, reverse=True)
 
@@ -649,11 +653,13 @@ class MonteCarloSimulator:
                 corr = float(np.corrcoef(col_ranks, completion_ranks)[0, 1])
             task = self._activities.get(key)
             name = task.task_name if task else key
-            sensitivity.append(SensitivityEntry(
-                activity_id=key,
-                activity_name=name,
-                correlation=round(corr, 4),
-            ))
+            sensitivity.append(
+                SensitivityEntry(
+                    activity_id=key,
+                    activity_name=name,
+                    correlation=round(corr, 4),
+                )
+            )
         # Sort by absolute correlation descending
         sensitivity.sort(key=lambda s: abs(s.correlation), reverse=True)
 
@@ -663,16 +669,20 @@ class MonteCarloSimulator:
         step = max(1, n // 100)
         s_curve: list[SCurvePoint] = []
         for i in range(0, n, step):
-            s_curve.append(SCurvePoint(
-                duration_days=round(float(sorted_completions[i]), 2),
-                cumulative_probability=round((i + 1) / n, 4),
-            ))
+            s_curve.append(
+                SCurvePoint(
+                    duration_days=round(float(sorted_completions[i]), 2),
+                    cumulative_probability=round((i + 1) / n, 4),
+                )
+            )
         # Always include the last point
         if s_curve and s_curve[-1].cumulative_probability < 1.0:
-            s_curve.append(SCurvePoint(
-                duration_days=round(float(sorted_completions[-1]), 2),
-                cumulative_probability=1.0,
-            ))
+            s_curve.append(
+                SCurvePoint(
+                    duration_days=round(float(sorted_completions[-1]), 2),
+                    cumulative_probability=1.0,
+                )
+            )
 
         return SimulationResult(
             project_name=project_name,

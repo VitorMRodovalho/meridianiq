@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the CPM calculator module."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -74,9 +75,7 @@ class TestForwardPass:
 class TestBackwardPass:
     """Tests for Late Start / Late Finish calculation."""
 
-    def test_last_activity_lf_equals_project_duration(
-        self, cpm_result: CPMResult
-    ) -> None:
+    def test_last_activity_lf_equals_project_duration(self, cpm_result: CPMResult) -> None:
         """Activities with no successor should have LF = project duration."""
         # T-030 is the project end milestone
         ar = cpm_result.activity_results["T-030"]

@@ -1,6 +1,7 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Tests for the float trend analysis engine."""
+
 from __future__ import annotations
 
 from pathlib import Path

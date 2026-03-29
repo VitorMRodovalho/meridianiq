@@ -6,13 +6,14 @@ Verifies window creation, delay calculation, cumulative delay tracking,
 completion date extraction, driving activity identification, critical path
 evolution, and edge-case validation.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from src.analytics.forensics import ForensicAnalyzer, ForensicTimeline
+from src.analytics.forensics import ForensicAnalyzer
 from src.parser.xer_reader import XERReader
 
 # ---------------------------------------------------------------------------
@@ -61,9 +62,7 @@ class TestWindowCreation:
 
     def test_three_schedules_two_windows(self, sample, update1, update2):
         """Three schedules should produce two windows."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         assert len(timeline.windows) == 2
         assert timeline.windows[0].window.window_id == "W01"
@@ -83,9 +82,7 @@ class TestDelayCalculation:
 
     def test_delay_calculated_between_windows(self, sample, update1, update2):
         """Each window should have its own delay_days."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         for w in timeline.windows:
             assert w.completion_date_start is not None
@@ -97,18 +94,14 @@ class TestCumulativeDelay:
 
     def test_cumulative_equals_sum(self, sample, update1, update2):
         """cumulative_delay of last window should equal total_delay_days."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         last = timeline.windows[-1]
         assert abs(last.cumulative_delay - timeline.total_delay_days) < 0.01
 
     def test_cumulative_is_running_total(self, sample, update1, update2):
         """Each window's cumulative should be sum of all prior delays."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         running = 0.0
         for w in timeline.windows:
@@ -125,6 +118,7 @@ class TestCompletionDateExtraction:
         cd = analyzer._get_completion_date(sample)
         assert cd is not None
         from datetime import datetime
+
         assert isinstance(cd, datetime)
 
     def test_completion_dates_differ_between_updates(self, sample, update2):
@@ -150,9 +144,7 @@ class TestDrivingActivity:
 
     def test_driving_activity_per_window(self, sample, update1, update2):
         """Each window should identify a driving activity."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         for w in timeline.windows:
             assert isinstance(w.driving_activity, str)
@@ -174,9 +166,7 @@ class TestCriticalPathEvolution:
 
     def test_cp_changes_detected(self, sample, update1, update2):
         """CP joined/left lists should exist (may be empty if CP unchanged)."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         for w in timeline.windows:
             assert isinstance(w.cp_activities_joined, list)
@@ -208,9 +198,7 @@ class TestWindowOrdering:
     def test_windows_sorted_by_data_date(self, sample, update1, update2):
         """Windows should be in chronological order even if input is shuffled."""
         # Pass in reverse order -- analyzer should sort
-        analyzer = ForensicAnalyzer(
-            [update2, sample, update1], ["p3", "p1", "p2"]
-        )
+        analyzer = ForensicAnalyzer([update2, sample, update1], ["p3", "p1", "p2"])
         timeline = analyzer.analyze()
         assert len(timeline.windows) == 2
         w1 = timeline.windows[0]
@@ -226,9 +214,7 @@ class TestTimelineSummary:
 
     def test_summary_has_expected_keys(self, sample, update1, update2):
         """Summary dict should contain expected metrics."""
-        analyzer = ForensicAnalyzer(
-            [sample, update1, update2], ["p1", "p2", "p3"]
-        )
+        analyzer = ForensicAnalyzer([sample, update1, update2], ["p1", "p2", "p3"])
         timeline = analyzer.analyze()
         s = timeline.summary
         assert "schedule_count" in s

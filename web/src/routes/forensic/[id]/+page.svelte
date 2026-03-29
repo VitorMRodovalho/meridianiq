@@ -10,7 +10,7 @@
 	let error = $state('');
 	let expandedWindow: number | null = $state(null);
 
-	const timelineId = $derived($page.params.id);
+	const timelineId = $derived($page.params.id!);
 
 	onMount(async () => {
 		try {

@@ -10,6 +10,7 @@ no large JSONB blobs.
 Use the ``get_store()`` factory to obtain the correct backend based on
 the ``ENVIRONMENT`` setting.
 """
+
 from __future__ import annotations
 
 import json
@@ -100,10 +101,7 @@ class InMemoryStore:
             if user_id and prog["user_id"] != user_id:
                 continue
             # Find all uploads for this program
-            upload_pids = [
-                pid for pid, p_id in self._upload_program.items()
-                if p_id == prog_id
-            ]
+            upload_pids = [pid for pid, p_id in self._upload_program.items() if p_id == prog_id]
             # Find latest revision
             latest = None
             max_rev = 0
@@ -128,7 +126,9 @@ class InMemoryStore:
             results.append(enriched)
         return results
 
-    def get_program_revisions(self, program_id: str, user_id: str | None = None) -> list[dict[str, Any]]:
+    def get_program_revisions(
+        self, program_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Return all revisions (uploads) for a given program."""
         if program_id not in self._programs:
             return []
@@ -145,18 +145,22 @@ class InMemoryStore:
             name = ""
             if schedule.projects:
                 name = schedule.projects[0].proj_short_name
-            revisions.append({
-                "id": pid,
-                "filename": f"{name}.xer",
-                "data_date": None,
-                "uploaded_at": None,
-                "revision_number": self._upload_revision.get(pid, 0),
-                "activity_count": len(schedule.activities),
-            })
+            revisions.append(
+                {
+                    "id": pid,
+                    "filename": f"{name}.xer",
+                    "data_date": None,
+                    "uploaded_at": None,
+                    "revision_number": self._upload_revision.get(pid, 0),
+                    "activity_count": len(schedule.activities),
+                }
+            )
         revisions.sort(key=lambda r: r["revision_number"], reverse=True)
         return revisions
 
-    def update_program(self, program_id: str, updates: dict[str, Any], user_id: str | None = None) -> dict[str, Any] | None:
+    def update_program(
+        self, program_id: str, updates: dict[str, Any], user_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Update program metadata (e.g. rename). Returns updated program or None."""
         if program_id not in self._programs:
             return None
@@ -209,7 +213,9 @@ class InMemoryStore:
         items = self._projects.list_all()
         if user_id:
             owned_pids = {pid for pid, uid in self._project_owners.items() if uid == user_id}
-            unowned_pids = {pid for pid in self._projects.list_ids() if pid not in self._project_owners}
+            unowned_pids = {
+                pid for pid in self._projects.list_ids() if pid not in self._project_owners
+            }
             allowed = owned_pids | unowned_pids
             items = [i for i in items if i["project_id"] in allowed]
         return items
@@ -292,10 +298,7 @@ class InMemoryStore:
     ) -> Any | None:
         """Retrieve the latest analysis of a given type for a project."""
         for entry in reversed(list(self._analyses.values())):
-            if (
-                entry["project_id"] == project_id
-                and entry["analysis_type"] == analysis_type
-            ):
+            if entry["project_id"] == project_id and entry["analysis_type"] == analysis_type:
                 return entry["results"]
         return None
 
@@ -461,10 +464,7 @@ class SupabaseStore:
         data_date = None
         if schedule.projects:
             proj_name = schedule.projects[0].proj_short_name
-            dd = (
-                schedule.projects[0].last_recalc_date
-                or schedule.projects[0].sum_data_date
-            )
+            dd = schedule.projects[0].last_recalc_date or schedule.projects[0].sum_data_date
             if dd:
                 data_date = dd.isoformat()
 
@@ -593,9 +593,7 @@ class SupabaseStore:
         if not rows or not rows[0].get("storage_path"):
             return None
         try:
-            return self._client.storage.from_(self.BUCKET).download(
-                rows[0]["storage_path"]
-            )
+            return self._client.storage.from_(self.BUCKET).download(rows[0]["storage_path"])
         except Exception as exc:
             logger.error("Failed to download XER bytes: %s", exc)
             return None
@@ -604,14 +602,26 @@ class SupabaseStore:
 
     def get_or_create_program(self, user_id: str, project_name: str) -> str:
         """Find or create program. Returns program_id."""
-        result = self._client.table("programs").select("id").eq("user_id", user_id).eq("name", project_name).execute()
+        result = (
+            self._client.table("programs")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("name", project_name)
+            .execute()
+        )
         if result.data:
             return result.data[0]["id"]
-        new = self._client.table("programs").insert({
-            "user_id": user_id,
-            "name": project_name,
-            "proj_short_name": project_name,
-        }).execute()
+        new = (
+            self._client.table("programs")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "name": project_name,
+                    "proj_short_name": project_name,
+                }
+            )
+            .execute()
+        )
         return new.data[0]["id"]
 
     def get_next_revision_number(self, program_id: str) -> int:
@@ -657,7 +667,9 @@ class SupabaseStore:
             enriched.append(prog)
         return enriched
 
-    def get_program_revisions(self, program_id: str, user_id: str | None = None) -> list[dict[str, Any]]:
+    def get_program_revisions(
+        self, program_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Return all revisions (uploads) for a given program."""
         query = self._client.table("programs").select("id").eq("id", program_id)
         if user_id:
@@ -675,7 +687,9 @@ class SupabaseStore:
             .data
         )
 
-    def update_program(self, program_id: str, updates: dict[str, Any], user_id: str | None = None) -> dict[str, Any] | None:
+    def update_program(
+        self, program_id: str, updates: dict[str, Any], user_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Update program metadata (e.g. rename). Returns updated program or None."""
         query = self._client.table("programs").select("id").eq("id", program_id)
         if user_id:
@@ -764,10 +778,7 @@ class SupabaseStore:
         except Exception:
             pass
         for entry in reversed(list(self._analyses.values())):
-            if (
-                entry["project_id"] == project_id
-                and entry["analysis_type"] == analysis_type
-            ):
+            if entry["project_id"] == project_id and entry["analysis_type"] == analysis_type:
                 return entry["results"]
         return None
 
