@@ -256,6 +256,45 @@ export async function getRiskSimulation(id: string): Promise<any> {
 	return request<any>(`/api/v1/risk/simulations/${id}`);
 }
 
+// ── P3: Report Availability ──────────────────────────────
+
+export interface ReportAvailabilityEntry {
+	type: string;
+	name: string;
+	ready: boolean;
+	reason: string;
+}
+
+export async function getAvailableReports(
+	projectId: string
+): Promise<{ project_id: string; reports: ReportAvailabilityEntry[] }> {
+	return request<{ project_id: string; reports: ReportAvailabilityEntry[] }>(
+		`/api/v1/projects/${projectId}/available-reports`
+	);
+}
+
+// ── P4: Activity Search ──────────────────────────────────
+
+export interface ActivitySearchEntry {
+	task_code: string;
+	task_name: string;
+	task_type: string;
+	wbs_id: string;
+	status_code: string;
+}
+
+export async function searchActivities(
+	projectId: string,
+	q: string = '',
+	limit: number = 20
+): Promise<{ activities: ActivitySearchEntry[]; total: number }> {
+	const params = new URLSearchParams({ limit: String(limit) });
+	if (q) params.set('q', q);
+	return request<{ activities: ActivitySearchEntry[]; total: number }>(
+		`/api/v1/projects/${projectId}/activities?${params}`
+	);
+}
+
 export async function downloadReport(reportId: string): Promise<Blob> {
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;

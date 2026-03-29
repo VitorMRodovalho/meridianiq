@@ -2346,3 +2346,180 @@ def download_report(
             "Content-Disposition": f'attachment; filename="meridianiq-{report_type}-{report_id}.{extension}"',
         },
     )
+
+
+# ══════════════════════════════════════════════════════════
+# P3 — Report Availability
+# ══════════════════════════════════════════════════════════
+
+
+@app.get("/api/v1/projects/{project_id}/available-reports")
+def get_available_reports(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Check which report types have data available for a project.
+
+    Returns a list of report descriptors with ``ready`` boolean and a
+    human-readable ``reason`` when the report is not yet available.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    reports = []
+
+    # --- health: always computable from the schedule itself ---
+    reports.append(
+        {
+            "type": "health",
+            "name": "Schedule Health Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
+    # --- dcma: always computable from the schedule itself ---
+    reports.append(
+        {
+            "type": "dcma",
+            "name": "DCMA 14-Point Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
+    # --- comparison: needs a second upload in the same program ---
+    comparison_ready = False
+    comparison_reason = "Requires at least two schedule revisions in the same program"
+    if hasattr(store, "_upload_program"):
+        # InMemoryStore: look for a sibling upload
+        program_id = store._upload_program.get(project_id)
+        if program_id:
+            siblings = [
+                pid
+                for pid, prog in store._upload_program.items()
+                if prog == program_id and pid != project_id
+            ]
+            if siblings:
+                comparison_ready = True
+                comparison_reason = ""
+    elif hasattr(store, "get_program_revisions"):
+        # SupabaseStore: check via program revisions
+        programs = store.get_programs(user_id=user_id)
+        for prog in programs:
+            revisions = store.get_program_revisions(prog["id"], user_id=user_id)
+            ids = [r["id"] for r in revisions]
+            if project_id in ids and len(ids) >= 2:
+                comparison_ready = True
+                comparison_reason = ""
+                break
+
+    reports.append(
+        {
+            "type": "comparison",
+            "name": "Schedule Comparison Report",
+            "ready": comparison_ready,
+            "reason": comparison_reason,
+        }
+    )
+
+    # --- evm: check if an EVM analysis exists for this project ---
+    evm_ready = False
+    evm_reason = "Run EVM analysis first"
+    evm_store = get_evm_store()
+    for entry in evm_store.list_all():
+        if entry.get("project_id") == project_id:
+            evm_ready = True
+            evm_reason = ""
+            break
+
+    reports.append(
+        {
+            "type": "evm",
+            "name": "Earned Value Report",
+            "ready": evm_ready,
+            "reason": evm_reason,
+        }
+    )
+
+    # --- risk: check if a risk simulation exists for this project ---
+    risk_ready = False
+    risk_reason = "Run Monte Carlo simulation first"
+    risk_store = get_risk_store()
+    for entry in risk_store.list_all():
+        if entry.get("project_id") == project_id:
+            risk_ready = True
+            risk_reason = ""
+            break
+
+    reports.append(
+        {
+            "type": "risk",
+            "name": "Risk / QSRA Report",
+            "ready": risk_ready,
+            "reason": risk_reason,
+        }
+    )
+
+    return {"project_id": project_id, "reports": reports}
+
+
+# ══════════════════════════════════════════════════════════
+# P4 — Activity Search (for TIA autocomplete)
+# ══════════════════════════════════════════════════════════
+
+
+@app.get("/api/v1/projects/{project_id}/activities")
+def search_activities(
+    project_id: str,
+    q: str = "",
+    limit: int = 20,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Search activities by ID or name.  Used by the TIA activity picker.
+
+    Args:
+        project_id: The stored project identifier.
+        q: Optional search query matched against task_code and task_name.
+        limit: Maximum number of results to return (default 20).
+
+    Returns:
+        Dict with ``activities`` list and ``total`` count of all activities.
+
+    Raises:
+        HTTPException: If the project is not found.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        # Fallback: try get_parsed_schedule (SupabaseStore path)
+        if hasattr(store, "get_parsed_schedule"):
+            schedule = store.get_parsed_schedule(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    total = len(schedule.activities)
+    activities: list[dict] = []
+    q_lower = q.strip().lower()
+
+    for task in schedule.activities:
+        entry = {
+            "task_code": task.task_code,
+            "task_name": task.task_name,
+            "task_type": task.task_type,
+            "wbs_id": task.wbs_id,
+            "status_code": task.status_code,
+        }
+        if q_lower:
+            searchable = f"{task.task_code} {task.task_name}".lower()
+            if q_lower not in searchable:
+                continue
+        activities.append(entry)
+        if len(activities) >= limit:
+            break
+
+    return {"activities": activities, "total": total}

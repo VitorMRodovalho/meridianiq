@@ -6,6 +6,7 @@
 		createTIAAnalysis,
 		getProject
 	} from '$lib/api';
+	import ActivityPicker from '$lib/components/ActivityPicker.svelte';
 	import type {
 		ProjectListItem,
 		TIAAnalysisSummarySchema,
@@ -261,16 +262,17 @@
 										<label class="block text-xs text-gray-500 mb-1"
 											>Predecessor Activity Code</label
 										>
-										{#if activityCodes.length > 0}
-											<select
-												bind:value={act.predecessors[0].activity_code}
-												class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-											>
-												<option value="">Select...</option>
-												{#each activityCodes as code}
-													<option value={code}>{code}</option>
-												{/each}
-											</select>
+										{#if selectedProjectId}
+											<ActivityPicker
+												projectId={selectedProjectId}
+												selected={act.predecessors[0].activity_code
+													? [{ task_code: act.predecessors[0].activity_code, task_name: '' }]
+													: []}
+												placeholder="Search predecessor…"
+												onchange={(sel) => {
+													act.predecessors[0].activity_code = sel.length > 0 ? sel[sel.length - 1].task_code : '';
+												}}
+											/>
 										{:else}
 											<input
 												type="text"
@@ -284,16 +286,17 @@
 										<label class="block text-xs text-gray-500 mb-1"
 											>Successor Activity Code</label
 										>
-										{#if activityCodes.length > 0}
-											<select
-												bind:value={act.successors[0].activity_code}
-												class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-											>
-												<option value="">Select...</option>
-												{#each activityCodes as code}
-													<option value={code}>{code}</option>
-												{/each}
-											</select>
+										{#if selectedProjectId}
+											<ActivityPicker
+												projectId={selectedProjectId}
+												selected={act.successors[0].activity_code
+													? [{ task_code: act.successors[0].activity_code, task_name: '' }]
+													: []}
+												placeholder="Search successor…"
+												onchange={(sel) => {
+													act.successors[0].activity_code = sel.length > 0 ? sel[sel.length - 1].task_code : '';
+												}}
+											/>
 										{:else}
 											<input
 												type="text"

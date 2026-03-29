@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports } from '$lib/api';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -11,6 +11,7 @@
 		ScheduleHealthResponse,
 		AlertsResponse
 	} from '$lib/types';
+	import type { ReportAvailabilityEntry } from '$lib/api';
 
 	let activeTab = $state('overview');
 	let loading = $state(true);
@@ -33,6 +34,7 @@
 
 	let reportDropdownOpen = $state(false);
 	let reportGenerating = $state('');
+	let availableReports = $state<ReportAvailabilityEntry[]>([]);
 
 	const projectId = $derived(page.params.id);
 
@@ -43,6 +45,13 @@
 			error = e instanceof Error ? e.message : 'Failed to load project';
 		} finally {
 			loading = false;
+		}
+		// Fetch report availability in background (non-blocking)
+		try {
+			const ar = await getAvailableReports(projectId);
+			availableReports = ar.reports;
+		} catch {
+			// Silently ignore — the dropdown falls back to showing all reports
 		}
 	});
 
@@ -208,13 +217,34 @@
 					{/if}
 				</button>
 				{#if reportDropdownOpen}
-					<div class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-						<button
-							class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
-							onclick={() => handleGenerateReport('health')}
-						>
-							Health Report (PDF)
-						</button>
+					<div class="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+						{#if availableReports.length > 0}
+							{#each availableReports as report}
+								{#if report.ready}
+									<button
+										class="w-full text-left px-4 py-2.5 text-sm bg-teal-600 text-white hover:bg-teal-700 transition-colors block border-b border-teal-500 last:border-b-0"
+										onclick={() => handleGenerateReport(report.type)}
+									>
+										{report.name}
+									</button>
+								{:else}
+									<div class="px-4 py-2.5 text-sm bg-gray-100 text-gray-400 cursor-not-allowed border-b border-gray-200 last:border-b-0">
+										<span class="block">{report.name}</span>
+										{#if report.reason}
+											<span class="block text-xs text-gray-400 mt-0.5">{report.reason}</span>
+										{/if}
+									</div>
+								{/if}
+							{/each}
+						{:else}
+							<!-- Fallback while availability loads -->
+							<button
+								class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+								onclick={() => handleGenerateReport('health')}
+							>
+								Health Report (PDF)
+							</button>
+						{/if}
 					</div>
 				{/if}
 			</div>
