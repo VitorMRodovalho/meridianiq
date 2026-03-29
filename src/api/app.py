@@ -325,6 +325,49 @@ def list_projects(_user: object = Depends(optional_auth)) -> ProjectListResponse
 
 
 # ------------------------------------------------------------------
+# Programs (group uploads under programs with revision tracking)
+# ------------------------------------------------------------------
+
+
+@app.get("/api/v1/programs")
+def list_programs(_user: object = Depends(optional_auth)):
+    """Return all programs with latest revision info."""
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    programs = store.get_programs(user_id=user_id)
+    return {"programs": programs}
+
+
+@app.get("/api/v1/programs/{program_id}")
+def get_program_detail(program_id: str, _user: object = Depends(optional_auth)):
+    """Return a program with all its revisions."""
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    revisions = store.get_program_revisions(program_id, user_id=user_id)
+    # Also get the program metadata
+    programs = store.get_programs(user_id=user_id)
+    program = None
+    for p in programs:
+        if p["id"] == program_id:
+            program = p
+            break
+    if program is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return {"program": program, "revisions": revisions}
+
+
+@app.put("/api/v1/programs/{program_id}")
+def update_program(program_id: str, body: dict, _user: object = Depends(optional_auth)):
+    """Rename or update a program."""
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    updated = store.update_program(program_id, body, user_id=user_id)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return {"program": updated}
+
+
+# ------------------------------------------------------------------
 # Project detail
 # ------------------------------------------------------------------
 

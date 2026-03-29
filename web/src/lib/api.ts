@@ -59,6 +59,23 @@ export async function getProjects(): Promise<ProjectListResponse> {
 	return request<ProjectListResponse>('/api/v1/projects');
 }
 
+// ── Programs (revision-grouped uploads) ─────────────────
+export async function getPrograms(): Promise<{ programs: any[] }> {
+	return request<{ programs: any[] }>('/api/v1/programs');
+}
+
+export async function getProgramDetail(id: string): Promise<{ program: any; revisions: any[] }> {
+	return request<{ program: any; revisions: any[] }>(`/api/v1/programs/${id}`);
+}
+
+export async function updateProgram(id: string, body: { name?: string; description?: string }): Promise<{ program: any }> {
+	return request<{ program: any }>(`/api/v1/programs/${id}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+}
+
 export async function getProject(id: string): Promise<ProjectDetailResponse> {
 	return request<ProjectDetailResponse>(`/api/v1/projects/${id}`);
 }

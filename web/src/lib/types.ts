@@ -26,6 +26,30 @@ export interface ProjectListResponse {
 	projects: ProjectListItem[];
 }
 
+// ── Programs (revision-grouped uploads) ─────────────────
+
+export interface ProgramRevision {
+	id: string;
+	filename: string;
+	data_date: string | null;
+	uploaded_at: string | null;
+	revision_number: number;
+	activity_count: number;
+}
+
+export interface ProgramListItem {
+	id: string;
+	name: string;
+	description: string;
+	proj_short_name: string;
+	latest_revision: ProgramRevision | null;
+	revision_count: number;
+}
+
+export interface ProgramListResponse {
+	programs: ProgramListItem[];
+}
+
 export interface ActivitySchema {
 	task_id: string;
 	task_code: string;

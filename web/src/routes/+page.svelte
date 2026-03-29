@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, getDashboard, getProjectHealth } from '$lib/api';
+	import { getProjects, getDashboard, getProjectHealth, getPrograms } from '$lib/api';
 	import { supabase } from '$lib/supabase';
-	import type { ProjectListItem, DashboardKPIs } from '$lib/types';
+	import type { ProjectListItem, DashboardKPIs, ProgramListItem } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
+	let programs: ProgramListItem[] = $state([]);
 	let dashboard: DashboardKPIs | null = $state(null);
 	let healthScores: Record<string, { overall: number; rating: string; trend_arrow: string }> = $state({});
 	let loading = $state(true);
@@ -24,12 +25,14 @@
 
 	async function loadData() {
 		try {
-			const [projRes, dashRes] = await Promise.all([
+			const [projRes, dashRes, progRes] = await Promise.all([
 				getProjects(),
-				getDashboard().catch(() => null)
+				getDashboard().catch(() => null),
+				getPrograms().catch(() => ({ programs: [] }))
 			]);
 			projects = projRes.projects;
 			dashboard = dashRes;
+			programs = progRes.programs;
 
 			// Load health scores for each project
 			for (const p of projects) {
@@ -191,6 +194,41 @@
 			</div>
 		</a>
 	</div>
+
+	<!-- Programs (revision-grouped) -->
+	{#if programs.length > 0 && authenticated}
+		<div class="bg-white rounded-lg border border-gray-200 p-6 mb-10">
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-lg font-semibold text-gray-900">Programs</h2>
+				<span class="text-sm text-gray-400">{programs.length} program{programs.length !== 1 ? 's' : ''}</span>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				{#each programs as program}
+					<a
+						href="/programs/{program.id}"
+						class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+					>
+						<h3 class="font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">{program.name}</h3>
+						<div class="mt-2 flex gap-4 text-xs text-gray-500">
+							<span class="flex items-center gap-1">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+								{program.revision_count} revision{program.revision_count !== 1 ? 's' : ''}
+							</span>
+							{#if program.latest_revision}
+								<span class="flex items-center gap-1">
+									<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+									{program.latest_revision.activity_count} activities
+								</span>
+							{/if}
+						</div>
+						{#if program.description}
+							<p class="mt-2 text-xs text-gray-400 truncate">{program.description}</p>
+						{/if}
+					</a>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Project Summary with Health Scores -->
 	{#if loading}
