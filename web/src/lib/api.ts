@@ -401,6 +401,48 @@ export async function getAuditLog(orgId: string, limit: number = 50): Promise<{ 
 	return request<{ entries: any[] }>(`/api/v1/organizations/${orgId}/audit?limit=${limit}`);
 }
 
+// ── IPS Reconciliation ──────────────────────────────────
+
+export async function reconcileIPS(masterProjectId: string, subProjectIds: string[]): Promise<any> {
+	return request<any>('/api/v1/ips/reconcile', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ master_project_id: masterProjectId, sub_project_ids: subProjectIds }),
+	});
+}
+
+// ── Recovery Validation ─────────────────────────────────
+
+export async function validateRecovery(impactedProjectId: string, recoveryProjectId: string): Promise<any> {
+	return request<any>('/api/v1/recovery/validate', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ impacted_project_id: impactedProjectId, recovery_project_id: recoveryProjectId }),
+	});
+}
+
+// ── Value Milestones ────────────────────────────────────
+
+export async function getValueMilestones(projectId: string): Promise<{ milestones: any[] }> {
+	return request<{ milestones: any[] }>(`/api/v1/projects/${projectId}/value-milestones`);
+}
+
+export async function createValueMilestone(projectId: string, data: Record<string, unknown>): Promise<{ milestone: any }> {
+	return request<{ milestone: any }>(`/api/v1/projects/${projectId}/value-milestones`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(data),
+	});
+}
+
+export async function updateValueMilestone(milestoneId: string, data: Record<string, unknown>): Promise<{ milestone: any }> {
+	return request<{ milestone: any }>(`/api/v1/value-milestones/${milestoneId}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(data),
+	});
+}
+
 export async function exportExcel(projectId: string): Promise<Blob> {
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;

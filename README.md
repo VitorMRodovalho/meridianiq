@@ -36,12 +36,13 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 10 (Parser · CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Float Trends · Health Score) |
-| Tests passing | 358 |
-| Python source lines | ~14,000+ |
-| Frontend pages | 20 |
-| API endpoints | 45 |
-| Released versions | 9 (v0.1.0 → v0.9) |
+| Analysis engines | 12 (Parser · CPM · DCMA · Compare · CPA · TIA · Contract · EVM · Monte Carlo · Float Trends/EW/Health · IPS Reconciliation · Recovery Validation) |
+| Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
+| Tests passing | 358 + 28 E2E |
+| Python source lines | ~16,000+ |
+| Frontend pages | 24 |
+| API endpoints | 60 |
+| Released versions | 10 (v0.1.0 → v1.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -156,7 +157,7 @@ flowchart LR
 | v0.7 | **Identity** | Auth + RLS + Ownership | ✅ Released |
 | v0.8 | **Intelligence** | Float Trends + Early Warning + Health Score | ✅ Released |
 | v0.9 | **Polish** | UX + CI/CD + E2E + i18n + Demo | ✅ Released |
-| v1.0 | **Enterprise** | Teams + IPS Reconciliation + Audit | 🔜 Planned |
+| v1.0 | **Enterprise** | Teams + IPS + Recovery + Multi-format + Audit | ✅ Released |
 | v2.0 | **AI** | ML Predictions · NLP · Anomaly Detection | 🔮 Future |
 
 See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_v20.md).

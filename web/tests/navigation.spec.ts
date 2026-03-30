@@ -6,7 +6,7 @@ test.describe('Navigation (desktop)', () => {
   test('sidebar has all nav links', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('aside');
-    for (const label of ['Dashboard', 'Upload', 'Projects', 'Compare', 'Forensic', 'TIA', 'Contract', 'EVM', 'Risk', 'IPS Reconcile', 'Organizations', 'Settings']) {
+    for (const label of ['Dashboard', 'Upload', 'Projects', 'Compare', 'Forensic', 'TIA', 'Contract', 'EVM', 'Risk', 'IPS Reconcile', 'Recovery', 'Organizations', 'Settings']) {
       await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
     }
   });

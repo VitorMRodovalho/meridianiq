@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects } from '$lib/api';
-	import { supabase } from '$lib/supabase';
+	import { getProjects, reconcileIPS } from '$lib/api';
 	import type { ProjectListItem } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
@@ -11,8 +10,6 @@
 	let subProjectIds: string[] = $state([]);
 	let reconciling = $state(false);
 	let result: any = $state(null);
-
-	const BASE = import.meta.env.VITE_API_URL || '';
 
 	onMount(async () => {
 		try {
@@ -40,21 +37,7 @@
 		result = null;
 
 		try {
-			const { data: { session } } = await supabase.auth.getSession();
-			const token = session?.access_token;
-			const res = await fetch(`${BASE}/api/v1/ips/reconcile`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
-				body: JSON.stringify({
-					master_project_id: masterProjectId,
-					sub_project_ids: subProjectIds,
-				}),
-			});
-			if (!res.ok) throw new Error(await res.text());
-			result = await res.json();
+			result = await reconcileIPS(masterProjectId, subProjectIds);
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Reconciliation failed';
 		} finally {
