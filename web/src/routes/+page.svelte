@@ -3,6 +3,7 @@
 	import { getProjects, getDashboard, getProjectHealth, getPrograms } from '$lib/api';
 	import { supabase } from '$lib/supabase';
 	import type { ProjectListItem, DashboardKPIs, ProgramListItem } from '$lib/types';
+	import { t } from '$lib/i18n';
 
 	let projects: ProjectListItem[] = $state([]);
 	let programs: ProgramListItem[] = $state([]);
@@ -103,7 +104,7 @@
 </script>
 
 <svelte:head>
-	<title>MeridianIQ — Schedule Intelligence Platform</title>
+	<title>MeridianIQ — {$t('landing.title')}</title>
 </svelte:head>
 
 <div class="max-w-6xl mx-auto">
@@ -111,27 +112,25 @@
 	{#if !authenticated && !loading}
 		<div class="px-8 pt-16 pb-12">
 			<div class="text-center max-w-3xl mx-auto">
-				<p class="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">Open Source</p>
+				<p class="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-3">{$t('landing.badge')}</p>
 				<h1 class="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight">
-					The intelligence standard for project schedules
+					{$t('landing.title')}
 				</h1>
 				<p class="mt-6 text-lg text-gray-600 leading-relaxed">
-					Upload a Primavera P6 XER file and get instant schedule validation, critical path analysis,
-					forensic delay analysis, earned value metrics, and Monte Carlo risk simulation.
-					Every methodology traceable to published standards.
+					{$t('landing.subtitle')}
 				</p>
 				<div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
 					<a
 						href="/login"
 						class="px-8 py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
 					>
-						Get started free
+						{$t('landing.cta.start')}
 					</a>
 					<a
 						href="/demo"
 						class="px-8 py-3 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-300 hover:border-gray-400 hover:bg-gray-50 shadow-sm transition-colors"
 					>
-						Try with sample data
+						{$t('landing.cta.demo')}
 					</a>
 				</div>
 				<p class="mt-4 text-center">
@@ -141,7 +140,7 @@
 						rel="noopener"
 						class="text-sm text-gray-400 hover:text-gray-600 transition-colors"
 					>
-						View on GitHub
+						{$t('landing.cta.github')}
 					</a>
 				</p>
 			</div>
@@ -150,26 +149,26 @@
 			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
 				<div>
 					<p class="text-3xl font-bold text-gray-900">10</p>
-					<p class="text-sm text-gray-500 mt-1">Analysis Engines</p>
+					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
 					<p class="text-3xl font-bold text-gray-900">45</p>
-					<p class="text-sm text-gray-500 mt-1">API Endpoints</p>
+					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>
 					<p class="text-3xl font-bold text-gray-900">358</p>
-					<p class="text-sm text-gray-500 mt-1">Tests Passing</p>
+					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.tests')}</p>
 				</div>
 				<div>
 					<p class="text-3xl font-bold text-gray-900">$0</p>
-					<p class="text-sm text-gray-500 mt-1">Monthly Cost</p>
+					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.cost')}</p>
 				</div>
 			</div>
 		</div>
 
 		<!-- Capabilities grid -->
 		<div class="px-8 pb-12">
-			<h2 class="text-2xl font-bold text-gray-900 text-center mb-8">10 Analysis Engines</h2>
+			<h2 class="text-2xl font-bold text-gray-900 text-center mb-8">{$t('landing.capabilities.title')}</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 				{#each capabilities as cap}
 					<div class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
@@ -187,9 +186,9 @@
 		<!-- Standards -->
 		<div class="px-8 pb-16">
 			<div class="bg-gray-900 rounded-2xl p-8 sm:p-12 text-center">
-				<h2 class="text-2xl font-bold text-white mb-4">Built on published standards</h2>
+				<h2 class="text-2xl font-bold text-white mb-4">{$t('landing.standards.title')}</h2>
 				<p class="text-gray-400 text-sm max-w-2xl mx-auto mb-8">
-					Every methodology is traceable to its source. No black boxes.
+					{$t('landing.standards.subtitle')}
 				</p>
 				<div class="flex flex-wrap justify-center gap-3">
 					{#each ['AACE RP 29R-03', 'AACE RP 52R-06', 'AACE RP 57R-09', 'ANSI/EIA-748', 'DCMA EVMS', 'GAO Schedule Guide', 'SCL Protocol'] as std}
@@ -203,20 +202,20 @@
 	{:else if authenticated}
 		<div class="p-8">
 			<div class="mb-10">
-				<h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-				<p class="mt-2 text-gray-600">Portfolio overview and quick actions</p>
+				<h1 class="text-3xl font-bold text-gray-900">{$t('dashboard.title')}</h1>
+				<p class="mt-2 text-gray-600">{$t('dashboard.subtitle')}</p>
 			</div>
 
 			<!-- Dashboard KPIs -->
 			{#if dashboard}
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
 					<div class="bg-white border border-gray-200 rounded-lg p-5">
-						<p class="text-sm text-gray-500">Total Projects</p>
+						<p class="text-sm text-gray-500">{$t('dashboard.total_projects')}</p>
 						<p class="text-3xl font-bold text-gray-900">{dashboard.total_projects}</p>
 						<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
 					</div>
 					<div class="bg-white border border-gray-200 rounded-lg p-5">
-						<p class="text-sm text-gray-500">Avg Health Score</p>
+						<p class="text-sm text-gray-500">{$t('dashboard.avg_health')}</p>
 						<div class="flex items-center gap-3 mt-1">
 							<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
 							<div class="flex-1">
@@ -228,13 +227,13 @@
 						<p class="text-xs text-gray-400 mt-1">Portfolio average (0-100)</p>
 					</div>
 					<div class="bg-white border border-gray-200 rounded-lg p-5">
-						<p class="text-sm text-gray-500">Active Alerts</p>
+						<p class="text-sm text-gray-500">{$t('dashboard.active_alerts')}</p>
 						<p class="text-3xl font-bold {dashboard.active_alerts > 0 ? 'text-red-600' : 'text-green-600'}">{dashboard.active_alerts}</p>
 						<p class="text-xs text-gray-400 mt-1">{dashboard.active_alerts === 0 ? 'No active warnings' : 'Requires attention'}</p>
 					</div>
 					{#if dashboard.most_critical_project}
 						<div class="bg-red-50 border border-red-200 rounded-lg p-5">
-							<p class="text-sm text-red-600 font-medium">Most Critical</p>
+							<p class="text-sm text-red-600 font-medium">{$t('dashboard.most_critical')}</p>
 							<p class="text-lg font-bold text-red-700 truncate mt-1">{mostCriticalProject || dashboard.most_critical_project}</p>
 							{#if dashboard.most_critical_score !== null && dashboard.most_critical_score !== undefined}
 								<div class="flex items-center gap-2 mt-1">
@@ -247,8 +246,8 @@
 						</div>
 					{:else}
 						<div class="bg-green-50 border border-green-200 rounded-lg p-5">
-							<p class="text-sm text-green-600 font-medium">Portfolio Status</p>
-							<p class="text-lg font-bold text-green-700 mt-1">All Clear</p>
+							<p class="text-sm text-green-600 font-medium">{$t('dashboard.portfolio_status')}</p>
+							<p class="text-lg font-bold text-green-700 mt-1">{$t('dashboard.all_clear')}</p>
 							<p class="text-xs text-green-500 mt-1">No critical issues detected</p>
 						</div>
 					{/if}

@@ -9,6 +9,11 @@
 	let error = $state('');
 	let viewMode: 'programs' | 'uploads' = $state('programs');
 
+	// Search, sort, filter state
+	let search = $state('');
+	let sortBy: 'name' | 'activities' | 'relationships' = $state('name');
+	let sortDir: 'asc' | 'desc' = $state('asc');
+
 	onMount(async () => {
 		try {
 			const [projRes, progRes] = await Promise.all([
@@ -17,7 +22,6 @@
 			]);
 			projects = projRes.projects;
 			programs = progRes.programs;
-			// Default to uploads view if no programs exist
 			if (programs.length === 0 && projects.length > 0) {
 				viewMode = 'uploads';
 			}
@@ -26,6 +30,52 @@
 		} finally {
 			loading = false;
 		}
+	});
+
+	function toggleSort(col: typeof sortBy) {
+		if (sortBy === col) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortBy = col;
+			sortDir = col === 'name' ? 'asc' : 'desc';
+		}
+	}
+
+	const filteredProjects = $derived.by(() => {
+		let list = projects;
+		if (search.trim()) {
+			const q = search.toLowerCase();
+			list = list.filter(
+				(p) =>
+					(p.name || '').toLowerCase().includes(q) ||
+					p.project_id.toLowerCase().includes(q)
+			);
+		}
+		const dir = sortDir === 'asc' ? 1 : -1;
+		return [...list].sort((a, b) => {
+			if (sortBy === 'name') {
+				return dir * (a.name || '').localeCompare(b.name || '');
+			}
+			if (sortBy === 'activities') {
+				return dir * (a.activity_count - b.activity_count);
+			}
+			return dir * (a.relationship_count - b.relationship_count);
+		});
+	});
+
+	const filteredPrograms = $derived.by(() => {
+		if (!search.trim()) return programs;
+		const q = search.toLowerCase();
+		return programs.filter(
+			(p) =>
+				(p.name || '').toLowerCase().includes(q) ||
+				(p.description || '').toLowerCase().includes(q)
+		);
+	});
+
+	const sortIcon = $derived((col: string) => {
+		if (sortBy !== col) return '';
+		return sortDir === 'asc' ? '\u2191' : '\u2193';
 	});
 </script>
 
@@ -54,6 +104,34 @@
 		{/if}
 	</div>
 
+	<!-- Search bar -->
+	{#if !loading && (projects.length > 0 || programs.length > 0)}
+		<div class="mb-4">
+			<div class="relative">
+				<svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+				<input
+					type="text"
+					bind:value={search}
+					placeholder="Search by name or ID..."
+					class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+				/>
+				{#if search}
+					<button
+						onclick={() => search = ''}
+						class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+						aria-label="Clear search"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
 	{#if loading}
 		<div class="flex items-center gap-2 text-gray-500">
 			<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -76,60 +154,81 @@
 		</div>
 	{:else if viewMode === 'programs'}
 		<!-- Programs view -->
-		<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-			<table class="min-w-full divide-y divide-gray-200">
-				<thead class="bg-gray-50">
-					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program Name</th>
-						<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revisions</th>
-						<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Activities</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-gray-200">
-					{#each programs as program}
-						<tr
-							class="hover:bg-gray-50 cursor-pointer transition-colors"
-							onclick={() => window.location.href = `/programs/${program.id}`}
-						>
-							<td class="px-6 py-4">
-								<div class="text-sm font-medium text-gray-900">{program.name || 'Unnamed'}</div>
-								{#if program.description}
-									<div class="text-xs text-gray-400 mt-0.5">{program.description}</div>
-								{/if}
-							</td>
-							<td class="px-6 py-4 text-sm text-gray-500 text-right">{program.revision_count}</td>
-							<td class="px-6 py-4 text-sm text-gray-500 text-right">{program.latest_revision?.activity_count ?? '-'}</td>
+		{#if filteredPrograms.length === 0}
+			<p class="text-sm text-gray-500 py-8 text-center">No programs match "{search}"</p>
+		{:else}
+			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+				<table class="min-w-full divide-y divide-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program Name</th>
+							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revisions</th>
+							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Activities</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+					</thead>
+					<tbody class="divide-y divide-gray-200">
+						{#each filteredPrograms as program}
+							<tr
+								class="hover:bg-gray-50 cursor-pointer transition-colors"
+								onclick={() => window.location.href = `/programs/${program.id}`}
+							>
+								<td class="px-6 py-4">
+									<div class="text-sm font-medium text-gray-900">{program.name || 'Unnamed'}</div>
+									{#if program.description}
+										<div class="text-xs text-gray-400 mt-0.5">{program.description}</div>
+									{/if}
+								</td>
+								<td class="px-6 py-4 text-sm text-gray-500 text-right">{program.revision_count}</td>
+								<td class="px-6 py-4 text-sm text-gray-500 text-right">{program.latest_revision?.activity_count ?? '-'}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
 	{:else}
-		<!-- Raw uploads view (backward compatible) -->
-		<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-			<table class="min-w-full divide-y divide-gray-200">
-				<thead class="bg-gray-50">
-					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Name</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project ID</th>
-						<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Activities</th>
-						<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Relationships</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-gray-200">
-					{#each projects as project}
-						<tr
-							class="hover:bg-gray-50 cursor-pointer transition-colors"
-							onclick={() => window.location.href = `/projects/${project.project_id}`}
-						>
-							<td class="px-6 py-4 text-sm font-medium text-gray-900">{project.name || 'Unnamed'}</td>
-							<td class="px-6 py-4 text-sm text-gray-500">{project.project_id}</td>
-							<td class="px-6 py-4 text-sm text-gray-500 text-right">{project.activity_count}</td>
-							<td class="px-6 py-4 text-sm text-gray-500 text-right">{project.relationship_count}</td>
+		<!-- Raw uploads view with sortable columns -->
+		{#if filteredProjects.length === 0}
+			<p class="text-sm text-gray-500 py-8 text-center">No projects match "{search}"</p>
+		{:else}
+			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+				<table class="min-w-full divide-y divide-gray-200">
+					<thead class="bg-gray-50">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+								<button class="inline-flex items-center gap-1 hover:text-gray-700" onclick={() => toggleSort('name')}>
+									Project Name <span class="text-blue-500">{sortIcon('name')}</span>
+								</button>
+							</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project ID</th>
+							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+								<button class="inline-flex items-center gap-1 hover:text-gray-700" onclick={() => toggleSort('activities')}>
+									Activities <span class="text-blue-500">{sortIcon('activities')}</span>
+								</button>
+							</th>
+							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+								<button class="inline-flex items-center gap-1 hover:text-gray-700" onclick={() => toggleSort('relationships')}>
+									Relationships <span class="text-blue-500">{sortIcon('relationships')}</span>
+								</button>
+							</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+					</thead>
+					<tbody class="divide-y divide-gray-200">
+						{#each filteredProjects as project}
+							<tr
+								class="hover:bg-gray-50 cursor-pointer transition-colors"
+								onclick={() => window.location.href = `/projects/${project.project_id}`}
+							>
+								<td class="px-6 py-4 text-sm font-medium text-gray-900">{project.name || 'Unnamed'}</td>
+								<td class="px-6 py-4 text-sm text-gray-500">{project.project_id}</td>
+								<td class="px-6 py-4 text-sm text-gray-500 text-right">{project.activity_count}</td>
+								<td class="px-6 py-4 text-sm text-gray-500 text-right">{project.relationship_count}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<p class="mt-2 text-xs text-gray-400 text-right">{filteredProjects.length} of {projects.length} projects</p>
+		{/if}
 	{/if}
 </div>

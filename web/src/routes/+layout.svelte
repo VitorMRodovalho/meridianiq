@@ -5,6 +5,7 @@
 	import { isWarmingUp, warmUp } from '$lib/api';
 	import { initAnalytics } from '$lib/analytics';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import { t, locale, detectLocale, availableLocales } from '$lib/i18n';
 
 	let { children } = $props();
 	let sidebarOpen = $state(false);
@@ -13,6 +14,7 @@
 		initAuth();
 		warmUp();
 		initAnalytics();
+		locale.set(detectLocale());
 	});
 
 	function closeSidebar() {
@@ -47,6 +49,7 @@
 			items: [
 				{ href: '/ips', label: 'IPS Reconcile', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2' },
 				{ href: '/recovery', label: 'Recovery', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+				{ href: '/milestones', label: 'Value Milestones', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
 				{ href: '/org', label: 'Organizations', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
 			],
 		},
@@ -153,7 +156,7 @@
 					onclick={signOut}
 					class="w-full text-left px-3 py-1.5 rounded-md text-xs text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
 				>
-					Sign out
+					{$t('common.sign_out')}
 				</button>
 			{:else}
 				<a
@@ -161,17 +164,27 @@
 					onclick={closeSidebar}
 					class="block w-full text-center rounded-md bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition-colors"
 				>
-					Sign in
+					{$t('common.sign_in')}
 				</a>
 			{/if}
 		</div>
 
 		<div class="px-6 py-4 border-t border-gray-700">
+			<div class="flex items-center gap-2 mb-3">
+				<select
+					class="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-600 focus:outline-none focus:border-gray-400"
+					onchange={(e) => locale.set((e.target as HTMLSelectElement).value as import('$lib/i18n').Locale)}
+				>
+					{#each availableLocales as loc}
+						<option value={loc.code} selected={loc.code === $locale}>{loc.label}</option>
+					{/each}
+				</select>
+			</div>
 			<a href="/docs" onclick={closeSidebar} class="text-xs text-gray-400 hover:text-white transition-colors">Documentation</a>
 			<span class="text-xs text-gray-600 mx-1">&middot;</span>
 			<a href="https://github.com/VitorMRodovalho/meridianiq" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-white transition-colors">GitHub</a>
 			<p class="text-xs text-gray-500 mt-2">MeridianIQ &middot; MIT &middot; &copy; 2025 Vitor Maia Rodovalho</p>
-			<p class="text-xs text-gray-500 mt-0.5">v1.0.0-dev</p>
+			<p class="text-xs text-gray-500 mt-0.5">v1.1.0</p>
 		</div>
 	</aside>
 
@@ -183,7 +196,7 @@
 					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 				</svg>
-				Warming up the analysis server... This takes a few seconds on first visit.
+				{$t('warmup.message')}
 			</div>
 		{/if}
 		{@render children()}

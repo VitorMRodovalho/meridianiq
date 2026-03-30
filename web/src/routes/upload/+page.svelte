@@ -3,6 +3,7 @@
 	import { trackEvent } from '$lib/analytics';
 	import { success, error as toastError } from '$lib/toast';
 	import type { ProjectSummary } from '$lib/types';
+	import { t } from '$lib/i18n';
 
 	let dragging = $state(false);
 	let loading = $state(false);
@@ -58,11 +59,11 @@
 </script>
 
 <svelte:head>
-	<title>Upload - MeridianIQ</title>
+	<title>{$t('upload.title')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-3xl mx-auto">
-	<h1 class="text-2xl font-bold text-gray-900 mb-6">Upload XER File</h1>
+	<h1 class="text-2xl font-bold text-gray-900 mb-6">{$t('upload.title')}</h1>
 
 	<!-- Drop zone -->
 	<div
@@ -81,15 +82,15 @@
 					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 				</svg>
-				<p class="text-gray-600">Parsing XER file...</p>
+				<p class="text-gray-600">{$t('upload.parsing')}</p>
 			</div>
 		{:else}
 			<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
 			</svg>
-			<p class="mt-4 text-gray-600">Drag and drop your .xer file here, or</p>
+			<p class="mt-4 text-gray-600">{$t('upload.drag')}</p>
 			<label class="mt-3 inline-block cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
-				Browse files
+				{$t('upload.browse')}
 				<input type="file" accept=".xer,.xml" class="hidden" onchange={handleFileInput} />
 			</label>
 			<p class="mt-2 text-xs text-gray-400">Primavera P6 (.xer) or Microsoft Project (.xml)</p>
@@ -110,7 +111,7 @@
 				<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
 					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 				</svg>
-				<h2 class="text-lg font-semibold text-gray-900">Upload Successful</h2>
+				<h2 class="text-lg font-semibold text-gray-900">{$t('upload.success')}</h2>
 			</div>
 
 			<dl class="grid grid-cols-2 gap-4 text-sm">
@@ -144,7 +145,7 @@
 				href="/projects/{result.project_id}"
 				class="mt-6 inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
 			>
-				View Project Details
+				{$t('upload.view')}
 			</a>
 		</div>
 	{/if}
