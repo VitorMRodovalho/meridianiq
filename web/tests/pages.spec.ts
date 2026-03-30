@@ -15,6 +15,7 @@ test.describe('Public pages load without errors', () => {
     ['/demo', 'Sample Schedule Analysis'],
     ['/docs', 'Getting Started'],
     ['/org', 'Organizations'],
+    ['/ips', 'IPS Reconciliation'],
   ];
 
   for (const [route, expectedText] of routes) {

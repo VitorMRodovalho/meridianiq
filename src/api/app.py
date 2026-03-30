@@ -23,7 +23,7 @@ if dsn := os.environ.get("SENTRY_DSN"):
         dsn=dsn,
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
-        release="meridianiq-api@0.9.0",
+        release="meridianiq-api@1.0.0-dev",
     )
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
@@ -145,7 +145,7 @@ from src.database.store import get_store as _get_db_store
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="0.9.0",
+    version="1.0.0-dev",
 )
 
 app.add_middleware(
@@ -242,7 +242,7 @@ def get_report_store() -> ReportStore:
 
 @app.get("/health")
 async def root_health():
-    return {"status": "ok", "version": "0.9.0"}
+    return {"status": "ok", "version": "1.0.0-dev"}
 
 
 @app.get("/api/v1/health", response_model=HealthResponse)
@@ -2713,3 +2713,57 @@ def export_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ══════════════════════════════════════════════════════════
+# IPS Reconciliation (v1.0)
+# ══════════════════════════════════════════════════════════
+
+
+@app.post("/api/v1/ips/reconcile")
+def reconcile_ips(
+    request_body: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Run IPS reconciliation between a master schedule and sub-schedules.
+
+    Per AACE RP 71R-12. Checks milestone alignment, date consistency,
+    float consistency, and WBS alignment.
+
+    Request body:
+        master_project_id: str — the master schedule project ID
+        sub_project_ids: list[str] — sub-schedule project IDs
+
+    Returns:
+        IPSReconciliationResult as dict.
+    """
+    from src.analytics.ips_reconciliation import IPSReconciler
+    from dataclasses import asdict
+
+    master_id = request_body.get("master_project_id")
+    sub_ids = request_body.get("sub_project_ids", [])
+
+    if not master_id or not sub_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="master_project_id and sub_project_ids are required",
+        )
+
+    store = get_store()
+    user_id = _user["id"] if _user else None
+
+    master = store.get(master_id, user_id=user_id)
+    if master is None:
+        raise HTTPException(status_code=404, detail=f"Master project {master_id} not found")
+
+    subs = []
+    for sid in sub_ids:
+        sub = store.get(sid, user_id=user_id)
+        if sub is None:
+            raise HTTPException(status_code=404, detail=f"Sub-schedule {sid} not found")
+        subs.append(sub)
+
+    reconciler = IPSReconciler(master)
+    result = reconciler.reconcile(subs)
+
+    return asdict(result)

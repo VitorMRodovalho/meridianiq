@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "meridianiq"
-version = "0.9.0"
+version = "1.0.0-dev"
 description = "The intelligence standard for project schedules — open-source schedule intelligence from validation to prediction"
 readme = "README.md"
 license = {text = "MIT"}
