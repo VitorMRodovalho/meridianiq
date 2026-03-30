@@ -3,7 +3,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev libcairo2 && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml README.md .
 COPY src/ src/
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[api,reports]"
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8080
