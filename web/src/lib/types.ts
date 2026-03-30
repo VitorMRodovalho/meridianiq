@@ -212,6 +212,9 @@ export interface ManipulationFlagSchema {
 	indicator: string;
 	description: string;
 	severity: string;
+	classification: string;
+	score: number;
+	rationale: string;
 }
 
 export interface CodeRestructuringSchema {
@@ -247,6 +250,9 @@ export interface CompareResponse {
 	critical_path_changed: boolean;
 	activities_joined_cp: string[];
 	activities_left_cp: string[];
+	manipulation_classification: string;
+	manipulation_score: number;
+	manipulation_rationale: string;
 	summary: Record<string, unknown>;
 }
 

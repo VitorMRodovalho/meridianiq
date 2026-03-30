@@ -188,38 +188,60 @@
 			</div>
 		{/if}
 
-		<!-- Manipulation Alerts -->
-		{#if result.manipulation_flags.length > 0}
-			<div class="border-2 border-red-300 bg-red-50 rounded-lg p-6 mb-6">
-				<div class="flex items-center gap-2 mb-4">
-					<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-					</svg>
-					<h2 class="text-lg font-bold text-red-800">Schedule Manipulation Indicators</h2>
+		<!-- Manipulation Classification Banner -->
+		{@const classColor = result.manipulation_classification === 'red_flag' ? 'border-red-300 bg-red-50' : result.manipulation_classification === 'suspicious' ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50'}
+		{@const classText = result.manipulation_classification === 'red_flag' ? 'text-red-800' : result.manipulation_classification === 'suspicious' ? 'text-yellow-800' : 'text-green-800'}
+		{@const classLabel = result.manipulation_classification === 'red_flag' ? 'RED FLAG' : result.manipulation_classification === 'suspicious' ? 'SUSPICIOUS' : 'NORMAL'}
+
+		<div class="border-2 {classColor} rounded-lg p-6 mb-6">
+			<div class="flex items-center justify-between mb-4">
+				<div class="flex items-center gap-3">
+					<span class="px-3 py-1 text-sm font-bold rounded-full {result.manipulation_classification === 'red_flag' ? 'bg-red-200 text-red-900' : result.manipulation_classification === 'suspicious' ? 'bg-yellow-200 text-yellow-900' : 'bg-green-200 text-green-900'}">
+						{classLabel}
+					</span>
+					<h2 class="text-lg font-bold {classText}">
+						{#if result.manipulation_classification === 'normal'}
+							No manipulation indicators
+						{:else}
+							Schedule Manipulation Indicators
+						{/if}
+					</h2>
 				</div>
+				{#if result.manipulation_score !== undefined}
+					<div class="text-right">
+						<p class="text-2xl font-bold {classText}">{result.manipulation_score}</p>
+						<p class="text-xs text-gray-500">Risk Score</p>
+					</div>
+				{/if}
+			</div>
+
+			{#if result.manipulation_rationale}
+				<p class="text-sm {classText} mb-4">{result.manipulation_rationale}</p>
+			{/if}
+
+			{#if result.manipulation_flags.length > 0}
 				<div class="space-y-3">
 					{#each result.manipulation_flags as flag}
-						<div class="bg-white rounded-lg border border-red-200 p-4">
+						<div class="bg-white rounded-lg border border-gray-200 p-4">
 							<div class="flex items-center gap-2 mb-1">
-								<span class="text-xs font-bold px-2 py-0.5 rounded-full {flag.severity === 'critical' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'}">
-									{flag.severity.toUpperCase()}
+								<span class="text-xs font-bold px-2 py-0.5 rounded-full {flag.classification === 'red_flag' ? 'bg-red-200 text-red-800' : flag.classification === 'suspicious' ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-800'}">
+									{(flag.classification || flag.severity).toUpperCase().replace('_', ' ')}
 								</span>
 								<span class="text-sm font-medium text-gray-900">{flag.indicator}</span>
+								{#if flag.score}
+									<span class="text-xs text-gray-400 ml-auto">Score: {flag.score}</span>
+								{/if}
 							</div>
-							<p class="text-sm text-gray-600">Activity: {flag.task_id} - {flag.task_name}</p>
+							<p class="text-sm text-gray-600">Activity: {flag.task_id} — {flag.task_name}</p>
 							<p class="text-sm text-gray-500 mt-1">{flag.description}</p>
+							{#if flag.rationale}
+								<p class="text-xs text-gray-400 mt-1 italic">{flag.rationale}</p>
+							{/if}
 						</div>
 					{/each}
 				</div>
-			</div>
-		{:else}
-			<div class="border border-green-200 bg-green-50 rounded-lg p-4 mb-6 flex items-center gap-2">
-				<svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-				</svg>
-				<span class="text-sm font-medium text-green-800">No manipulation indicators detected</span>
-			</div>
-		{/if}
+			{/if}
+		</div>
 
 		<!-- Detailed Changes -->
 
