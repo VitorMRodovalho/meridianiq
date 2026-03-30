@@ -28,7 +28,17 @@
       "Bash(sudo *)",
       "Bash(git push --force*)",
       "Bash(git reset --hard*)",
-      "Bash(pip uninstall*)"
+      "Bash(pip uninstall*)",
+      "mcp__claude_ai_PostHog__*",
+      "mcp__claude_ai_Canva__*",
+      "mcp__claude_ai_Notion__*",
+      "mcp__claude_ai_Figma__*",
+      "mcp__claude_ai_Sentry__*",
+      "mcp__claude_ai_Miro__*",
+      "mcp__claude_ai_Gmail__*",
+      "mcp__claude_ai_Google_Calendar__*",
+      "mcp__claude_ai_Microsoft_Learn__*",
+      "mcp__ms365__*"
     ]
   },
   "hooks": {
