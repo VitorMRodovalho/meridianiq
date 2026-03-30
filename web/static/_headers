@@ -1,0 +1,9 @@
+# HTML pages — never cache so new deploys take effect immediately
+/
+  Cache-Control: no-cache
+/200.html
+  Cache-Control: no-cache
+
+# SvelteKit immutable assets — long cache (content-hashed filenames)
+/_app/immutable/*
+  Cache-Control: public, max-age=31536000, immutable
