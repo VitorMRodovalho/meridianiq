@@ -158,6 +158,10 @@ app.add_middleware(
     max_age=3600,  # Cache preflight for 1 hour (reduces cold-start CORS issues)
 )
 
+from .organizations import router as org_router  # noqa: E402
+
+app.include_router(org_router)
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:

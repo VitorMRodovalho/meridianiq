@@ -355,6 +355,52 @@ export async function searchActivities(
 	);
 }
 
+// ── Organizations ────────────────────────────────────────
+
+export async function getOrganizations(): Promise<{ organizations: any[] }> {
+	return request<{ organizations: any[] }>('/api/v1/organizations');
+}
+
+export async function createOrganization(name: string, orgType: string = 'general'): Promise<{ organization: any }> {
+	return request<{ organization: any }>('/api/v1/organizations', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ name, org_type: orgType }),
+	});
+}
+
+export async function getOrganization(orgId: string): Promise<{ organization: any; members: any[] }> {
+	return request<{ organization: any; members: any[] }>(`/api/v1/organizations/${orgId}`);
+}
+
+export async function inviteMember(orgId: string, email: string, role: string = 'member'): Promise<any> {
+	return request<any>(`/api/v1/organizations/${orgId}/invite`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ email, role }),
+	});
+}
+
+export async function removeMember(orgId: string, userId: string): Promise<any> {
+	return request<any>(`/api/v1/organizations/${orgId}/members/${userId}`, { method: 'DELETE' });
+}
+
+export async function shareProject(projectId: string, sharedWithOrgId: string, permission: string = 'viewer'): Promise<any> {
+	return request<any>('/api/v1/shares/project', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ project_id: projectId, shared_with_org_id: sharedWithOrgId, permission }),
+	});
+}
+
+export async function getProjectShares(projectId: string): Promise<{ shares: any[] }> {
+	return request<{ shares: any[] }>(`/api/v1/shares/project/${projectId}`);
+}
+
+export async function getAuditLog(orgId: string, limit: number = 50): Promise<{ entries: any[] }> {
+	return request<{ entries: any[] }>(`/api/v1/organizations/${orgId}/audit?limit=${limit}`);
+}
+
 export async function exportExcel(projectId: string): Promise<Blob> {
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;
