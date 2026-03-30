@@ -120,6 +120,7 @@ jobs:
         run: |
           npm ci
           npm run build
+          cp build/200.html build/index.html
         env:
           VITE_API_URL: https://meridianiq-api.fly.dev
 
@@ -128,4 +129,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy web/build --project-name=meridianiq
+          command: pages deploy web/build --project-name=meridianiq --branch=main
