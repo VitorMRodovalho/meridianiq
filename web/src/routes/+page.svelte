@@ -14,11 +14,16 @@
 	let authenticated = $state(false);
 
 	onMount(async () => {
-		const { data: { session } } = await supabase.auth.getSession();
-		authenticated = !!session;
-		if (authenticated) {
-			await loadData();
-		} else {
+		try {
+			const { data: { session } } = await supabase.auth.getSession();
+			authenticated = !!session;
+			if (authenticated) {
+				await loadData();
+			} else {
+				loading = false;
+			}
+		} catch {
+			authenticated = false;
 			loading = false;
 		}
 	});

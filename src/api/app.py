@@ -603,7 +603,11 @@ def get_project(project_id: str, _user: object = Depends(optional_auth)) -> Proj
         elif pt == "PR_SF":
             sf += 1
     relationship_summary = RelationshipTypeSummary(
-        total=len(schedule.relationships), fs=fs, ff=ff, ss=ss, sf=sf,
+        total=len(schedule.relationships),
+        fs=fs,
+        ff=ff,
+        ss=ss,
+        sf=sf,
     )
 
     return ProjectDetailResponse(
@@ -2680,7 +2684,9 @@ def export_excel(
     ws_summary = wb.active
     ws_summary.title = "Summary"
     ws_summary.append(["MeridianIQ Schedule Export"])
-    ws_summary.append(["Project", schedule.projects[0].proj_short_name if schedule.projects else ""])
+    ws_summary.append(
+        ["Project", schedule.projects[0].proj_short_name if schedule.projects else ""]
+    )
     ws_summary.append(["Activities", len(schedule.activities)])
     ws_summary.append(["Relationships", len(schedule.relationships)])
     ws_summary.append(["WBS Elements", len(schedule.wbs_nodes)])
@@ -2689,20 +2695,39 @@ def export_excel(
 
     # Activities sheet
     ws_act = wb.create_sheet("Activities")
-    ws_act.append([
-        "Task ID", "Task Code", "Task Name", "Type", "Status",
-        "Total Float (hrs)", "Remaining Duration (hrs)", "Original Duration (hrs)",
-        "Actual Start", "Actual Finish", "Early Start", "Early Finish",
-    ])
+    ws_act.append(
+        [
+            "Task ID",
+            "Task Code",
+            "Task Name",
+            "Type",
+            "Status",
+            "Total Float (hrs)",
+            "Remaining Duration (hrs)",
+            "Original Duration (hrs)",
+            "Actual Start",
+            "Actual Finish",
+            "Early Start",
+            "Early Finish",
+        ]
+    )
     for t in schedule.activities:
-        ws_act.append([
-            t.task_id, t.task_code, t.task_name, t.task_type, t.status_code,
-            t.total_float_hr_cnt, t.remain_drtn_hr_cnt, t.target_drtn_hr_cnt,
-            str(t.act_start_date) if t.act_start_date else "",
-            str(t.act_end_date) if t.act_end_date else "",
-            str(t.early_start_date) if t.early_start_date else "",
-            str(t.early_end_date) if t.early_end_date else "",
-        ])
+        ws_act.append(
+            [
+                t.task_id,
+                t.task_code,
+                t.task_name,
+                t.task_type,
+                t.status_code,
+                t.total_float_hr_cnt,
+                t.remain_drtn_hr_cnt,
+                t.target_drtn_hr_cnt,
+                str(t.act_start_date) if t.act_start_date else "",
+                str(t.act_end_date) if t.act_end_date else "",
+                str(t.early_start_date) if t.early_start_date else "",
+                str(t.early_end_date) if t.early_end_date else "",
+            ]
+        )
 
     # Relationships sheet
     ws_rel = wb.create_sheet("Relationships")

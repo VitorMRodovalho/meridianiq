@@ -6,7 +6,7 @@ test.describe('Navigation (desktop)', () => {
   test('sidebar has all nav links', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('aside');
-    for (const label of ['Dashboard', 'Upload', 'Projects', 'Compare', 'Forensic', 'TIA', 'Contract', 'EVM', 'Risk', 'IPS Reconcile', 'Recovery', 'Organizations', 'Settings']) {
+    for (const label of ['Dashboard', 'Upload', 'Projects', 'Compare', 'Forensic', 'TIA', 'Contract', 'EVM', 'Risk', 'IPS Reconcile', 'Recovery', 'Value Milestones', 'Organizations', 'Settings']) {
       await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
     }
   });
@@ -14,7 +14,7 @@ test.describe('Navigation (desktop)', () => {
   test('sidebar shows MeridianIQ branding', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('aside h1')).toContainText('MeridianIQ');
-    await expect(page.locator('aside').getByText('v1.0.0-dev')).toBeVisible();
+    await expect(page.locator('aside').getByText('v1.1.0')).toBeVisible();
   });
 
   test('nav links navigate correctly', async ({ page }) => {
