@@ -31,5 +31,6 @@ primary_region = "iad"
     type = "http"
     port = 8080
     path = "/health"
-    interval = "30s"
+    interval = "15s"
     timeout = "5s"
+    grace_period = "30s"
