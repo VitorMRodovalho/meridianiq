@@ -89,6 +89,21 @@ export interface WBSStats {
 	wbs_with_no_activities: number;
 }
 
+export interface ActivityStatusSummary {
+	total: number;
+	complete: number;
+	in_progress: number;
+	not_started: number;
+}
+
+export interface RelationshipTypeSummary {
+	total: number;
+	fs: number;
+	ff: number;
+	ss: number;
+	sf: number;
+}
+
 export interface ProjectDetailResponse {
 	project_id: string;
 	name: string;
@@ -96,6 +111,8 @@ export interface ProjectDetailResponse {
 	activities: ActivitySchema[];
 	relationships: RelationshipSchema[];
 	wbs_stats: WBSStats | null;
+	activity_summary: ActivityStatusSummary | null;
+	relationship_summary: RelationshipTypeSummary | null;
 }
 
 export interface MetricSchema {

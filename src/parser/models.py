@@ -219,3 +219,4 @@ class ParsedSchedule(BaseModel):
     task_financials: list[TaskFinancial] = Field(default_factory=list)
     raw_tables: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
     unmapped_tables: list[str] = Field(default_factory=list)
+    parser_version: str = "0.9.0"

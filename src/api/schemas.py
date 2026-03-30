@@ -103,6 +103,25 @@ class WBSStats(BaseModel):
     wbs_with_no_activities: int = 0
 
 
+class ActivityStatusSummary(BaseModel):
+    """Activity status breakdown counts."""
+
+    total: int = 0
+    complete: int = 0
+    in_progress: int = 0
+    not_started: int = 0
+
+
+class RelationshipTypeSummary(BaseModel):
+    """Relationship type breakdown counts."""
+
+    total: int = 0
+    fs: int = 0
+    ff: int = 0
+    ss: int = 0
+    sf: int = 0
+
+
 class ProjectDetailResponse(BaseModel):
     """Response for GET /api/v1/projects/{project_id}."""
 
@@ -112,6 +131,8 @@ class ProjectDetailResponse(BaseModel):
     activities: list[ActivitySchema] = Field(default_factory=list)
     relationships: list[RelationshipSchema] = Field(default_factory=list)
     wbs_stats: Optional[WBSStats] = None
+    activity_summary: Optional[ActivityStatusSummary] = None
+    relationship_summary: Optional[RelationshipTypeSummary] = None
 
 
 # ── Validation (DCMA) ───────────────────────────────────
@@ -250,13 +271,16 @@ class FloatChangeSchema(BaseModel):
 
 
 class ManipulationFlagSchema(BaseModel):
-    """A manipulation indicator."""
+    """A manipulation indicator with classification scoring."""
 
     task_id: str
     task_name: str
     indicator: str
     description: str
     severity: str = "critical"
+    classification: str = "suspicious"
+    score: int = 0
+    rationale: str = ""
 
 
 class CodeRestructuringSchema(BaseModel):
@@ -298,6 +322,9 @@ class CompareResponse(BaseModel):
     critical_path_changed: bool = False
     activities_joined_cp: list[str] = Field(default_factory=list)
     activities_left_cp: list[str] = Field(default_factory=list)
+    manipulation_classification: str = "normal"
+    manipulation_score: int = 0
+    manipulation_rationale: str = ""
     summary: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -59,6 +59,7 @@ from src.parser.xer_reader import XERReader
 from .schemas import (
     ActivityChangeSchema,
     ActivitySchema,
+    ActivityStatusSummary,
     CodeRestructuringSchema,
     CompareRequest,
     CompareResponse,
@@ -95,6 +96,7 @@ from .schemas import (
     ProjectSummary,
     RelationshipChangeSchema,
     RelationshipSchema,
+    RelationshipTypeSummary,
     SCurvePointSchema,
     SCurveResponse,
     TIAAnalysisSchema,
@@ -559,6 +561,31 @@ def get_project(project_id: str, _user: object = Depends(optional_auth)) -> Proj
     # Compute WBS hierarchy statistics
     wbs_stats = _compute_wbs_stats(schedule)
 
+    # Compute summary counts server-side (avoids client iterating full arrays)
+    complete = sum(1 for t in schedule.activities if t.status_code.upper() == "TK_COMPLETE")
+    active = sum(1 for t in schedule.activities if t.status_code.upper() == "TK_ACTIVE")
+    activity_summary = ActivityStatusSummary(
+        total=len(schedule.activities),
+        complete=complete,
+        in_progress=active,
+        not_started=len(schedule.activities) - complete - active,
+    )
+
+    fs = ff = ss = sf = 0
+    for r in schedule.relationships:
+        pt = r.pred_type.upper() if r.pred_type else ""
+        if pt == "PR_FS":
+            fs += 1
+        elif pt == "PR_FF":
+            ff += 1
+        elif pt == "PR_SS":
+            ss += 1
+        elif pt == "PR_SF":
+            sf += 1
+    relationship_summary = RelationshipTypeSummary(
+        total=len(schedule.relationships), fs=fs, ff=ff, ss=ss, sf=sf,
+    )
+
     return ProjectDetailResponse(
         project_id=project_id,
         name=name,
@@ -566,6 +593,8 @@ def get_project(project_id: str, _user: object = Depends(optional_auth)) -> Proj
         activities=activities,
         relationships=relationships,
         wbs_stats=wbs_stats,
+        activity_summary=activity_summary,
+        relationship_summary=relationship_summary,
     )
 
 
@@ -2589,3 +2618,94 @@ def search_activities(
             break
 
     return {"activities": activities, "total": total}
+
+
+# ══════════════════════════════════════════════════════════
+# Excel Export
+# ══════════════════════════════════════════════════════════
+
+
+@app.get("/api/v1/projects/{project_id}/export/excel")
+def export_excel(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+):
+    """Export project schedule data as an Excel workbook.
+
+    Includes sheets for: Activities, Relationships, WBS, and Summary.
+    PM and Owner personas use this for custom reporting in Excel.
+
+    Args:
+        project_id: The stored project identifier.
+
+    Raises:
+        HTTPException: If the project is not found or openpyxl is unavailable.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        from openpyxl import Workbook
+    except ImportError:
+        raise HTTPException(
+            status_code=501, detail="Excel export requires openpyxl (pip install openpyxl)"
+        )
+
+    wb = Workbook()
+
+    # Summary sheet
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+    ws_summary.append(["MeridianIQ Schedule Export"])
+    ws_summary.append(["Project", schedule.projects[0].proj_short_name if schedule.projects else ""])
+    ws_summary.append(["Activities", len(schedule.activities)])
+    ws_summary.append(["Relationships", len(schedule.relationships)])
+    ws_summary.append(["WBS Elements", len(schedule.wbs_nodes)])
+    ws_summary.append(["Calendars", len(schedule.calendars)])
+    ws_summary.append(["Parser Version", schedule.parser_version])
+
+    # Activities sheet
+    ws_act = wb.create_sheet("Activities")
+    ws_act.append([
+        "Task ID", "Task Code", "Task Name", "Type", "Status",
+        "Total Float (hrs)", "Remaining Duration (hrs)", "Original Duration (hrs)",
+        "Actual Start", "Actual Finish", "Early Start", "Early Finish",
+    ])
+    for t in schedule.activities:
+        ws_act.append([
+            t.task_id, t.task_code, t.task_name, t.task_type, t.status_code,
+            t.total_float_hr_cnt, t.remain_drtn_hr_cnt, t.target_drtn_hr_cnt,
+            str(t.act_start_date) if t.act_start_date else "",
+            str(t.act_end_date) if t.act_end_date else "",
+            str(t.early_start_date) if t.early_start_date else "",
+            str(t.early_end_date) if t.early_end_date else "",
+        ])
+
+    # Relationships sheet
+    ws_rel = wb.create_sheet("Relationships")
+    ws_rel.append(["Task ID", "Predecessor ID", "Type", "Lag (hrs)"])
+    for r in schedule.relationships:
+        ws_rel.append([r.task_id, r.pred_task_id, r.pred_type, r.lag_hr_cnt])
+
+    # WBS sheet
+    ws_wbs = wb.create_sheet("WBS")
+    ws_wbs.append(["WBS ID", "Parent WBS ID", "Short Name", "Name"])
+    for w in schedule.wbs_nodes:
+        ws_wbs.append([w.wbs_id, w.parent_wbs_id, w.wbs_short_name, w.wbs_name])
+
+    # Write to buffer
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    proj_name = schedule.projects[0].proj_short_name if schedule.projects else project_id
+    filename = f"meridianiq-{proj_name}.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -355,6 +355,19 @@ export async function searchActivities(
 	);
 }
 
+export async function exportExcel(projectId: string): Promise<Blob> {
+	const { data: { session: currentSession } } = await supabase.auth.getSession();
+	const token = currentSession?.access_token;
+	const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+	const res = await fetch(`${BASE}/api/v1/projects/${projectId}/export/excel`, { headers });
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(text || `Export failed: ${res.status}`);
+	}
+	return res.blob();
+}
+
 export async function downloadReport(reportId: string): Promise<Blob> {
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;

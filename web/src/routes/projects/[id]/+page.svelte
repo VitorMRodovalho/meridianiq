@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports, exportExcel } from '$lib/api';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -35,6 +35,26 @@
 	let reportDropdownOpen = $state(false);
 	let reportGenerating = $state('');
 	let availableReports = $state<ReportAvailabilityEntry[]>([]);
+	let excelExporting = $state(false);
+
+	async function handleExcelExport() {
+		excelExporting = true;
+		try {
+			const blob = await exportExcel(projectId);
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `meridianiq-${projectId}.xlsx`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (e: unknown) {
+			console.error('Excel export failed:', e);
+		} finally {
+			excelExporting = false;
+		}
+	}
 
 	const projectId = $derived(page.params.id!);
 
@@ -122,8 +142,18 @@
 	}
 
 	// Derived stats
+	// Use server-side summaries (avoids iterating full arrays client-side)
 	const activityStatusCounts = $derived.by(() => {
 		if (!project) return { complete: 0, inProgress: 0, notStarted: 0, total: 0 };
+		if (project.activity_summary) {
+			return {
+				complete: project.activity_summary.complete,
+				inProgress: project.activity_summary.in_progress,
+				notStarted: project.activity_summary.not_started,
+				total: project.activity_summary.total,
+			};
+		}
+		// Fallback: compute from array (backward compat)
 		let complete = 0, inProgress = 0, notStarted = 0;
 		for (const a of project.activities) {
 			if (a.status_code === 'TK_Complete') complete++;
@@ -135,6 +165,10 @@
 
 	const relTypeCounts = $derived.by(() => {
 		if (!project) return { fs: 0, ff: 0, ss: 0, sf: 0, total: 0 };
+		if (project.relationship_summary) {
+			return project.relationship_summary;
+		}
+		// Fallback: compute from array (backward compat)
 		let fs = 0, ff = 0, ss = 0, sf = 0;
 		for (const r of project.relationships) {
 			if (r.pred_type === 'PR_FS') fs++;
@@ -200,6 +234,20 @@
 				<h1 class="text-2xl font-bold text-gray-900 mt-2">{project.name || project.project_id}</h1>
 				<p class="text-sm text-gray-500 mt-1">ID: {project.project_id} &middot; Data Date: {project.data_date || 'N/A'}</p>
 			</div>
+			<div class="flex items-center gap-2">
+			<!-- Excel Export -->
+			<button
+				onclick={handleExcelExport}
+				disabled={excelExporting}
+				class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+			>
+				{#if excelExporting}
+					<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+				{:else}
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+				{/if}
+				Excel
+			</button>
 			<!-- Report Download Dropdown -->
 			<div class="relative">
 				<button
@@ -248,6 +296,7 @@
 					</div>
 				{/if}
 			</div>
+		</div>
 		</div>
 
 		<!-- Tabs -->

@@ -70,6 +70,9 @@ class ManipulationFlag:
     indicator: str  # "retroactive_date", "oos_progress", "unjustified_duration", "cp_logic_shift", "constraint_masking"
     description: str
     severity: str = "critical"
+    classification: str = "suspicious"  # "normal", "suspicious", "red_flag"
+    score: int = 0  # 0-100 manipulation confidence score
+    rationale: str = ""  # human-readable explanation of classification
 
 
 @dataclass
@@ -112,6 +115,9 @@ class ComparisonResult:
     match_stats: MatchStats = field(default_factory=MatchStats)
     changed_percentage: float = 0.0
     critical_path_changed: bool = False
+    manipulation_classification: str = "normal"  # "normal", "suspicious", "red_flag"
+    manipulation_score: int = 0  # 0-100 aggregate manipulation score
+    manipulation_rationale: str = ""  # summary explanation
     activities_joined_cp: list[str] = field(default_factory=list)
     activities_left_cp: list[str] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
@@ -273,6 +279,7 @@ class ScheduleComparison:
         self._detect_manipulation(result)
         self._compare_critical_path(result)
         self._calculate_summary(result)
+        self._classify_manipulation(result)
 
         return result
 
@@ -812,6 +819,79 @@ class ScheduleComparison:
                                 ),
                             )
                         )
+
+    # ------------------------------------------------------------------
+    # Manipulation classification & scoring
+    # ------------------------------------------------------------------
+
+    def _classify_manipulation(self, result: ComparisonResult) -> None:
+        """Classify manipulation flags into Normal / Suspicious / Red Flag.
+
+        Scoring rules:
+        - Each critical flag: +30 points
+        - Each warning flag: +10 points
+        - retroactive_date or oos_progress: Red Flag indicators
+        - Mass code restructuring with >20% changed: Red Flag
+        - Changed percentage >40%: +20 points
+
+        Classification:
+        - 0-20: Normal (routine schedule update)
+        - 21-59: Suspicious (unusual patterns, warrants review)
+        - 60+: Red Flag (high likelihood of manipulation)
+        """
+        score = 0
+        red_flag_indicators = {"retroactive_date", "oos_progress"}
+        has_red_flag_indicator = False
+        reasons: list[str] = []
+
+        for flag in result.manipulation_flags:
+            if flag.severity == "critical":
+                score += 30
+            else:
+                score += 10
+
+            if flag.indicator in red_flag_indicators:
+                has_red_flag_indicator = True
+
+            # Classify individual flags
+            if flag.indicator in red_flag_indicators:
+                flag.classification = "red_flag"
+                flag.score = 80
+                flag.rationale = f"Direct evidence of schedule data manipulation ({flag.indicator})"
+            elif flag.indicator == "constraint_masking":
+                flag.classification = "suspicious"
+                flag.score = 50
+                flag.rationale = "New constraints added concurrent with float deterioration"
+            elif flag.indicator == "mass_code_restructuring":
+                flag.classification = "suspicious"
+                flag.score = 40
+                flag.rationale = "Mass activity code changes obscure forensic traceability"
+            else:
+                flag.classification = "suspicious"
+                flag.score = 30
+                flag.rationale = f"Unusual pattern detected ({flag.indicator})"
+
+        # Bonus: high change percentage without explanation
+        if result.changed_percentage > 40.0:
+            score += 20
+            reasons.append(f"{result.changed_percentage:.0f}% of activities changed")
+
+        # Cap at 100
+        score = min(score, 100)
+
+        # Classify overall result
+        if score >= 60 or has_red_flag_indicator:
+            result.manipulation_classification = "red_flag"
+            reasons.insert(0, f"{len(result.manipulation_flags)} manipulation indicators detected")
+        elif score >= 21:
+            result.manipulation_classification = "suspicious"
+            reasons.insert(0, "Unusual schedule patterns warrant manual review")
+        else:
+            result.manipulation_classification = "normal"
+            reasons.insert(0, "Routine schedule update — no manipulation indicators")
+
+        result.manipulation_score = score
+        result.manipulation_rationale = ". ".join(reasons)
 
     # ------------------------------------------------------------------
     # Critical path comparison

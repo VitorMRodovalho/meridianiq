@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 api = ["fastapi>=0.100", "uvicorn[standard]"]
-export = ["pandas>=2.0"]
+export = ["pandas>=2.0", "openpyxl>=3.1"]
 reports = ["weasyprint>=60.0"]
 dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy", "httpx>=0.24"]
 all = ["meridianiq[api,export,reports,dev]"]
