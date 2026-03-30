@@ -2,8 +2,8 @@ FROM python:3.12-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev libcairo2 && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml .
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]" networkx "pydantic>=2.0" "numpy>=1.24" "supabase>=2.0" "PyJWT[crypto]>=2.0" "weasyprint>=60.0" python-dotenv python-multipart
 COPY src/ src/
+RUN pip install --no-cache-dir .
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8080
