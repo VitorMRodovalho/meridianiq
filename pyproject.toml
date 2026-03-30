@@ -37,6 +37,9 @@ reports = ["weasyprint>=60.0"]
 dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy", "httpx>=0.24"]
 all = ["meridianiq[api,export,reports,dev]"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
