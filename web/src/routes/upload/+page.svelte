@@ -31,8 +31,9 @@
 	}
 
 	async function doUpload(file: File) {
-		if (!file.name.toLowerCase().endsWith('.xer')) {
-			error = 'Please select a .xer file';
+		const name = file.name.toLowerCase();
+		if (!name.endsWith('.xer') && !name.endsWith('.xml')) {
+			error = 'Please select a .xer (Primavera P6) or .xml (Microsoft Project) file';
 			return;
 		}
 		loading = true;
@@ -86,9 +87,9 @@
 			<p class="mt-4 text-gray-600">Drag and drop your .xer file here, or</p>
 			<label class="mt-3 inline-block cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
 				Browse files
-				<input type="file" accept=".xer" class="hidden" onchange={handleFileInput} />
+				<input type="file" accept=".xer,.xml" class="hidden" onchange={handleFileInput} />
 			</label>
-			<p class="mt-2 text-xs text-gray-400">Primavera P6 XER export files only</p>
+			<p class="mt-2 text-xs text-gray-400">Primavera P6 (.xer) or Microsoft Project (.xml)</p>
 		{/if}
 	</div>
 

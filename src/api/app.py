@@ -326,32 +326,48 @@ async def upload_xer(
     file: UploadFile = File(...),
     _user: object = Depends(optional_auth),
 ) -> ProjectSummary:
-    """Upload an XER file, parse it, and store the result.
+    """Upload a schedule file (XER or MS Project XML), parse it, and store the result.
 
-    Args:
-        file: The uploaded .xer file.
+    Supports:
+    - Primavera P6 XER files (.xer)
+    - Microsoft Project XML files (.xml)
 
     Returns:
         A summary of the parsed project.
 
     Raises:
-        HTTPException: If the file is not a valid XER file.
+        HTTPException: If the file format is not supported.
     """
-    if file.filename and not file.filename.lower().endswith(".xer"):
-        raise HTTPException(status_code=400, detail="File must have .xer extension")
+    filename = (file.filename or "").lower()
+    is_xer = filename.endswith(".xer")
+    is_xml = filename.endswith(".xml")
 
-    xer_bytes = await file.read()
-    if not xer_bytes:
+    if not is_xer and not is_xml:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported format. Upload a .xer (Primavera P6) or .xml (Microsoft Project) file.",
+        )
+
+    file_bytes = await file.read()
+    if not file_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    # Write to a temporary file for the parser (it expects a file path)
+    # Parse based on format
     try:
-        with tempfile.NamedTemporaryFile(suffix=".xer", delete=False) as tmp:
-            tmp.write(xer_bytes)
-            tmp_path = Path(tmp.name)
+        if is_xml:
+            from src.parser.msp_reader import MSPReader
 
-        reader = XERReader(tmp_path)
-        schedule = reader.parse()
+            msp_reader = MSPReader()
+            schedule = msp_reader.parse(file_bytes.decode("utf-8"))
+            xer_bytes = file_bytes  # Store XML as-is
+        else:
+            xer_bytes = file_bytes
+            with tempfile.NamedTemporaryFile(suffix=".xer", delete=False) as tmp:
+                tmp.write(xer_bytes)
+                tmp_path = Path(tmp.name)
+
+            reader = XERReader(tmp_path)
+            schedule = reader.parse()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse XER file: {exc}")
     finally:
@@ -2765,5 +2781,53 @@ def reconcile_ips(
 
     reconciler = IPSReconciler(master)
     result = reconciler.reconcile(subs)
+
+    return asdict(result)
+
+
+# ══════════════════════════════════════════════════════════
+# Recovery Schedule Validation (v1.0)
+# ══════════════════════════════════════════════════════════
+
+
+@app.post("/api/v1/recovery/validate")
+def validate_recovery(
+    request_body: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Validate a recovery schedule against the impacted schedule.
+
+    Per AACE RP 29R-03 Section 4. Checks duration compression,
+    scope changes, float consumption, and logic integrity.
+
+    Request body:
+        impacted_project_id: str — the impacted schedule
+        recovery_project_id: str — the proposed recovery schedule
+    """
+    from src.analytics.recovery_validation import RecoveryValidator
+    from dataclasses import asdict
+
+    impacted_id = request_body.get("impacted_project_id")
+    recovery_id = request_body.get("recovery_project_id")
+
+    if not impacted_id or not recovery_id:
+        raise HTTPException(
+            status_code=400,
+            detail="impacted_project_id and recovery_project_id are required",
+        )
+
+    store = get_store()
+    user_id = _user["id"] if _user else None
+
+    impacted = store.get(impacted_id, user_id=user_id)
+    if impacted is None:
+        raise HTTPException(status_code=404, detail=f"Impacted schedule {impacted_id} not found")
+
+    recovery = store.get(recovery_id, user_id=user_id)
+    if recovery is None:
+        raise HTTPException(status_code=404, detail=f"Recovery schedule {recovery_id} not found")
+
+    validator = RecoveryValidator(impacted, recovery)
+    result = validator.validate()
 
     return asdict(result)

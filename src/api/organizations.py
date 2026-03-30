@@ -372,3 +372,114 @@ def get_audit_log(
     )
 
     return {"entries": result.data or [], "limit": limit, "offset": offset}
+
+
+# ── Value Milestones ───────────────────────────────────
+
+
+class ValueMilestoneRequest(BaseModel):
+    project_id: str
+    task_code: str
+    task_name: str = ""
+    milestone_type: str = "payment"
+    commercial_value: float = 0.0
+    currency: str = "USD"
+    payment_trigger: str = ""
+    contract_ref: str = ""
+    notes: str = ""
+    baseline_date: str | None = None
+    forecast_date: str | None = None
+
+
+@router.get("/projects/{project_id}/value-milestones")
+def list_value_milestones(project_id: str, user: dict = Depends(optional_auth)):
+    """List all value milestones for a project."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    client = _get_supabase()
+    result = (
+        client.table("value_milestones")
+        .select("*")
+        .eq("project_id", project_id)
+        .order("created_at")
+        .execute()
+    )
+    return {"milestones": result.data or []}
+
+
+@router.post("/projects/{project_id}/value-milestones")
+def create_value_milestone(
+    project_id: str, req: ValueMilestoneRequest, user: dict = Depends(optional_auth)
+):
+    """Create a value milestone linking a schedule milestone to commercial value."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    client = _get_supabase()
+
+    # Get project's org_id
+    proj = client.table("projects").select("org_id").eq("id", project_id).execute()
+    org_id = proj.data[0].get("org_id") if proj.data else None
+
+    data = {
+        "project_id": project_id,
+        "org_id": org_id,
+        "task_code": req.task_code,
+        "task_name": req.task_name,
+        "milestone_type": req.milestone_type,
+        "commercial_value": req.commercial_value,
+        "currency": req.currency,
+        "payment_trigger": req.payment_trigger,
+        "contract_ref": req.contract_ref,
+        "notes": req.notes,
+        "created_by": user["id"],
+    }
+    if req.baseline_date:
+        data["baseline_date"] = req.baseline_date
+    if req.forecast_date:
+        data["forecast_date"] = req.forecast_date
+
+    result = client.table("value_milestones").insert(data).execute()
+
+    if org_id:
+        _audit(
+            org_id,
+            user["id"],
+            "create",
+            "value_milestone",
+            project_id,
+            {
+                "task_code": req.task_code,
+                "value": req.commercial_value,
+            },
+        )
+
+    return {"milestone": result.data[0] if result.data else {}}
+
+
+@router.put("/value-milestones/{milestone_id}")
+def update_value_milestone(milestone_id: str, updates: dict, user: dict = Depends(optional_auth)):
+    """Update a value milestone (status, dates, value)."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    allowed_fields = {
+        "commercial_value",
+        "currency",
+        "payment_trigger",
+        "contract_ref",
+        "notes",
+        "baseline_date",
+        "forecast_date",
+        "actual_date",
+        "status",
+        "milestone_type",
+    }
+    filtered = {k: v for k, v in updates.items() if k in allowed_fields}
+    filtered["updated_at"] = "now()"
+
+    client = _get_supabase()
+    result = client.table("value_milestones").update(filtered).eq("id", milestone_id).execute()
+
+    return {"milestone": result.data[0] if result.data else {}}
