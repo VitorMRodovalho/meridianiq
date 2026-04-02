@@ -56,13 +56,13 @@ Bug tracking and feature backlog for MeridianIQ.
 
 ### v2.0 "AI"
 
-| # | Item | Effort | Persona |
-|---|------|--------|---------|
-| 1 | NLP queries via Claude API | Medium | All |
-| 2 | Anomaly detection — statistical outlier detection | Medium | Scheduler |
-| 3 | Delay prediction — regression on historical float velocity | High | PM |
-| 4 | Benchmark database — anonymized aggregate metrics | High | Industry |
-| 5 | Federated learning | High | Enterprise |
+| # | Item | Effort | Persona | Status |
+|---|------|--------|---------|--------|
+| 1 | NLP queries via Claude API | Medium | All | ✅ Done |
+| 2 | Anomaly detection — statistical outlier detection | Medium | Scheduler | ✅ Done |
+| 3 | Delay prediction — regression on historical float velocity | High | PM | |
+| 4 | Benchmark database — anonymized aggregate metrics | High | Industry | |
+| 5 | Federated learning | High | Enterprise | |
 
 ---
 

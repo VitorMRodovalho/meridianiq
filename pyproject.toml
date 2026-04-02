@@ -34,9 +34,10 @@ dependencies = [
 api = ["fastapi>=0.100", "uvicorn[standard]", "slowapi>=0.1.9"]
 export = ["pandas>=2.0", "openpyxl>=3.1"]
 reports = ["weasyprint>=60.0"]
+ai = ["anthropic>=0.30"]
 mcp = ["mcp>=1.0"]
 dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy", "httpx>=0.24"]
-all = ["meridianiq[api,export,reports,mcp,dev]"]
+all = ["meridianiq[api,export,reports,ai,mcp,dev]"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

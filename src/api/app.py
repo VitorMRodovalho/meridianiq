@@ -2251,6 +2251,90 @@ def get_root_cause(
     return asdict(result)
 
 
+@app.post("/api/v1/projects/{project_id}/ask")
+async def ask_schedule(
+    project_id: str,
+    body: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Ask a natural language question about a schedule.
+
+    Uses Claude API to interpret the question and generate an answer
+    grounded in the schedule's actual data. Does NOT send raw schedule
+    data to the API — only a compact statistical summary.
+
+    Args:
+        project_id: The stored project identifier.
+        body: JSON with ``question`` (required) and optional ``api_key``.
+
+    Returns:
+        Dict with ``answer``, ``question``, ``tokens_used``, ``model``.
+
+    Raises:
+        HTTPException: If project not found or API key missing.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    question = body.get("question", "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required")
+
+    api_key = body.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Anthropic API key required. Pass api_key in body or set ANTHROPIC_API_KEY env var.",
+        )
+
+    from src.analytics.nlp_query import query_schedule
+
+    try:
+        result = await query_schedule(schedule, question, api_key=api_key)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return {
+        "question": result.question,
+        "answer": result.answer,
+        "model": result.model,
+        "tokens_used": result.tokens_used,
+    }
+
+
+@app.get("/api/v1/projects/{project_id}/anomalies")
+def get_anomalies(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Detect statistical anomalies in schedule data.
+
+    Uses IQR and z-score methods to flag activities with unusual
+    duration, float, progress, or relationship patterns.
+
+    Args:
+        project_id: The stored project identifier.
+
+    Returns:
+        AnomalyDetectionResult with anomalies sorted by severity.
+
+    References:
+        Tukey (1977) — Exploratory Data Analysis (IQR method).
+        DCMA 14-Point Assessment — duration and float thresholds.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.anomaly_detection import detect_anomalies
+
+    result = detect_anomalies(schedule)
+    return asdict(result)
+
+
 @app.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
     project_id: str,
