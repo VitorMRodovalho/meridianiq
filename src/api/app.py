@@ -151,18 +151,55 @@ from src.database.store import get_store as _get_db_store
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="1.0.0-dev",
+    version="1.3.0-dev",
 )
+
+# Rate limiting
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+
+    limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    _has_rate_limiter = True
+except ImportError:
+    _has_rate_limiter = False
+
+# CORS — whitelist known origins (not wildcard)
+_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:4321",
+    "https://meridianiq.vitormr.dev",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,  # Cache preflight for 1 hour (reduces cold-start CORS issues)
+    expose_headers=["Content-Disposition"],
+    max_age=3600,
 )
+
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add standard security headers to all responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    return response
+
 
 from .organizations import router as org_router  # noqa: E402
 
@@ -326,7 +363,9 @@ def demo_project():
 # Upload
 # ------------------------------------------------------------------
 
-# Sandbox project tracking (in-memory; Supabase uses DB column)
+# Sandbox project tracking
+# In-memory for dev; production should use is_sandbox DB column (migration 010).
+# TODO(v2.0): migrate to SECURITY DEFINER RPC that sets is_sandbox on schedule_uploads.
 _sandbox_projects: set[str] = set()
 
 
@@ -361,6 +400,15 @@ async def upload_xer(
     file_bytes = await file.read()
     if not file_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
+
+    # Enforce upload size limit (50 MB)
+    MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+    if len(file_bytes) > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large ({len(file_bytes) / 1024 / 1024:.1f} MB). "
+            f"Maximum allowed: {MAX_UPLOAD_SIZE / 1024 / 1024:.0f} MB.",
+        )
 
     # Parse based on format
     try:

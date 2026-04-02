@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-api = ["fastapi>=0.100", "uvicorn[standard]"]
+api = ["fastapi>=0.100", "uvicorn[standard]", "slowapi>=0.1.9"]
 export = ["pandas>=2.0", "openpyxl>=3.1"]
 reports = ["weasyprint>=60.0"]
 mcp = ["mcp>=1.0"]
