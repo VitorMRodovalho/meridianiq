@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { getProjects, compareSchedules } from '$lib/api';
 	import type { ProjectListItem, CompareResponse } from '$lib/types';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import BarChart from '$lib/components/charts/BarChart.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let baselineId = $state('');
@@ -141,6 +143,35 @@
 					{result.critical_path_changed ? 'YES' : 'NO'}
 				</p>
 			</div>
+		</div>
+
+		<!-- Visual Charts -->
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+			<BarChart
+				title="Change Distribution"
+				data={[
+					{ label: 'Added', value: result.activities_added.length, color: '#10b981' },
+					{ label: 'Deleted', value: result.activities_deleted.length, color: '#ef4444' },
+					{ label: 'Modified', value: result.activity_modifications.length, color: '#3b82f6' },
+					{ label: 'Duration', value: result.duration_changes.length, color: '#8b5cf6' },
+					{ label: 'Float', value: result.significant_float_changes.length, color: '#f59e0b' },
+					{ label: 'Constraints', value: result.constraint_changes.length, color: '#06b6d4' },
+				]}
+				formatValue={(v) => Math.round(v).toString()}
+			/>
+			{#if result.manipulation_score !== undefined}
+				<GaugeChart
+					value={result.manipulation_score}
+					title="Manipulation Risk Score"
+					label={result.manipulation_classification === 'red_flag' ? 'RED FLAG' : result.manipulation_classification === 'suspicious' ? 'SUSPICIOUS' : 'NORMAL'}
+					size={200}
+					bands={[
+						{ threshold: 30, color: '#10b981' },
+						{ threshold: 60, color: '#f59e0b' },
+						{ threshold: 100, color: '#ef4444' },
+					]}
+				/>
+			{/if}
 		</div>
 
 		<!-- Match Method + Code Restructuring -->

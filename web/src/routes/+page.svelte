@@ -4,6 +4,8 @@
 	import { supabase } from '$lib/supabase';
 	import type { ProjectListItem, DashboardKPIs, ProgramListItem } from '$lib/types';
 	import { t } from '$lib/i18n';
+	import PieChart from '$lib/components/charts/PieChart.svelte';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let programs: ProgramListItem[] = $state([]);
@@ -92,6 +94,25 @@
 		if (!dashboard?.most_critical_project) return null;
 		const proj = projects.find(p => p.project_id === dashboard!.most_critical_project);
 		return proj ? proj.name || proj.project_id : dashboard!.most_critical_project;
+	});
+
+	// Health distribution for portfolio chart
+	const healthDistribution = $derived.by(() => {
+		const scores = Object.values(healthScores);
+		if (scores.length === 0) return [];
+		let excellent = 0, good = 0, fair = 0, poor = 0;
+		for (const hs of scores) {
+			if (hs.overall >= 85) excellent++;
+			else if (hs.overall >= 70) good++;
+			else if (hs.overall >= 50) fair++;
+			else poor++;
+		}
+		return [
+			{ label: 'Excellent', value: excellent, color: '#10b981' },
+			{ label: 'Good', value: good, color: '#3b82f6' },
+			{ label: 'Fair', value: fair, color: '#f59e0b' },
+			{ label: 'Poor', value: poor, color: '#ef4444' },
+		].filter((d) => d.value > 0);
 	});
 
 	const capabilities = [
@@ -256,6 +277,23 @@
 							<p class="text-xs text-green-500 mt-1">No critical issues detected</p>
 						</div>
 					{/if}
+				</div>
+			{/if}
+
+			<!-- Portfolio Charts -->
+			{#if healthDistribution.length > 0 && dashboard}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+					<GaugeChart
+						value={dashboard.avg_health_score}
+						title="Portfolio Average Health"
+						label="across {Object.keys(healthScores).length} projects"
+						size={200}
+					/>
+					<PieChart
+						title="Health Score Distribution"
+						size={180}
+						data={healthDistribution}
+					/>
 				</div>
 			{/if}
 
