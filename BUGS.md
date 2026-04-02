@@ -49,7 +49,7 @@ Bug tracking and feature backlog for MeridianIQ.
 |---|------|--------|---------|--------|
 | 1 | Float entropy metric | Medium | Researcher | ✅ Done |
 | 2 | Constraint accumulation rate | Medium | Researcher | ✅ Done |
-| 3 | MCP Server — Claude integration via Model Context Protocol | Medium | AI/Developer | |
+| 3 | MCP Server — Claude integration via Model Context Protocol | Medium | AI/Developer | ✅ Done |
 | 4 | API keys — self-service generation for programmatic access | Medium | Researcher | |
 | 5 | JSON/CSV export — structured data for external analysis | Low | Researcher | ✅ Done |
 | 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst | ✅ Done |
