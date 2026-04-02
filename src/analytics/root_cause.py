@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 import networkx as nx
 
@@ -272,7 +271,6 @@ def analyze_root_cause(
         driving_reason = ""
 
         for pred_id, pred_type, lag in preds:
-            dur_pred = graph.nodes[pred_id]["duration"]
             if pred_type.upper() == "PR_FS":
                 candidate = ef[pred_id] + lag
                 reason = f"FS: EF({pred_id})={ef[pred_id]:.1f} + lag={lag:.1f} = {candidate:.1f}"

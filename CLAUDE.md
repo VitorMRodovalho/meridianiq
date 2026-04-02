@@ -19,7 +19,7 @@ docker compose up meridianiq-api
 ## Test
 
 ```bash
-# Backend (358 tests, ~30s)
+# Backend (440+ tests, ~8s)
 python -m pytest tests/ -q
 
 # Frontend type check
@@ -39,10 +39,10 @@ mypy src/ --strict              # type check
 
 ## Architecture
 
-- **10 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 45 endpoints under `/api/v1/`
-- **Frontend**: SvelteKit + Tailwind v4, 20 pages, Svelte 5 runes ($state, $derived, $effect)
-- **Database**: Supabase PostgreSQL with RLS, 5 migrations in `supabase/migrations/`
+- **13 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
+- **API**: FastAPI with 60+ endpoints under `/api/v1/`
+- **Frontend**: SvelteKit + Tailwind v4, 24 pages, Svelte 5 runes ($state, $derived, $effect)
+- **Database**: Supabase PostgreSQL with RLS, 12 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
 - **Deploy**: Fly.io (backend, port 8080) + Cloudflare Pages (frontend)
@@ -63,6 +63,10 @@ mypy src/ --strict              # type check
 - Store: `src/database/store.py` — Supabase client abstraction
 - Auth: `src/api/auth.py` — JWT verification via JWKS, `optional_auth` decorator
 - Frontend auth: `web/src/lib/stores/auth.ts` — lazy init to avoid circular deps
+- Charts: `web/src/lib/components/charts/` — 6 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart)
+- MCP Server: `src/mcp_server.py` — 9 tools for Claude integration via FastMCP
+- NLP: `src/analytics/nlp_query.py` — Claude API integration, sends summary not raw data
+- Root Cause: `src/analytics/root_cause.py` — backwards network trace via NetworkX
 
 ## Environment Variables
 
@@ -83,4 +87,4 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v1.1.0 — next milestone is v1.2 "Academic & Research"
+- Version: v2.0.0 — next milestone is v2.1 "Prediction & Benchmarks"

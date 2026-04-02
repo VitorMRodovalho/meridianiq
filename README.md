@@ -12,7 +12,7 @@ Open-source schedule intelligence platform — from validation to prediction.
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.0-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![NetworkX](https://img.shields.io/badge/NetworkX-CPM%20Engine-4C9A2A)](https://networkx.org)
 [![NumPy](https://img.shields.io/badge/NumPy-Monte%20Carlo-013243?logo=numpy&logoColor=white)](https://numpy.org)
-[![Tests](https://img.shields.io/badge/Tests-358%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-440%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -38,11 +38,11 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 |-----------|-------|
 | Analysis engines | 12 (Parser · CPM · DCMA · Compare · CPA · TIA · Contract · EVM · Monte Carlo · Float Trends/EW/Health · IPS Reconciliation · Recovery Validation) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 358 + 28 E2E |
+| Tests passing | 440+ backend + 25 E2E |
 | Python source lines | ~16,000+ |
 | Frontend pages | 24 |
 | API endpoints | 60 |
-| Released versions | 10 (v0.1.0 → v1.0) |
+| Released versions | 14 (v0.1.0 → v2.0.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -221,7 +221,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (358 passing) · Playwright E2E (25 passing) |
+| **Testing** | pytest (440+ passing) · Playwright E2E (25 passing) |
 
 ---
 
@@ -271,7 +271,7 @@ meridianiq/
 │       ├── app.py        # FastAPI (45 endpoints)
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind
-├── tests/                # 358 backend tests
+├── tests/                # 440+ backend tests
 ├── supabase/
 │   └── migrations/       # PostgreSQL schema migrations (6 files)
 ├── .github/

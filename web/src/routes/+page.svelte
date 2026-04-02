@@ -126,6 +126,9 @@
 		{ title: 'Float Trends', desc: 'Track float distribution across schedule updates', tag: 'Intelligence', color: 'bg-indigo-500' },
 		{ title: 'Early Warning', desc: '12-rule alert engine for proactive monitoring', tag: 'Intelligence', color: 'bg-indigo-500' },
 		{ title: 'Health Score', desc: 'Composite 0-100 metric combining all indicators', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'Root Cause Analysis', desc: 'Backwards network trace to delay origin per AACE RP 49R-06', tag: 'Forensic', color: 'bg-orange-500' },
+		{ title: 'NLP Queries', desc: 'Ask questions in natural language — powered by Claude API', tag: 'AI', color: 'bg-violet-500' },
+		{ title: 'Anomaly Detection', desc: 'Statistical outlier detection using IQR and z-score methods', tag: 'AI', color: 'bg-violet-500' },
 	];
 </script>
 
@@ -174,15 +177,15 @@
 			<!-- Key numbers -->
 			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
 				<div>
-					<p class="text-3xl font-bold text-gray-900">10</p>
+					<p class="text-3xl font-bold text-gray-900">13</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">45</p>
+					<p class="text-3xl font-bold text-gray-900">60+</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">358</p>
+					<p class="text-3xl font-bold text-gray-900">440+</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.tests')}</p>
 				</div>
 				<div>

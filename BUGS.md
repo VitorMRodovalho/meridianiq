@@ -1,4 +1,4 @@
-# Known Issues & Backlog — v1.1.0
+# Known Issues & Backlog — v2.0.0
 
 Bug tracking and feature backlog for MeridianIQ.
 
@@ -54,6 +54,18 @@ Bug tracking and feature backlog for MeridianIQ.
 | 5 | JSON/CSV export — structured data for external analysis | Low | Researcher | ✅ Done |
 | 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst | ✅ Done |
 
+### v1.3 "Production Hardening" — COMPLETE
+
+| # | Item | Effort | Status |
+|---|------|--------|--------|
+| 1 | CORS whitelist (replace wildcard) | Low | ✅ Done |
+| 2 | Security headers middleware (HSTS, X-Frame, etc.) | Low | ✅ Done |
+| 3 | Upload file size limit (50MB) | Low | ✅ Done |
+| 4 | Rate limiting (slowapi, 60 req/min) | Low | ✅ Done |
+| 5 | RLS policy fixes (migration 011 — 5 tables had zero policies) | Medium | ✅ Done |
+| 6 | API keys table (migration 012) | Medium | ✅ Done |
+| 7 | Deploy checklist document | Low | ✅ Done |
+
 ### v2.0 "AI"
 
 | # | Item | Effort | Persona | Status |
@@ -63,6 +75,18 @@ Bug tracking and feature backlog for MeridianIQ.
 | 3 | Delay prediction — regression on historical float velocity | High | PM | |
 | 4 | Benchmark database — anonymized aggregate metrics | High | Industry | |
 | 5 | Federated learning | High | Enterprise | |
+
+### v2.1 "Prediction & Benchmarks" — Next
+
+| # | Item | Effort | Persona |
+|---|------|--------|---------|
+| 1 | Delay prediction — regression on historical float velocity | High | PM |
+| 2 | Benchmark database — anonymized aggregate metrics | High | Industry |
+| 3 | SECURITY DEFINER RPCs — migrate DB writes from direct queries | High | Security |
+| 4 | GDPR data deletion workflow | Medium | Governance |
+| 5 | Remaining chart integrations (risk scatter, forensic overlay) | Medium | All |
+| 6 | Frontend: cash flow analysis (from Power BI patterns) | High | Controls |
+| 7 | Frontend: discipline breakdown filters | Medium | Scheduler |
 
 ---
 

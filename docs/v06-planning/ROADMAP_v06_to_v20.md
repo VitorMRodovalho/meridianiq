@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-03-28 -->
+<!-- Last updated: 2026-04-02 -->
 # MeridianIQ — Roadmap v0.6 → v2.0
 
 **Document Type:** Planning Specification
@@ -341,8 +341,10 @@ gantt
 | ~~v0.9~~ | ~~Polish~~ | ~~UX + CI/CD + E2E + i18n + Demo~~ | ✅ Released |
 | ~~v1.0~~ | ~~Enterprise~~ | ~~Teams + IPS + Recovery + Multi-format + Audit~~ | ✅ Released |
 | ~~v1.1~~ | ~~UX Maturity~~ | ~~Value milestones UI, toast, i18n wiring, monthly review~~ | ✅ Released |
-| **v1.2** | **Academic** | **Float entropy, MCP server, API keys, root cause** | Research track |
-| **v2.0** | **AI** | **ML + NLP + Prediction** | Predictive intelligence |
+| ~~v1.2~~ | ~~Academic~~ | ~~Float entropy, MCP server, API keys, root cause, JSON/CSV export~~ | ✅ Released |
+| ~~v1.3~~ | ~~Hardening~~ | ~~CORS, security headers, RLS fixes, rate limiting, deploy checklist~~ | ✅ Released |
+| ~~v2.0~~ | ~~AI~~ | ~~NLP queries, anomaly detection, chart library, sandbox~~ | ✅ Released |
+| **v2.1** | **Prediction** | **Delay prediction, benchmark DB, SECURITY DEFINER RPCs** | Next |
 
 ---
 

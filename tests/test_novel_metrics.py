@@ -10,7 +10,6 @@ Tests verify that:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path

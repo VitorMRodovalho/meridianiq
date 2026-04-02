@@ -67,7 +67,7 @@ def _get_store():
 
 def _serialize(obj: Any) -> Any:
     """Recursively convert dataclasses / datetimes for JSON output."""
-    from dataclasses import asdict, fields
+    from dataclasses import asdict
     from datetime import date, datetime
 
     if obj is None or isinstance(obj, (str, int, float, bool)):
@@ -297,7 +297,6 @@ def analyze_root_cause(project_id: str, activity_id: str = "") -> str:
         return json.dumps({"error": "Project not found"})
 
     from src.analytics.root_cause import analyze_root_cause as _analyze
-    from dataclasses import asdict
 
     target = activity_id if activity_id else None
     result = _analyze(schedule, target_task_id=target)
