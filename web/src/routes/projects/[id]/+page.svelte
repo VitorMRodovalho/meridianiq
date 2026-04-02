@@ -2,6 +2,9 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV } from '$lib/api';
+	import PieChart from '$lib/components/charts/PieChart.svelte';
+	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -405,66 +408,27 @@
 				</div>
 			</div>
 
-			<!-- Activity Status Distribution -->
-			<div class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
-				<h3 class="text-sm font-medium text-gray-700 mb-3">Activity Status Distribution</h3>
-				<div class="flex h-6 rounded-full overflow-hidden bg-gray-100">
-					{#if activityStatusCounts.total > 0}
-						{#if activityStatusCounts.complete > 0}
-							<div
-								class="bg-green-500"
-								style="width: {pct(activityStatusCounts.complete, activityStatusCounts.total)}%"
-								title="Complete: {activityStatusCounts.complete}"
-							></div>
-						{/if}
-						{#if activityStatusCounts.inProgress > 0}
-							<div
-								class="bg-blue-500"
-								style="width: {pct(activityStatusCounts.inProgress, activityStatusCounts.total)}%"
-								title="In Progress: {activityStatusCounts.inProgress}"
-							></div>
-						{/if}
-						{#if activityStatusCounts.notStarted > 0}
-							<div
-								class="bg-gray-400"
-								style="width: {pct(activityStatusCounts.notStarted, activityStatusCounts.total)}%"
-								title="Not Started: {activityStatusCounts.notStarted}"
-							></div>
-						{/if}
-					{/if}
-				</div>
-				<div class="flex gap-6 mt-2 text-xs text-gray-600">
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-green-500 rounded-full inline-block"></span> Complete ({activityStatusCounts.complete})</span>
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded-full inline-block"></span> In Progress ({activityStatusCounts.inProgress})</span>
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-gray-400 rounded-full inline-block"></span> Not Started ({activityStatusCounts.notStarted})</span>
-				</div>
-			</div>
-
-			<!-- Relationship Type Distribution -->
-			<div class="bg-white border border-gray-200 rounded-lg p-5">
-				<h3 class="text-sm font-medium text-gray-700 mb-3">Relationship Type Distribution</h3>
-				<div class="flex h-6 rounded-full overflow-hidden bg-gray-100">
-					{#if relTypeCounts.total > 0}
-						{#if relTypeCounts.fs > 0}
-							<div class="bg-blue-500" style="width: {pct(relTypeCounts.fs, relTypeCounts.total)}%" title="FS: {relTypeCounts.fs}"></div>
-						{/if}
-						{#if relTypeCounts.ff > 0}
-							<div class="bg-orange-400" style="width: {pct(relTypeCounts.ff, relTypeCounts.total)}%" title="FF: {relTypeCounts.ff}"></div>
-						{/if}
-						{#if relTypeCounts.ss > 0}
-							<div class="bg-yellow-400" style="width: {pct(relTypeCounts.ss, relTypeCounts.total)}%" title="SS: {relTypeCounts.ss}"></div>
-						{/if}
-						{#if relTypeCounts.sf > 0}
-							<div class="bg-red-500" style="width: {pct(relTypeCounts.sf, relTypeCounts.total)}%" title="SF: {relTypeCounts.sf}"></div>
-						{/if}
-					{/if}
-				</div>
-				<div class="flex gap-6 mt-2 text-xs text-gray-600">
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded-full inline-block"></span> FS ({relTypeCounts.fs})</span>
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-orange-400 rounded-full inline-block"></span> FF ({relTypeCounts.ff})</span>
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-yellow-400 rounded-full inline-block"></span> SS ({relTypeCounts.ss})</span>
-					<span class="flex items-center gap-1"><span class="w-3 h-3 bg-red-500 rounded-full inline-block"></span> SF ({relTypeCounts.sf})</span>
-				</div>
+			<!-- Charts Row: Activity Status + Relationship Types -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+				<PieChart
+					title="Activity Status Distribution"
+					size={180}
+					data={[
+						{ label: 'Complete', value: activityStatusCounts.complete, color: '#22c55e' },
+						{ label: 'In Progress', value: activityStatusCounts.inProgress, color: '#3b82f6' },
+						{ label: 'Not Started', value: activityStatusCounts.notStarted, color: '#9ca3af' },
+					]}
+				/>
+				<PieChart
+					title="Relationship Type Distribution"
+					size={180}
+					data={[
+						{ label: 'FS (Finish-Start)', value: relTypeCounts.fs, color: '#3b82f6' },
+						{ label: 'FF (Finish-Finish)', value: relTypeCounts.ff, color: '#fb923c' },
+						{ label: 'SS (Start-Start)', value: relTypeCounts.ss, color: '#facc15' },
+						{ label: 'SF (Start-Finish)', value: relTypeCounts.sf, color: '#ef4444' },
+					]}
+				/>
 			</div>
 
 		{:else if activeTab === 'dcma'}
@@ -486,6 +450,22 @@
 						</p>
 						<p class="text-sm text-gray-500">{validation.activity_count} activities analyzed</p>
 					</div>
+				</div>
+
+				<!-- DCMA Metrics Chart -->
+				<div class="mb-8">
+					<BarChart
+						title="DCMA 14-Point — Value vs Threshold"
+						horizontal={true}
+						height={Math.max(220, validation.metrics.length * 32)}
+						data={validation.metrics.map((m) => ({
+							label: `#${m.number} ${m.name}`,
+							value: m.value,
+							threshold: m.threshold,
+							color: m.passed ? '#10b981' : '#ef4444',
+						}))}
+						formatValue={(v) => v.toFixed(1) + '%'}
+					/>
 				</div>
 
 				<!-- Metric cards -->
@@ -614,6 +594,21 @@
 				</div>
 			{:else if floatDist}
 				{@const bucketColors = ['bg-red-500', 'bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-lime-400', 'bg-green-500']}
+				{@const barColors = ['#ef4444', '#f87171', '#fb923c', '#facc15', '#a3e635', '#22c55e']}
+
+				<!-- Float Distribution Bar Chart -->
+				<div class="mb-6">
+					<BarChart
+						title="Float Distribution — {floatDist.total_activities} activities"
+						height={240}
+						data={floatDist.buckets.map((b, i) => ({
+							label: b.range_label,
+							value: b.count,
+							color: barColors[i] || '#6b7280',
+						}))}
+						formatValue={(v) => Math.round(v).toString()}
+					/>
+				</div>
 
 				<div class="bg-white border border-gray-200 rounded-lg p-5 mb-6">
 					<h3 class="text-sm font-medium text-gray-700 mb-3">Float Distribution ({floatDist.total_activities} activities)</h3>
@@ -677,24 +672,30 @@
 					Computing health score...
 				</div>
 			{:else if healthData}
-				<!-- Overall Score -->
-				<div class="flex items-center gap-6 mb-8">
-					<div class="w-28 h-28 rounded-full border-4 flex items-center justify-center {healthData.overall >= 85 ? 'text-green-600 border-green-300 bg-green-50' : healthData.overall >= 70 ? 'text-blue-600 border-blue-300 bg-blue-50' : healthData.overall >= 50 ? 'text-yellow-600 border-yellow-300 bg-yellow-50' : 'text-red-600 border-red-300 bg-red-50'}">
-						<div class="text-center">
-							<span class="text-3xl font-bold">{healthData.overall.toFixed(0)}</span>
-							<span class="text-lg ml-1">{healthData.trend_arrow}</span>
+				<!-- Overall Score with Gauge -->
+				<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+					<GaugeChart
+						value={healthData.overall}
+						title="Schedule Health Score"
+						label="{healthData.rating.toUpperCase()} {healthData.trend_arrow}"
+						size={200}
+					/>
+					<div class="lg:col-span-2 flex items-center">
+						<div>
+							<h2 class="text-xl font-bold text-gray-900">Schedule Health Score</h2>
+							<p class="text-sm mt-1">
+								<span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase {healthData.rating === 'excellent' ? 'bg-green-100 text-green-800' : healthData.rating === 'good' ? 'bg-blue-100 text-blue-800' : healthData.rating === 'fair' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+									{healthData.rating}
+								</span>
+								<span class="text-lg ml-2">{healthData.trend_arrow}</span>
+							</p>
+							<p class="text-xs text-gray-500 mt-2">
+								Per DCMA 14-Point + GAO Schedule Assessment Guide (2020)
+							</p>
+							<p class="text-xs text-gray-400 mt-1">
+								Score = 40% DCMA + 25% Float + 20% Logic + 15% Trend
+							</p>
 						</div>
-					</div>
-					<div>
-						<h2 class="text-xl font-bold text-gray-900">Schedule Health Score</h2>
-						<p class="text-sm mt-1">
-							<span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold uppercase {healthData.rating === 'excellent' ? 'bg-green-100 text-green-800' : healthData.rating === 'good' ? 'bg-blue-100 text-blue-800' : healthData.rating === 'fair' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
-								{healthData.rating}
-							</span>
-						</p>
-						<p class="text-xs text-gray-500 mt-2">
-							Per DCMA 14-Point + GAO Schedule Assessment Guide
-						</p>
 					</div>
 				</div>
 
