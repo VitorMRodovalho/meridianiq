@@ -144,7 +144,7 @@ from .schemas import (
     GenerateReportResponse,
     ScheduleHealthResponse,
 )
-from .auth import optional_auth
+from .auth import optional_auth, require_auth
 from .storage import EVMStore, ProjectStore, ReportStore, RiskStore, TIAStore, TimelineStore
 from src.database.store import get_store as _get_db_store
 
@@ -3336,3 +3336,69 @@ def validate_recovery(
     result = validator.validate()
 
     return asdict(result)
+
+
+# ══════════════════════════════════════════════════════════
+# API Keys (v1.2)
+# ══════════════════════════════════════════════════════════
+
+
+@app.post("/api/v1/api-keys")
+def create_api_key(
+    body: dict,
+    _user: object = Depends(require_auth),
+) -> dict:
+    """Generate a new API key for programmatic access.
+
+    The raw key is returned only once — store it securely.
+    Subsequent requests use the key via ``X-API-Key`` header.
+
+    Args:
+        body: JSON with optional ``name`` field.
+
+    Returns:
+        Dict with ``key`` (raw), ``key_id``, ``name``, ``created_at``.
+    """
+    from src.api.auth import generate_api_key
+
+    user_id = _user["id"]
+    name = body.get("name", "default")
+    result = generate_api_key(user_id, name)
+    return result
+
+
+@app.get("/api/v1/api-keys")
+def list_api_keys_endpoint(
+    _user: object = Depends(require_auth),
+) -> dict:
+    """List all API keys for the authenticated user.
+
+    Does not return raw keys — only key_id, name, created_at.
+    """
+    from src.api.auth import list_api_keys
+
+    user_id = _user["id"]
+    keys = list_api_keys(user_id)
+    return {"keys": keys}
+
+
+@app.delete("/api/v1/api-keys/{key_id}")
+def revoke_api_key_endpoint(
+    key_id: str,
+    _user: object = Depends(require_auth),
+) -> dict:
+    """Revoke an API key.
+
+    Args:
+        key_id: The key identifier to revoke.
+
+    Returns:
+        Dict with ``revoked`` boolean.
+    """
+    from src.api.auth import revoke_api_key
+
+    user_id = _user["id"]
+    revoked = revoke_api_key(user_id, key_id)
+    if not revoked:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return {"revoked": True, "key_id": key_id}

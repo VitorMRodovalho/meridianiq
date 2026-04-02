@@ -1,17 +1,23 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""JWT authentication middleware for Supabase Auth.
+"""JWT + API Key authentication middleware for Supabase Auth.
 
-Supports both HS256 (classic Supabase) and RS256 (newer Supabase projects).
+Supports:
+- JWT (HS256, RS256, ES256) via Supabase Auth
+- API keys via X-API-Key header for programmatic access
+
 Auto-detects the algorithm from the token header.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import secrets
+from datetime import datetime
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 import jwt
@@ -114,13 +120,23 @@ def require_auth(user: Optional[dict] = Depends(get_current_user)) -> dict:
 
 
 def optional_auth(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Optional[dict]:
     """Optional auth — returns user or None, never raises in development.
 
+    Checks X-API-Key header first, then falls back to JWT Bearer token.
     In production: raises 401 if no valid token.
     In development: returns None (tests pass without tokens).
     """
+    # Check API key first
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        user = validate_api_key(api_key)
+        if user:
+            return user
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
     if not credentials:
         if settings.ENVIRONMENT == "production":
             raise HTTPException(
@@ -135,3 +151,107 @@ def optional_auth(
         if settings.ENVIRONMENT == "production":
             raise
         return None
+
+
+# ══════════════════════════════════════════════════════════
+# API Key Management
+# ══════════════════════════════════════════════════════════
+
+# In-memory API key store: hash(key) -> {user_id, name, created_at}
+# In production, this would be stored in Supabase.
+_api_keys: dict[str, dict] = {}
+
+
+def _hash_key(key: str) -> str:
+    """Hash an API key for secure storage."""
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def generate_api_key(user_id: str, name: str = "default") -> dict:
+    """Generate a new API key for a user.
+
+    The raw key is returned only once — subsequent lookups use the hash.
+
+    Args:
+        user_id: The user's ID.
+        name: A friendly name for the key.
+
+    Returns:
+        Dict with key (raw, show once), key_id, name, created_at.
+    """
+    raw_key = f"miq_{secrets.token_urlsafe(32)}"
+    key_hash = _hash_key(raw_key)
+    key_id = f"key_{secrets.token_hex(4)}"
+
+    _api_keys[key_hash] = {
+        "key_id": key_id,
+        "user_id": user_id,
+        "name": name,
+        "created_at": datetime.now().isoformat(),
+    }
+
+    return {
+        "key": raw_key,
+        "key_id": key_id,
+        "name": name,
+        "created_at": _api_keys[key_hash]["created_at"],
+    }
+
+
+def validate_api_key(raw_key: str) -> Optional[dict]:
+    """Validate an API key and return the associated user info.
+
+    Args:
+        raw_key: The raw API key from the request header.
+
+    Returns:
+        User dict with id, email, role — or None if invalid.
+    """
+    key_hash = _hash_key(raw_key)
+    entry = _api_keys.get(key_hash)
+    if entry is None:
+        return None
+
+    return {
+        "id": entry["user_id"],
+        "email": "",
+        "role": "api_key",
+        "key_id": entry["key_id"],
+    }
+
+
+def list_api_keys(user_id: str) -> list[dict]:
+    """List all API keys for a user (without raw keys).
+
+    Args:
+        user_id: The user's ID.
+
+    Returns:
+        List of key metadata (key_id, name, created_at).
+    """
+    return [
+        {"key_id": v["key_id"], "name": v["name"], "created_at": v["created_at"]}
+        for v in _api_keys.values()
+        if v["user_id"] == user_id
+    ]
+
+
+def revoke_api_key(user_id: str, key_id: str) -> bool:
+    """Revoke an API key.
+
+    Args:
+        user_id: The user's ID (for ownership check).
+        key_id: The key identifier to revoke.
+
+    Returns:
+        True if revoked, False if not found.
+    """
+    to_remove = None
+    for h, v in _api_keys.items():
+        if v["key_id"] == key_id and v["user_id"] == user_id:
+            to_remove = h
+            break
+    if to_remove:
+        del _api_keys[to_remove]
+        return True
+    return False
