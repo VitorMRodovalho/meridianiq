@@ -243,7 +243,9 @@ DCMA 14-Point Assessment:
         )
 
         answer = response.content[0].text if response.content else ""
-        tokens = (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
+        tokens = (
+            (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
+        )
 
         return NLPQueryResult(
             question=question,

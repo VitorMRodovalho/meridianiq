@@ -98,8 +98,7 @@ class TestFloatEntropy:
         """All activities in one float bucket should give zero entropy."""
         # All activities with float=40h (near-critical bucket)
         activities = [
-            MockTask(task_id=f"A{i}", task_code=f"A{i}", total_float_hr_cnt=40.0)
-            for i in range(10)
+            MockTask(task_id=f"A{i}", task_code=f"A{i}", total_float_hr_cnt=40.0) for i in range(10)
         ]
         schedule = MockSchedule(activities=activities)
         result = compute_float_entropy(schedule)
@@ -112,14 +111,10 @@ class TestFloatEntropy:
         activities = []
         # 5 critical (float=0)
         for i in range(5):
-            activities.append(
-                MockTask(task_id=f"C{i}", task_code=f"C{i}", total_float_hr_cnt=0.0)
-            )
+            activities.append(MockTask(task_id=f"C{i}", task_code=f"C{i}", total_float_hr_cnt=0.0))
         # 5 near-critical (float=40h)
         for i in range(5):
-            activities.append(
-                MockTask(task_id=f"N{i}", task_code=f"N{i}", total_float_hr_cnt=40.0)
-            )
+            activities.append(MockTask(task_id=f"N{i}", task_code=f"N{i}", total_float_hr_cnt=40.0))
         schedule = MockSchedule(activities=activities)
         result = compute_float_entropy(schedule)
         assert abs(result.entropy - 1.0) < 0.01
@@ -131,12 +126,8 @@ class TestFloatEntropy:
         # 2 per bucket: negative, critical, near-crit, moderate, high, excessive
         floats = [-10.0, 0.0, 40.0, 120.0, 200.0, 400.0]
         for i, tf in enumerate(floats):
-            activities.append(
-                MockTask(task_id=f"T{i}a", task_code=f"T{i}a", total_float_hr_cnt=tf)
-            )
-            activities.append(
-                MockTask(task_id=f"T{i}b", task_code=f"T{i}b", total_float_hr_cnt=tf)
-            )
+            activities.append(MockTask(task_id=f"T{i}a", task_code=f"T{i}a", total_float_hr_cnt=tf))
+            activities.append(MockTask(task_id=f"T{i}b", task_code=f"T{i}b", total_float_hr_cnt=tf))
         schedule = MockSchedule(activities=activities)
         result = compute_float_entropy(schedule)
         assert abs(result.normalised_entropy - 1.0) < 0.01
@@ -147,12 +138,16 @@ class TestFloatEntropy:
         activities = [
             MockTask(task_id="T1", task_code="T1", total_float_hr_cnt=40.0),
             MockTask(
-                task_id="L1", task_code="L1",
-                task_type="TT_LOE", total_float_hr_cnt=40.0,
+                task_id="L1",
+                task_code="L1",
+                task_type="TT_LOE",
+                total_float_hr_cnt=40.0,
             ),
             MockTask(
-                task_id="C1", task_code="C1",
-                status_code="TK_Complete", total_float_hr_cnt=0.0,
+                task_id="C1",
+                task_code="C1",
+                status_code="TK_Complete",
+                total_float_hr_cnt=0.0,
             ),
         ]
         schedule = MockSchedule(activities=activities)
@@ -162,8 +157,7 @@ class TestFloatEntropy:
     def test_interpretation_low(self):
         """Low entropy should get concentration interpretation."""
         activities = [
-            MockTask(task_id=f"T{i}", task_code=f"T{i}", total_float_hr_cnt=40.0)
-            for i in range(10)
+            MockTask(task_id=f"T{i}", task_code=f"T{i}", total_float_hr_cnt=40.0) for i in range(10)
         ]
         schedule = MockSchedule(activities=activities)
         result = compute_float_entropy(schedule)
@@ -198,9 +192,11 @@ class TestConstraintAccumulation:
 
     def test_no_constraints(self):
         """Two schedules with no constraints should show zero change."""
-        baseline = MockSchedule(activities=[
-            MockTask(task_id="A1", task_code="A1"),
-        ])
+        baseline = MockSchedule(
+            activities=[
+                MockTask(task_id="A1", task_code="A1"),
+            ]
+        )
         update = MockSchedule(
             projects=[MockProject(last_recalc_date=datetime(2026, 4, 1))],
             activities=[MockTask(task_id="A1", task_code="A1")],
@@ -212,9 +208,11 @@ class TestConstraintAccumulation:
 
     def test_constraint_added(self):
         """Adding a constraint should be detected."""
-        baseline = MockSchedule(activities=[
-            MockTask(task_id="A1", task_code="A1", cstr_type=""),
-        ])
+        baseline = MockSchedule(
+            activities=[
+                MockTask(task_id="A1", task_code="A1", cstr_type=""),
+            ]
+        )
         update = MockSchedule(
             projects=[MockProject(last_recalc_date=datetime(2026, 4, 1))],
             activities=[
@@ -228,9 +226,11 @@ class TestConstraintAccumulation:
 
     def test_constraint_removed(self):
         """Removing a constraint should be detected."""
-        baseline = MockSchedule(activities=[
-            MockTask(task_id="A1", task_code="A1", cstr_type="CS_MSOA"),
-        ])
+        baseline = MockSchedule(
+            activities=[
+                MockTask(task_id="A1", task_code="A1", cstr_type="CS_MSOA"),
+            ]
+        )
         update = MockSchedule(
             projects=[MockProject(last_recalc_date=datetime(2026, 4, 1))],
             activities=[
@@ -265,10 +265,12 @@ class TestConstraintAccumulation:
 
     def test_constraint_percentages(self):
         """Constraint percentages should be calculated correctly."""
-        baseline = MockSchedule(activities=[
-            MockTask(task_id="A1", task_code="A1", cstr_type="CS_MSO"),
-            MockTask(task_id="A2", task_code="A2"),
-        ])
+        baseline = MockSchedule(
+            activities=[
+                MockTask(task_id="A1", task_code="A1", cstr_type="CS_MSO"),
+                MockTask(task_id="A2", task_code="A2"),
+            ]
+        )
         update = MockSchedule(
             projects=[MockProject(last_recalc_date=datetime(2026, 4, 1))],
             activities=[
@@ -292,13 +294,9 @@ class TestConstraintAccumulation:
 
     def test_interpretation_significant(self):
         """Many constraints added should flag manipulation."""
-        activities_base = [
-            MockTask(task_id=f"A{i}", task_code=f"A{i}")
-            for i in range(15)
-        ]
+        activities_base = [MockTask(task_id=f"A{i}", task_code=f"A{i}") for i in range(15)]
         activities_upd = [
-            MockTask(task_id=f"A{i}", task_code=f"A{i}", cstr_type="CS_MSO")
-            for i in range(15)
+            MockTask(task_id=f"A{i}", task_code=f"A{i}", cstr_type="CS_MSO") for i in range(15)
         ]
         baseline = MockSchedule(activities=activities_base)
         update = MockSchedule(
@@ -311,9 +309,11 @@ class TestConstraintAccumulation:
 
     def test_cstr_type2_detected(self):
         """Constraints in cstr_type2 field should also be detected."""
-        baseline = MockSchedule(activities=[
-            MockTask(task_code="A1", cstr_type="", cstr_type2=""),
-        ])
+        baseline = MockSchedule(
+            activities=[
+                MockTask(task_code="A1", cstr_type="", cstr_type2=""),
+            ]
+        )
         update = MockSchedule(
             projects=[MockProject(last_recalc_date=datetime(2026, 4, 1))],
             activities=[
@@ -379,9 +379,7 @@ class TestConstraintAccumulationAPI:
             pytest.skip("sample_update.xer not available")
         pid1 = _upload(client, SAMPLE_XER)
         pid2 = _upload(client, SAMPLE_UPDATE_XER)
-        resp = client.get(
-            f"/api/v1/projects/{pid2}/constraint-accumulation?baseline_id={pid1}"
-        )
+        resp = client.get(f"/api/v1/projects/{pid2}/constraint-accumulation?baseline_id={pid1}")
         assert resp.status_code == 200
         data = resp.json()
         assert "added" in data
@@ -391,7 +389,5 @@ class TestConstraintAccumulationAPI:
         assert "interpretation" in data
 
     def test_constraint_accumulation_not_found(self, client: TestClient) -> None:
-        resp = client.get(
-            "/api/v1/projects/nonexistent/constraint-accumulation?baseline_id=x"
-        )
+        resp = client.get("/api/v1/projects/nonexistent/constraint-accumulation?baseline_id=x")
         assert resp.status_code == 404

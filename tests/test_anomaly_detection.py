@@ -50,7 +50,6 @@ class MockSchedule:
 
 
 class TestAnomalyDetection:
-
     def test_empty_schedule(self):
         result = detect_anomalies(MockSchedule())
         assert result.total == 0
@@ -59,12 +58,15 @@ class TestAnomalyDetection:
     def test_normal_schedule_few_anomalies(self):
         """A well-structured schedule should have few anomalies."""
         activities = [
-            MockTask(task_id=f"A{i}", task_code=f"A{i}",
-                     remain_drtn_hr_cnt=float(40 + i * 8),
-                     total_float_hr_cnt=float(i * 16))
+            MockTask(
+                task_id=f"A{i}",
+                task_code=f"A{i}",
+                remain_drtn_hr_cnt=float(40 + i * 8),
+                total_float_hr_cnt=float(i * 16),
+            )
             for i in range(10)
         ]
-        rels = [MockRel(task_id=f"A{i+1}", pred_task_id=f"A{i}") for i in range(9)]
+        rels = [MockRel(task_id=f"A{i + 1}", pred_task_id=f"A{i}") for i in range(9)]
         schedule = MockSchedule(activities=activities, relationships=rels)
         result = detect_anomalies(schedule)
         # Should have few or no critical anomalies in a normal schedule
@@ -73,12 +75,10 @@ class TestAnomalyDetection:
     def test_extreme_duration_flagged(self):
         """Activity with extreme duration should be flagged."""
         activities = [
-            MockTask(task_id=f"A{i}", task_code=f"A{i}", remain_drtn_hr_cnt=80.0)
-            for i in range(10)
+            MockTask(task_id=f"A{i}", task_code=f"A{i}", remain_drtn_hr_cnt=80.0) for i in range(10)
         ]
         # One outlier with 10x the duration
-        activities.append(MockTask(task_id="OUTLIER", task_code="OUT",
-                                   remain_drtn_hr_cnt=800.0))
+        activities.append(MockTask(task_id="OUTLIER", task_code="OUT", remain_drtn_hr_cnt=800.0))
         schedule = MockSchedule(activities=activities)
         result = detect_anomalies(schedule)
         duration_anomalies = [a for a in result.anomalies if a.anomaly_type == "duration"]
@@ -88,15 +88,17 @@ class TestAnomalyDetection:
     def test_disconnected_activity_flagged(self):
         """Activity with no relationships should be flagged as critical."""
         activities = [
-            MockTask(task_id="A1"), MockTask(task_id="A2"),
-            MockTask(task_id="A3"), MockTask(task_id="LONE"),
+            MockTask(task_id="A1"),
+            MockTask(task_id="A2"),
+            MockTask(task_id="A3"),
+            MockTask(task_id="LONE"),
         ]
-        rels = [MockRel(task_id="A2", pred_task_id="A1"),
-                MockRel(task_id="A3", pred_task_id="A2")]
+        rels = [MockRel(task_id="A2", pred_task_id="A1"), MockRel(task_id="A3", pred_task_id="A2")]
         schedule = MockSchedule(activities=activities, relationships=rels)
         result = detect_anomalies(schedule)
-        rel_anomalies = [a for a in result.anomalies
-                         if a.anomaly_type == "relationship" and a.task_id == "LONE"]
+        rel_anomalies = [
+            a for a in result.anomalies if a.anomaly_type == "relationship" and a.task_id == "LONE"
+        ]
         assert len(rel_anomalies) > 0
         assert rel_anomalies[0].severity == "critical"
 
@@ -137,7 +139,6 @@ class TestAnomalyDetection:
 
 
 class TestAnomalyAPI:
-
     @pytest.fixture(autouse=True)
     def clear(self):
         get_store().clear()

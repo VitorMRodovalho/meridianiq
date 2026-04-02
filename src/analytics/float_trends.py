@@ -655,10 +655,10 @@ class ConstraintAccumulationResult:
 _HARD_CONSTRAINT_TYPES = {
     "cs_meoa",  # Must End On or After
     "cs_meob",  # Must End On or Before
-    "cs_meo",   # Must End On
+    "cs_meo",  # Must End On
     "cs_msoa",  # Must Start On or After
     "cs_msob",  # Must Start On or Before
-    "cs_mso",   # Must Start On
+    "cs_mso",  # Must Start On
     "cs_mandfin",  # Mandatory Finish
     "cs_mandstart",  # Mandatory Start
 }
@@ -724,20 +724,21 @@ def compute_constraint_accumulation(
 
     rate = net / days_between if days_between > 0 else 0.0
 
-    total_base = len([t for t in baseline.activities
-                      if t.task_type.lower() not in ("tt_loe", "tt_wbs")])
-    total_upd = len([t for t in update.activities
-                     if t.task_type.lower() not in ("tt_loe", "tt_wbs")])
+    total_base = len(
+        [t for t in baseline.activities if t.task_type.lower() not in ("tt_loe", "tt_wbs")]
+    )
+    total_upd = len(
+        [t for t in update.activities if t.task_type.lower() not in ("tt_loe", "tt_wbs")]
+    )
 
     base_pct = (len(base_constrained) / total_base * 100) if total_base else 0.0
-    upd_pct = ((len(upd_constrained) + len(upd_new_constrained)) / total_upd * 100
-               ) if total_upd else 0.0
+    upd_pct = (
+        ((len(upd_constrained) + len(upd_new_constrained)) / total_upd * 100) if total_upd else 0.0
+    )
 
     # Interpretation
     if net <= 0:
-        interpretation = (
-            "No net constraint growth — constraint management is stable or improving."
-        )
+        interpretation = "No net constraint growth — constraint management is stable or improving."
     elif net <= 3:
         interpretation = (
             f"{net} net constraint(s) added. Minor growth — verify these are "

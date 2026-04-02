@@ -426,7 +426,9 @@ class TestMonthlyReviewReport:
         """Verify monthly review report returns bytes."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         assert isinstance(result, bytes)
         assert len(result) > 0
@@ -435,7 +437,9 @@ class TestMonthlyReviewReport:
         """Verify report contains project name."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -445,7 +449,9 @@ class TestMonthlyReviewReport:
         """Verify report contains monthly review methodology citations."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -457,7 +463,9 @@ class TestMonthlyReviewReport:
         """Verify report contains progress overview section."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -470,7 +478,9 @@ class TestMonthlyReviewReport:
         """Verify report contains health score and DCMA results."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -482,7 +492,9 @@ class TestMonthlyReviewReport:
         """Verify report contains key issues and action items section."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -495,7 +507,9 @@ class TestMonthlyReviewReport:
         """Verify report contains conclusions and next steps."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
@@ -573,7 +587,9 @@ class TestMonthlyReviewReport:
         """Verify report has the correct title."""
         gen = ReportGenerator()
         result = gen.generate_monthly_review_report(
-            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
         )
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:

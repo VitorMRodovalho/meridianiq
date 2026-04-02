@@ -371,7 +371,12 @@ class ReportGenerator:
             PDF bytes.
         """
         html = self._build_monthly_review_html(
-            schedule, dcma_result, health_score, comparison_result, alerts, baseline,
+            schedule,
+            dcma_result,
+            health_score,
+            comparison_result,
+            alerts,
+            baseline,
         )
         return self._html_to_pdf(html)
 
@@ -923,12 +928,12 @@ class ReportGenerator:
                     [
                         str(win.window_number if win else ""),
                         _format_date(
-                            getattr(win, "start_date", None) if win
+                            getattr(win, "start_date", None)
+                            if win
                             else getattr(w, "start_date", None)
                         ),
                         _format_date(
-                            getattr(win, "end_date", None) if win
-                            else getattr(w, "end_date", None)
+                            getattr(win, "end_date", None) if win else getattr(w, "end_date", None)
                         ),
                         f"{w.delay_days:.1f}",
                         f"{w.cumulative_delay:.1f}",
@@ -1203,14 +1208,10 @@ class ReportGenerator:
 
         # Progress counts
         complete = sum(
-            1
-            for a in schedule.activities
-            if getattr(a, "status_code", "").upper() == "TK_COMPLETE"
+            1 for a in schedule.activities if getattr(a, "status_code", "").upper() == "TK_COMPLETE"
         )
         in_progress = sum(
-            1
-            for a in schedule.activities
-            if getattr(a, "status_code", "").upper() == "TK_ACTIVE"
+            1 for a in schedule.activities if getattr(a, "status_code", "").upper() == "TK_ACTIVE"
         )
         not_started = n_activities - complete - in_progress
 
@@ -1333,13 +1334,15 @@ class ReportGenerator:
             rows = []
             for m in dcma_result.metrics:
                 status = _severity_badge("green" if m.passed else "critical")
-                rows.append([
-                    f"#{m.number}",
-                    _esc(m.name),
-                    f"{m.value:.1f}{m.unit}",
-                    f"{m.threshold}{m.unit}",
-                    status,
-                ])
+                rows.append(
+                    [
+                        f"#{m.number}",
+                        _esc(m.name),
+                        f"{m.value:.1f}{m.unit}",
+                        f"{m.threshold}{m.unit}",
+                        status,
+                    ]
+                )
             health_html += self._table(
                 ["#", "Check", "Value", "Threshold", "Status"],
                 rows,
@@ -1381,8 +1384,8 @@ class ReportGenerator:
                     ["Relationships Deleted", str(rels_deleted)],
                     [
                         "Critical Path Changed",
-                        f'{_severity_badge("critical" if cp_changed else "green")}'
-                        f' {"Yes" if cp_changed else "No"}',
+                        f"{_severity_badge('critical' if cp_changed else 'green')}"
+                        f" {'Yes' if cp_changed else 'No'}",
                     ],
                 ],
             )
@@ -1390,9 +1393,7 @@ class ReportGenerator:
             # Manipulation flags
             manip_flags = getattr(comparison_result, "manipulation_flags", [])
             if manip_flags:
-                classification = getattr(
-                    comparison_result, "manipulation_classification", "normal"
-                )
+                classification = getattr(comparison_result, "manipulation_classification", "normal")
                 score = getattr(comparison_result, "manipulation_score", 0)
                 delta_html += self._finding_box(
                     f"<strong>Manipulation Classification: "
@@ -1403,7 +1404,9 @@ class ReportGenerator:
                 )
 
             body += self._section(
-                f"{section_num}. Changes Since Last Update", delta_html, page_break=True,
+                f"{section_num}. Changes Since Last Update",
+                delta_html,
+                page_break=True,
             )
             section_num += 1
 
@@ -1420,20 +1423,24 @@ class ReportGenerator:
 
             rows = []
             for a in alerts.alerts[:25]:
-                rows.append([
-                    _severity_badge(a.severity),
-                    _esc(a.title),
-                    _esc(getattr(a, "description", "")),
-                    f"{a.projected_impact_days:.1f}d",
-                    f"{a.confidence:.0%}",
-                ])
+                rows.append(
+                    [
+                        _severity_badge(a.severity),
+                        _esc(a.title),
+                        _esc(getattr(a, "description", "")),
+                        f"{a.projected_impact_days:.1f}d",
+                        f"{a.confidence:.0%}",
+                    ]
+                )
             alert_html += self._table(
                 ["Severity", "Alert", "Description", "Impact", "Confidence"],
                 rows,
             )
 
             body += self._section(
-                f"{section_num}. Early Warning Alerts", alert_html, page_break=True,
+                f"{section_num}. Early Warning Alerts",
+                alert_html,
+                page_break=True,
             )
             section_num += 1
 
@@ -1477,7 +1484,9 @@ class ReportGenerator:
         """
 
         body += self._section(
-            f"{section_num}. Key Issues & Action Items", issues_html, page_break=True,
+            f"{section_num}. Key Issues & Action Items",
+            issues_html,
+            page_break=True,
         )
         section_num += 1
 
@@ -1525,7 +1534,9 @@ class ReportGenerator:
         )
 
         body += self._section(
-            f"{section_num}. Conclusions & Next Steps", conclusions, page_break=True,
+            f"{section_num}. Conclusions & Next Steps",
+            conclusions,
+            page_break=True,
         )
 
         return self._html_wrapper("Monthly Schedule Review Report", project_name, body)

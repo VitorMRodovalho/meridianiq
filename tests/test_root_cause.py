@@ -93,9 +93,11 @@ class TestRootCauseAnalysis:
 
     def test_single_activity(self):
         """Single activity is both target and root cause."""
-        schedule = MockSchedule(activities=[
-            MockTask(task_id="A1", task_code="A1", task_name="Only Task"),
-        ])
+        schedule = MockSchedule(
+            activities=[
+                MockTask(task_id="A1", task_code="A1", task_name="Only Task"),
+            ]
+        )
         result = analyze_root_cause(schedule)
         assert result.chain_length == 1
         assert result.target_activity == "A1"
@@ -127,12 +129,15 @@ class TestRootCauseAnalysis:
         """With parallel paths, picks the one with the latest early finish."""
         schedule = MockSchedule(
             activities=[
-                MockTask(task_id="A1", task_code="A1", task_name="Short Path",
-                         remain_drtn_hr_cnt=40),  # 5 days
-                MockTask(task_id="A2", task_code="A2", task_name="Long Path",
-                         remain_drtn_hr_cnt=160),  # 20 days
-                MockTask(task_id="END", task_code="END", task_name="End",
-                         remain_drtn_hr_cnt=8),  # 1 day
+                MockTask(
+                    task_id="A1", task_code="A1", task_name="Short Path", remain_drtn_hr_cnt=40
+                ),  # 5 days
+                MockTask(
+                    task_id="A2", task_code="A2", task_name="Long Path", remain_drtn_hr_cnt=160
+                ),  # 20 days
+                MockTask(
+                    task_id="END", task_code="END", task_name="End", remain_drtn_hr_cnt=8
+                ),  # 1 day
             ],
             relationships=[
                 MockRelationship(task_id="END", pred_task_id="A1"),
@@ -165,8 +170,9 @@ class TestRootCauseAnalysis:
         schedule = MockSchedule(
             activities=[
                 MockTask(task_id="A", task_code="A", remain_drtn_hr_cnt=40),
-                MockTask(task_id="B", task_code="B", remain_drtn_hr_cnt=40,
-                         cstr_type="CS_MSO"),  # Must Start On
+                MockTask(
+                    task_id="B", task_code="B", remain_drtn_hr_cnt=40, cstr_type="CS_MSO"
+                ),  # Must Start On
                 MockTask(task_id="C", task_code="C", remain_drtn_hr_cnt=40),
             ],
             relationships=[
@@ -183,8 +189,9 @@ class TestRootCauseAnalysis:
         """Each step has the expected attributes."""
         schedule = MockSchedule(
             activities=[
-                MockTask(task_id="A", task_code="ACT-001", task_name="Foundation",
-                         remain_drtn_hr_cnt=80),
+                MockTask(
+                    task_id="A", task_code="ACT-001", task_name="Foundation", remain_drtn_hr_cnt=80
+                ),
             ],
         )
         result = analyze_root_cause(schedule)
@@ -213,13 +220,9 @@ class TestRootCauseAnalysis:
     def test_max_depth_prevents_infinite_loop(self):
         """Max depth prevents excessive chain length."""
         activities = [
-            MockTask(task_id=f"T{i}", task_code=f"T{i}", remain_drtn_hr_cnt=8)
-            for i in range(200)
+            MockTask(task_id=f"T{i}", task_code=f"T{i}", remain_drtn_hr_cnt=8) for i in range(200)
         ]
-        rels = [
-            MockRelationship(task_id=f"T{i+1}", pred_task_id=f"T{i}")
-            for i in range(199)
-        ]
+        rels = [MockRelationship(task_id=f"T{i + 1}", pred_task_id=f"T{i}") for i in range(199)]
         schedule = MockSchedule(activities=activities, relationships=rels)
         result = analyze_root_cause(schedule, max_depth=50)
         assert result.chain_length <= 50
@@ -234,8 +237,9 @@ class TestRootCauseAnalysis:
         """Completed activities have zero duration in the trace."""
         schedule = MockSchedule(
             activities=[
-                MockTask(task_id="A", task_code="A", remain_drtn_hr_cnt=80,
-                         status_code="TK_Complete"),
+                MockTask(
+                    task_id="A", task_code="A", remain_drtn_hr_cnt=80, status_code="TK_Complete"
+                ),
                 MockTask(task_id="B", task_code="B", remain_drtn_hr_cnt=80),
             ],
             relationships=[

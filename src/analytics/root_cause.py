@@ -92,9 +92,14 @@ class RootCauseResult:
 
 # Hard constraint types in P6
 _HARD_CONSTRAINTS = {
-    "cs_meoa", "cs_meob", "cs_meo",
-    "cs_msoa", "cs_msob", "cs_mso",
-    "cs_mandfin", "cs_mandstart",
+    "cs_meoa",
+    "cs_meob",
+    "cs_meo",
+    "cs_msoa",
+    "cs_msob",
+    "cs_mso",
+    "cs_mandfin",
+    "cs_mandstart",
 }
 
 
@@ -142,7 +147,8 @@ def analyze_root_cause(
     for rel in schedule.relationships:
         if rel.pred_task_id in task_map and rel.task_id in task_map:
             graph.add_edge(
-                rel.pred_task_id, rel.task_id,
+                rel.pred_task_id,
+                rel.task_id,
                 pred_type=rel.pred_type,
                 lag=rel.lag_hr_cnt / hours_per_day,
             )
@@ -296,9 +302,7 @@ def analyze_root_cause(
         chain.append(step)
 
         if has_constraint:
-            step.driving_reason = (
-                f"Hard constraint ({cstr or cstr2}) — this constrains the chain"
-            )
+            step.driving_reason = f"Hard constraint ({cstr or cstr2}) — this constrains the chain"
             break
 
         current = driving_pred

@@ -165,6 +165,7 @@ class TestNLPQueryAPI:
 
     def test_missing_api_key(self, client):
         import os
+
         old = os.environ.pop("ANTHROPIC_API_KEY", None)
         try:
             with open(SAMPLE_XER, "rb") as f:

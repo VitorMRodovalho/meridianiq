@@ -61,6 +61,7 @@ def _get_store():
     global _store
     if _store is None:
         from src.database.store import InMemoryStore
+
         _store = InMemoryStore()
     return _store
 
@@ -110,14 +111,16 @@ def upload_xer(file_path: str) -> str:
     project_id = store.add(schedule, xer_bytes)
 
     name = schedule.projects[0].proj_short_name if schedule.projects else ""
-    return json.dumps({
-        "project_id": project_id,
-        "name": name,
-        "activity_count": len(schedule.activities),
-        "relationship_count": len(schedule.relationships),
-        "calendar_count": len(schedule.calendars),
-        "wbs_count": len(schedule.wbs_nodes),
-    })
+    return json.dumps(
+        {
+            "project_id": project_id,
+            "name": name,
+            "activity_count": len(schedule.activities),
+            "relationship_count": len(schedule.relationships),
+            "calendar_count": len(schedule.calendars),
+            "wbs_count": len(schedule.wbs_nodes),
+        }
+    )
 
 
 @mcp.tool()
@@ -147,10 +150,8 @@ def get_project_summary(project_id: str) -> str:
     if schedule is None:
         return json.dumps({"error": "Project not found"})
 
-    complete = sum(1 for a in schedule.activities
-                   if a.status_code.upper() == "TK_COMPLETE")
-    active = sum(1 for a in schedule.activities
-                 if a.status_code.upper() == "TK_ACTIVE")
+    complete = sum(1 for a in schedule.activities if a.status_code.upper() == "TK_COMPLETE")
+    active = sum(1 for a in schedule.activities if a.status_code.upper() == "TK_ACTIVE")
     not_started = len(schedule.activities) - complete - active
 
     name = schedule.projects[0].proj_short_name if schedule.projects else ""
@@ -160,20 +161,22 @@ def get_project_summary(project_id: str) -> str:
         if dd:
             data_date = dd.isoformat()
 
-    return json.dumps({
-        "project_id": project_id,
-        "name": name,
-        "data_date": data_date,
-        "activities": {
-            "total": len(schedule.activities),
-            "complete": complete,
-            "in_progress": active,
-            "not_started": not_started,
-        },
-        "relationships": len(schedule.relationships),
-        "calendars": len(schedule.calendars),
-        "wbs_elements": len(schedule.wbs_nodes),
-    })
+    return json.dumps(
+        {
+            "project_id": project_id,
+            "name": name,
+            "data_date": data_date,
+            "activities": {
+                "total": len(schedule.activities),
+                "complete": complete,
+                "in_progress": active,
+                "not_started": not_started,
+            },
+            "relationships": len(schedule.relationships),
+            "calendars": len(schedule.calendars),
+            "wbs_elements": len(schedule.wbs_nodes),
+        }
+    )
 
 
 @mcp.tool()

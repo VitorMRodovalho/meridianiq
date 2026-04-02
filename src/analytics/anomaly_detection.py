@@ -143,7 +143,8 @@ def detect_anomalies(schedule: ParsedSchedule) -> AnomalyDetectionResult:
 
     # Filter to countable activities
     countable = [
-        a for a in schedule.activities
+        a
+        for a in schedule.activities
         if a.task_type.lower() not in ("tt_loe", "tt_wbs", "tt_mile")
         and a.status_code.lower() != "tk_complete"
     ]
@@ -164,27 +165,40 @@ def detect_anomalies(schedule: ParsedSchedule) -> AnomalyDetectionResult:
                 continue
 
             if dur > uc:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="duration", severity="critical",
-                    description=f"Extremely long duration ({dur:.0f}d) — over 3x IQR above Q3. "
-                    f"May indicate missing decomposition or padding.",
-                    value=dur, expected_range=(lw, uw),
-                    z_score=round(_z_score(dur, mean_dur, std_dur), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="duration",
+                        severity="critical",
+                        description=f"Extremely long duration ({dur:.0f}d) — over 3x IQR above Q3. "
+                        f"May indicate missing decomposition or padding.",
+                        value=dur,
+                        expected_range=(lw, uw),
+                        z_score=round(_z_score(dur, mean_dur, std_dur), 2),
+                    )
+                )
             elif dur > uw:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="duration", severity="warning",
-                    description=f"Unusually long duration ({dur:.0f}d) — exceeds 1.5x IQR. "
-                    f"Review if this should be decomposed.",
-                    value=dur, expected_range=(lw, uw),
-                    z_score=round(_z_score(dur, mean_dur, std_dur), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="duration",
+                        severity="warning",
+                        description=f"Unusually long duration ({dur:.0f}d) — exceeds 1.5x IQR. "
+                        f"Review if this should be decomposed.",
+                        value=dur,
+                        expected_range=(lw, uw),
+                        z_score=round(_z_score(dur, mean_dur, std_dur), 2),
+                    )
+                )
 
     # ── Float Anomalies ──
-    floats = [a.total_float_hr_cnt / _HOURS_PER_DAY for a in countable
-              if a.total_float_hr_cnt is not None]
+    floats = [
+        a.total_float_hr_cnt / _HOURS_PER_DAY for a in countable if a.total_float_hr_cnt is not None
+    ]
     if len(floats) >= 4:
         lw, lc, uw, uc = _iqr_bounds(floats)
         mean_float = sum(floats) / len(floats)
@@ -196,31 +210,49 @@ def detect_anomalies(schedule: ParsedSchedule) -> AnomalyDetectionResult:
             tf = a.total_float_hr_cnt / _HOURS_PER_DAY
 
             if tf < lc:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="float", severity="critical",
-                    description=f"Extreme negative float ({tf:.0f}d) — over 3x IQR below Q1. "
-                    f"Schedule may be over-constrained or have logic errors.",
-                    value=tf, expected_range=(lw, uw),
-                    z_score=round(_z_score(tf, mean_float, std_float), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="float",
+                        severity="critical",
+                        description=f"Extreme negative float ({tf:.0f}d) — over 3x IQR below Q1. "
+                        f"Schedule may be over-constrained or have logic errors.",
+                        value=tf,
+                        expected_range=(lw, uw),
+                        z_score=round(_z_score(tf, mean_float, std_float), 2),
+                    )
+                )
             elif tf < lw:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="float", severity="warning",
-                    description=f"Unusually low float ({tf:.0f}d) — below 1.5x IQR.",
-                    value=tf, expected_range=(lw, uw),
-                    z_score=round(_z_score(tf, mean_float, std_float), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="float",
+                        severity="warning",
+                        description=f"Unusually low float ({tf:.0f}d) — below 1.5x IQR.",
+                        value=tf,
+                        expected_range=(lw, uw),
+                        z_score=round(_z_score(tf, mean_float, std_float), 2),
+                    )
+                )
             elif tf > uc:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="float", severity="warning",
-                    description=f"Excessive float ({tf:.0f}d) — over 3x IQR above Q3. "
-                    f"May indicate disconnected logic per DCMA check #3.",
-                    value=tf, expected_range=(lw, uw),
-                    z_score=round(_z_score(tf, mean_float, std_float), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="float",
+                        severity="warning",
+                        description=f"Excessive float ({tf:.0f}d) — over 3x IQR above Q3. "
+                        f"May indicate disconnected logic per DCMA check #3.",
+                        value=tf,
+                        expected_range=(lw, uw),
+                        z_score=round(_z_score(tf, mean_float, std_float), 2),
+                    )
+                )
 
     # ── Relationship Density Anomalies ──
     pred_count: dict[str, int] = {}
@@ -229,8 +261,7 @@ def detect_anomalies(schedule: ParsedSchedule) -> AnomalyDetectionResult:
         succ_count[r.task_id] = succ_count.get(r.task_id, 0) + 1
         pred_count[r.pred_task_id] = pred_count.get(r.pred_task_id, 0) + 1
 
-    all_counts = [pred_count.get(a.task_id, 0) + succ_count.get(a.task_id, 0)
-                  for a in countable]
+    all_counts = [pred_count.get(a.task_id, 0) + succ_count.get(a.task_id, 0) for a in countable]
     if all_counts:
         mean_rels = sum(all_counts) / len(all_counts)
         std_rels = (sum((c - mean_rels) ** 2 for c in all_counts) / len(all_counts)) ** 0.5
@@ -238,24 +269,36 @@ def detect_anomalies(schedule: ParsedSchedule) -> AnomalyDetectionResult:
         for a in countable:
             count = pred_count.get(a.task_id, 0) + succ_count.get(a.task_id, 0)
             if count == 0:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="relationship", severity="critical",
-                    description="No predecessors or successors — activity is disconnected from "
-                    "the network. Violates DCMA checks #6/#7.",
-                    value=0, expected_range=(1, mean_rels + 2 * std_rels),
-                    z_score=round(_z_score(0, mean_rels, std_rels), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="relationship",
+                        severity="critical",
+                        description="No predecessors or successors — activity is disconnected from "
+                        "the network. Violates DCMA checks #6/#7.",
+                        value=0,
+                        expected_range=(1, mean_rels + 2 * std_rels),
+                        z_score=round(_z_score(0, mean_rels, std_rels), 2),
+                    )
+                )
             elif std_rels > 0 and _z_score(count, mean_rels, std_rels) > 3:
-                anomalies.append(Anomaly(
-                    task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                    anomaly_type="relationship", severity="info",
-                    description=f"Unusually high relationship count ({count}) — "
-                    f"z-score {_z_score(count, mean_rels, std_rels):.1f}. "
-                    f"May be a constraint or summary activity.",
-                    value=count, expected_range=(0, mean_rels + 2 * std_rels),
-                    z_score=round(_z_score(count, mean_rels, std_rels), 2),
-                ))
+                anomalies.append(
+                    Anomaly(
+                        task_id=a.task_id,
+                        task_code=a.task_code,
+                        task_name=a.task_name,
+                        anomaly_type="relationship",
+                        severity="info",
+                        description=f"Unusually high relationship count ({count}) — "
+                        f"z-score {_z_score(count, mean_rels, std_rels):.1f}. "
+                        f"May be a constraint or summary activity.",
+                        value=count,
+                        expected_range=(0, mean_rels + 2 * std_rels),
+                        z_score=round(_z_score(count, mean_rels, std_rels), 2),
+                    )
+                )
 
     # ── Progress Anomalies ──
     for a in schedule.activities:
@@ -266,22 +309,34 @@ def detect_anomalies(schedule: ParsedSchedule) -> AnomalyDetectionResult:
 
         # Active with 0% progress
         if status == "tk_active" and pct == 0:
-            anomalies.append(Anomaly(
-                task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                anomaly_type="progress", severity="warning",
-                description="Activity is marked active but has 0% physical progress. "
-                "May indicate a status override per DCMA check #12.",
-                value=0, expected_range=(1, 99),
-            ))
+            anomalies.append(
+                Anomaly(
+                    task_id=a.task_id,
+                    task_code=a.task_code,
+                    task_name=a.task_name,
+                    anomaly_type="progress",
+                    severity="warning",
+                    description="Activity is marked active but has 0% physical progress. "
+                    "May indicate a status override per DCMA check #12.",
+                    value=0,
+                    expected_range=(1, 99),
+                )
+            )
         # Not started with progress
         elif status != "tk_active" and status != "tk_complete" and pct > 0:
-            anomalies.append(Anomaly(
-                task_id=a.task_id, task_code=a.task_code, task_name=a.task_name,
-                anomaly_type="progress", severity="warning",
-                description=f"Activity not started but has {pct:.0f}% progress. "
-                f"Inconsistent status/progress.",
-                value=pct, expected_range=(0, 0),
-            ))
+            anomalies.append(
+                Anomaly(
+                    task_id=a.task_id,
+                    task_code=a.task_code,
+                    task_name=a.task_name,
+                    anomaly_type="progress",
+                    severity="warning",
+                    description=f"Activity not started but has {pct:.0f}% progress. "
+                    f"Inconsistent status/progress.",
+                    value=pct,
+                    expected_range=(0, 0),
+                )
+            )
 
     # Sort by severity (critical first)
     severity_order = {"critical": 0, "warning": 1, "info": 2}

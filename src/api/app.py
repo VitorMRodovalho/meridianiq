@@ -195,9 +195,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     if request.url.scheme == "https":
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
@@ -2778,7 +2776,12 @@ def _generate_monthly_review_report(
             pass
 
     return generator.generate_monthly_review_report(
-        schedule, dcma_result, health, comparison_result, alerts_result, baseline,
+        schedule,
+        dcma_result,
+        health,
+        comparison_result,
+        alerts_result,
+        baseline,
     )
 
 
@@ -3170,38 +3173,42 @@ def _build_export_data(
     # Activity summary
     activities_data = []
     for a in schedule.activities:
-        activities_data.append({
-            "task_id": a.task_id,
-            "task_code": a.task_code,
-            "task_name": a.task_name,
-            "task_type": a.task_type,
-            "status_code": a.status_code,
-            "total_float_hr": a.total_float_hr_cnt,
-            "remaining_duration_hr": a.remain_drtn_hr_cnt,
-            "original_duration_hr": a.target_drtn_hr_cnt,
-            "physical_pct_complete": getattr(a, "phys_complete_pct", None),
-            "actual_start": _serialize_for_json(a.act_start_date),
-            "actual_finish": _serialize_for_json(a.act_end_date),
-            "early_start": _serialize_for_json(a.early_start_date),
-            "early_finish": _serialize_for_json(a.early_end_date),
-            "late_start": _serialize_for_json(getattr(a, "late_start_date", None)),
-            "late_finish": _serialize_for_json(getattr(a, "late_end_date", None)),
-            "wbs_id": getattr(a, "wbs_id", None),
-        })
+        activities_data.append(
+            {
+                "task_id": a.task_id,
+                "task_code": a.task_code,
+                "task_name": a.task_name,
+                "task_type": a.task_type,
+                "status_code": a.status_code,
+                "total_float_hr": a.total_float_hr_cnt,
+                "remaining_duration_hr": a.remain_drtn_hr_cnt,
+                "original_duration_hr": a.target_drtn_hr_cnt,
+                "physical_pct_complete": getattr(a, "phys_complete_pct", None),
+                "actual_start": _serialize_for_json(a.act_start_date),
+                "actual_finish": _serialize_for_json(a.act_end_date),
+                "early_start": _serialize_for_json(a.early_start_date),
+                "early_finish": _serialize_for_json(a.early_end_date),
+                "late_start": _serialize_for_json(getattr(a, "late_start_date", None)),
+                "late_finish": _serialize_for_json(getattr(a, "late_end_date", None)),
+                "wbs_id": getattr(a, "wbs_id", None),
+            }
+        )
 
     # DCMA metrics
     dcma_metrics = []
     if hasattr(dcma_result, "metrics"):
         for m in dcma_result.metrics:
-            dcma_metrics.append({
-                "number": m.number,
-                "name": m.name,
-                "value": m.value,
-                "threshold": m.threshold,
-                "unit": m.unit,
-                "passed": m.passed,
-                "description": getattr(m, "description", ""),
-            })
+            dcma_metrics.append(
+                {
+                    "number": m.number,
+                    "name": m.name,
+                    "value": m.value,
+                    "threshold": m.threshold,
+                    "unit": m.unit,
+                    "passed": m.passed,
+                    "description": getattr(m, "description", ""),
+                }
+            )
 
     entropy = compute_float_entropy(schedule)
 
@@ -3233,12 +3240,8 @@ def _build_export_data(
             "overall_score": dcma_result.overall_score
             if hasattr(dcma_result, "overall_score")
             else 0,
-            "passed_count": dcma_result.passed_count
-            if hasattr(dcma_result, "passed_count")
-            else 0,
-            "failed_count": dcma_result.failed_count
-            if hasattr(dcma_result, "failed_count")
-            else 0,
+            "passed_count": dcma_result.passed_count if hasattr(dcma_result, "passed_count") else 0,
+            "failed_count": dcma_result.failed_count if hasattr(dcma_result, "failed_count") else 0,
             "metrics": dcma_metrics,
         },
         "float_entropy": {
@@ -3338,10 +3341,22 @@ def export_csv(
 
     if dataset == "activities":
         headers = [
-            "task_id", "task_code", "task_name", "task_type", "status_code",
-            "total_float_hr", "remaining_duration_hr", "original_duration_hr",
-            "physical_pct_complete", "actual_start", "actual_finish",
-            "early_start", "early_finish", "late_start", "late_finish", "wbs_id",
+            "task_id",
+            "task_code",
+            "task_name",
+            "task_type",
+            "status_code",
+            "total_float_hr",
+            "remaining_duration_hr",
+            "original_duration_hr",
+            "physical_pct_complete",
+            "actual_start",
+            "actual_finish",
+            "early_start",
+            "early_finish",
+            "late_start",
+            "late_finish",
+            "wbs_id",
         ]
         writer.writerow(headers)
         for a in data["activities"]:
