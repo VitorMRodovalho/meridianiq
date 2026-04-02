@@ -2165,6 +2165,44 @@ def get_float_trends(
     )
 
 
+@app.get("/api/v1/projects/{project_id}/root-cause")
+def get_root_cause(
+    project_id: str,
+    activity_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Trace backwards through the dependency network to find the root cause.
+
+    Starting from a target activity (or the project completion driver if
+    not specified), walks backwards through driving predecessors to
+    identify the originating delay event.
+
+    Args:
+        project_id: The stored project identifier.
+        activity_id: Optional target activity ID. If omitted, uses the
+            activity with the latest early finish.
+
+    Returns:
+        RootCauseResult as dict with the driving chain.
+
+    Raises:
+        HTTPException: If the project is not found.
+
+    References:
+        AACE RP 49R-06 — Identifying Critical Activities.
+        AACE RP 29R-03 — Forensic Schedule Analysis.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.root_cause import analyze_root_cause
+
+    result = analyze_root_cause(schedule, target_task_id=activity_id)
+    return asdict(result)
+
+
 @app.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
     project_id: str,
