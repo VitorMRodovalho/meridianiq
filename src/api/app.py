@@ -28,7 +28,7 @@ if dsn := os.environ.get("SENTRY_DSN"):
         release="meridianiq-api@1.0.0-dev",
     )
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -326,10 +326,14 @@ def demo_project():
 # Upload
 # ------------------------------------------------------------------
 
+# Sandbox project tracking (in-memory; Supabase uses DB column)
+_sandbox_projects: set[str] = set()
+
 
 @app.post("/api/v1/upload", response_model=ProjectSummary)
 async def upload_xer(
     file: UploadFile = File(...),
+    is_sandbox: bool = Form(False),
     _user: object = Depends(optional_auth),
 ) -> ProjectSummary:
     """Upload a schedule file (XER or MS Project XML), parse it, and store the result.
@@ -389,6 +393,10 @@ async def upload_xer(
     user_id = _user["id"] if _user else None
     project_id = store.add(schedule, xer_bytes, user_id=user_id)
 
+    # Track sandbox status
+    if is_sandbox:
+        _sandbox_projects.add(project_id)
+
     data_date = None
     name = ""
     if schedule.projects:
@@ -415,12 +423,48 @@ async def upload_xer(
 
 
 @app.get("/api/v1/projects", response_model=ProjectListResponse)
-def list_projects(_user: object = Depends(optional_auth)) -> ProjectListResponse:
-    """List all uploaded projects."""
+def list_projects(
+    include_sandbox: bool = False,
+    _user: object = Depends(optional_auth),
+) -> ProjectListResponse:
+    """List all uploaded projects.
+
+    By default, sandbox projects are hidden. Pass ``include_sandbox=true``
+    to include them (only visible to the owner regardless).
+    """
     store = get_store()
     user_id = _user["id"] if _user else None
-    items = [ProjectListItem(**p) for p in store.list_all(user_id=user_id)]
+    all_projects = store.list_all(user_id=user_id)
+    if not include_sandbox:
+        all_projects = [p for p in all_projects if p["project_id"] not in _sandbox_projects]
+    items = [ProjectListItem(**p) for p in all_projects]
     return ProjectListResponse(projects=items)
+
+
+@app.put("/api/v1/projects/{project_id}/sandbox")
+def toggle_sandbox(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Toggle sandbox mode for a project.
+
+    Sandbox projects are hidden from project listings and org views.
+    Only the owner can see and toggle sandbox status.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if project_id in _sandbox_projects:
+        _sandbox_projects.discard(project_id)
+        is_sandbox = False
+    else:
+        _sandbox_projects.add(project_id)
+        is_sandbox = True
+
+    return {"project_id": project_id, "is_sandbox": is_sandbox}
 
 
 # ------------------------------------------------------------------

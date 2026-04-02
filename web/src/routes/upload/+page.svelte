@@ -9,6 +9,7 @@
 	let loading = $state(false);
 	let error = $state('');
 	let result: ProjectSummary | null = $state(null);
+	let isSandbox = $state(false);
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -42,7 +43,7 @@
 		error = '';
 		result = null;
 		try {
-			result = await uploadXER(file);
+			result = await uploadXER(file, isSandbox);
 			success(`Parsed ${result.activity_count} activities and ${result.relationship_count} relationships`);
 			trackEvent('xer_upload_success', {
 				activity_count: result.activity_count,
@@ -96,6 +97,15 @@
 			<p class="mt-2 text-xs text-gray-400">Primavera P6 (.xer) or Microsoft Project (.xml)</p>
 		{/if}
 	</div>
+
+	<!-- Sandbox toggle -->
+	<label class="mt-4 flex items-center gap-3 cursor-pointer">
+		<input type="checkbox" bind:checked={isSandbox} class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+		<div>
+			<span class="text-sm font-medium text-gray-700">Sandbox mode</span>
+			<p class="text-xs text-gray-400">Hidden from other users and org views. For testing and development only.</p>
+		</div>
+	</label>
 
 	<!-- Error -->
 	{#if error}

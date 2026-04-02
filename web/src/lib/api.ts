@@ -110,9 +110,10 @@ export async function warmUp(): Promise<boolean> {
 	}
 }
 
-export async function uploadXER(file: File): Promise<ProjectSummary> {
+export async function uploadXER(file: File, isSandbox: boolean = false): Promise<ProjectSummary> {
 	const form = new FormData();
 	form.append('file', file);
+	form.append('is_sandbox', isSandbox ? 'true' : 'false');
 	return request<ProjectSummary>('/api/v1/upload', { method: 'POST', body: form });
 }
 
