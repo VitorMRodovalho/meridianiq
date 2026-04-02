@@ -83,4 +83,4 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v0.8.1 — next milestone is v0.9 "Polish"
+- Version: v1.1.0 — next milestone is v1.2 "Academic & Research"

@@ -1,4 +1,4 @@
-# Known Issues & Backlog — v1.0.0
+# Known Issues & Backlog — v1.1.0
 
 Bug tracking and feature backlog for MeridianIQ.
 
@@ -31,28 +31,28 @@ Bug tracking and feature backlog for MeridianIQ.
 
 ## Sprint Backlog
 
-### v1.1 "UX Maturity" — Next
+### v1.1 "UX Maturity" — COMPLETE
 
 | # | Item | Effort | Persona | Status |
 |---|------|--------|---------|--------|
-| 1 | Value milestones frontend page | Low | Owner, PM | |
-| 2 | Compare page: show manipulation scoring badges | Low | PM, Scheduler | |
-| 3 | Sidebar grouping (Analysis / Enterprise / Settings) | Low | All | |
-| 4 | Toast notification system | Low | All | |
-| 5 | i18n wiring — connect $t() to landing + upload + dashboard | Medium | LATAM market | |
-| 6 | Monthly review template (PDF) | Medium | Scheduler | |
-| 7 | Projects list: sorting, filtering, search | Low | All | |
+| 1 | Value milestones frontend page | Low | Owner, PM | ✅ Done |
+| 2 | Compare page: show manipulation scoring badges | Low | PM, Scheduler | ✅ Done |
+| 3 | Sidebar grouping (Analysis / Enterprise / Settings) | Low | All | ✅ Done |
+| 4 | Toast notification system | Low | All | ✅ Done |
+| 5 | i18n wiring — connect $t() to landing + upload + dashboard | Medium | LATAM market | ✅ Done |
+| 6 | Monthly review template (PDF) | Medium | Scheduler | ✅ Done |
+| 7 | Projects list: sorting, filtering, search | Low | All | ✅ Done |
 
 ### v1.2 "Academic & Research"
 
-| # | Item | Effort | Persona |
-|---|------|--------|---------|
-| 1 | Float entropy metric | Medium | Researcher |
-| 2 | Constraint accumulation rate | Medium | Researcher |
-| 3 | MCP Server — Claude integration via Model Context Protocol | Medium | AI/Developer |
-| 4 | API keys — self-service generation for programmatic access | Medium | Researcher |
-| 5 | JSON/CSV export — structured data for external analysis | Low | Researcher |
-| 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst |
+| # | Item | Effort | Persona | Status |
+|---|------|--------|---------|--------|
+| 1 | Float entropy metric | Medium | Researcher | ✅ Done |
+| 2 | Constraint accumulation rate | Medium | Researcher | ✅ Done |
+| 3 | MCP Server — Claude integration via Model Context Protocol | Medium | AI/Developer | |
+| 4 | API keys — self-service generation for programmatic access | Medium | Researcher | |
+| 5 | JSON/CSV export — structured data for external analysis | Low | Researcher | ✅ Done |
+| 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst | |
 
 ### v2.0 "AI"
 

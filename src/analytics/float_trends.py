@@ -8,11 +8,22 @@ deterioration.  Produces Float Erosion Index, Near-Critical Drift,
 Critical Path Stability, Float Consumption Velocity per WBS, and
 per-activity float deltas.
 
+Also provides:
+- **Float Entropy** — Shannon entropy of float distribution.  Measures
+  how uniformly float is spread across activities.  Low entropy indicates
+  float concentrated in few activities (potentially unreliable); high
+  entropy indicates even distribution.
+- **Constraint Accumulation Rate** — rate of constraint growth between
+  schedule updates, indicating potential manipulation via excessive
+  constraint additions.
+
 Standards:
     - AACE RP 49R-06 — Identifying Critical Activities
     - PMI Practice Standard for Scheduling §6.6 — Float Management
     - DCMA 14-Point checks #3 (High Float), #4 (Negative Float)
     - Kim & de la Garza (2005) — Phantom float detection
+    - Shannon (1948) — A Mathematical Theory of Communication (entropy)
+    - DCMA check #10 — Hard Constraints
 
 References:
     - GAO Schedule Assessment Guide §7.3 — Critical Path Stability
@@ -21,6 +32,7 @@ References:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -475,3 +487,283 @@ class FloatTrendAnalyzer:
             "cp_stability": result.cp_stability,
             "days_between_updates": result.days_between_updates,
         }
+
+
+# ══════════════════════════════════════════════════════════
+# Float Entropy — Shannon entropy of float distribution
+# ══════════════════════════════════════════════════════════
+
+
+@dataclass
+class FloatEntropyResult:
+    """Shannon entropy of float distribution.
+
+    Attributes:
+        entropy: Shannon entropy value (bits). 0 = all float in one bucket,
+            higher = more uniformly distributed.
+        max_entropy: Maximum possible entropy for the number of buckets
+            (log2 of bucket count).
+        normalised_entropy: Entropy / max_entropy. 0–1 scale where
+            1.0 = perfectly uniform distribution.
+        bucket_count: Number of non-empty buckets.
+        total_activities: Activities analysed (excludes LOE, WBS, complete).
+        distribution: Activity count per float bucket (hours).
+        interpretation: Human-readable interpretation of the result.
+    """
+
+    entropy: float = 0.0
+    max_entropy: float = 0.0
+    normalised_entropy: float = 0.0
+    bucket_count: int = 0
+    total_activities: int = 0
+    distribution: dict[str, int] = field(default_factory=dict)
+    interpretation: str = ""
+
+
+# Float bucket boundaries in hours (8h/day, same as float_distribution endpoint)
+_ENTROPY_BUCKETS: list[tuple[str, float, float]] = [
+    ("negative", float("-inf"), 0.0),
+    ("critical", 0.0, 0.001),
+    ("near_critical_0_10d", 0.001, 80.001),
+    ("moderate_10_20d", 80.001, 160.001),
+    ("high_20_44d", 160.001, 352.001),
+    ("excessive_44d_plus", 352.001, float("inf")),
+]
+
+
+def compute_float_entropy(schedule: ParsedSchedule) -> FloatEntropyResult:
+    """Compute Shannon entropy of a schedule's float distribution.
+
+    Uses the same float buckets as the DCMA float distribution analysis.
+    A healthy schedule has moderate entropy — float is spread across
+    multiple buckets but not excessively concentrated in the extremes.
+
+    Per Shannon (1948), entropy H = -sum(p_i * log2(p_i)) for each
+    bucket with probability p_i > 0.
+
+    Args:
+        schedule: A parsed schedule.
+
+    Returns:
+        FloatEntropyResult with entropy metrics.
+
+    References:
+        Shannon, C. E. (1948). A Mathematical Theory of Communication.
+        AACE RP 49R-06 — Identifying Critical Activities.
+    """
+    # Filter to countable activities (same as DCMA / float distribution)
+    countable = [
+        t
+        for t in schedule.activities
+        if t.task_type.lower() not in ("tt_loe", "tt_wbs")
+        and t.status_code.lower() != "tk_complete"
+    ]
+
+    total = len(countable)
+    if total == 0:
+        return FloatEntropyResult(interpretation="No countable activities in schedule.")
+
+    # Count per bucket
+    counts: dict[str, int] = {label: 0 for label, _, _ in _ENTROPY_BUCKETS}
+    for task in countable:
+        tf = task.total_float_hr_cnt
+        if tf is None:
+            continue
+        for label, low, high in _ENTROPY_BUCKETS:
+            if low <= tf < high:
+                counts[label] += 1
+                break
+
+    # Shannon entropy
+    non_empty = {k: v for k, v in counts.items() if v > 0}
+    n_buckets = len(non_empty)
+
+    if n_buckets <= 1:
+        entropy = 0.0
+    else:
+        entropy = 0.0
+        for count in non_empty.values():
+            p = count / total
+            entropy -= p * math.log2(p)
+
+    max_entropy = math.log2(len(_ENTROPY_BUCKETS)) if len(_ENTROPY_BUCKETS) > 1 else 1.0
+    normalised = entropy / max_entropy if max_entropy > 0 else 0.0
+
+    # Interpretation
+    if normalised < 0.3:
+        interpretation = (
+            "Low float entropy — float is concentrated in few categories. "
+            "This may indicate an immature or tightly constrained schedule."
+        )
+    elif normalised < 0.7:
+        interpretation = (
+            "Moderate float entropy — float is reasonably distributed. "
+            "This is typical of a well-structured schedule."
+        )
+    else:
+        interpretation = (
+            "High float entropy — float is spread across all categories. "
+            "This may indicate loose logic or insufficient constraints."
+        )
+
+    return FloatEntropyResult(
+        entropy=round(entropy, 4),
+        max_entropy=round(max_entropy, 4),
+        normalised_entropy=round(normalised, 4),
+        bucket_count=n_buckets,
+        total_activities=total,
+        distribution=counts,
+        interpretation=interpretation,
+    )
+
+
+# ══════════════════════════════════════════════════════════
+# Constraint Accumulation Rate
+# ══════════════════════════════════════════════════════════
+
+
+@dataclass
+class ConstraintAccumulationResult:
+    """Constraint accumulation rate between two schedule versions.
+
+    Attributes:
+        baseline_constraint_count: Constrained activities in baseline.
+        update_constraint_count: Constrained activities in update.
+        added: Number of new constraints added.
+        removed: Number of constraints removed.
+        net_change: Net constraint change (added - removed).
+        rate_per_day: Net constraints added per calendar day between updates.
+        baseline_constraint_pct: % of baseline activities with constraints.
+        update_constraint_pct: % of update activities with constraints.
+        added_activities: List of task codes that gained constraints.
+        interpretation: Human-readable interpretation.
+    """
+
+    baseline_constraint_count: int = 0
+    update_constraint_count: int = 0
+    added: int = 0
+    removed: int = 0
+    net_change: int = 0
+    rate_per_day: float = 0.0
+    baseline_constraint_pct: float = 0.0
+    update_constraint_pct: float = 0.0
+    added_activities: list[str] = field(default_factory=list)
+    interpretation: str = ""
+
+
+# Constraint types that indicate a hard constraint in P6
+_HARD_CONSTRAINT_TYPES = {
+    "cs_meoa",  # Must End On or After
+    "cs_meob",  # Must End On or Before
+    "cs_meo",   # Must End On
+    "cs_msoa",  # Must Start On or After
+    "cs_msob",  # Must Start On or Before
+    "cs_mso",   # Must Start On
+    "cs_mandfin",  # Mandatory Finish
+    "cs_mandstart",  # Mandatory Start
+}
+
+
+def _has_hard_constraint(task: Task) -> bool:
+    """Check if a task has a hard constraint (per DCMA check #10)."""
+    cstr = getattr(task, "cstr_type", None) or ""
+    cstr2 = getattr(task, "cstr_type2", None) or ""
+    return cstr.lower() in _HARD_CONSTRAINT_TYPES or cstr2.lower() in _HARD_CONSTRAINT_TYPES
+
+
+def compute_constraint_accumulation(
+    baseline: ParsedSchedule,
+    update: ParsedSchedule,
+) -> ConstraintAccumulationResult:
+    """Compute constraint accumulation rate between two schedule versions.
+
+    Measures the rate at which hard constraints are being added to the
+    schedule, which can indicate schedule manipulation (adding constraints
+    to artificially control dates instead of using logic-driven scheduling).
+
+    Per DCMA check #10, hard constraints should be limited to contract
+    milestones only.  Excessive constraint growth is a red flag.
+
+    Args:
+        baseline: The earlier (baseline) parsed schedule.
+        update: The later (update) parsed schedule.
+
+    Returns:
+        ConstraintAccumulationResult with rate metrics.
+
+    References:
+        DCMA 14-Point Assessment — Check #10 (Hard Constraints).
+        AACE RP 29R-03 — Schedule manipulation detection.
+    """
+    # Match by task_code
+    base_by_code = {t.task_code: t for t in baseline.activities if t.task_code}
+    upd_by_code = {t.task_code: t for t in update.activities if t.task_code}
+    matched = set(base_by_code.keys()) & set(upd_by_code.keys())
+
+    base_constrained = {code for code in matched if _has_hard_constraint(base_by_code[code])}
+    upd_constrained = {code for code in matched if _has_hard_constraint(upd_by_code[code])}
+
+    # Also count unmatched update activities with constraints
+    upd_only = set(upd_by_code.keys()) - matched
+    upd_new_constrained = {code for code in upd_only if _has_hard_constraint(upd_by_code[code])}
+
+    added_codes = (upd_constrained - base_constrained) | upd_new_constrained
+    removed_codes = base_constrained - upd_constrained
+
+    n_added = len(added_codes)
+    n_removed = len(removed_codes)
+    net = n_added - n_removed
+
+    # Calculate days between updates
+    days_between = 0.0
+    if baseline.projects and update.projects:
+        base_dd = baseline.projects[0].last_recalc_date or baseline.projects[0].sum_data_date
+        upd_dd = update.projects[0].last_recalc_date or update.projects[0].sum_data_date
+        if base_dd and upd_dd:
+            days_between = abs((upd_dd - base_dd).total_seconds()) / 86400.0
+
+    rate = net / days_between if days_between > 0 else 0.0
+
+    total_base = len([t for t in baseline.activities
+                      if t.task_type.lower() not in ("tt_loe", "tt_wbs")])
+    total_upd = len([t for t in update.activities
+                     if t.task_type.lower() not in ("tt_loe", "tt_wbs")])
+
+    base_pct = (len(base_constrained) / total_base * 100) if total_base else 0.0
+    upd_pct = ((len(upd_constrained) + len(upd_new_constrained)) / total_upd * 100
+               ) if total_upd else 0.0
+
+    # Interpretation
+    if net <= 0:
+        interpretation = (
+            "No net constraint growth — constraint management is stable or improving."
+        )
+    elif net <= 3:
+        interpretation = (
+            f"{net} net constraint(s) added. Minor growth — verify these are "
+            f"contractual milestones per DCMA check #10."
+        )
+    elif net <= 10:
+        interpretation = (
+            f"{net} net constraints added — moderate growth. Review whether "
+            f"constraints are being used to mask logic deficiencies."
+        )
+    else:
+        interpretation = (
+            f"{net} net constraints added — significant growth. This is a "
+            f"potential schedule manipulation indicator per AACE RP 29R-03. "
+            f"Investigate whether constraints are replacing logic-driven dates."
+        )
+
+    return ConstraintAccumulationResult(
+        baseline_constraint_count=len(base_constrained),
+        update_constraint_count=len(upd_constrained) + len(upd_new_constrained),
+        added=n_added,
+        removed=n_removed,
+        net_change=net,
+        rate_per_day=round(rate, 4),
+        baseline_constraint_pct=round(base_pct, 2),
+        update_constraint_pct=round(upd_pct, 2),
+        added_activities=sorted(added_codes)[:50],  # cap at 50 for response size
+        interpretation=interpretation,
+    )

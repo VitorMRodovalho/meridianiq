@@ -323,7 +323,7 @@ gantt
     v1.0 Enterprise          :done, v10, 2026-03, 2026-03
 
     section Maturity & AI
-    v1.1 UX Maturity         :active, v11, 2026-04, 2026-05
+    v1.1 UX Maturity         :done, v11, 2026-04, 2026-04
     v1.2 Academic/Research    :v12, 2026-05, 2026-07
     v2.0 AI/ML               :v20, 2026-07, 2027-01
 ```
@@ -340,7 +340,7 @@ gantt
 | ~~v0.8~~ | ~~Intelligence~~ | ~~Float Trends + Early Warning + Health Score~~ | ✅ Released |
 | ~~v0.9~~ | ~~Polish~~ | ~~UX + CI/CD + E2E + i18n + Demo~~ | ✅ Released |
 | ~~v1.0~~ | ~~Enterprise~~ | ~~Teams + IPS + Recovery + Multi-format + Audit~~ | ✅ Released |
-| **v1.1** | **UX Maturity** | **Value milestones UI, toast, i18n wiring, monthly review** | Next sprint |
+| ~~v1.1~~ | ~~UX Maturity~~ | ~~Value milestones UI, toast, i18n wiring, monthly review~~ | ✅ Released |
 | **v1.2** | **Academic** | **Float entropy, MCP server, API keys, root cause** | Research track |
 | **v2.0** | **AI** | **ML + NLP + Prediction** | Predictive intelligence |
 

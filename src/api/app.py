@@ -9,7 +9,9 @@ schedule versions, and forensic (CPA/window) analysis.
 
 from __future__ import annotations
 
+import csv
 import io
+import json
 import os
 import tempfile
 from dataclasses import asdict
@@ -37,7 +39,11 @@ from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
 from src.analytics.early_warning import EarlyWarningEngine
 from src.analytics.evm import EVMAnalyzer
-from src.analytics.float_trends import FloatTrendAnalyzer
+from src.analytics.float_trends import (
+    FloatTrendAnalyzer,
+    compute_float_entropy,
+    compute_constraint_accumulation,
+)
 from src.analytics.health_score import HealthScoreCalculator
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.risk import (
@@ -2115,6 +2121,87 @@ def get_float_trends(
     )
 
 
+@app.get("/api/v1/projects/{project_id}/float-entropy")
+def get_float_entropy(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Compute Shannon entropy of float distribution.
+
+    Measures how uniformly total float is spread across predefined
+    buckets.  Low entropy indicates float concentrated in few categories
+    (potentially unreliable); high entropy indicates even distribution.
+
+    No baseline required — operates on a single schedule snapshot.
+
+    Args:
+        project_id: The stored project identifier.
+
+    Returns:
+        FloatEntropyResult as dict with entropy, normalised_entropy,
+        distribution, and interpretation.
+
+    Raises:
+        HTTPException: If the project is not found.
+
+    References:
+        Shannon (1948) — A Mathematical Theory of Communication.
+        AACE RP 49R-06 — Identifying Critical Activities.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = compute_float_entropy(schedule)
+    return asdict(result)
+
+
+@app.get("/api/v1/projects/{project_id}/constraint-accumulation")
+def get_constraint_accumulation(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Compute constraint accumulation rate between two schedule versions.
+
+    Measures the rate at which hard constraints are being added.
+    Excessive constraint growth is a schedule manipulation indicator
+    per DCMA check #10 and AACE RP 29R-03.
+
+    Args:
+        project_id: The update project identifier.
+        baseline_id: The baseline project identifier (required).
+
+    Returns:
+        ConstraintAccumulationResult as dict.
+
+    Raises:
+        HTTPException: If projects are not found or baseline_id missing.
+
+    References:
+        DCMA 14-Point Assessment — Check #10 (Hard Constraints).
+        AACE RP 29R-03 — Schedule manipulation detection.
+    """
+    store = get_store()
+    update = store.get(project_id)
+    if update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not baseline_id:
+        raise HTTPException(
+            status_code=400,
+            detail="baseline_id query parameter is required for constraint accumulation",
+        )
+
+    baseline = store.get(baseline_id)
+    if baseline is None:
+        raise HTTPException(status_code=404, detail="Baseline project not found")
+
+    result = compute_constraint_accumulation(baseline, update)
+    return asdict(result)
+
+
 @app.get(
     "/api/v1/projects/{project_id}/alerts",
     response_model=AlertsResponse,
@@ -2229,7 +2316,7 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
 # PDF Report Generation
 # ══════════════════════════════════════════════════════════
 
-_VALID_REPORT_TYPES = {"health", "comparison", "forensic", "tia", "risk"}
+_VALID_REPORT_TYPES = {"health", "comparison", "forensic", "tia", "risk", "monthly_review"}
 
 
 @app.post(
@@ -2242,12 +2329,13 @@ def generate_report(
 ) -> GenerateReportResponse:
     """Generate a PDF report. Returns report ID for download.
 
-    Supports 5 report types:
+    Supports 6 report types:
     - health: Schedule Health Report (DCMA + health score + alerts)
     - comparison: Comparison Report (requires baseline_id)
     - forensic: Forensic Report (requires baseline_id for timeline)
     - tia: TIA Report (requires baseline_id)
     - risk: Risk Report (requires baseline_id)
+    - monthly_review: Monthly Review Report (health + comparison + alerts)
 
     Args:
         request: Report generation parameters.
@@ -2281,6 +2369,8 @@ def generate_report(
             pdf_bytes = _generate_tia_report(generator, schedule, request, store)
         elif report_type == "risk":
             pdf_bytes = _generate_risk_report(generator, schedule, request, store)
+        elif report_type == "monthly_review":
+            pdf_bytes = _generate_monthly_review_report(generator, schedule, request, store)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -2427,6 +2517,51 @@ def _generate_risk_report(
     raise HTTPException(
         status_code=400,
         detail="No risk simulation found. Please run a Monte Carlo simulation first.",
+    )
+
+
+def _generate_monthly_review_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate a monthly review report PDF.
+
+    Combines health score, DCMA, comparison delta, and early warning alerts
+    into a single standardised monthly update report per PMI PMBOK 7 S4.6
+    and CMAA (2019) S7.
+    """
+    from src.analytics.dcma14 import DCMA14Analyzer
+    from src.analytics.health_score import HealthScoreCalculator
+
+    dcma = DCMA14Analyzer(schedule)
+    dcma_result = dcma.analyze()
+
+    baseline = None
+    if request.baseline_id:
+        baseline = store.get(request.baseline_id)
+
+    calc = HealthScoreCalculator(schedule, baseline=baseline)
+    health = calc.calculate()
+
+    # Comparison with baseline (if provided)
+    comparison_result = None
+    if baseline:
+        comparison = ScheduleComparison(baseline, schedule)
+        comparison_result = comparison.compare()
+
+    # Early warning alerts (if baseline provided)
+    alerts_result = None
+    if baseline:
+        try:
+            engine = EarlyWarningEngine(baseline, schedule)
+            alerts_result = engine.analyze()
+        except Exception:
+            pass
+
+    return generator.generate_monthly_review_report(
+        schedule, dcma_result, health, comparison_result, alerts_result, baseline,
     )
 
 
@@ -2580,6 +2715,16 @@ def get_available_reports(
             "name": "Risk / QSRA Report",
             "ready": risk_ready,
             "reason": risk_reason,
+        }
+    )
+
+    # --- monthly_review: always computable (enhanced with comparison if available) ---
+    reports.append(
+        {
+            "type": "monthly_review",
+            "name": "Monthly Review Report",
+            "ready": True,
+            "reason": "",
         }
     )
 
@@ -2752,6 +2897,259 @@ def export_excel(
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ══════════════════════════════════════════════════════════
+# JSON / CSV Export (v1.2)
+# ══════════════════════════════════════════════════════════
+
+
+def _serialize_for_json(obj: Any) -> Any:
+    """Recursively convert dataclass / datetime objects to JSON-safe dicts."""
+    from datetime import date, datetime
+
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _serialize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_serialize_for_json(i) for i in obj]
+    if hasattr(obj, "__dataclass_fields__"):
+        return {k: _serialize_for_json(v) for k, v in asdict(obj).items()}
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return str(obj)
+
+
+def _build_export_data(
+    schedule: ParsedSchedule,
+    user_id: str | None,
+) -> dict[str, Any]:
+    """Build a comprehensive data bundle for JSON/CSV export.
+
+    Runs DCMA, health score, and float analysis automatically.
+    Returns a dict with all analysis results.
+    """
+    from src.analytics.dcma14 import DCMA14Analyzer
+    from src.analytics.health_score import HealthScoreCalculator
+
+    project_name = ""
+    data_date = None
+    if schedule.projects:
+        proj = schedule.projects[0]
+        project_name = proj.proj_short_name or ""
+        data_date = proj.last_recalc_date or proj.sum_data_date
+
+    dcma = DCMA14Analyzer(schedule)
+    dcma_result = dcma.analyze()
+
+    calc = HealthScoreCalculator(schedule)
+    health = calc.calculate()
+
+    # Activity summary
+    activities_data = []
+    for a in schedule.activities:
+        activities_data.append({
+            "task_id": a.task_id,
+            "task_code": a.task_code,
+            "task_name": a.task_name,
+            "task_type": a.task_type,
+            "status_code": a.status_code,
+            "total_float_hr": a.total_float_hr_cnt,
+            "remaining_duration_hr": a.remain_drtn_hr_cnt,
+            "original_duration_hr": a.target_drtn_hr_cnt,
+            "physical_pct_complete": getattr(a, "phys_complete_pct", None),
+            "actual_start": _serialize_for_json(a.act_start_date),
+            "actual_finish": _serialize_for_json(a.act_end_date),
+            "early_start": _serialize_for_json(a.early_start_date),
+            "early_finish": _serialize_for_json(a.early_end_date),
+            "late_start": _serialize_for_json(getattr(a, "late_start_date", None)),
+            "late_finish": _serialize_for_json(getattr(a, "late_end_date", None)),
+            "wbs_id": getattr(a, "wbs_id", None),
+        })
+
+    # DCMA metrics
+    dcma_metrics = []
+    if hasattr(dcma_result, "metrics"):
+        for m in dcma_result.metrics:
+            dcma_metrics.append({
+                "number": m.number,
+                "name": m.name,
+                "value": m.value,
+                "threshold": m.threshold,
+                "unit": m.unit,
+                "passed": m.passed,
+                "description": getattr(m, "description", ""),
+            })
+
+    entropy = compute_float_entropy(schedule)
+
+    return {
+        "export_version": "1.0",
+        "generator": "MeridianIQ",
+        "project": {
+            "name": project_name,
+            "data_date": _serialize_for_json(data_date),
+            "activity_count": len(schedule.activities),
+            "relationship_count": len(schedule.relationships),
+            "wbs_count": len(schedule.wbs_nodes),
+            "calendar_count": len(schedule.calendars),
+        },
+        "health_score": {
+            "overall": health.overall,
+            "rating": health.rating,
+            "trend": health.trend_arrow,
+            "dcma_raw": health.dcma_raw,
+            "float_raw": health.float_raw,
+            "logic_raw": health.logic_raw,
+            "trend_raw": health.trend_raw,
+            "dcma_component": health.dcma_component,
+            "float_component": health.float_component,
+            "logic_component": health.logic_component,
+            "trend_component": health.trend_component,
+        },
+        "dcma": {
+            "overall_score": dcma_result.overall_score
+            if hasattr(dcma_result, "overall_score")
+            else 0,
+            "passed_count": dcma_result.passed_count
+            if hasattr(dcma_result, "passed_count")
+            else 0,
+            "failed_count": dcma_result.failed_count
+            if hasattr(dcma_result, "failed_count")
+            else 0,
+            "metrics": dcma_metrics,
+        },
+        "float_entropy": {
+            "entropy": entropy.entropy,
+            "normalised_entropy": entropy.normalised_entropy,
+            "max_entropy": entropy.max_entropy,
+            "bucket_count": entropy.bucket_count,
+            "distribution": entropy.distribution,
+            "interpretation": entropy.interpretation,
+        },
+        "activities": activities_data,
+        "relationships": [
+            {
+                "task_id": r.task_id,
+                "pred_task_id": r.pred_task_id,
+                "pred_type": r.pred_type,
+                "lag_hr": r.lag_hr_cnt,
+            }
+            for r in schedule.relationships
+        ],
+    }
+
+
+@app.get("/api/v1/projects/{project_id}/export/json")
+def export_json(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> StreamingResponse:
+    """Export project schedule data and analysis results as JSON.
+
+    Includes project metadata, DCMA 14-point assessment, health score,
+    activities with dates/float, and relationships. Designed for
+    researchers and external analysis tools.
+
+    Args:
+        project_id: The stored project identifier.
+
+    Raises:
+        HTTPException: If the project is not found.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    data = _build_export_data(schedule, user_id)
+
+    json_bytes = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+
+    proj_name = data["project"]["name"] or project_id
+    filename = f"meridianiq-{proj_name}.json"
+
+    return StreamingResponse(
+        io.BytesIO(json_bytes),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/v1/projects/{project_id}/export/csv")
+def export_csv(
+    project_id: str,
+    dataset: str = "activities",
+    _user: object = Depends(optional_auth),
+) -> StreamingResponse:
+    """Export project data as CSV.
+
+    Supports multiple datasets via the ``dataset`` query parameter:
+    - ``activities`` (default): All activities with dates, float, status
+    - ``dcma``: DCMA 14-point check results
+    - ``relationships``: All predecessor relationships
+
+    Args:
+        project_id: The stored project identifier.
+        dataset: Which dataset to export (activities, dcma, relationships).
+
+    Raises:
+        HTTPException: If the project is not found or dataset is invalid.
+    """
+    valid_datasets = {"activities", "dcma", "relationships"}
+    if dataset not in valid_datasets:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid dataset '{dataset}'. Valid: {', '.join(sorted(valid_datasets))}",
+        )
+
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    data = _build_export_data(schedule, user_id)
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+
+    if dataset == "activities":
+        headers = [
+            "task_id", "task_code", "task_name", "task_type", "status_code",
+            "total_float_hr", "remaining_duration_hr", "original_duration_hr",
+            "physical_pct_complete", "actual_start", "actual_finish",
+            "early_start", "early_finish", "late_start", "late_finish", "wbs_id",
+        ]
+        writer.writerow(headers)
+        for a in data["activities"]:
+            writer.writerow([a.get(h, "") for h in headers])
+
+    elif dataset == "dcma":
+        headers = ["number", "name", "value", "threshold", "unit", "passed", "description"]
+        writer.writerow(headers)
+        for m in data["dcma"]["metrics"]:
+            writer.writerow([m.get(h, "") for h in headers])
+
+    elif dataset == "relationships":
+        headers = ["task_id", "pred_task_id", "pred_type", "lag_hr"]
+        writer.writerow(headers)
+        for r in data["relationships"]:
+            writer.writerow([r.get(h, "") for h in headers])
+
+    proj_name = data["project"]["name"] or project_id
+    filename = f"meridianiq-{proj_name}-{dataset}.csv"
+
+    csv_bytes = buf.getvalue().encode("utf-8")
+
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
+        media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

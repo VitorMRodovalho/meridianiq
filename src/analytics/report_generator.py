@@ -9,12 +9,14 @@ Generates court-submittable reports with:
 - Analysis results (tables, findings)
 - Conclusions & recommendations
 
-Supports 5 report types:
+Supports 6 report types:
 1. Schedule Health Report: DCMA results, health score, float distribution, alerts
 2. Comparison Report: Delta summary, manipulation indicators, changes by WBS
 3. Forensic Report: Timeline, delay waterfall, windows analysis
 4. TIA Report: Fragment analysis, CP impact, compliance check
 5. Risk Report: Monte Carlo results, P-values, sensitivity
+6. Monthly Review Report: Standardized monthly update narrative with
+   progress, health, comparison delta, alerts, and action items
 
 Standards:
     - AACE RP 29R-03 S5.3 -- Documentation
@@ -22,6 +24,7 @@ Standards:
     - DCMA 14-Point Assessment -- Schedule quality metrics
     - AACE RP 52R-06 -- Time Impact Analysis
     - AACE RP 57R-09 -- Schedule Risk Analysis
+    - PMI PMBOK 7 S4.6 -- Measurement Performance Domain
 """
 
 from __future__ import annotations
@@ -338,6 +341,38 @@ class ReportGenerator:
             PDF bytes.
         """
         html = self._build_risk_html(simulation_result)
+        return self._html_to_pdf(html)
+
+    def generate_monthly_review_report(
+        self,
+        schedule: Any,
+        dcma_result: Any,
+        health_score: Any,
+        comparison_result: Any | None = None,
+        alerts: Any | None = None,
+        baseline: Any | None = None,
+    ) -> bytes:
+        """Generate Monthly Review Report PDF.
+
+        A standardized monthly schedule update narrative combining health,
+        progress, comparison delta, alerts, and action items per
+        PMI PMBOK 7 S4.6 (Measurement Performance Domain) and
+        CMAA (2019) S7 (Reporting).
+
+        Args:
+            schedule: Current ParsedSchedule (the update).
+            dcma_result: DCMA14Result from the analyzer.
+            health_score: HealthScore from the calculator.
+            comparison_result: Optional ComparisonResult (current vs previous).
+            alerts: Optional EarlyWarningResult.
+            baseline: Optional baseline ParsedSchedule (for data summary).
+
+        Returns:
+            PDF bytes.
+        """
+        html = self._build_monthly_review_html(
+            schedule, dcma_result, health_score, comparison_result, alerts, baseline,
+        )
         return self._html_to_pdf(html)
 
     # ------------------------------------------------------------------
@@ -1124,6 +1159,369 @@ class ReportGenerator:
         )
 
         return self._html_wrapper("Schedule Risk Analysis Report", project_name, body)
+
+    # ------------------------------------------------------------------
+    # Report Type 6: Monthly Review Report
+    # ------------------------------------------------------------------
+
+    def _build_monthly_review_html(
+        self,
+        schedule: Any,
+        dcma_result: Any,
+        health_score: Any,
+        comparison_result: Any | None = None,
+        alerts: Any | None = None,
+        baseline: Any | None = None,
+    ) -> str:
+        """Build HTML for Monthly Review Report.
+
+        Per PMI PMBOK 7 S4.6 and CMAA (2019) S7.
+        """
+        project_name = "Unknown"
+        data_date = "N/A"
+        if schedule.projects:
+            proj = schedule.projects[0]
+            project_name = proj.proj_short_name or "Unknown"
+            dd = proj.last_recalc_date or proj.sum_data_date
+            if dd:
+                data_date = _format_date(dd)
+
+        body = ""
+
+        # ── 1. Executive Summary ──
+        rating = health_score.rating
+        overall = health_score.overall
+        n_activities = len(schedule.activities)
+        n_rels = len(schedule.relationships)
+
+        # Progress counts
+        complete = sum(
+            1
+            for a in schedule.activities
+            if getattr(a, "status_code", "").upper() == "TK_COMPLETE"
+        )
+        in_progress = sum(
+            1
+            for a in schedule.activities
+            if getattr(a, "status_code", "").upper() == "TK_ACTIVE"
+        )
+        not_started = n_activities - complete - in_progress
+
+        pct_complete = (complete / n_activities * 100) if n_activities else 0
+
+        exec_text = (
+            f"This report summarises the schedule status as of data date "
+            f"<strong>{data_date}</strong>. The schedule contains "
+            f"{n_activities:,} activities and {n_rels:,} relationships. "
+            f"Overall health score: <strong>{overall:.0f}/100</strong> "
+            f"({_severity_badge(rating)}). "
+            f"Progress: {complete:,} complete ({pct_complete:.0f}%), "
+            f"{in_progress:,} in progress, {not_started:,} not started."
+        )
+
+        if comparison_result:
+            changed_pct = getattr(comparison_result, "changed_percentage", 0)
+            n_added = len(getattr(comparison_result, "activities_added", []))
+            n_deleted = len(getattr(comparison_result, "activities_deleted", []))
+            exec_text += (
+                f" Compared to the previous update: {changed_pct:.1f}% of activities changed, "
+                f"{n_added} added, {n_deleted} deleted."
+            )
+
+        body += self._section("1. Executive Summary", f"<p>{exec_text}</p>")
+
+        # ── 2. Methodology ──
+        body += self._section(
+            "2. Methodology",
+            self._methodology_box(
+                "Monthly schedule review performed per PMI PMBOK 7 Section 4.6 "
+                "(Measurement Performance Domain) and CMAA (2019) Section 7 "
+                "(Reporting). Schedule quality assessed per DCMA 14-Point "
+                "Assessment. Health score per GAO Schedule Assessment Guide (2020). "
+                "Comparison analysis per AACE RP 29R-03. Early warning alerts per "
+                "AACE RP 49R-06 and GAO Section 9 (Schedule Surveillance)."
+            ),
+        )
+
+        # ── 3. Data Summary ──
+        data_html = self._project_info_table(schedule)
+        if baseline:
+            data_html += "<h3>Previous Update (Baseline)</h3>"
+            data_html += self._project_info_table(baseline)
+        body += self._section("3. Data Summary", data_html)
+
+        # ── 4. Progress Overview ──
+        progress_html = self._kpi_grid(
+            [
+                (f"{pct_complete:.0f}%", "Overall Progress", "#059669"),
+                (f"{complete:,}", "Complete", "#16a34a"),
+                (f"{in_progress:,}", "In Progress", "#2563eb"),
+                (f"{not_started:,}", "Not Started", "#64748b"),
+            ]
+        )
+
+        # Progress bar
+        ip_pct = (in_progress / n_activities * 100) if n_activities else 0
+        ns_pct = 100 - pct_complete - ip_pct
+        progress_html += f"""
+        <div style="margin:16px 0;">
+            <div style="background:#e2e8f0; border-radius:6px; overflow:hidden; height:24px;
+                        display:flex;">
+                <div style="width:{pct_complete:.1f}%; background:#16a34a; height:100%;"></div>
+                <div style="width:{ip_pct:.1f}%; background:#2563eb; height:100%;"></div>
+                <div style="width:{ns_pct:.1f}%; background:#e2e8f0; height:100%;"></div>
+            </div>
+            <div style="display:flex; gap:16px; margin-top:4px; font-size:9pt; color:#64748b;">
+                <span>
+                    <span style="display:inline-block;width:10px;height:10px;
+                                 background:#16a34a;border-radius:2px;"></span>
+                    Complete
+                </span>
+                <span>
+                    <span style="display:inline-block;width:10px;height:10px;
+                                 background:#2563eb;border-radius:2px;"></span>
+                    In Progress
+                </span>
+                <span>
+                    <span style="display:inline-block;width:10px;height:10px;
+                                 background:#e2e8f0;border:1px solid #cbd5e1;
+                                 border-radius:2px;"></span>
+                    Not Started
+                </span>
+            </div>
+        </div>
+        """
+
+        body += self._section("4. Progress Overview", progress_html, page_break=True)
+
+        # ── 5. Schedule Health ──
+        score_cls = _score_class(rating)
+        health_html = f"""
+        <div style="display:flex; align-items:center; margin:16px 0;">
+            <div class="score-circle {score_cls}">{overall:.0f}</div>
+            <div>
+                <div style="font-size:16pt; font-weight:600;">
+                    Health: {_severity_badge(rating)}
+                </div>
+                <div style="font-size:10pt; color:#64748b; margin-top:4px;">
+                    Trend: {_esc(health_score.trend_arrow)}
+                </div>
+            </div>
+        </div>
+        """
+
+        health_html += self._kpi_grid(
+            [
+                (f"{health_score.dcma_raw:.0f}", "DCMA Score", "#1e40af"),
+                (f"{health_score.float_raw:.0f}", "Float Health", "#0891b2"),
+                (f"{health_score.logic_raw:.0f}", "Logic Integrity", "#7c3aed"),
+                (f"{health_score.trend_raw:.0f}", "Trend", "#059669"),
+            ]
+        )
+
+        # DCMA summary table
+        dcma_passed = dcma_result.passed_count if hasattr(dcma_result, "passed_count") else 0
+        dcma_failed = dcma_result.failed_count if hasattr(dcma_result, "failed_count") else 0
+        if hasattr(dcma_result, "metrics"):
+            rows = []
+            for m in dcma_result.metrics:
+                status = _severity_badge("green" if m.passed else "critical")
+                rows.append([
+                    f"#{m.number}",
+                    _esc(m.name),
+                    f"{m.value:.1f}{m.unit}",
+                    f"{m.threshold}{m.unit}",
+                    status,
+                ])
+            health_html += self._table(
+                ["#", "Check", "Value", "Threshold", "Status"],
+                rows,
+            )
+            health_html += (
+                f"<p><strong>{dcma_passed} of {dcma_passed + dcma_failed} checks passed"
+                f"</strong></p>"
+            )
+
+        body += self._section("5. Schedule Health & DCMA Assessment", health_html, page_break=True)
+
+        # ── 6. Comparison Delta (if available) ──
+        section_num = 6
+        if comparison_result:
+            n_mods = len(getattr(comparison_result, "activity_modifications", []))
+            n_added = len(getattr(comparison_result, "activities_added", []))
+            n_deleted = len(getattr(comparison_result, "activities_deleted", []))
+            changed_pct = getattr(comparison_result, "changed_percentage", 0)
+            rels_added = len(getattr(comparison_result, "relationships_added", []))
+            rels_deleted = len(getattr(comparison_result, "relationships_deleted", []))
+            cp_changed = getattr(comparison_result, "critical_path_changed", False)
+
+            delta_html = self._kpi_grid(
+                [
+                    (f"{changed_pct:.1f}%", "Activities Changed", "#7c3aed"),
+                    (str(n_added), "Added", "#059669"),
+                    (str(n_deleted), "Deleted", "#dc2626"),
+                    (str(n_mods), "Modified", "#2563eb"),
+                ]
+            )
+
+            delta_html += self._table(
+                ["Metric", "Value"],
+                [
+                    ["Activities Added", str(n_added)],
+                    ["Activities Deleted", str(n_deleted)],
+                    ["Activities Modified", str(n_mods)],
+                    ["Relationships Added", str(rels_added)],
+                    ["Relationships Deleted", str(rels_deleted)],
+                    [
+                        "Critical Path Changed",
+                        f'{_severity_badge("critical" if cp_changed else "green")}'
+                        f' {"Yes" if cp_changed else "No"}',
+                    ],
+                ],
+            )
+
+            # Manipulation flags
+            manip_flags = getattr(comparison_result, "manipulation_flags", [])
+            if manip_flags:
+                classification = getattr(
+                    comparison_result, "manipulation_classification", "normal"
+                )
+                score = getattr(comparison_result, "manipulation_score", 0)
+                delta_html += self._finding_box(
+                    f"<strong>Manipulation Classification: "
+                    f"{_severity_badge(classification.upper().replace('_', ' '))}</strong> "
+                    f"&mdash; Risk Score: {score} &mdash; "
+                    f"{len(manip_flags)} indicator(s) detected.",
+                    critical=classification == "red_flag",
+                )
+
+            body += self._section(
+                f"{section_num}. Changes Since Last Update", delta_html, page_break=True,
+            )
+            section_num += 1
+
+        # ── 7. Early Warning Alerts (if available) ──
+        if alerts and hasattr(alerts, "alerts") and alerts.alerts:
+            alert_html = self._kpi_grid(
+                [
+                    (str(alerts.total_alerts), "Total Alerts", "#64748b"),
+                    (str(alerts.critical_count), "Critical", "#dc2626"),
+                    (str(alerts.warning_count), "Warning", "#f59e0b"),
+                    (str(alerts.info_count), "Info", "#2563eb"),
+                ]
+            )
+
+            rows = []
+            for a in alerts.alerts[:25]:
+                rows.append([
+                    _severity_badge(a.severity),
+                    _esc(a.title),
+                    _esc(getattr(a, "description", "")),
+                    f"{a.projected_impact_days:.1f}d",
+                    f"{a.confidence:.0%}",
+                ])
+            alert_html += self._table(
+                ["Severity", "Alert", "Description", "Impact", "Confidence"],
+                rows,
+            )
+
+            body += self._section(
+                f"{section_num}. Early Warning Alerts", alert_html, page_break=True,
+            )
+            section_num += 1
+
+        # ── N. Key Issues & Action Items (template section) ──
+        issues_html = """
+        <p>The following issues and action items were identified during this review period:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Issue / Action Item</th>
+                    <th>Owner</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td><em>[To be completed by reviewer]</em></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        """
+
+        body += self._section(
+            f"{section_num}. Key Issues & Action Items", issues_html, page_break=True,
+        )
+        section_num += 1
+
+        # ── N+1. Conclusions ──
+        conclusions = "<p>Based on this monthly review:</p><ul>"
+        if rating in ("poor", "fair"):
+            conclusions += (
+                "<li>The schedule health score indicates significant quality issues. "
+                "Corrective action is recommended before the next update.</li>"
+            )
+        elif rating == "excellent":
+            conclusions += (
+                "<li>The schedule is in excellent condition and meets all GAO quality "
+                "characteristics.</li>"
+            )
+        else:
+            conclusions += (
+                "<li>The schedule is in good condition with minor areas for improvement.</li>"
+            )
+
+        if comparison_result:
+            cp_changed = getattr(comparison_result, "critical_path_changed", False)
+            if cp_changed:
+                conclusions += (
+                    "<li>The critical path has changed since the last update &mdash; "
+                    "review driving activities.</li>"
+                )
+            manip_flags = getattr(comparison_result, "manipulation_flags", [])
+            if manip_flags:
+                conclusions += (
+                    f"<li>{len(manip_flags)} manipulation indicator(s) detected &mdash; "
+                    f"investigate before accepting this update.</li>"
+                )
+
+        if alerts and hasattr(alerts, "critical_count") and alerts.critical_count > 0:
+            conclusions += (
+                f"<li>{alerts.critical_count} critical alert(s) require immediate attention.</li>"
+            )
+
+        conclusions += "</ul>"
+        conclusions += (
+            "<p><strong>Next Update Due:</strong> <em>[Date]</em></p>"
+            "<p><strong>Prepared By:</strong> <em>[Name / Title]</em></p>"
+            "<p><strong>Reviewed By:</strong> <em>[Name / Title]</em></p>"
+        )
+
+        body += self._section(
+            f"{section_num}. Conclusions & Next Steps", conclusions, page_break=True,
+        )
+
+        return self._html_wrapper("Monthly Schedule Review Report", project_name, body)
 
     @staticmethod
     def _estimate_percentile(p_values: list, target_days: float) -> int:

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports, exportExcel } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV } from '$lib/api';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -36,6 +36,8 @@
 	let reportGenerating = $state('');
 	let availableReports = $state<ReportAvailabilityEntry[]>([]);
 	let excelExporting = $state(false);
+	let exportDropdownOpen = $state(false);
+	let exportingFormat = $state('');
 
 	async function handleExcelExport() {
 		excelExporting = true;
@@ -53,6 +55,30 @@
 			console.error('Excel export failed:', e);
 		} finally {
 			excelExporting = false;
+		}
+	}
+
+	async function handleDataExport(format: string, dataset?: string) {
+		exportDropdownOpen = false;
+		exportingFormat = format + (dataset ? `-${dataset}` : '');
+		try {
+			const blob = format === 'json'
+				? await exportJSON(projectId)
+				: await exportCSV(projectId, dataset || 'activities');
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			const ext = format === 'json' ? 'json' : 'csv';
+			const suffix = dataset && dataset !== 'activities' ? `-${dataset}` : '';
+			a.download = `meridianiq-${projectId}${suffix}.${ext}`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (e: unknown) {
+			console.error('Export failed:', e);
+		} finally {
+			exportingFormat = '';
 		}
 	}
 
@@ -235,19 +261,43 @@
 				<p class="text-sm text-gray-500 mt-1">ID: {project.project_id} &middot; Data Date: {project.data_date || 'N/A'}</p>
 			</div>
 			<div class="flex items-center gap-2">
-			<!-- Excel Export -->
-			<button
-				onclick={handleExcelExport}
-				disabled={excelExporting}
-				class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-			>
-				{#if excelExporting}
-					<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-				{:else}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+			<!-- Data Export Dropdown -->
+			<div class="relative">
+				<button
+					class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+					onclick={() => exportDropdownOpen = !exportDropdownOpen}
+					disabled={!!exportingFormat || excelExporting}
+				>
+					{#if exportingFormat || excelExporting}
+						<svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+						Exporting...
+					{:else}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+						Export
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+					{/if}
+				</button>
+				{#if exportDropdownOpen}
+					<div class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100" onclick={() => { exportDropdownOpen = false; handleExcelExport(); }}>
+							Excel (.xlsx) — Full workbook
+						</button>
+						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100" onclick={() => handleDataExport('json')}>
+							JSON — All data + analysis
+						</button>
+						<div class="px-4 py-1.5 text-xs font-medium text-gray-400 uppercase bg-gray-50">CSV Datasets</div>
+						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100" onclick={() => handleDataExport('csv', 'activities')}>
+							CSV — Activities
+						</button>
+						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100" onclick={() => handleDataExport('csv', 'dcma')}>
+							CSV — DCMA Metrics
+						</button>
+						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onclick={() => handleDataExport('csv', 'relationships')}>
+							CSV — Relationships
+						</button>
+					</div>
 				{/if}
-				Excel
-			</button>
+			</div>
 			<!-- Report Download Dropdown -->
 			<div class="relative">
 				<button

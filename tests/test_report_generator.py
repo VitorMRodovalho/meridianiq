@@ -5,7 +5,7 @@
 Tests verify that:
 1. Reports generate valid output (HTML if weasyprint unavailable)
 2. Reports contain expected project metadata
-3. All 5 report types work
+3. All 6 report types work
 4. API endpoints for report generation and download function correctly
 """
 
@@ -335,6 +335,15 @@ class TestHealthReport:
             assert "MIT License" in html
 
 
+@dataclass
+class MockComparisonResultWithScoring(MockComparisonResult):
+    """MockComparisonResult with manipulation scoring fields."""
+
+    manipulation_classification: str = "suspicious"
+    manipulation_score: int = 42
+    manipulation_rationale: str = "Retroactive date changes detected"
+
+
 class TestComparisonReport:
     """Tests for Comparison Report generation."""
 
@@ -408,6 +417,167 @@ class TestRiskReport:
             assert "P50" in html
             assert "P80" in html
             assert "1,000" in html or "1000" in html  # iterations
+
+
+class TestMonthlyReviewReport:
+    """Tests for Monthly Review Report generation."""
+
+    def test_monthly_review_generates_output(self):
+        """Verify monthly review report returns bytes."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        assert isinstance(result, bytes)
+        assert len(result) > 0
+
+    def test_monthly_review_contains_project_name(self):
+        """Verify report contains project name."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Test Project Alpha" in html
+
+    def test_monthly_review_contains_methodology(self):
+        """Verify report contains monthly review methodology citations."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "PMI PMBOK 7" in html
+            assert "CMAA" in html
+            assert "DCMA 14-Point" in html
+
+    def test_monthly_review_contains_progress(self):
+        """Verify report contains progress overview section."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Progress Overview" in html
+            assert "Complete" in html
+            assert "In Progress" in html
+            assert "Not Started" in html
+
+    def test_monthly_review_contains_health_score(self):
+        """Verify report contains health score and DCMA results."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Schedule Health" in html
+            assert "72" in html or "73" in html  # overall score ~72.5
+            assert "Logic Density" in html
+
+    def test_monthly_review_contains_action_items(self):
+        """Verify report contains key issues and action items section."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Key Issues" in html
+            assert "Action Item" in html
+            assert "Owner" in html
+            assert "Due Date" in html
+
+    def test_monthly_review_contains_conclusions(self):
+        """Verify report contains conclusions and next steps."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Conclusions" in html
+            assert "Next Update Due" in html
+            assert "Prepared By" in html
+
+    def test_monthly_review_with_comparison(self):
+        """Verify report includes comparison section when comparison provided."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
+            comparison_result=MockComparisonResultWithScoring(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Changes Since Last Update" in html
+            assert "12.5%" in html  # changed_percentage
+            assert "Manipulation Classification" in html
+
+    def test_monthly_review_with_alerts(self):
+        """Verify report includes alerts section when alerts provided."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
+            alerts=MockEarlyWarningResult(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Early Warning Alerts" in html
+            assert "Float erosion" in html
+
+    def test_monthly_review_with_baseline(self):
+        """Verify report includes baseline data summary when baseline provided."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
+            baseline=MockSchedule(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Previous Update" in html
+
+    def test_monthly_review_full_report(self):
+        """Verify full monthly review with all optional data."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(),
+            MockDCMAResult(),
+            MockHealthScore(),
+            comparison_result=MockComparisonResultWithScoring(),
+            alerts=MockEarlyWarningResult(),
+            baseline=MockSchedule(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            # Verify all sections present
+            assert "Executive Summary" in html
+            assert "Methodology" in html
+            assert "Data Summary" in html
+            assert "Progress Overview" in html
+            assert "Schedule Health" in html
+            assert "Changes Since Last Update" in html
+            assert "Early Warning Alerts" in html
+            assert "Key Issues" in html
+            assert "Conclusions" in html
+
+    def test_monthly_review_title(self):
+        """Verify report has the correct title."""
+        gen = ReportGenerator()
+        result = gen.generate_monthly_review_report(
+            MockSchedule(), MockDCMAResult(), MockHealthScore(),
+        )
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Monthly Schedule Review Report" in html
 
 
 class TestReportAPI:
