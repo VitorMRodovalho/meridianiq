@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { getProjects, validateRecovery } from '$lib/api';
 	import type { ProjectListItem } from '$lib/types';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import PieChart from '$lib/components/charts/PieChart.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let loading = $state(true);
@@ -137,6 +139,31 @@
 					<p class="text-3xl font-bold text-yellow-600">{result.warning_count}</p>
 					<p class="text-xs text-gray-500 mt-1">Warnings</p>
 				</div>
+			</div>
+
+			<!-- Validation Charts -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+				<GaugeChart
+					value={result.validation_score}
+					title="Recovery Validation Score"
+					label={result.verdict.toUpperCase()}
+					size={200}
+					bands={[
+						{ threshold: 40, color: '#ef4444' },
+						{ threshold: 70, color: '#f59e0b' },
+						{ threshold: 100, color: '#10b981' },
+					]}
+				/>
+				{#if result.critical_count > 0 || result.warning_count > 0}
+					<PieChart
+						title="Issue Severity"
+						size={170}
+						data={[
+							{ label: 'Critical', value: result.critical_count, color: '#ef4444' },
+							{ label: 'Warning', value: result.warning_count, color: '#f59e0b' },
+						]}
+					/>
+				{/if}
 			</div>
 
 			<!-- Verdict -->

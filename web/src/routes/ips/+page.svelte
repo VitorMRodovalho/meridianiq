@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import { getProjects, reconcileIPS } from '$lib/api';
 	import type { ProjectListItem } from '$lib/types';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import BarChart from '$lib/components/charts/BarChart.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let loading = $state(true);
@@ -161,6 +163,29 @@
 					<p class="text-3xl font-bold text-yellow-600">{result.warning_issues}</p>
 					<p class="text-xs text-gray-500 mt-1">Warnings</p>
 				</div>
+			</div>
+
+			<!-- Alignment Charts -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+				<GaugeChart
+					value={result.overall_alignment_score}
+					title="Overall Alignment Score"
+					label={result.reconciliation_status === 'aligned' ? 'ALIGNED' : result.reconciliation_status === 'minor_discrepancies' ? 'MINOR ISSUES' : 'MAJOR ISSUES'}
+					size={200}
+				/>
+				{#if result.sub_results && result.sub_results.length > 1}
+					<BarChart
+						title="Sub-Schedule Alignment Comparison"
+						horizontal={true}
+						height={Math.max(160, result.sub_results.length * 36)}
+						data={result.sub_results.map((s: any) => ({
+							label: s.sub_name || 'Sub',
+							value: s.alignment_score,
+							color: s.alignment_score >= 85 ? '#10b981' : s.alignment_score >= 70 ? '#3b82f6' : s.alignment_score >= 50 ? '#f59e0b' : '#ef4444',
+						}))}
+						formatValue={(v) => v.toFixed(0)}
+					/>
+				{/if}
 			</div>
 
 			<!-- Status banner -->

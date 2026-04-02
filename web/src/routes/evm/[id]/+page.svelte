@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getEVMAnalysis } from '$lib/api';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import BarChart from '$lib/components/charts/BarChart.svelte';
 
 	let analysis: any = $state(null);
 	let loading = $state(true);
@@ -143,6 +145,36 @@
 					</div>
 				</div>
 			</div>
+		</div>
+
+		<!-- SPI/CPI Gauge Charts -->
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+			<GaugeChart
+				value={analysis.metrics.spi ?? 0}
+				min={0}
+				max={1.5}
+				title="Schedule Performance Index (SPI)"
+				label={analysis.metrics.spi >= 1.0 ? 'On/Ahead of Schedule' : 'Behind Schedule'}
+				size={180}
+				bands={[
+					{ threshold: 0.8, color: '#ef4444' },
+					{ threshold: 1.0, color: '#f59e0b' },
+					{ threshold: 1.5, color: '#10b981' },
+				]}
+			/>
+			<GaugeChart
+				value={analysis.metrics.cpi ?? 0}
+				min={0}
+				max={1.5}
+				title="Cost Performance Index (CPI)"
+				label={analysis.metrics.cpi >= 1.0 ? 'Under Budget' : 'Over Budget'}
+				size={180}
+				bands={[
+					{ threshold: 0.8, color: '#ef4444' },
+					{ threshold: 1.0, color: '#f59e0b' },
+					{ threshold: 1.5, color: '#10b981' },
+				]}
+			/>
 		</div>
 
 		<!-- S-Curve Chart -->

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getContractProvisions, contractCheck, getTIAAnalyses } from '$lib/api';
+	import PieChart from '$lib/components/charts/PieChart.svelte';
 	import type {
 		ContractProvisionsResponse,
 		ContractCheckResponse,
@@ -142,6 +143,19 @@
 						<p class="text-xs font-medium text-red-600 uppercase">Failures</p>
 						<p class="text-2xl font-bold text-red-600 mt-1">{checkResult.failures}</p>
 					</div>
+				</div>
+
+				<!-- Compliance Distribution Chart -->
+				<div class="mb-6">
+					<PieChart
+						title="Compliance Check Results"
+						size={170}
+						data={[
+							{ label: 'Pass', value: checkResult.total_checks - checkResult.warnings - checkResult.failures, color: '#10b981' },
+							{ label: 'Warning', value: checkResult.warnings, color: '#f59e0b' },
+							{ label: 'Fail', value: checkResult.failures, color: '#ef4444' },
+						]}
+					/>
 				</div>
 
 				{#if checkResult.checks.length > 0}
