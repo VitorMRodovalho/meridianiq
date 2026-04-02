@@ -2600,8 +2600,11 @@ def _generate_forensic_report(
     if baseline is None:
         raise HTTPException(status_code=404, detail="Baseline project not found")
 
-    analyzer = ForensicAnalyzer()
-    timeline = analyzer.create_timeline([baseline, schedule])
+    analyzer = ForensicAnalyzer(
+        schedules=[baseline, schedule],
+        project_ids=[request.baseline_id, request.project_id],
+    )
+    timeline = analyzer.analyze()
 
     return generator.generate_forensic_report(timeline)
 

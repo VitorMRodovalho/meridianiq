@@ -918,11 +918,18 @@ class ReportGenerator:
         if hasattr(timeline, "windows") and timeline.windows:
             rows = []
             for w in timeline.windows:
+                win = getattr(w, "window", None)
                 rows.append(
                     [
-                        str(w.window_number),
-                        _format_date(getattr(w, "start_date", None)),
-                        _format_date(getattr(w, "end_date", None)),
+                        str(win.window_number if win else ""),
+                        _format_date(
+                            getattr(win, "start_date", None) if win
+                            else getattr(w, "start_date", None)
+                        ),
+                        _format_date(
+                            getattr(win, "end_date", None) if win
+                            else getattr(w, "end_date", None)
+                        ),
                         f"{w.delay_days:.1f}",
                         f"{w.cumulative_delay:.1f}",
                         _esc(getattr(w, "driving_activity", "N/A")),
