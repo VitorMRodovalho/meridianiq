@@ -52,7 +52,7 @@ Bug tracking and feature backlog for MeridianIQ.
 | 3 | MCP Server — Claude integration via Model Context Protocol | Medium | AI/Developer | |
 | 4 | API keys — self-service generation for programmatic access | Medium | Researcher | |
 | 5 | JSON/CSV export — structured data for external analysis | Low | Researcher | ✅ Done |
-| 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst | |
+| 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst | ✅ Done |
 
 ### v2.0 "AI"
 
