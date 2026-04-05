@@ -23,6 +23,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - `analyze_half_step(include_zero_step=True)` with `concurrent_delay_indicator`
 - Frontend: risk scatter chart (ScatterChart) on delay prediction tab
 - 7 new zero-step tests (509 total)
+- Benchmark database — anonymized cross-project comparison with percentile ranking (`src/analytics/benchmarks.py`)
+- Supabase migration 013: `benchmark_projects` + `benchmark_metrics` tables with public-read RLS
+- `POST /api/v1/benchmarks/contribute`, `GET /benchmarks/compare/{id}`, `GET /benchmarks/summary` endpoints
+- MCP Server: 12th tool `extract_benchmarks`
+- 18 new benchmark tests (527 total)
 
 ## [2.0.0] — 2026-04-02 — AI
 
