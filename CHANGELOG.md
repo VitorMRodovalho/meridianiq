@@ -28,6 +28,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - `POST /api/v1/benchmarks/contribute`, `GET /benchmarks/compare/{id}`, `GET /benchmarks/summary` endpoints
 - MCP Server: 12th tool `extract_benchmarks`
 - 18 new benchmark tests (527 total)
+- SECURITY DEFINER RPCs: `delete_user_data`, `set_project_sandbox`, `contribute_benchmark`
+- GDPR data deletion endpoint: `DELETE /api/v1/user/data` (cascade delete all user data)
+- Programs table RLS policies (was missing — critical security gap fixed)
+- Reports table RLS policies added
+- Supabase migration 014: security RPCs + RLS fixes
 
 ## [2.0.0] — 2026-04-02 — AI
 
