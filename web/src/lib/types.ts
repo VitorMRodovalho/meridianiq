@@ -275,6 +275,27 @@ export interface WindowSchema {
 	cp_activities_left: string[];
 	driving_activity: string;
 	comparison_summary: Record<string, unknown>;
+	progress_delay_days: number | null;
+	revision_delay_days: number | null;
+	half_step_summary: Record<string, unknown> | null;
+}
+
+export interface HalfStepResponse {
+	completion_a_days: number;
+	completion_half_step_days: number;
+	completion_b_days: number;
+	progress_effect_days: number;
+	revision_effect_days: number;
+	total_delay_days: number;
+	progress_direction: string;
+	revision_direction: string;
+	invariant_holds: boolean;
+	activities_updated: number;
+	critical_path_a: string[];
+	critical_path_half_step: string[];
+	critical_path_b: string[];
+	classification_summary: Record<string, number>;
+	summary: Record<string, unknown>;
 }
 
 export interface TimelineSummarySchema {

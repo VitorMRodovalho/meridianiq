@@ -36,6 +36,13 @@
 		expandedWindow = expandedWindow === num ? null : num;
 	}
 
+	// Check if timeline has bifurcated (half-step) data
+	function checkBifurcation(tl: TimelineDetailSchema | null): boolean {
+		if (!tl) return false;
+		return tl.windows.some((w) => w.progress_delay_days !== null);
+	}
+	const hasBifurcation = $derived(checkBifurcation(timeline));
+
 	// Waterfall chart dimensions
 	const chartWidth = 700;
 	const chartHeight = 200;
@@ -64,6 +71,56 @@
 				color: isDelay ? '#ef4444' : w.delay_days < 0 ? '#22c55e' : '#9ca3af',
 				label: w.window_id,
 				days: w.delay_days
+			};
+		});
+	}
+
+	interface BifurcationBar {
+		x: number;
+		progressY: number;
+		progressH: number;
+		revisionY: number;
+		revisionH: number;
+		width: number;
+		label: string;
+		progressDays: number;
+		revisionDays: number;
+	}
+
+	function getBifurcationBars(windows: WindowSchema[]): BifurcationBar[] {
+		const bifWindows = windows.filter((w) => w.progress_delay_days !== null);
+		if (!bifWindows.length) return [];
+		const maxAbs = Math.max(
+			...bifWindows.map((w) =>
+				Math.max(Math.abs(w.progress_delay_days ?? 0), Math.abs(w.revision_delay_days ?? 0))
+			),
+			1
+		);
+		const barWidth = Math.max(
+			30,
+			(chartWidth - barPadding * (bifWindows.length + 1)) / bifWindows.length
+		);
+		const midY = chartHeight / 2;
+		const scale = (chartHeight / 2 - 20) / maxAbs;
+		const halfBar = barWidth / 2 - 1;
+
+		return bifWindows.map((w, i) => {
+			const pDays = w.progress_delay_days ?? 0;
+			const rDays = w.revision_delay_days ?? 0;
+			const pH = Math.abs(pDays) * scale;
+			const rH = Math.abs(rDays) * scale;
+			const baseX = barPadding + i * (barWidth + barPadding);
+
+			return {
+				x: baseX,
+				progressY: pDays > 0 ? midY - pH : midY,
+				progressH: Math.max(pH, 1),
+				revisionY: rDays > 0 ? midY - rH : midY,
+				revisionH: Math.max(rH, 1),
+				width: halfBar,
+				label: w.window_id,
+				progressDays: pDays,
+				revisionDays: rDays
 			};
 		});
 	}
@@ -202,6 +259,119 @@
 			</div>
 		{/if}
 
+		<!-- Bifurcation Chart (MIP 3.4) -->
+		{#if hasBifurcation && timeline.windows.length > 0}
+			{@const bifBars = getBifurcationBars(timeline.windows)}
+			<div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+				<h2 class="text-lg font-semibold text-gray-900 mb-1">Half-Step Bifurcation</h2>
+				<p class="text-xs text-gray-500 mb-4">
+					AACE RP 29R-03 MIP 3.4 — Progress effect vs revision effect per window
+				</p>
+				<div class="flex items-center gap-4 text-xs text-gray-600 mb-3">
+					<span class="flex items-center gap-1">
+						<span class="inline-block w-3 h-3 rounded" style="background:#3b82f6"></span>
+						Progress
+					</span>
+					<span class="flex items-center gap-1">
+						<span class="inline-block w-3 h-3 rounded" style="background:#f59e0b"></span>
+						Revision
+					</span>
+				</div>
+				<div class="overflow-x-auto">
+					<svg
+						viewBox="0 0 {chartWidth} {chartHeight + 40}"
+						class="w-full max-w-3xl"
+						preserveAspectRatio="xMidYMid meet"
+					>
+						<line
+							x1="0"
+							y1={chartHeight / 2}
+							x2={chartWidth}
+							y2={chartHeight / 2}
+							stroke="#d1d5db"
+							stroke-width="1"
+							stroke-dasharray="4 4"
+						/>
+						<text x="2" y="14" fill="#9ca3af" font-size="11">Delay</text>
+						<text x="2" y={chartHeight - 4} fill="#9ca3af" font-size="11">Acceleration</text>
+						{#each bifBars as bar}
+							<!-- Progress bar (left) -->
+							<rect
+								x={bar.x}
+								y={bar.progressY}
+								width={bar.width}
+								height={bar.progressH}
+								fill="#3b82f6"
+								rx="2"
+								opacity="0.85"
+							/>
+							<!-- Revision bar (right) -->
+							<rect
+								x={bar.x + bar.width + 2}
+								y={bar.revisionY}
+								width={bar.width}
+								height={bar.revisionH}
+								fill="#f59e0b"
+								rx="2"
+								opacity="0.85"
+							/>
+							<!-- Progress label -->
+							<text
+								x={bar.x + bar.width / 2}
+								y={bar.progressDays >= 0 ? bar.progressY - 3 : bar.progressY + bar.progressH + 10}
+								text-anchor="middle"
+								font-size="9"
+								fill="#3b82f6"
+							>
+								{bar.progressDays > 0 ? '+' : ''}{bar.progressDays.toFixed(1)}
+							</text>
+							<!-- Revision label -->
+							<text
+								x={bar.x + bar.width + 2 + bar.width / 2}
+								y={bar.revisionDays >= 0 ? bar.revisionY - 3 : bar.revisionY + bar.revisionH + 10}
+								text-anchor="middle"
+								font-size="9"
+								fill="#f59e0b"
+							>
+								{bar.revisionDays > 0 ? '+' : ''}{bar.revisionDays.toFixed(1)}
+							</text>
+							<!-- Window label -->
+							<text
+								x={bar.x + bar.width + 1}
+								y={chartHeight + 24}
+								text-anchor="middle"
+								font-size="10"
+								fill="#6b7280"
+							>
+								{bar.label}
+							</text>
+						{/each}
+					</svg>
+				</div>
+				<!-- Bifurcation summary -->
+				{#if timeline.summary?.bifurcated}
+					<div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+						<div class="text-center">
+							<p class="text-xs text-gray-500">Total Progress Effect</p>
+							<p class="text-lg font-bold text-blue-600">
+								{Number(timeline.summary.total_progress_delay_days ?? 0) > 0 ? '+' : ''}{Number(timeline.summary.total_progress_delay_days ?? 0).toFixed(1)}d
+							</p>
+						</div>
+						<div class="text-center">
+							<p class="text-xs text-gray-500">Total Revision Effect</p>
+							<p class="text-lg font-bold text-amber-600">
+								{Number(timeline.summary.total_revision_delay_days ?? 0) > 0 ? '+' : ''}{Number(timeline.summary.total_revision_delay_days ?? 0).toFixed(1)}d
+							</p>
+						</div>
+						<div class="text-center">
+							<p class="text-xs text-gray-500">Methodology</p>
+							<p class="text-xs font-medium text-gray-700">MIP 3.4</p>
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Window Table -->
 		<div class="bg-white border border-gray-200 rounded-lg">
 			<div class="px-6 py-4 border-b border-gray-200">
@@ -226,6 +396,14 @@
 							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
 								>Delay</th
 							>
+							{#if hasBifurcation}
+								<th class="px-4 py-3 text-right text-xs font-medium text-blue-500 uppercase"
+									>Progress</th
+								>
+								<th class="px-4 py-3 text-right text-xs font-medium text-amber-500 uppercase"
+									>Revision</th
+								>
+							{/if}
 							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
 								>Cumulative</th
 							>
@@ -259,6 +437,22 @@
 								>
 									{w.delay_days > 0 ? '+' : ''}{w.delay_days.toFixed(0)}d
 								</td>
+								{#if hasBifurcation}
+									<td class="px-4 py-3 text-right text-sm text-blue-600">
+										{#if w.progress_delay_days !== null}
+											{w.progress_delay_days > 0 ? '+' : ''}{w.progress_delay_days.toFixed(1)}d
+										{:else}
+											-
+										{/if}
+									</td>
+									<td class="px-4 py-3 text-right text-sm text-amber-600">
+										{#if w.revision_delay_days !== null}
+											{w.revision_delay_days > 0 ? '+' : ''}{w.revision_delay_days.toFixed(1)}d
+										{:else}
+											-
+										{/if}
+									</td>
+								{/if}
 								<td
 									class="px-4 py-3 text-right font-medium {w.cumulative_delay > 0
 										? 'text-red-600'
@@ -272,7 +466,7 @@
 							</tr>
 							{#if expandedWindow === w.window_number}
 								<tr>
-									<td colspan="7" class="px-6 py-4 bg-gray-50">
+									<td colspan={hasBifurcation ? 9 : 7} class="px-6 py-4 bg-gray-50">
 										<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 											<div>
 												<h4 class="font-medium text-gray-900 mb-2">

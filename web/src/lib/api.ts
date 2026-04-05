@@ -19,7 +19,8 @@ import type {
 	FloatTrendResponse,
 	AlertsResponse,
 	DashboardKPIs,
-	ProgramTrends
+	ProgramTrends,
+	HalfStepResponse
 } from './types';
 
 import { supabase } from './supabase';
@@ -195,6 +196,17 @@ export async function getTimeline(id: string): Promise<TimelineDetailSchema> {
 
 export async function getDelayTrend(id: string): Promise<DelayTrendResponse> {
 	return request<DelayTrendResponse>(`/api/v1/forensic/timelines/${id}/delay-trend`);
+}
+
+export async function runHalfStep(
+	baselineId: string,
+	updateId: string
+): Promise<HalfStepResponse> {
+	return request<HalfStepResponse>('/api/v1/forensic/half-step', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ baseline_id: baselineId, update_id: updateId })
+	});
 }
 
 // ── TIA (Time Impact Analysis) ─────────────────────────
