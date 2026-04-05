@@ -24,6 +24,7 @@ test.describe('Public pages load without errors', () => {
     ['/builder', 'Schedule Builder'],
     ['/visualization', '4D Visualization'],
     ['/risk-register', 'Risk Register'],
+    ['/lookahead', 'Look-Ahead Schedule'],
   ];
 
   for (const [route, expectedText] of routes) {

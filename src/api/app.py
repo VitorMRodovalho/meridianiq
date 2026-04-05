@@ -2874,6 +2874,32 @@ async def build_schedule_endpoint(
     return result.summary
 
 
+@app.get("/api/v1/projects/{project_id}/lookahead")
+def get_lookahead(
+    project_id: str,
+    weeks: int = 2,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Get look-ahead schedule for the next N weeks.
+
+    Filters activities starting, finishing, or active within the window.
+
+    References:
+        PMI Practice Standard for Scheduling, Lean Construction LPS.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from dataclasses import asdict
+
+    from src.analytics.lookahead import generate_lookahead
+
+    result = generate_lookahead(schedule, weeks=weeks)
+    return asdict(result)
+
+
 @app.get("/api/v1/projects/{project_id}/risk-register")
 def get_risk_register_summary(
     project_id: str,
