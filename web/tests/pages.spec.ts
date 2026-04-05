@@ -7,7 +7,7 @@ test.describe('Public pages load without errors', () => {
     ['/upload', 'Upload XER File'],
     ['/compare', 'Compare'],
     ['/forensic', 'Forensic'],
-    ['/tia', 'TIA'],
+    ['/tia', 'Time Impact Analysis'],
     ['/contract', 'Contract Compliance'],
     ['/evm', 'EVM'],
     ['/risk', 'Risk'],
