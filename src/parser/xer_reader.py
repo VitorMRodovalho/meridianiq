@@ -217,7 +217,7 @@ class XERReader:
                 self._encoding = encoding
                 logger.debug("Read %s with encoding %s", self.file_path, encoding)
                 return lines
-            except UnicodeDecodeError, UnicodeError:
+            except (UnicodeDecodeError, UnicodeError):
                 continue
 
         # Last resort: replace bad characters

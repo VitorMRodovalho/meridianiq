@@ -2874,6 +2874,24 @@ async def build_schedule_endpoint(
     return result.summary
 
 
+@app.get("/api/v1/projects/{project_id}/risk-register")
+def get_risk_register_summary(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Get risk register summary for a project.
+
+    References:
+        AACE RP 57R-09, PMI Risk Management, ISO 31000.
+    """
+    from dataclasses import asdict
+
+    from src.analytics.risk_register import summarize_register
+
+    result = summarize_register([])
+    return asdict(result)
+
+
 @app.get("/api/v1/projects/{project_id}/export/xer")
 def export_xer(
     project_id: str,
