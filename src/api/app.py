@@ -156,6 +156,9 @@ from .schemas import (
     # What-If schemas
     ActivityImpactSchema,
     DurationPredictionResponse,
+    ParetoPointSchema,
+    ParetoRequest,
+    ParetoResponse,
     ScorecardDimensionSchema,
     ScorecardResponse,
     WhatIfRequest,
@@ -2657,6 +2660,69 @@ def run_what_if(
         distribution=result.distribution,
         p_values=result.p_values,
         std_days=result.std_days,
+        methodology=result.methodology,
+        summary=result.summary,
+    )
+
+
+@app.post("/api/v1/projects/{project_id}/pareto")
+def run_pareto_analysis(
+    project_id: str,
+    request: ParetoRequest,
+    _user: object = Depends(optional_auth),
+) -> ParetoResponse:
+    """Run time-cost Pareto analysis across multiple scenarios.
+
+    Identifies the Pareto-optimal frontier of non-dominated solutions
+    on the time-vs-cost plane.
+
+    References:
+        AACE RP 36R-06, Kelley & Walker (1959).
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.pareto import CostScenario, analyze_pareto
+    from src.analytics.whatif import DurationAdjustment
+
+    scenarios = [
+        CostScenario(
+            name=cs.name,
+            adjustments=[
+                DurationAdjustment(
+                    target=a.target,
+                    pct_change=a.pct_change,
+                    min_pct=a.min_pct,
+                    max_pct=a.max_pct,
+                )
+                for a in cs.adjustments
+            ],
+            cost_delta=cs.cost_delta,
+        )
+        for cs in request.scenarios
+    ]
+
+    result = analyze_pareto(schedule, scenarios, base_cost=request.base_cost)
+
+    def _map_point(p):  # noqa: ANN001, ANN202
+        return ParetoPointSchema(
+            scenario_name=p.scenario_name,
+            duration_days=p.duration_days,
+            total_cost=p.total_cost,
+            is_pareto_optimal=p.is_pareto_optimal,
+            delta_days=p.delta_days,
+            delta_cost=p.delta_cost,
+        )
+
+    return ParetoResponse(
+        base_duration_days=result.base_duration_days,
+        base_cost=result.base_cost,
+        all_points=[_map_point(p) for p in result.all_points],
+        frontier=[_map_point(p) for p in result.frontier],
+        scenarios_evaluated=result.scenarios_evaluated,
+        frontier_size=result.frontier_size,
         methodology=result.methodology,
         summary=result.summary,
     )

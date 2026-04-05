@@ -3,6 +3,28 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.2.0] — 2026-04-05 — Scenario Intelligence
+
+### Added
+- What-if simulator — deterministic + probabilistic scenario analysis with CPM re-runs (`src/analytics/whatif.py`)
+- `POST /api/v1/projects/{id}/what-if` endpoint with % adjustments, WBS targeting, P-values
+- Time-cost Pareto analysis — multi-scenario trade-off frontier identification (`src/analytics/pareto.py`)
+- `POST /api/v1/projects/{id}/pareto` endpoint with Pareto-optimal frontier computation
+- Schedule scorecard — 5-dimension weighted letter grades A-F (`src/analytics/scorecard.py`)
+- `GET /api/v1/projects/{id}/scorecard` endpoint aggregating DCMA, health, risk, logic, completeness
+- ML duration prediction — RF+GB trained on benchmark database for project duration forecasting (`src/analytics/duration_prediction.py`)
+- `GET /api/v1/projects/{id}/duration-prediction` endpoint with confidence intervals
+- MCP Server: 13th tool `run_what_if`, 14th tool `get_scorecard`
+- 66 new tests (613 total)
+
+### Stats
+- **19 analysis engines**, 14 MCP tools, **613 tests**
+
+### References
+- AACE RP 57R-09 (scenario analysis), AACE RP 36R-06 (cost classification)
+- PMI PMBOK 7 S4.6, Kelley & Walker (1959), AbdElMottaleb (2025)
+- GAO Schedule Assessment Guide, DCMA 14-Point Assessment
+
 ## [2.1.0] — 2026-04-05 — Prediction & Benchmarks
 
 ### Added

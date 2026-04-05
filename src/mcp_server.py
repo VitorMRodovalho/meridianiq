@@ -425,6 +425,79 @@ def run_half_step(baseline_id: str, update_id: str) -> str:
     return json.dumps(_serialize(result))
 
 
+@mcp.tool()
+def run_what_if(
+    project_id: str,
+    adjustments: str = "",
+    iterations: int = 1,
+) -> str:
+    """Run a what-if scenario on a schedule.
+
+    Applies percentage-based duration adjustments and re-runs CPM to show
+    impact on project duration and critical path.  Supports deterministic
+    (iterations=1) and probabilistic (iterations>1) modes.
+
+    Args:
+        project_id: The project identifier.
+        adjustments: JSON array of adjustments, e.g.
+            '[{"target": "B", "pct_change": 0.20}]' or
+            '[{"target": "*", "min_pct": -0.10, "max_pct": 0.30}]'.
+        iterations: Number of iterations (1=deterministic, >1=probabilistic).
+
+    Returns:
+        JSON with base/adjusted duration, delta, P-values (if probabilistic),
+        and per-activity impacts.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.analytics.whatif import DurationAdjustment, WhatIfScenario, simulate_whatif
+
+    adj_list = []
+    if adjustments:
+        raw = json.loads(adjustments)
+        for a in raw:
+            adj_list.append(
+                DurationAdjustment(
+                    target=a.get("target", "*"),
+                    pct_change=a.get("pct_change", 0.0),
+                    min_pct=a.get("min_pct"),
+                    max_pct=a.get("max_pct"),
+                )
+            )
+
+    scenario = WhatIfScenario(name="MCP Scenario", adjustments=adj_list, iterations=iterations)
+    result = simulate_whatif(schedule, scenario)
+    return json.dumps(_serialize(result))
+
+
+@mcp.tool()
+def get_scorecard(project_id: str) -> str:
+    """Get a comprehensive schedule scorecard with letter grades.
+
+    Aggregates DCMA 14-Point, Health Score, Risk Assessment, Logic
+    Integrity, and Data Completeness into a weighted overall grade (A-F).
+
+    Args:
+        project_id: The project identifier.
+
+    Returns:
+        JSON with overall_grade, overall_score, dimension scores/grades,
+        and actionable recommendations.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.analytics.scorecard import calculate_scorecard
+
+    result = calculate_scorecard(schedule)
+    return json.dumps(_serialize(result))
+
+
 # ── Entry point ──
 
 if __name__ == "__main__":

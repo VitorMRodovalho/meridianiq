@@ -1080,6 +1080,48 @@ class ScorecardResponse(BaseModel):
     summary: dict[str, Any] = Field(default_factory=dict)
 
 
+# ── Time-Cost Pareto ───────────────────────────────────
+
+
+class CostScenarioSchema(BaseModel):
+    """A what-if scenario with cost impact."""
+
+    name: str = ""
+    adjustments: list[DurationAdjustmentSchema] = Field(default_factory=list)
+    cost_delta: float = 0.0
+
+
+class ParetoRequest(BaseModel):
+    """Request for POST /api/v1/projects/{id}/pareto."""
+
+    scenarios: list[CostScenarioSchema] = Field(default_factory=list)
+    base_cost: float = 0.0
+
+
+class ParetoPointSchema(BaseModel):
+    """A point on the time-cost plane."""
+
+    scenario_name: str = ""
+    duration_days: float = 0.0
+    total_cost: float = 0.0
+    is_pareto_optimal: bool = False
+    delta_days: float = 0.0
+    delta_cost: float = 0.0
+
+
+class ParetoResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/pareto."""
+
+    base_duration_days: float = 0.0
+    base_cost: float = 0.0
+    all_points: list[ParetoPointSchema] = Field(default_factory=list)
+    frontier: list[ParetoPointSchema] = Field(default_factory=list)
+    scenarios_evaluated: int = 0
+    frontier_size: int = 0
+    methodology: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
 class WhatIfResponse(BaseModel):
     """Response for POST /api/v1/projects/{id}/what-if."""
 
