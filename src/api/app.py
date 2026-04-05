@@ -2804,6 +2804,76 @@ def run_pareto_analysis(
     )
 
 
+@app.get("/api/v1/projects/{project_id}/visualization")
+def get_visualization(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Get 4D visualization data (WBS spatial x CPM temporal).
+
+    Returns activities positioned by WBS group and CPM dates with
+    color coding by status, float level, or critical path.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from dataclasses import asdict
+
+    from src.analytics.visualization import build_visualization
+
+    result = build_visualization(schedule)
+    return asdict(result)
+
+
+@app.post("/api/v1/schedule/generate")
+def generate_schedule_endpoint(
+    request: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Generate a complete schedule from project parameters.
+
+    Accepts project_type, size_category, project_name, and target_duration_days.
+    Returns generated activities, relationships, and predicted duration.
+    """
+    from dataclasses import asdict
+
+    from src.analytics.schedule_generation import GenerationInput, generate_schedule
+
+    params = GenerationInput(
+        project_type=request.get("project_type", "commercial"),
+        project_name=request.get("project_name", "Generated Project"),
+        target_duration_days=request.get("target_duration_days", 0),
+        size_category=request.get("size_category", "medium"),
+        complexity_factor=request.get("complexity_factor", 1.0),
+    )
+    result = generate_schedule(params)
+    # Exclude parsed_schedule from response (too large)
+    data = asdict(result)
+    data.pop("parsed_schedule", None)
+    return data
+
+
+@app.post("/api/v1/schedule/build")
+async def build_schedule_endpoint(
+    request: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Build a schedule from natural language description.
+
+    Uses Claude API to extract parameters, falls back to keyword matching.
+    """
+    from src.analytics.schedule_builder import _fallback_build
+
+    description = request.get("description", "")
+    if not description:
+        raise HTTPException(status_code=400, detail="Description required")
+
+    result = _fallback_build(description)
+    return result.summary
+
+
 @app.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
     project_id: str,
