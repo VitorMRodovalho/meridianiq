@@ -18,6 +18,11 @@ test.describe('Public pages load without errors', () => {
     ['/ips', 'IPS Reconciliation'],
     ['/recovery', 'Recovery Schedule Validation'],
     ['/milestones', 'Value Milestones'],
+    ['/scorecard', 'Schedule Scorecard'],
+    ['/whatif', 'What-If Simulator'],
+    ['/resources', 'Resource Leveling'],
+    ['/builder', 'Schedule Builder'],
+    ['/visualization', '4D Visualization'],
   ];
 
   for (const [route, expectedText] of routes) {
