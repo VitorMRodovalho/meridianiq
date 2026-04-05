@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import HeatMapChart from '$lib/components/charts/HeatMapChart.svelte';
 
 	interface RiskEntry {
 		risk_id: string;
@@ -104,6 +105,29 @@
 			<p class="text-2xl font-bold text-red-600">${expectedCost.toLocaleString()}</p>
 		</div>
 	</div>
+
+	<!-- Heat Map -->
+	{#if risks.length > 0}
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+			<HeatMapChart
+				items={risks.filter(r => r.status === 'open').map(r => ({
+					x: r.impact_days,
+					y: r.probability,
+					label: r.name,
+				}))}
+				title="Risk Heat Map (Open Risks)"
+			/>
+			<div class="bg-white rounded-lg border border-gray-200 p-4">
+				<p class="text-sm font-semibold text-gray-700 mb-3">Risk by Category</p>
+				{#each Object.entries(risks.reduce((acc, r) => { acc[r.category] = (acc[r.category] || 0) + 1; return acc; }, {} as Record<string, number>)) as [cat, count]}
+					<div class="flex justify-between items-center py-1.5 border-b border-gray-100">
+						<span class="text-sm text-gray-600 capitalize">{cat}</span>
+						<span class="text-sm font-semibold text-gray-900">{count}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Add Risk Form -->
 	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
