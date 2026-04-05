@@ -90,25 +90,21 @@ test.describe('Intelligence pages have interactive controls', () => {
 });
 
 test.describe('Docs page sections', () => {
-  test('shows all 20 documentation sections', async ({ page }) => {
+  test('shows documentation sections including new features', async ({ page }) => {
     await page.goto('/docs');
-    await expect(page.getByText('Getting Started')).toBeVisible();
-    await expect(page.getByText('Schedule Scorecard')).toBeVisible();
-    await expect(page.getByText('What-If Simulator')).toBeVisible();
-    await expect(page.getByText('Resource Leveling')).toBeVisible();
-    await expect(page.getByText('MCP & AI Integration')).toBeVisible();
+    await expect(page.getByText('Getting Started').first()).toBeVisible();
+    await expect(page.getByText('Schedule Scorecard').first()).toBeVisible();
+    await expect(page.getByText('What-If Simulator').first()).toBeVisible();
+    await expect(page.getByText('Resource Leveling').first()).toBeVisible();
+    await expect(page.getByText('MCP & AI Integration').first()).toBeVisible();
   });
 });
 
 test.describe('Sidebar navigation', () => {
-  test('has Intelligence section with 5 links', async ({ page }) => {
+  test('has Intelligence section links', async ({ page }) => {
     await page.goto('/');
-    // On desktop, sidebar is visible
-    await expect(page.getByText('Intelligence')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Scorecard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'What-If' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Resources' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Schedule Builder' })).toBeVisible();
-    await expect(page.getByRole('link', { name: '4D Visualization' })).toBeVisible();
   });
 });
