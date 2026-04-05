@@ -19,6 +19,7 @@ from src.analytics.half_step import (
     analyze_half_step,
     classify_changes,
     create_half_step_schedule,
+    create_zero_step_schedule,
 )
 from src.parser.models import (
     Calendar,
@@ -636,6 +637,73 @@ class TestWithRealXERFiles:
 # ===========================================================================
 # Tests: Edge Cases
 # ===========================================================================
+
+
+# ===========================================================================
+# Tests: Zero-Step Analysis (Ron Winter Extension)
+# ===========================================================================
+
+
+class TestZeroStepAnalysis:
+    """Verify the zero-step (backward half-step) analysis."""
+
+    def test_zero_step_schedule_keeps_b_logic(
+        self, schedule_a: ParsedSchedule, schedule_b_revision: ParsedSchedule
+    ) -> None:
+        """Zero-step should keep B's relationships (revisions)."""
+        zs, _ = create_zero_step_schedule(schedule_a, schedule_b_revision)
+        # B has 4 relationships (1 added), A has 3
+        assert len(zs.relationships) == len(schedule_b_revision.relationships)
+
+    def test_zero_step_reverts_progress(
+        self, schedule_a: ParsedSchedule, schedule_b_progress: ParsedSchedule
+    ) -> None:
+        """Zero-step should revert progress fields to A's state."""
+        zs, count = create_zero_step_schedule(schedule_a, schedule_b_progress)
+        assert count > 0
+        zs_tasks = {t.task_code: t for t in zs.activities}
+        # Task B was complete in B, should be reverted to active (A's state)
+        assert zs_tasks["B"].status_code == "TK_Active"
+        assert zs_tasks["B"].phys_complete_pct == 50.0
+
+    def test_analyze_with_zero_step(
+        self, schedule_a: ParsedSchedule, schedule_b_mixed: ParsedSchedule
+    ) -> None:
+        """analyze_half_step with include_zero_step should populate zero-step fields."""
+        result = analyze_half_step(schedule_a, schedule_b_mixed, include_zero_step=True)
+        assert result.completion_zero_step is not None
+        assert result.progress_effect_backward is not None
+        assert result.revision_effect_backward is not None
+        assert result.concurrent_delay_indicator is not None
+
+    def test_zero_step_in_summary(
+        self, schedule_a: ParsedSchedule, schedule_b_mixed: ParsedSchedule
+    ) -> None:
+        """Summary should indicate zero-step was performed."""
+        result = analyze_half_step(schedule_a, schedule_b_mixed, include_zero_step=True)
+        assert result.summary["has_zero_step"] is True
+        assert result.summary["completion_zero_step_days"] is not None
+
+    def test_without_zero_step_fields_are_none(
+        self, schedule_a: ParsedSchedule, schedule_b_mixed: ParsedSchedule
+    ) -> None:
+        """Without include_zero_step, zero-step fields should be None."""
+        result = analyze_half_step(schedule_a, schedule_b_mixed, include_zero_step=False)
+        assert result.completion_zero_step is None
+        assert result.concurrent_delay_indicator is None
+
+    def test_identical_schedules_zero_concurrent(self, schedule_a: ParsedSchedule) -> None:
+        """Identical schedules should have zero concurrent delay indicator."""
+        b = copy.deepcopy(schedule_a)
+        result = analyze_half_step(schedule_a, b, include_zero_step=True)
+        assert result.concurrent_delay_indicator is not None
+        assert result.concurrent_delay_indicator < 0.1
+
+    def test_zero_step_real_xer(self, baseline: ParsedSchedule, update1: ParsedSchedule) -> None:
+        """Zero-step should work with real XER data."""
+        result = analyze_half_step(baseline, update1, include_zero_step=True)
+        assert result.completion_zero_step is not None
+        assert result.invariant_check is True
 
 
 class TestEdgeCases:

@@ -5,6 +5,7 @@
 	import PieChart from '$lib/components/charts/PieChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -928,6 +929,23 @@
 							formatValue={(v) => v.toFixed(0)}
 						/>
 					</div>
+				</div>
+
+				<!-- Risk vs Float Scatter -->
+				<div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+					<ScatterChart
+						title="Risk Score vs Total Float"
+						xLabel="Total Float (days)"
+						yLabel="Risk Score"
+						height={260}
+						data={predictionData.activity_risks.map(r => ({
+							x: r.float_risk,
+							y: r.risk_score,
+							label: `${r.task_code}: ${r.task_name}`,
+							color: r.risk_level === 'critical' ? '#ef4444' : r.risk_level === 'high' ? '#f97316' : r.risk_level === 'medium' ? '#eab308' : '#22c55e',
+							size: r.is_critical_path ? 8 : 5
+						}))}
+					/>
 				</div>
 
 				<!-- Activity Risk Table -->

@@ -104,6 +104,12 @@ class HalfStepResult:
     activities_updated: int = 0  # activities with progress transferred
     invariant_check: bool = False  # True if progress + revision == total
 
+    # Zero-Step (Ron Winter extension) — optional
+    completion_zero_step: float | None = None  # Backward half-step duration
+    progress_effect_backward: float | None = None  # B→zero_step vs B
+    revision_effect_backward: float | None = None  # zero_step vs A
+    concurrent_delay_indicator: float | None = None  # Divergence between forward/backward
+
     summary: dict[str, Any] = field(default_factory=dict)
 
 
@@ -610,6 +616,7 @@ def _is_remaining_duration_progress(task_a: Task, task_b: Task) -> bool:
 def analyze_half_step(
     schedule_a: ParsedSchedule,
     schedule_b: ParsedSchedule,
+    include_zero_step: bool = False,
 ) -> HalfStepResult:
     """Run a complete half-step (bifurcation) analysis.
 
@@ -620,9 +627,13 @@ def analyze_half_step(
     4. Calculate progress_effect and revision_effect
     5. Verify invariant: progress_effect + revision_effect == total_delay
 
+    Optionally includes zero-step analysis (Ron Winter PS-1197) which
+    runs the bifurcation in reverse to detect concurrent delays.
+
     Args:
         schedule_a: The earlier (baseline) schedule.
         schedule_b: The later (update) schedule.
+        include_zero_step: If True, also run backward half-step analysis.
 
     Returns:
         A ``HalfStepResult`` with separated delay effects.
@@ -668,6 +679,13 @@ def analyze_half_step(
             expected,
             result.total_delay,
         )
+
+    # Step 6 (optional): Zero-step analysis
+    if include_zero_step:
+        try:
+            _enrich_with_zero_step(result, schedule_a, schedule_b)
+        except Exception:
+            logger.warning("Zero-step analysis failed")
 
     # Build summary
     result.summary = _build_summary(result)
@@ -726,7 +744,120 @@ def _build_summary(result: HalfStepResult) -> dict[str, Any]:
         "cp_stability_hs_to_b": _cp_stability(
             result.critical_path_half_step, result.critical_path_b
         ),
+        "has_zero_step": result.completion_zero_step is not None,
+        "completion_zero_step_days": result.completion_zero_step,
+        "progress_effect_backward_days": result.progress_effect_backward,
+        "revision_effect_backward_days": result.revision_effect_backward,
+        "concurrent_delay_indicator": result.concurrent_delay_indicator,
     }
+
+
+def create_zero_step_schedule(
+    schedule_a: ParsedSchedule,
+    schedule_b: ParsedSchedule,
+) -> tuple[ParsedSchedule, int]:
+    """Create a zero-step (backward half-step) schedule.
+
+    Per Ron Winter PS-1197, the zero-step schedule is built by cloning
+    Schedule B and **removing** all progress (reverting actuals to
+    Schedule A's state) while **keeping** all logic/plan revisions from B.
+
+    This is the inverse of ``create_half_step_schedule``: half-step
+    applies B's progress to A's logic; zero-step applies A's progress
+    to B's logic.
+
+    Args:
+        schedule_a: The earlier (baseline) schedule.
+        schedule_b: The later (update) schedule.
+
+    Returns:
+        Tuple of (zero-step ParsedSchedule, count of activities reverted).
+    """
+    # Deep copy Schedule B as base (keeps B's logic/relationships)
+    zero_step = copy.deepcopy(schedule_b)
+
+    # Build lookup for Schedule A activities (for progress data)
+    a_by_id: dict[str, Task] = {t.task_id: t for t in schedule_a.activities}
+    a_by_code: dict[str, Task] = {t.task_code: t for t in schedule_a.activities if t.task_code}
+
+    # Revert data date to Schedule A's
+    if zero_step.projects and schedule_a.projects:
+        a_proj = schedule_a.projects[0]
+        zero_step.projects[0].last_recalc_date = a_proj.last_recalc_date
+        zero_step.projects[0].sum_data_date = a_proj.sum_data_date
+
+    reverted_count = 0
+
+    for task_zs in zero_step.activities:
+        # Find matching task in Schedule A
+        task_a = a_by_id.get(task_zs.task_id)
+        if task_a is None:
+            task_a = a_by_code.get(task_zs.task_code) if task_zs.task_code else None
+        if task_a is None:
+            continue  # Activity only in B — keep B's version
+
+        # Revert progress fields to A's state
+        reverted = False
+
+        if task_zs.status_code != task_a.status_code:
+            task_zs.status_code = task_a.status_code
+            reverted = True
+
+        if task_zs.act_start_date != task_a.act_start_date:
+            task_zs.act_start_date = task_a.act_start_date
+            reverted = True
+
+        if task_zs.act_end_date != task_a.act_end_date:
+            task_zs.act_end_date = task_a.act_end_date
+            reverted = True
+
+        if abs(task_zs.phys_complete_pct - task_a.phys_complete_pct) > 0.01:
+            task_zs.phys_complete_pct = task_a.phys_complete_pct
+            reverted = True
+
+        # Revert remaining duration if it was a progress change
+        if _is_remaining_duration_progress(task_a, task_zs):
+            if abs(task_zs.remain_drtn_hr_cnt - task_a.remain_drtn_hr_cnt) > 0.01:
+                task_zs.remain_drtn_hr_cnt = task_a.remain_drtn_hr_cnt
+                reverted = True
+
+        if reverted:
+            reverted_count += 1
+
+    return zero_step, reverted_count
+
+
+def _enrich_with_zero_step(
+    result: HalfStepResult,
+    schedule_a: ParsedSchedule,
+    schedule_b: ParsedSchedule,
+) -> None:
+    """Add zero-step analysis to an existing HalfStepResult.
+
+    The zero-step approach (Ron Winter PS-1197) runs the half-step
+    in reverse: instead of applying B's progress to A's logic,
+    it applies A's progress to B's logic.
+
+    If forward and backward produce the same split, the delay
+    attribution is unambiguous.  Large divergence indicates
+    concurrent delay where order of application matters.
+    """
+    zero_step_schedule, _ = create_zero_step_schedule(schedule_a, schedule_b)
+
+    cpm_zs = CPMCalculator(zero_step_schedule).calculate()
+    result.completion_zero_step = cpm_zs.project_duration
+
+    # Backward: zero-step has B's logic but A's progress
+    # revision_backward = zero_step - A (effect of revisions alone)
+    # progress_backward = B - zero_step (effect of progress alone)
+    result.revision_effect_backward = round(result.completion_zero_step - result.completion_a, 6)
+    result.progress_effect_backward = round(result.completion_b - result.completion_zero_step, 6)
+
+    # Concurrent delay indicator: divergence between forward and backward
+    # Small divergence = clean separation; large = concurrent delays
+    fwd_progress = result.progress_effect
+    bwd_progress = result.progress_effect_backward or 0.0
+    result.concurrent_delay_indicator = round(abs(fwd_progress - bwd_progress), 2)
 
 
 def _cp_stability(cp1: list[str], cp2: list[str]) -> float:
