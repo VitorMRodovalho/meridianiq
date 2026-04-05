@@ -1040,6 +1040,16 @@ class BenchmarkSummaryResponse(BaseModel):
     avg_relationship_density: float = 0.0
 
 
+class GDPRDeleteResponse(BaseModel):
+    """Response for DELETE /api/v1/user/data."""
+
+    deleted_uploads: int = 0
+    deleted_projects: int = 0
+    deleted_analyses: int = 0
+    deleted_benchmarks: int = 0
+    status: str = "complete"
+
+
 class DashboardKPIs(BaseModel):
     """Response for GET /api/v1/dashboard."""
 
