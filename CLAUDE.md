@@ -49,7 +49,7 @@ mypy src/ --strict              # type check
 
 ## Code Standards
 
-- Python 3.12+, type hints on all public functions
+- Python 3.14+, type hints on all public functions
 - Pydantic v2 models for all API request/response schemas
 - Every analysis methodology must cite its published standard (AACE RP, DCMA, etc.)
 - No client names, proprietary data, or credentials in code
