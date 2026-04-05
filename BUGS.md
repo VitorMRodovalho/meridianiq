@@ -17,103 +17,64 @@ Bug tracking and feature backlog for MeridianIQ.
 | BUG-009 | Orphan DB rows — soft-delete migration (006), RLS policy update | v0.9.0 |
 | BUG-010 | v0.6 git tag missing — tagged `dcb699a` as v0.6.0 | v0.9.0 |
 | BUG-011 | docker-compose port mismatch + missing web/Dockerfile | v0.9.0 |
-
-## Previously Delivered (from deferred backlog)
-
-| Item | Delivered In |
-|------|-------------|
-| Parser versioning | v0.9.1 — `parser_version` field on ParsedSchedule |
-| Enhanced manipulation scoring | v0.9.1 — Normal/Suspicious/Red Flag + 0-100 score |
-| Anonymous/demo mode | v0.9.0 — /demo page + /api/v1/demo/project |
-| Account settings page | v0.9.0 — /settings page with profile, usage, privacy |
-
----
-
-## Sprint Backlog
-
-### v1.1 "UX Maturity" — COMPLETE
-
-| # | Item | Effort | Persona | Status |
-|---|------|--------|---------|--------|
-| 1 | Value milestones frontend page | Low | Owner, PM | ✅ Done |
-| 2 | Compare page: show manipulation scoring badges | Low | PM, Scheduler | ✅ Done |
-| 3 | Sidebar grouping (Analysis / Enterprise / Settings) | Low | All | ✅ Done |
-| 4 | Toast notification system | Low | All | ✅ Done |
-| 5 | i18n wiring — connect $t() to landing + upload + dashboard | Medium | LATAM market | ✅ Done |
-| 6 | Monthly review template (PDF) | Medium | Scheduler | ✅ Done |
-| 7 | Projects list: sorting, filtering, search | Low | All | ✅ Done |
-
-### v1.2 "Academic & Research"
-
-| # | Item | Effort | Persona | Status |
-|---|------|--------|---------|--------|
-| 1 | Float entropy metric | Medium | Researcher | ✅ Done |
-| 2 | Constraint accumulation rate | Medium | Researcher | ✅ Done |
-| 3 | MCP Server — Claude integration via Model Context Protocol | Medium | AI/Developer | ✅ Done |
-| 4 | API keys — self-service generation for programmatic access | Medium | Researcher | ✅ Done |
-| 5 | JSON/CSV export — structured data for external analysis | Low | Researcher | ✅ Done |
-| 6 | Root cause analysis — backwards network trace to delay origin | High | Forensic Analyst | ✅ Done |
-
-### v1.3 "Production Hardening" — COMPLETE
-
-| # | Item | Effort | Status |
-|---|------|--------|--------|
-| 1 | CORS whitelist (replace wildcard) | Low | ✅ Done |
-| 2 | Security headers middleware (HSTS, X-Frame, etc.) | Low | ✅ Done |
-| 3 | Upload file size limit (50MB) | Low | ✅ Done |
-| 4 | Rate limiting (slowapi, 60 req/min) | Low | ✅ Done |
-| 5 | RLS policy fixes (migration 011 — 5 tables had zero policies) | Medium | ✅ Done |
-| 6 | API keys table (migration 012) | Medium | ✅ Done |
-| 7 | Deploy checklist document | Low | ✅ Done |
-
-### v2.0 "AI"
-
-| # | Item | Effort | Persona | Status |
-|---|------|--------|---------|--------|
-| 1 | NLP queries via Claude API | Medium | All | ✅ Done |
-| 2 | Anomaly detection — statistical outlier detection | Medium | Scheduler | ✅ Done |
-| 3 | Delay prediction — regression on historical float velocity | High | PM | |
-| 4 | Benchmark database — anonymized aggregate metrics | High | Industry | |
-| 5 | Federated learning | High | Enterprise | |
-
-### v2.1 "Prediction & Benchmarks" — Next
-
-| # | Item | Effort | Persona |
-|---|------|--------|---------|
-| 1 | Delay prediction — regression on historical float velocity | High | PM |
-| 2 | Benchmark database — anonymized aggregate metrics | High | Industry |
-| 3 | SECURITY DEFINER RPCs — migrate DB writes from direct queries | High | Security |
-| 4 | GDPR data deletion workflow | Medium | Governance |
-| 5 | Remaining chart integrations (risk scatter, forensic overlay) | Medium | All |
-| 6 | Frontend: cash flow analysis (from Power BI patterns) | High | Controls |
-| 7 | Frontend: discipline breakdown filters | Medium | Scheduler |
+| — | Toast notification system missing | v1.1.0 |
+| — | i18n wiring not connected to UI | v1.1.0 |
+| — | Sidebar crowded (13 links, no grouping) | v1.1.0 |
+| — | No rate limiting on API | v2.0.0 (slowapi) |
+| — | No CORS whitelist (wildcard *) | v1.3.0 |
+| — | No security headers (HSTS, X-Frame) | v1.3.0 |
+| — | No GDPR data deletion workflow | v2.1.0 (migration 014) |
+| — | RLS policies missing on 5 tables | v2.0.0 (migration 011) |
 
 ---
 
-## Technical Debt
+## Technical Debt (Open)
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| i18n infrastructure wired but not connected to UI | P1 | Pages use hardcoded English |
-| No RBAC enforcement on frontend | P2 | Sidebar shows all links regardless of role |
-| No rate limiting on API | P2 | DDoS vulnerability |
-| No loading skeletons (uses spinners) | P3 | Perceived performance |
-| No breadcrumb navigation | P3 | Wayfinding on deep pages |
-| No toast notifications | P3 | Action feedback |
-| Sidebar crowded (13 links) | P3 | Needs grouping |
+| No loading skeletons (uses spinners) | P3 | Perceived performance; shimmer effect preferred |
+| No breadcrumb navigation | P3 | Deep pages lack wayfinding |
 | No dark mode | P3 | Developer/researcher preference |
-| Performance: large schedules (>5K activities) not profiled | P2 | Server-side summaries help, needs testing |
+| Large schedule profiling (>5K activities) | P2 | Not systematically tested |
+| Audit trail IP not populated | P2 | Schema field exists, frontend doesn't send |
+| Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
+| slowapi potentially unmaintained | P2 | Evaluate starlette-ratelimit alternative |
+| No RBAC enforcement on frontend | P2 | Sidebar shows all links regardless of role |
+| i18n pages not translated (only wired) | P2 | PT-BR and ES translations not created |
 
 ---
 
-## Governance Gaps
+## Feature Backlog (Prioritized)
 
-| Item | Priority | Notes |
-|------|----------|-------|
-| No GDPR data deletion workflow | P1 | User cannot delete their data |
-| No security headers (CSP, HSTS) on CF Pages | P2 | Security audit requirement |
-| Audit trail IP tracking not populated | P2 | Schema field exists, frontend doesn't send |
-| No documented backup/restore process | P3 | Supabase has backups, needs docs |
+### High Impact
+
+| # | Feature | Personas | Effort |
+|---|---------|----------|--------|
+| 1 | Cash flow S-Curve visualization | Cost Engineer, PM | Medium |
+| 2 | Risk heat map (probability x impact matrix) | Risk Manager, Owner Rep | Low |
+| 3 | GanttChart SVG (before/after resource leveling) | Scheduler, CCM | Medium |
+| 4 | Look-ahead schedule (2/4 week window) | CCM, Contractor | Medium |
+| 5 | Executive summary PDF report | Program Director | Medium |
+
+### Medium Impact
+
+| # | Feature | Personas | Effort |
+|---|---------|----------|--------|
+| 6 | Program shares API + UI | Program Scheduler, Director | Medium |
+| 7 | ParetoChart SVG dedicated component | PM, Cost Engineer | Low |
+| 8 | Calendar validation engine | Scheduler | Medium |
+| 9 | Contractor delay attribution summary | Owner Rep | High |
+| 10 | i18n activation (PT-BR, ES translations) | LATAM market | Medium |
+
+### Future / Research
+
+| # | Feature | Personas | Effort |
+|---|---------|----------|--------|
+| 11 | Federated learning (cross-org ML) | AI Researcher | High |
+| 12 | BIM-lite integration (IFC metadata) | Architect, CCM | High |
+| 13 | WebSocket for long operations (MC, ES) | All | Medium |
+| 14 | Dark mode | Developer | Low |
+| 15 | Loading skeletons | All | Low |
 
 ---
 
@@ -126,22 +87,15 @@ Bug tracking and feature backlog for MeridianIQ.
 - [ ] Critical Path — non-standard work hours calendar
 - [ ] Float Distribution — P6 hours to days on non-8hr calendars
 - [ ] Compare — two consecutive real-world schedule updates
-- [ ] Compare — verify manipulation scoring UI badges
 - [ ] Float Trends — 3+ sequential uploads
 - [ ] Early Warning — all 12 rules against known test cases
-- [ ] PDF Reports — layout and data for all 5 types
+- [ ] PDF Reports — layout and data for all 6 types
 - [ ] Excel Export — verify 4-sheet workbook accuracy
 - [ ] IPS Reconciliation — master + 2 sub-schedules
 - [ ] Recovery Validation — impacted vs recovery with compressed durations
 - [ ] Organizations — create, invite, share, audit trail
 - [ ] Auth — token expiry and refresh flow
 - [ ] Mobile — all pages accessible via hamburger menu
-- [ ] Contract Compliance — provisions against TIA with violations
-
----
-
-<div align="center">
-
-**MeridianIQ** · MIT License · © 2025 Vitor Maia Rodovalho
-
-</div>
+- [ ] XER Export — round-trip fidelity with real P6 import
+- [ ] Risk Register — CRUD + Monte Carlo integration
+- [ ] Resource Leveling — real XER with resource assignments

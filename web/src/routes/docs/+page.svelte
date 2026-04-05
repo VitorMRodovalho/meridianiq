@@ -317,7 +317,7 @@
 
 		{:else if activeSection === 'api'}
 			<h1 class="text-2xl font-bold text-gray-900 mb-4">API Reference</h1>
-			<p class="text-gray-600 mb-4">MeridianIQ exposes 76 REST endpoints under <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">/api/v1/</code>.</p>
+			<p class="text-gray-600 mb-4">MeridianIQ exposes 77 REST endpoints under <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">/api/v1/</code>.</p>
 			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Interactive Documentation</h2>
 			<p class="text-gray-600 mb-4">
 				The FastAPI backend auto-generates OpenAPI documentation:

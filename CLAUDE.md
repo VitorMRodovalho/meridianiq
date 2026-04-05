@@ -40,9 +40,9 @@ mypy src/ --strict              # type check
 ## Architecture
 
 - **30 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 74 endpoints under `/api/v1/`
-- **Frontend**: SvelteKit + Tailwind v4, 29 pages, Svelte 5 runes ($state, $derived, $effect)
-- **Database**: Supabase PostgreSQL with RLS, 12 migrations in `supabase/migrations/`
+- **API**: FastAPI with 77 endpoints under `/api/v1/`
+- **Frontend**: SvelteKit + Tailwind v4, 31 pages, Svelte 5 runes ($state, $derived, $effect)
+- **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
 - **Deploy**: Fly.io (backend, port 8080) + Cloudflare Pages (frontend)
@@ -64,7 +64,7 @@ mypy src/ --strict              # type check
 - Auth: `src/api/auth.py` — JWT verification via JWKS, `optional_auth` decorator
 - Frontend auth: `web/src/lib/stores/auth.ts` — lazy init to avoid circular deps
 - Charts: `web/src/lib/components/charts/` — 6 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart)
-- MCP Server: `src/mcp_server.py` — 12 tools for Claude integration via FastMCP
+- MCP Server: `src/mcp_server.py` — 19 tools for Claude integration via FastMCP
 - NLP: `src/analytics/nlp_query.py` — Claude API integration, sends summary not raw data
 - Root Cause: `src/analytics/root_cause.py` — backwards network trace via NetworkX
 
@@ -87,6 +87,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.0.0 — "Full Lifecycle" (30 engines, 19 MCP tools, 710 tests)
+- Version: v3.0.0 — "Full Lifecycle" (31 engines, 19 MCP tools, 724+ tests)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)

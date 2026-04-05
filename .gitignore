@@ -12,6 +12,23 @@ sanitize.sh
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+env/
+
+# Node.js
+node_modules/
+web/node_modules/
+
+# Build artifacts
+dist/
+build/
+web/build/
+.svelte-kit/
 
 # OS artifacts
 .DS_Store
@@ -22,6 +39,9 @@ docs/v2-discovery/reference-docs/
 # Environment secrets
 .env
 .wrangler/
+
+# Supabase CLI temp files
+supabase/.temp/
 
 # Claude Code local overrides
 .claude/settings.local.json
