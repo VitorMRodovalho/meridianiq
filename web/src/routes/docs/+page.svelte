@@ -11,6 +11,16 @@
 		{ id: 'evm', title: 'Earned Value Management' },
 		{ id: 'risk', title: 'Monte Carlo Simulation' },
 		{ id: 'health', title: 'Health Score & Alerts' },
+		{ id: 'scorecard', title: 'Schedule Scorecard' },
+		{ id: 'whatif', title: 'What-If Simulator' },
+		{ id: 'resources', title: 'Resource Leveling' },
+		{ id: 'builder', title: 'Schedule Builder' },
+		{ id: 'benchmarks', title: 'Benchmarks & Percentiles' },
+		{ id: 'delay', title: 'Delay & Duration Prediction' },
+		{ id: 'pareto', title: 'Pareto Trade-Off Analysis' },
+		{ id: 'visualization', title: '4D Visualization' },
+		{ id: 'export', title: 'XER Export' },
+		{ id: 'mcp', title: 'MCP & AI Integration' },
 		{ id: 'api', title: 'API Reference' },
 	];
 </script>
@@ -195,9 +205,119 @@
 			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Early Warning Rules</h2>
 			<p class="text-gray-600">12 configurable rules monitor for: float erosion velocity, critical path changes, DCMA threshold breaches, near-critical drift, and more.</p>
 
+		{:else if activeSection === 'scorecard'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Schedule Scorecard</h1>
+			<p class="text-gray-600 mb-4">The scorecard aggregates 5 quality dimensions into a single letter grade (A-F) with actionable recommendations.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Dimensions</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Validation (30%)</strong> — DCMA 14-Point overall score</li>
+				<li><strong>Health (25%)</strong> — Composite float, logic, and trend health</li>
+				<li><strong>Risk (20%)</strong> — Delay prediction score (inverted: low risk = high score)</li>
+				<li><strong>Logic (15%)</strong> — Network completeness minus constraint usage</li>
+				<li><strong>Completeness (10%)</strong> — Calendar, duration, date, and WBS assignment coverage</li>
+			</ul>
+			<p class="text-gray-600 mt-4">Navigate to <strong>/scorecard</strong> and select a project. Standards: DCMA 14-Point, GAO Schedule Guide, AACE RP 49R-06.</p>
+
+		{:else if activeSection === 'whatif'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">What-If Simulator</h1>
+			<p class="text-gray-600 mb-4">Explore schedule scenarios by adjusting activity durations and re-running CPM analysis.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Modes</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Deterministic</strong> — Apply a fixed % change, get exact duration impact</li>
+				<li><strong>Probabilistic</strong> — Sample from a range, run N iterations, get P-values (P10, P50, P80, P90)</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Targeting</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><code class="bg-gray-100 px-1 rounded">*</code> — All non-complete activities</li>
+				<li><code class="bg-gray-100 px-1 rounded">B</code> — Specific task code</li>
+				<li><code class="bg-gray-100 px-1 rounded">WBS:1.2</code> — All activities under WBS prefix</li>
+			</ul>
+			<p class="text-gray-600 mt-4">Standards: AACE RP 57R-09, PMI PMBOK 7 S4.6.</p>
+
+		{:else if activeSection === 'resources'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Resource Leveling</h1>
+			<p class="text-gray-600 mb-4">Solves the Resource-Constrained Project Scheduling Problem (RCPSP) using Serial Schedule Generation Scheme (SGS).</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Priority Rules</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Late Start</strong> — Schedule activities with latest LS first (preserves float)</li>
+				<li><strong>Early Start</strong> — Earliest available first</li>
+				<li><strong>Float</strong> — Lowest total float first (protect critical activities)</li>
+				<li><strong>Duration</strong> — Longest duration first</li>
+			</ul>
+			<p class="text-gray-600 mt-4">The output includes resource demand profiles over time and per-activity shifts. Standards: AACE RP 46R-11, Kolisch (1996).</p>
+
+		{:else if activeSection === 'builder'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Schedule Builder</h1>
+			<p class="text-gray-600 mb-4">Generate complete schedules from project parameters using WBS templates and stochastic duration estimation.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Project Types</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Commercial</strong> — Office, retail, healthcare (7 WBS phases)</li>
+				<li><strong>Industrial</strong> — Plant, refinery, data center (8 WBS phases)</li>
+				<li><strong>Infrastructure</strong> — Road, bridge, tunnel (6 WBS phases)</li>
+				<li><strong>Residential</strong> — Housing, apartment (7 WBS phases)</li>
+			</ul>
+			<p class="text-gray-600 mt-4">Size categories: small (&lt;100), medium (100-500), large (500-2000), mega (&gt;2000). Generated schedules are fully compatible with all analysis engines.</p>
+
+		{:else if activeSection === 'benchmarks'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Benchmarks & Percentiles</h1>
+			<p class="text-gray-600 mb-4">Compare your schedule against 100 anonymized benchmark projects to understand where you stand in the industry.</p>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li>Percentile ranking for 20+ metrics (DCMA score, float distribution, logic density)</li>
+				<li>Filtered by size category (small, medium, large, mega)</li>
+				<li>No identifying information stored — fully anonymized</li>
+			</ul>
+
+		{:else if activeSection === 'delay'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Delay & Duration Prediction</h1>
+			<p class="text-gray-600 mb-4">ML-powered prediction using Random Forest + Gradient Boosting ensemble models.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Delay Prediction</h2>
+			<p class="text-gray-600 text-sm">Per-activity risk scoring (0-100) with explainable risk factors. 30 features including float, logic, duration, network, progress, and trend. Rule-based or ML mode via <code class="bg-gray-100 px-1 rounded">?model=ml</code> parameter.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Duration Prediction</h2>
+			<p class="text-gray-600 text-sm">Project-level duration forecast trained on benchmark database. Returns predicted duration with confidence intervals (P20-P80 from RF tree variance).</p>
+
+		{:else if activeSection === 'pareto'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Pareto Trade-Off Analysis</h1>
+			<p class="text-gray-600 mb-4">Run multiple what-if scenarios with associated costs to identify the Pareto-optimal frontier — scenarios where no other option is both cheaper and shorter.</p>
+			<p class="text-gray-600 text-sm">Standards: AACE RP 36R-06 (Cost Classification), Kelley & Walker (1959) CPM Time-Cost Extension.</p>
+
+		{:else if activeSection === 'visualization'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">4D Visualization</h1>
+			<p class="text-gray-600 mb-4">Activities positioned by WBS group (Y-axis) and CPM dates (X-axis), color-coded by status:</p>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><span class="text-red-500 font-bold">Red</span> — Critical path</li>
+				<li><span class="text-blue-500 font-bold">Blue</span> — Active (in progress)</li>
+				<li><span class="text-green-500 font-bold">Green</span> — Complete</li>
+				<li><span class="text-gray-400 font-bold">Gray</span> — Not started</li>
+				<li><span class="text-purple-400 font-bold">Purple</span> — High float (&gt;44 days)</li>
+			</ul>
+
+		{:else if activeSection === 'export'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">XER Export</h1>
+			<p class="text-gray-600 mb-4">Export schedules back to Oracle P6 XER format with round-trip fidelity. Supports exporting:</p>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li>Original uploaded schedules</li>
+				<li>Modified schedules (post what-if or post-leveling)</li>
+				<li>Generated schedules (from Schedule Builder)</li>
+			</ul>
+			<p class="text-gray-600 mt-4">Also available: Excel (.xlsx), CSV, and JSON export formats.</p>
+
+		{:else if activeSection === 'mcp'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">MCP & AI Integration</h1>
+			<p class="text-gray-600 mb-4">MeridianIQ exposes 19 tools via the Model Context Protocol (MCP) for AI assistant integration.</p>
+			<p class="text-gray-600 text-sm mb-4">Configure in Claude Code settings:</p>
+			<pre class="bg-gray-100 rounded-lg p-4 text-xs overflow-x-auto mb-4">{`{
+  "mcpServers": {
+    "meridianiq": {
+      "command": "python",
+      "args": ["-m", "src.mcp_server"]
+    }
+  }
+}`}</pre>
+			<p class="text-gray-600 text-sm">Tools include: upload, DCMA, CPM, health, entropy, root cause, compare, predict delays, benchmarks, half-step, what-if, scorecard, resource leveling, schedule generation, NLP builder, XER export, and ES optimization.</p>
+
 		{:else if activeSection === 'api'}
 			<h1 class="text-2xl font-bold text-gray-900 mb-4">API Reference</h1>
-			<p class="text-gray-600 mb-4">MeridianIQ exposes 45 REST endpoints under <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">/api/v1/</code>.</p>
+			<p class="text-gray-600 mb-4">MeridianIQ exposes 76 REST endpoints under <code class="bg-gray-100 px-1.5 py-0.5 rounded text-sm">/api/v1/</code>.</p>
 			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Interactive Documentation</h2>
 			<p class="text-gray-600 mb-4">
 				The FastAPI backend auto-generates OpenAPI documentation:

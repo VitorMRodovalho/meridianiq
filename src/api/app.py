@@ -2874,6 +2874,75 @@ async def build_schedule_endpoint(
     return result.summary
 
 
+@app.get("/api/v1/projects/{project_id}/export/xer")
+def export_xer(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Export a project schedule to XER format for P6 import.
+
+    Returns the XER file content as a downloadable string.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.export.xer_writer import XERWriter
+
+    content = XERWriter(schedule).write()
+
+    from fastapi.responses import PlainTextResponse
+
+    return PlainTextResponse(
+        content=content,
+        media_type="text/plain",
+        headers={"Content-Disposition": f"attachment; filename={project_id}.xer"},
+    )
+
+
+@app.post("/api/v1/projects/{project_id}/optimize")
+def optimize_schedule_endpoint(
+    project_id: str,
+    request: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Optimize a resource-constrained schedule using Evolution Strategies.
+
+    Evolves priority rules and resource allocation to minimize makespan.
+
+    References:
+        Loncar (2023), Beyer & Schwefel (2002), Kolisch (1996).
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from dataclasses import asdict
+
+    from src.analytics.evolution_optimizer import EvolutionConfig, optimize_schedule
+    from src.analytics.resource_leveling import ResourceLimit
+
+    limits = []
+    for rl in request.get("resource_limits", []):
+        limits.append(ResourceLimit(
+            rsrc_id=rl.get("rsrc_id", ""),
+            max_units=rl.get("max_units", 1.0),
+        ))
+
+    config = EvolutionConfig(
+        population_size=request.get("population_size", 20),
+        parent_size=request.get("parent_size", 5),
+        generations=request.get("generations", 30),
+        resource_limits=limits,
+    )
+    result = optimize_schedule(schedule, config)
+    data = asdict(result)
+    data.pop("best_leveling", None)
+    return data
+
+
 @app.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
     project_id: str,
