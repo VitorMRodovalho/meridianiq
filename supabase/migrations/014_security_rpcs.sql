@@ -20,10 +20,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    deleted_uploads INT;
-    deleted_projects INT;
-    deleted_analyses INT;
-    deleted_benchmarks INT;
+    deleted_uploads INT := 0;
+    deleted_projects INT := 0;
+    deleted_analyses INT := 0;
+    deleted_benchmarks INT := 0;
 BEGIN
     -- Verify caller is the target user or has service role
     IF auth.uid() IS NOT NULL AND auth.uid() != target_user_id THEN
@@ -54,11 +54,14 @@ BEGIN
     -- Programs
     DELETE FROM programs WHERE user_id = target_user_id;
 
-    -- API keys
-    DELETE FROM api_keys WHERE user_id = target_user_id;
+    -- API keys and user profiles: only delete if tables exist
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'api_keys') THEN
+        EXECUTE 'DELETE FROM api_keys WHERE user_id = $1' USING target_user_id;
+    END IF;
 
-    -- User profile (if exists)
-    DELETE FROM user_profiles WHERE id = target_user_id;
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'user_profiles') THEN
+        EXECUTE 'DELETE FROM user_profiles WHERE id = $1' USING target_user_id;
+    END IF;
 
     RETURN json_build_object(
         'deleted_uploads', deleted_uploads,
