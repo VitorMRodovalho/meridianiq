@@ -67,12 +67,24 @@ _store = None
 
 
 def _get_store():
-    """Lazy-initialise the in-memory project store."""
+    """Lazy-initialise the project store (Supabase if configured, else in-memory)."""
     global _store
     if _store is None:
-        from src.database.store import InMemoryStore
+        try:
+            import os
 
-        _store = InMemoryStore()
+            if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
+                from src.database.store import SupabaseStore
+
+                _store = SupabaseStore()
+                logger.info("MCP server using SupabaseStore")
+            else:
+                raise ValueError("No Supabase env vars")
+        except Exception:
+            from src.database.store import InMemoryStore
+
+            _store = InMemoryStore()
+            logger.info("MCP server using InMemoryStore")
     return _store
 
 
