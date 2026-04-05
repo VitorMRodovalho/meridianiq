@@ -954,6 +954,55 @@ class HealthRequest(BaseModel):
     baseline_id: Optional[str] = None
 
 
+# ── Delay Prediction ─────────────────────────────────────
+
+
+class RiskFactorSchema(BaseModel):
+    """An explainable risk factor."""
+
+    name: str = ""
+    contribution: float = 0.0
+    description: str = ""
+    value: str = ""
+
+
+class ActivityRiskSchema(BaseModel):
+    """Risk assessment for a single activity."""
+
+    task_id: str = ""
+    task_code: str = ""
+    task_name: str = ""
+    risk_score: float = 0.0
+    risk_level: str = "low"
+    predicted_delay_days: float = 0.0
+    confidence: float = 0.0
+    top_risk_factors: list[RiskFactorSchema] = Field(default_factory=list)
+    is_critical_path: bool = False
+    wbs_id: str = ""
+    float_risk: float = 0.0
+    progress_risk: float = 0.0
+    logic_risk: float = 0.0
+    duration_risk: float = 0.0
+    network_risk: float = 0.0
+    trend_risk: float = 0.0
+
+
+class DelayPredictionResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/delay-prediction."""
+
+    activity_risks: list[ActivityRiskSchema] = Field(default_factory=list)
+    project_risk_score: float = 0.0
+    project_risk_level: str = "low"
+    predicted_completion_delay: float = 0.0
+    high_risk_count: int = 0
+    critical_risk_count: int = 0
+    risk_distribution: dict[str, int] = Field(default_factory=dict)
+    methodology: str = ""
+    features_used: int = 0
+    has_baseline: bool = False
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
 class DashboardKPIs(BaseModel):
     """Response for GET /api/v1/dashboard."""
 

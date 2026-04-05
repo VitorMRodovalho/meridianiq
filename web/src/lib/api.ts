@@ -20,7 +20,8 @@ import type {
 	AlertsResponse,
 	DashboardKPIs,
 	ProgramTrends,
-	HalfStepResponse
+	HalfStepResponse,
+	DelayPredictionResponse
 } from './types';
 
 import { supabase } from './supabase';
@@ -207,6 +208,18 @@ export async function runHalfStep(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ baseline_id: baselineId, update_id: updateId })
 	});
+}
+
+// ── Delay Prediction ─────────────────────────────────
+
+export async function getDelayPrediction(
+	projectId: string,
+	baselineId?: string
+): Promise<DelayPredictionResponse> {
+	const params = baselineId ? `?baseline_id=${baselineId}` : '';
+	return request<DelayPredictionResponse>(
+		`/api/v1/projects/${projectId}/delay-prediction${params}`
+	);
 }
 
 // ── TIA (Time Impact Analysis) ─────────────────────────

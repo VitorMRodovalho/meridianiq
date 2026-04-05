@@ -337,6 +337,39 @@ def compare_schedules(baseline_id: str, update_id: str) -> str:
 
 
 @mcp.tool()
+def predict_delays(project_id: str, baseline_id: str = "") -> str:
+    """Predict delay risk for all non-complete activities in a schedule.
+
+    Uses weighted multi-factor risk scoring with explainable risk factors
+    per DCMA 14-Point and AACE RP 49R-06 criteria. Optionally enhanced
+    with trend features when a baseline is provided.
+
+    Args:
+        project_id: The project identifier to analyze.
+        baseline_id: Optional earlier project for trend-based enhancement.
+
+    Returns:
+        Per-activity risk scores, risk levels, predicted delay days,
+        top risk factors, and project-level aggregates.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    baseline = None
+    if baseline_id:
+        baseline = store.get(baseline_id)
+        if baseline is None:
+            return json.dumps({"error": "Baseline project not found"})
+
+    from src.analytics.delay_prediction import predict_delays as _predict
+
+    result = _predict(schedule, baseline=baseline)
+    return json.dumps(_serialize(result))
+
+
+@mcp.tool()
 def run_half_step(baseline_id: str, update_id: str) -> str:
     """Run half-step bifurcation analysis per AACE RP 29R-03 MIP 3.4.
 

@@ -298,6 +298,48 @@ export interface HalfStepResponse {
 	summary: Record<string, unknown>;
 }
 
+// ── Delay Prediction ─────────────────────────────────
+
+export interface RiskFactor {
+	name: string;
+	contribution: number;
+	description: string;
+	value: string;
+}
+
+export interface ActivityRisk {
+	task_id: string;
+	task_code: string;
+	task_name: string;
+	risk_score: number;
+	risk_level: string;
+	predicted_delay_days: number;
+	confidence: number;
+	top_risk_factors: RiskFactor[];
+	is_critical_path: boolean;
+	wbs_id: string;
+	float_risk: number;
+	progress_risk: number;
+	logic_risk: number;
+	duration_risk: number;
+	network_risk: number;
+	trend_risk: number;
+}
+
+export interface DelayPredictionResponse {
+	activity_risks: ActivityRisk[];
+	project_risk_score: number;
+	project_risk_level: string;
+	predicted_completion_delay: number;
+	high_risk_count: number;
+	critical_risk_count: number;
+	risk_distribution: Record<string, number>;
+	methodology: string;
+	features_used: number;
+	has_baseline: boolean;
+	summary: Record<string, unknown>;
+}
+
 export interface TimelineSummarySchema {
 	timeline_id: string;
 	project_name: string;

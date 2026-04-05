@@ -145,6 +145,9 @@ from .schemas import (
     GenerateReportResponse,
     HalfStepRequest,
     HalfStepResponse,
+    ActivityRiskSchema,
+    DelayPredictionResponse,
+    RiskFactorSchema,
     ScheduleHealthResponse,
 )
 from .auth import optional_auth, require_auth
@@ -2396,6 +2399,82 @@ def get_anomalies(
 
     result = detect_anomalies(schedule)
     return asdict(result)
+
+
+@app.get("/api/v1/projects/{project_id}/delay-prediction")
+def get_delay_prediction(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> DelayPredictionResponse:
+    """Predict delay risk for all non-complete activities.
+
+    Uses weighted multi-factor risk scoring with explainable risk factors.
+    Optionally enhanced with trend features when a baseline is provided.
+
+    Args:
+        project_id: The stored project identifier.
+        baseline_id: Optional earlier schedule for trend analysis.
+
+    References:
+        DCMA 14-Point Assessment, AACE RP 49R-06, GAO Schedule Guide.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    baseline = None
+    if baseline_id:
+        baseline = store.get(baseline_id)
+        if baseline is None:
+            raise HTTPException(status_code=404, detail="Baseline not found")
+
+    from src.analytics.delay_prediction import predict_delays
+
+    result = predict_delays(schedule, baseline=baseline)
+
+    return DelayPredictionResponse(
+        activity_risks=[
+            ActivityRiskSchema(
+                task_id=r.task_id,
+                task_code=r.task_code,
+                task_name=r.task_name,
+                risk_score=r.risk_score,
+                risk_level=r.risk_level,
+                predicted_delay_days=r.predicted_delay_days,
+                confidence=r.confidence,
+                top_risk_factors=[
+                    RiskFactorSchema(
+                        name=f.name,
+                        contribution=f.contribution,
+                        description=f.description,
+                        value=f.value,
+                    )
+                    for f in r.top_risk_factors
+                ],
+                is_critical_path=r.is_critical_path,
+                wbs_id=r.wbs_id,
+                float_risk=r.float_risk,
+                progress_risk=r.progress_risk,
+                logic_risk=r.logic_risk,
+                duration_risk=r.duration_risk,
+                network_risk=r.network_risk,
+                trend_risk=r.trend_risk,
+            )
+            for r in result.activity_risks
+        ],
+        project_risk_score=result.project_risk_score,
+        project_risk_level=result.project_risk_level,
+        predicted_completion_delay=result.predicted_completion_delay,
+        high_risk_count=result.high_risk_count,
+        critical_risk_count=result.critical_risk_count,
+        risk_distribution=result.risk_distribution,
+        methodology=result.methodology,
+        features_used=result.features_used,
+        has_baseline=result.has_baseline,
+        summary=result.summary,
+    )
 
 
 @app.get("/api/v1/projects/{project_id}/float-entropy")
