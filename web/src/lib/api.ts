@@ -23,7 +23,14 @@ import type {
 	HalfStepResponse,
 	DelayPredictionResponse,
 	BenchmarkCompareResponse,
-	BenchmarkSummaryResponse
+	BenchmarkSummaryResponse,
+	ScorecardResponse,
+	WhatIfResponse,
+	DurationAdjustment,
+	ParetoResponse,
+	LevelingResponse,
+	GeneratedScheduleResponse,
+	VisualizationResponse
 } from './types';
 
 import { supabase } from './supabase';
@@ -544,4 +551,69 @@ export async function downloadReport(reportId: string): Promise<Blob> {
 		throw new Error(text || `Download failed: ${res.status}`);
 	}
 	return res.blob();
+}
+
+// ── v2.2+ Intelligence APIs ───────────────────────────────
+
+export async function getScorecard(projectId: string): Promise<ScorecardResponse> {
+	return request<ScorecardResponse>(`/api/v1/projects/${projectId}/scorecard`);
+}
+
+export async function runWhatIf(
+	projectId: string,
+	name: string,
+	adjustments: DurationAdjustment[],
+	iterations: number = 1
+): Promise<WhatIfResponse> {
+	return request<WhatIfResponse>(`/api/v1/projects/${projectId}/what-if`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ name, adjustments, iterations }),
+	});
+}
+
+export async function runPareto(
+	projectId: string,
+	scenarios: { name: string; adjustments: DurationAdjustment[]; cost_delta: number }[],
+	baseCost: number = 0
+): Promise<ParetoResponse> {
+	return request<ParetoResponse>(`/api/v1/projects/${projectId}/pareto`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ scenarios, base_cost: baseCost }),
+	});
+}
+
+export async function runResourceLeveling(
+	projectId: string,
+	resourceLimits: { rsrc_id: string; max_units: number }[],
+	priorityRule: string = 'late_start'
+): Promise<LevelingResponse> {
+	return request<LevelingResponse>(`/api/v1/projects/${projectId}/resource-leveling`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ resource_limits: resourceLimits, priority_rule: priorityRule }),
+	});
+}
+
+export async function generateSchedule(
+	projectType: string = 'commercial',
+	sizeCategory: string = 'medium',
+	projectName: string = 'Generated Project',
+	targetDurationDays: number = 0
+): Promise<GeneratedScheduleResponse> {
+	return request<GeneratedScheduleResponse>(`/api/v1/schedule/generate`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			project_type: projectType,
+			project_name: projectName,
+			target_duration_days: targetDurationDays,
+			size_category: sizeCategory,
+		}),
+	});
+}
+
+export async function getVisualization(projectId: string): Promise<VisualizationResponse> {
+	return request<VisualizationResponse>(`/api/v1/projects/${projectId}/visualization`);
 }

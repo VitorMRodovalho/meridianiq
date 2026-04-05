@@ -614,3 +614,162 @@ export interface GenerateReportResponse {
 	project_id: string;
 	generated_at: string;
 }
+
+// ── Scorecard ───────────────────────────────────────────
+
+export interface ScorecardDimension {
+	name: string;
+	score: number;
+	grade: string;
+	description: string;
+	details: Record<string, unknown>;
+}
+
+export interface ScorecardResponse {
+	overall_score: number;
+	overall_grade: string;
+	dimensions: ScorecardDimension[];
+	recommendations: string[];
+	methodology: string;
+	summary: Record<string, unknown>;
+}
+
+// ── What-If ─────────────────────────────────────────────
+
+export interface DurationAdjustment {
+	target: string;
+	pct_change: number;
+	min_pct?: number | null;
+	max_pct?: number | null;
+}
+
+export interface ActivityImpact {
+	task_id: string;
+	task_code: string;
+	task_name: string;
+	original_duration_days: number;
+	adjusted_duration_days: number;
+	delta_days: number;
+	was_critical: boolean;
+	is_critical: boolean;
+}
+
+export interface WhatIfResponse {
+	scenario_name: string;
+	base_duration_days: number;
+	adjusted_duration_days: number;
+	delta_days: number;
+	delta_pct: number;
+	critical_path_changed: boolean;
+	activity_impacts: ActivityImpact[];
+	iterations: number;
+	distribution: number[];
+	p_values: Record<number, number>;
+	std_days: number;
+	methodology: string;
+	summary: Record<string, unknown>;
+}
+
+// ── Pareto ──────────────────────────────────────────────
+
+export interface ParetoPoint {
+	scenario_name: string;
+	duration_days: number;
+	total_cost: number;
+	is_pareto_optimal: boolean;
+	delta_days: number;
+	delta_cost: number;
+}
+
+export interface ParetoResponse {
+	base_duration_days: number;
+	base_cost: number;
+	all_points: ParetoPoint[];
+	frontier: ParetoPoint[];
+	scenarios_evaluated: number;
+	frontier_size: number;
+	methodology: string;
+	summary: Record<string, unknown>;
+}
+
+// ── Resource Leveling ───────────────────────────────────
+
+export interface ActivityShift {
+	task_id: string;
+	task_code: string;
+	task_name: string;
+	original_start: number;
+	leveled_start: number;
+	shift_days: number;
+	duration_days: number;
+	resources: Record<string, number>;
+}
+
+export interface ResourceProfile {
+	rsrc_id: string;
+	rsrc_name: string;
+	max_units: number;
+	peak_demand: number;
+	demand_by_day: number[];
+}
+
+export interface LevelingResponse {
+	original_duration_days: number;
+	leveled_duration_days: number;
+	extension_days: number;
+	extension_pct: number;
+	activity_shifts: ActivityShift[];
+	resource_profiles: ResourceProfile[];
+	overloaded_periods: number;
+	priority_rule: string;
+	methodology: string;
+	summary: Record<string, unknown>;
+}
+
+// ── Schedule Generation ─────────────────────────────────
+
+export interface GeneratedScheduleResponse {
+	activity_count: number;
+	relationship_count: number;
+	predicted_duration_days: number;
+	project_type: string;
+	size_category: string;
+	methodology: string;
+	summary: Record<string, unknown>;
+}
+
+// ── 4D Visualization ────────────────────────────────────
+
+export interface VisualizationActivity {
+	task_id: string;
+	task_code: string;
+	task_name: string;
+	wbs_id: string;
+	wbs_path: string;
+	early_start: number;
+	early_finish: number;
+	duration_days: number;
+	status: string;
+	progress_pct: number;
+	total_float_days: number;
+	is_critical: boolean;
+	color_category: string;
+}
+
+export interface WBSGroup {
+	wbs_id: string;
+	wbs_name: string;
+	depth: number;
+	activity_count: number;
+	row_index: number;
+}
+
+export interface VisualizationResponse {
+	activities: VisualizationActivity[];
+	wbs_groups: WBSGroup[];
+	project_duration_days: number;
+	total_activities: number;
+	critical_count: number;
+	max_wbs_depth: number;
+	summary: Record<string, unknown>;
+}

@@ -1,0 +1,142 @@
+<script lang="ts">
+	import { getProjects, getScorecard } from '$lib/api';
+	import type { ScorecardResponse } from '$lib/types';
+	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+
+	let projects: { project_id: string; name: string }[] = $state([]);
+	let selectedProject: string = $state('');
+	let scorecard: ScorecardResponse | null = $state(null);
+	let loading: boolean = $state(false);
+	let error: string = $state('');
+
+	async function loadProjects() {
+		try {
+			const res = await getProjects();
+			projects = res.projects;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load projects';
+		}
+	}
+
+	async function loadScorecard() {
+		if (!selectedProject) return;
+		loading = true;
+		error = '';
+		scorecard = null;
+		try {
+			scorecard = await getScorecard(selectedProject);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load scorecard';
+		} finally {
+			loading = false;
+		}
+	}
+
+	$effect(() => {
+		loadProjects();
+	});
+
+	const gradeColor = (grade: string) => {
+		const colors: Record<string, string> = {
+			A: 'text-green-600 bg-green-50 border-green-200',
+			B: 'text-blue-600 bg-blue-50 border-blue-200',
+			C: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+			D: 'text-orange-600 bg-orange-50 border-orange-200',
+			F: 'text-red-600 bg-red-50 border-red-200',
+		};
+		return colors[grade] || 'text-gray-600 bg-gray-50 border-gray-200';
+	};
+
+	const gaugeBands = [
+		{ threshold: 60, color: '#ef4444' },
+		{ threshold: 70, color: '#f59e0b' },
+		{ threshold: 80, color: '#3b82f6' },
+		{ threshold: 90, color: '#10b981' },
+		{ threshold: 100, color: '#059669' },
+	];
+</script>
+
+<svelte:head>
+	<title>Schedule Scorecard - MeridianIQ</title>
+</svelte:head>
+
+<main class="max-w-6xl mx-auto px-4 py-8">
+	<div class="mb-8">
+		<h1 class="text-2xl font-bold text-gray-900">Schedule Scorecard</h1>
+		<p class="text-gray-500 mt-1">Multi-dimension quality assessment with letter grades</p>
+	</div>
+
+	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+		<div class="flex items-end gap-4">
+			<div class="flex-1">
+				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">Select Project</label>
+				<select
+					id="project"
+					bind:value={selectedProject}
+					class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+				>
+					<option value="">Choose a project...</option>
+					{#each projects as p}
+						<option value={p.project_id}>{p.name || p.project_id}</option>
+					{/each}
+				</select>
+			</div>
+			<button
+				onclick={loadScorecard}
+				disabled={!selectedProject || loading}
+				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+			>
+				{loading ? 'Loading...' : 'Get Scorecard'}
+			</button>
+		</div>
+	</div>
+
+	{#if error}
+		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+			<p class="text-red-700 text-sm">{error}</p>
+		</div>
+	{/if}
+
+	{#if scorecard}
+		<!-- Overall Grade -->
+		<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6 text-center">
+			<div class="inline-flex items-center gap-4">
+				<div class={`text-6xl font-black border-4 rounded-xl px-5 py-2 ${gradeColor(scorecard.overall_grade)}`}>
+					{scorecard.overall_grade}
+				</div>
+				<div class="text-left">
+					<p class="text-3xl font-bold text-gray-900">{scorecard.overall_score.toFixed(1)}</p>
+					<p class="text-gray-500 text-sm">Overall Score</p>
+				</div>
+			</div>
+			<p class="text-gray-500 text-xs mt-3">{scorecard.methodology}</p>
+		</div>
+
+		<!-- Dimension Gauges -->
+		<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+			{#each scorecard.dimensions as dim}
+				<div class="bg-white rounded-lg border border-gray-200 p-4 text-center">
+					<GaugeChart value={dim.score} title={dim.name} label={dim.grade} size={140} bands={gaugeBands} />
+					<p class="text-xs text-gray-500 mt-2">{dim.description}</p>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Recommendations -->
+		{#if scorecard.recommendations.length > 0}
+			<div class="bg-white rounded-lg border border-gray-200 p-6">
+				<h2 class="text-lg font-semibold text-gray-900 mb-3">Recommendations</h2>
+				<ul class="space-y-2">
+					{#each scorecard.recommendations as rec}
+						<li class="flex items-start gap-2 text-sm text-gray-700">
+							<svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							{rec}
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+	{/if}
+</main>
