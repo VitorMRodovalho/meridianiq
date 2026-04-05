@@ -1003,6 +1003,43 @@ class DelayPredictionResponse(BaseModel):
     summary: dict[str, Any] = Field(default_factory=dict)
 
 
+# ── Benchmarks ─────────────────────────────────────────
+
+
+class PercentileRankingSchema(BaseModel):
+    """Percentile ranking for a single metric."""
+
+    metric_name: str = ""
+    value: float = 0.0
+    percentile: float = 0.0
+    benchmark_mean: float = 0.0
+    benchmark_median: float = 0.0
+    benchmark_count: int = 0
+    interpretation: str = "average"
+
+
+class BenchmarkCompareResponse(BaseModel):
+    """Response for GET /api/v1/benchmarks/compare/{project_id}."""
+
+    rankings: list[PercentileRankingSchema] = Field(default_factory=list)
+    overall_percentile: float = 0.0
+    benchmark_count: int = 0
+    size_category: str = ""
+    project_dcma_score: float = 0.0
+    project_activity_count: int = 0
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class BenchmarkSummaryResponse(BaseModel):
+    """Response for GET /api/v1/benchmarks/summary."""
+
+    total_projects: int = 0
+    size_distribution: dict[str, int] = Field(default_factory=dict)
+    avg_dcma_score: float = 0.0
+    avg_activity_count: float = 0.0
+    avg_relationship_density: float = 0.0
+
+
 class DashboardKPIs(BaseModel):
     """Response for GET /api/v1/dashboard."""
 

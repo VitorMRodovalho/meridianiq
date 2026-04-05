@@ -370,6 +370,31 @@ def predict_delays(project_id: str, baseline_id: str = "") -> str:
 
 
 @mcp.tool()
+def extract_benchmarks(project_id: str) -> str:
+    """Extract anonymized benchmark metrics from a schedule.
+
+    Produces aggregate metrics (DCMA scores, float distribution, network
+    density) with no identifying information (no activity names, WBS text,
+    or project identifiers).
+
+    Args:
+        project_id: The project identifier.
+
+    Returns:
+        Anonymized BenchmarkMetrics as JSON.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.analytics.benchmarks import extract_benchmark_metrics
+
+    result = extract_benchmark_metrics(schedule)
+    return json.dumps(_serialize(result))
+
+
+@mcp.tool()
 def run_half_step(baseline_id: str, update_id: str) -> str:
     """Run half-step bifurcation analysis per AACE RP 29R-03 MIP 3.4.
 

@@ -21,7 +21,9 @@ import type {
 	DashboardKPIs,
 	ProgramTrends,
 	HalfStepResponse,
-	DelayPredictionResponse
+	DelayPredictionResponse,
+	BenchmarkCompareResponse,
+	BenchmarkSummaryResponse
 } from './types';
 
 import { supabase } from './supabase';
@@ -220,6 +222,29 @@ export async function getDelayPrediction(
 	return request<DelayPredictionResponse>(
 		`/api/v1/projects/${projectId}/delay-prediction${params}`
 	);
+}
+
+// ── Benchmarks ───────────────────────────────────────────
+
+export async function compareBenchmarks(
+	projectId: string,
+	filterSize: boolean = true
+): Promise<BenchmarkCompareResponse> {
+	return request<BenchmarkCompareResponse>(
+		`/api/v1/benchmarks/compare/${projectId}?filter_size=${filterSize}`
+	);
+}
+
+export async function getBenchmarkSummary(): Promise<BenchmarkSummaryResponse> {
+	return request<BenchmarkSummaryResponse>('/api/v1/benchmarks/summary');
+}
+
+export async function contributeBenchmark(projectId: string): Promise<unknown> {
+	return request('/api/v1/benchmarks/contribute', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(projectId)
+	});
 }
 
 // ── TIA (Time Impact Analysis) ─────────────────────────

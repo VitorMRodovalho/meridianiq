@@ -340,6 +340,36 @@ export interface DelayPredictionResponse {
 	summary: Record<string, unknown>;
 }
 
+// ── Benchmarks ───────────────────────────────────────────
+
+export interface PercentileRanking {
+	metric_name: string;
+	value: number;
+	percentile: number;
+	benchmark_mean: number;
+	benchmark_median: number;
+	benchmark_count: number;
+	interpretation: string;
+}
+
+export interface BenchmarkCompareResponse {
+	rankings: PercentileRanking[];
+	overall_percentile: number;
+	benchmark_count: number;
+	size_category: string;
+	project_dcma_score: number;
+	project_activity_count: number;
+	summary: Record<string, unknown>;
+}
+
+export interface BenchmarkSummaryResponse {
+	total_projects: number;
+	size_distribution: Record<string, number>;
+	avg_dcma_score: number;
+	avg_activity_count: number;
+	avg_relationship_density: number;
+}
+
 export interface TimelineSummarySchema {
 	timeline_id: string;
 	project_name: string;
