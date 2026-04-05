@@ -39,7 +39,7 @@ mypy src/ --strict              # type check
 
 ## Architecture
 
-- **14 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
+- **15 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
 - **API**: FastAPI with 60+ endpoints under `/api/v1/`
 - **Frontend**: SvelteKit + Tailwind v4, 24 pages, Svelte 5 runes ($state, $derived, $effect)
 - **Database**: Supabase PostgreSQL with RLS, 12 migrations in `supabase/migrations/`
@@ -64,7 +64,7 @@ mypy src/ --strict              # type check
 - Auth: `src/api/auth.py` — JWT verification via JWKS, `optional_auth` decorator
 - Frontend auth: `web/src/lib/stores/auth.ts` — lazy init to avoid circular deps
 - Charts: `web/src/lib/components/charts/` — 6 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart)
-- MCP Server: `src/mcp_server.py` — 10 tools for Claude integration via FastMCP
+- MCP Server: `src/mcp_server.py` — 11 tools for Claude integration via FastMCP
 - NLP: `src/analytics/nlp_query.py` — Claude API integration, sends summary not raw data
 - Root Cause: `src/analytics/root_cause.py` — backwards network trace via NetworkX
 

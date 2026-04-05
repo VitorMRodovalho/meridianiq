@@ -15,6 +15,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Frontend: progress/revision columns in forensic window analysis table
 - `HalfStepResponse` types and API client in frontend
 - 32 new tests for half-step analysis (classification, schedule creation, full analysis, real XER files, edge cases, PDF rendering)
+- Delay prediction engine — activity-level risk scoring with 35 features, weighted multi-factor model, SHAP-like explainable risk factors (`src/analytics/delay_prediction.py`)
+- `GET /api/v1/projects/{id}/delay-prediction` endpoint with optional baseline enhancement
+- MCP Server: 11th tool `predict_delays` for Claude integration
+- 30 new tests for delay prediction (scoring quality, risk factors, baseline enhancement, edge cases)
 
 ## [2.0.0] — 2026-04-02 — AI
 
