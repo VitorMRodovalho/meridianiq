@@ -3,6 +3,28 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.0.0] — 2026-04-05 — Full Lifecycle
+
+### Added
+- XER export/writer — round-trip fidelity, write modified/generated schedules back to P6 format (`src/export/xer_writer.py`)
+- `GET /api/v1/projects/{id}/export/xer` download endpoint
+- Benchmark-derived Monte Carlo priors — auto-generates PERT distributions from benchmark database (`src/analytics/benchmark_priors.py`)
+- Evolution Strategies optimizer — (mu, lambda) ES for RCPSP optimization beyond greedy SGS (`src/analytics/evolution_optimizer.py`)
+- `POST /api/v1/projects/{id}/optimize` endpoint with convergence history
+- 4D visualization data engine — WBS spatial grouping x CPM temporal positioning (`src/analytics/visualization.py`)
+- `GET /api/v1/projects/{id}/visualization` endpoint with color-coded activity grid
+- MCP Server: 18th tool `export_xer`, 19th tool `optimize_schedule_es`
+- 44 new tests (710 total)
+
+### Stats
+- **26 analysis engines + 1 export module**, 19 MCP tools, **710 tests**
+
+### References
+- Oracle Primavera P6 XER Format (round-trip export)
+- AACE RP 57R-09 enhanced with Bayesian benchmark priors
+- Loncar (2023) Evolution Strategies, Beyer & Schwefel (2002) ES Theory
+- Hartmann & Kolisch (2000) RCPSP benchmarks
+
 ## [2.3.0] — 2026-04-05 — Schedule Optimization
 
 ### Added

@@ -604,6 +604,87 @@ def build_schedule_from_description(description: str) -> str:
     return json.dumps(_serialize(result.summary))
 
 
+@mcp.tool()
+def export_xer(project_id: str) -> str:
+    """Export a project schedule to XER format.
+
+    Writes the schedule back to Oracle P6 XER format for import into
+    Primavera P6. Supports round-trip fidelity.
+
+    Args:
+        project_id: The project identifier.
+
+    Returns:
+        XER file content as a string (first 5000 chars for preview).
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.export.xer_writer import XERWriter
+
+    content = XERWriter(schedule).write()
+    preview = content[:5000]
+    return json.dumps(
+        {
+            "preview": preview,
+            "total_length": len(content),
+            "tables_written": content.count("%T\t"),
+            "rows_written": content.count("%R\t"),
+        }
+    )
+
+
+@mcp.tool()
+def optimize_schedule_es(
+    project_id: str,
+    resource_limits: str = "",
+    generations: int = 20,
+) -> str:
+    """Optimize a resource-constrained schedule using Evolution Strategies.
+
+    Uses (mu, lambda) ES to find better priority orderings for the
+    Serial SGS, minimizing project makespan.
+
+    Args:
+        project_id: The project identifier.
+        resource_limits: JSON array of limits, e.g.
+            '[{"rsrc_id": "R1", "max_units": 2.0}]'.
+        generations: Number of ES generations to run.
+
+    Returns:
+        JSON with best/greedy duration, improvement, convergence history.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.analytics.evolution_optimizer import EvolutionConfig, optimize_schedule
+    from src.analytics.resource_leveling import ResourceLimit
+
+    limits = []
+    if resource_limits:
+        raw = json.loads(resource_limits)
+        for rl in raw:
+            limits.append(
+                ResourceLimit(
+                    rsrc_id=rl.get("rsrc_id", ""),
+                    max_units=rl.get("max_units", 1.0),
+                )
+            )
+
+    config = EvolutionConfig(
+        population_size=20,
+        parent_size=5,
+        generations=generations,
+        resource_limits=limits,
+    )
+    result = optimize_schedule(schedule, config)
+    return json.dumps(_serialize(result.summary))
+
+
 # ── Entry point ──
 
 if __name__ == "__main__":
