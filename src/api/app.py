@@ -2874,6 +2874,31 @@ async def build_schedule_endpoint(
     return result.summary
 
 
+@app.get("/api/v1/projects/{project_id}/cashflow")
+def get_cashflow(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Get cash flow analysis with S-Curve data.
+
+    Distributes costs across timeline using CPM dates and TaskResource costs.
+
+    References:
+        AACE RP 10S-90, PMI Practice Standard for EVM.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from dataclasses import asdict
+
+    from src.analytics.cashflow import analyze_cashflow
+
+    result = analyze_cashflow(schedule)
+    return asdict(result)
+
+
 @app.get("/api/v1/projects/{project_id}/lookahead")
 def get_lookahead(
     project_id: str,
