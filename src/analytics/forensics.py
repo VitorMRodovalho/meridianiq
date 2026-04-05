@@ -6,9 +6,13 @@ Implements window analysis methodology per AACE RP 29R-03 (Forensic Schedule
 Analysis) and the SCL Delay and Disruption Protocol.  Divides a project's
 schedule update history into analysis windows and quantifies delay per window.
 
+Supports both MIP 3.3 (standard CPA) and MIP 3.4 (bifurcated / half-step
+analysis) which separates delay into progress and revision effects.
+
 References:
-    - AACE RP 29R-03 Forensic Schedule Analysis, MIP 3.3
+    - AACE RP 29R-03 Forensic Schedule Analysis, MIP 3.3 and MIP 3.4
     - SCL Delay and Disruption Protocol, 2nd ed., Core Principle 2
+    - Ron Winter PS-1264 "Creating Half-Step Schedules Using P6 Baseline Update"
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from typing import Any
 
 from src.analytics.comparison import ComparisonResult, ScheduleComparison
 from src.analytics.cpm import CPMCalculator, CPMResult
+from src.analytics.half_step import HalfStepResult, analyze_half_step
 from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
@@ -58,6 +63,10 @@ class WindowResult:
     cp_activities_left: list[str] = field(default_factory=list)
     driving_activity: str = ""  # activity driving completion at end of window
     comparison: ComparisonResult | None = None  # full comparison details
+    # MIP 3.4 bifurcated analysis (populated when bifurcated=True)
+    progress_delay_days: float | None = None  # delay from actual progress
+    revision_delay_days: float | None = None  # delay from logic/plan changes
+    half_step_result: HalfStepResult | None = None  # full half-step details
 
 
 @dataclass
@@ -98,17 +107,21 @@ class ForensicAnalyzer:
         self,
         schedules: list[ParsedSchedule],
         project_ids: list[str],
+        bifurcated: bool = False,
     ) -> None:
         """Initialize with a list of schedule updates sorted by data date.
 
         Args:
             schedules: List of parsed schedules (must contain at least 2).
             project_ids: Corresponding project IDs for reference.
+            bifurcated: If True, run MIP 3.4 half-step analysis per window
+                to separate progress delay from revision delay.
 
         Raises:
             ValueError: If fewer than 2 schedules are provided or the lists
                 differ in length.
         """
+        self._bifurcated = bifurcated
         if len(schedules) < 2:
             raise ValueError(
                 f"Forensic analysis requires at least 2 schedules, got {len(schedules)}"
@@ -385,6 +398,16 @@ class ForensicAnalyzer:
         except Exception:
             logger.warning("Schedule comparison failed for window %d", window_num)
 
+        # MIP 3.4: Half-step bifurcation (if enabled)
+        if self._bifurcated:
+            try:
+                hs_result = analyze_half_step(baseline, update)
+                result.half_step_result = hs_result
+                result.progress_delay_days = hs_result.progress_effect
+                result.revision_delay_days = hs_result.revision_effect
+            except Exception:
+                logger.warning("Half-step analysis failed for window %d", window_num)
+
         return result
 
     def _build_summary(self, timeline: ForensicTimeline) -> dict[str, Any]:
@@ -412,7 +435,7 @@ class ForensicAnalyzer:
             1 for w in timeline.windows if w.cp_activities_joined or w.cp_activities_left
         )
 
-        return {
+        summary: dict[str, Any] = {
             "schedule_count": timeline.schedule_count,
             "window_count": len(timeline.windows),
             "total_delay_days": timeline.total_delay_days,
@@ -436,3 +459,21 @@ class ForensicAnalyzer:
                 timeline.current_completion.isoformat() if timeline.current_completion else None
             ),
         }
+
+        # MIP 3.4 bifurcated totals
+        if self._bifurcated:
+            total_progress = sum(
+                w.progress_delay_days for w in timeline.windows if w.progress_delay_days is not None
+            )
+            total_revision = sum(
+                w.revision_delay_days for w in timeline.windows if w.revision_delay_days is not None
+            )
+            summary["bifurcated"] = True
+            summary["total_progress_delay_days"] = round(total_progress, 2)
+            summary["total_revision_delay_days"] = round(total_revision, 2)
+            summary["methodology"] = "AACE RP 29R-03 MIP 3.4 — Contemporaneous Split Analysis"
+        else:
+            summary["bifurcated"] = False
+            summary["methodology"] = "AACE RP 29R-03 MIP 3.3 — Contemporaneous Period Analysis"
+
+        return summary

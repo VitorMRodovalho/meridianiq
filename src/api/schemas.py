@@ -358,6 +358,37 @@ class WindowSchema(BaseModel):
     cp_activities_left: list[str] = Field(default_factory=list)
     driving_activity: str = ""
     comparison_summary: dict[str, Any] = Field(default_factory=dict)
+    # MIP 3.4 bifurcated fields (populated when bifurcated=True)
+    progress_delay_days: Optional[float] = None
+    revision_delay_days: Optional[float] = None
+    half_step_summary: Optional[dict[str, Any]] = None
+
+
+class HalfStepRequest(BaseModel):
+    """Request body for POST /api/v1/forensic/half-step."""
+
+    baseline_id: str
+    update_id: str
+
+
+class HalfStepResponse(BaseModel):
+    """Response for POST /api/v1/forensic/half-step."""
+
+    completion_a_days: float = 0.0
+    completion_half_step_days: float = 0.0
+    completion_b_days: float = 0.0
+    progress_effect_days: float = 0.0
+    revision_effect_days: float = 0.0
+    total_delay_days: float = 0.0
+    progress_direction: str = ""
+    revision_direction: str = ""
+    invariant_holds: bool = False
+    activities_updated: int = 0
+    critical_path_a: list[str] = Field(default_factory=list)
+    critical_path_half_step: list[str] = Field(default_factory=list)
+    critical_path_b: list[str] = Field(default_factory=list)
+    classification_summary: dict[str, int] = Field(default_factory=dict)
+    summary: dict[str, Any] = Field(default_factory=dict)
 
 
 class TimelineSummarySchema(BaseModel):

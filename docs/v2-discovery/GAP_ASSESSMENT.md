@@ -115,7 +115,7 @@ These features currently require expensive enterprise licenses. Offering them at
 | Feature | Currently Only In | Democratization Opportunity |
 |---------|------------------|---------------------------|
 | **CPA / Window Analysis** | Acumen Fuse ($$$), SYSTECH (private) | First open-source or affordable CPA engine |
-| **Bifurcated Analysis** | SYSTECH (private), Acumen (partial) | First web-accessible bifurcated analysis |
+| **Bifurcated Analysis** | SYSTECH (private), Acumen (partial) | **IMPLEMENTED** — `src/analytics/half_step.py`, MIP 3.4, first web-based |
 | **PERT Duration Probability** | Acumen Fuse | PERT calculation from XER data — implementable with standard statistics |
 | **Earned Value dashboards** | XER Toolkit, Acumen | SPI/BEI/SRI from XER + payment data |
 | **S-Curve generation** | Acumen, XER Toolkit | Resource-loaded S-curve from XER TASKRSRC data |

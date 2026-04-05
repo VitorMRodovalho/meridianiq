@@ -344,7 +344,7 @@ gantt
 | ~~v1.2~~ | ~~Academic~~ | ~~Float entropy, MCP server, API keys, root cause, JSON/CSV export~~ | ✅ Released |
 | ~~v1.3~~ | ~~Hardening~~ | ~~CORS, security headers, RLS fixes, rate limiting, deploy checklist~~ | ✅ Released |
 | ~~v2.0~~ | ~~AI~~ | ~~NLP queries, anomaly detection, chart library, sandbox~~ | ✅ Released |
-| **v2.1** | **Prediction** | **Delay prediction, benchmark DB, SECURITY DEFINER RPCs** | Next |
+| **v2.1** | **Prediction** | **Delay prediction, benchmark DB, half-step bifurcation (MIP 3.4), SECURITY DEFINER RPCs** | Next |
 
 ---
 
@@ -352,7 +352,7 @@ gantt
 
 | Standard | Applied In |
 |----------|-----------|
-| AACE RP 29R-03 | Forensic Schedule Analysis (v0.2), Recovery Schedule Validation (v1.0) |
+| AACE RP 29R-03 | Forensic Schedule Analysis (v0.2), Recovery Schedule Validation (v1.0), Half-Step Bifurcation MIP 3.4 (v2.1) |
 | AACE RP 49R-06 | Documenting the Schedule Basis — Float Trend Tracking (v0.8) |
 | AACE RP 52R-06 | Time Impact Analysis (v0.3) |
 | AACE RP 57R-09 | Monte Carlo QSRA (v0.5) |

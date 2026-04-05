@@ -46,6 +46,7 @@ from src.analytics.float_trends import (
 )
 from src.analytics.health_score import HealthScoreCalculator
 from src.analytics.forensics import ForensicAnalyzer
+from src.analytics.half_step import analyze_half_step
 from src.analytics.risk import (
     DistributionType,
     DurationRisk,
@@ -142,6 +143,8 @@ from .schemas import (
     FloatTrendResponse,
     GenerateReportRequest,
     GenerateReportResponse,
+    HalfStepRequest,
+    HalfStepResponse,
     ScheduleHealthResponse,
 )
 from .auth import optional_auth, require_auth
@@ -1093,6 +1096,9 @@ def _window_to_schema(wr: Any) -> WindowSchema:
         cp_activities_left=wr.cp_activities_left,
         driving_activity=wr.driving_activity,
         comparison_summary=wr.comparison.summary if wr.comparison else {},
+        progress_delay_days=wr.progress_delay_days,
+        revision_delay_days=wr.revision_delay_days,
+        half_step_summary=wr.half_step_result.summary if wr.half_step_result else None,
     )
 
 
@@ -1101,7 +1107,9 @@ def _window_to_schema(wr: Any) -> WindowSchema:
     response_model=TimelineDetailSchema,
 )
 def create_timeline(
-    request: CreateTimelineRequest, _user: object = Depends(optional_auth)
+    request: CreateTimelineRequest,
+    bifurcated: bool = False,
+    _user: object = Depends(optional_auth),
 ) -> TimelineDetailSchema:
     """Create a forensic CPA timeline from multiple schedule updates.
 
@@ -1111,6 +1119,7 @@ def create_timeline(
 
     Args:
         request: Contains a list of project_ids (minimum 2).
+        bifurcated: If True, run MIP 3.4 half-step analysis per window.
 
     Raises:
         HTTPException: If any project is not found or analysis fails.
@@ -1126,7 +1135,7 @@ def create_timeline(
         schedules.append(schedule)
 
     try:
-        analyzer = ForensicAnalyzer(schedules, list(request.project_ids))
+        analyzer = ForensicAnalyzer(schedules, list(request.project_ids), bifurcated=bifurcated)
         timeline = analyzer.analyze()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -1193,6 +1202,62 @@ def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> Ti
         ),
         windows=[_window_to_schema(w) for w in timeline.windows],
         summary=timeline.summary,
+    )
+
+
+@app.post(
+    "/api/v1/forensic/half-step",
+    response_model=HalfStepResponse,
+)
+def run_half_step(
+    request: HalfStepRequest, _user: object = Depends(optional_auth)
+) -> HalfStepResponse:
+    """Run a half-step (bifurcation) analysis between two schedule updates.
+
+    Per AACE RP 29R-03 MIP 3.4, separates delay into progress effect
+    (actual work performance) and revision effect (logic/plan changes).
+
+    Args:
+        request: Contains baseline_id and update_id.
+
+    Raises:
+        HTTPException: If either project is not found or analysis fails.
+    """
+    store = get_store()
+
+    baseline = store.get(request.baseline_id)
+    if baseline is None:
+        raise HTTPException(
+            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
+        )
+
+    update = store.get(request.update_id)
+    if update is None:
+        raise HTTPException(
+            status_code=404, detail=f"Update project not found: {request.update_id}"
+        )
+
+    try:
+        result = analyze_half_step(baseline, update)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Half-step analysis failed: {exc}")
+
+    return HalfStepResponse(
+        completion_a_days=result.completion_a,
+        completion_half_step_days=result.completion_half_step,
+        completion_b_days=result.completion_b,
+        progress_effect_days=result.progress_effect,
+        revision_effect_days=result.revision_effect,
+        total_delay_days=result.total_delay,
+        progress_direction=result.summary.get("progress_direction", ""),
+        revision_direction=result.summary.get("revision_direction", ""),
+        invariant_holds=result.invariant_check,
+        activities_updated=result.activities_updated,
+        critical_path_a=result.critical_path_a,
+        critical_path_half_step=result.critical_path_half_step,
+        critical_path_b=result.critical_path_b,
+        classification_summary=result.classification.summary if result.classification else {},
+        summary=result.summary,
     )
 
 
