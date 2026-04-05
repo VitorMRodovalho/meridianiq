@@ -153,6 +153,13 @@ from .schemas import (
     PercentileRankingSchema,
     RiskFactorSchema,
     ScheduleHealthResponse,
+    # What-If schemas
+    ActivityImpactSchema,
+    DurationPredictionResponse,
+    ScorecardDimensionSchema,
+    ScorecardResponse,
+    WhatIfRequest,
+    WhatIfResponse,
 )
 from .auth import optional_auth, require_auth
 from .storage import EVMStore, ProjectStore, ReportStore, RiskStore, TIAStore, TimelineStore
@@ -2484,6 +2491,173 @@ def get_delay_prediction(
         methodology=result.methodology,
         features_used=result.features_used,
         has_baseline=result.has_baseline,
+        summary=result.summary,
+    )
+
+
+@app.get("/api/v1/projects/{project_id}/duration-prediction")
+def get_duration_prediction(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> DurationPredictionResponse:
+    """Predict project duration using ML trained on benchmark data.
+
+    Uses Random Forest + Gradient Boosting ensemble trained on the
+    benchmark database to predict expected project duration based on
+    schedule structural features.
+
+    References:
+        AbdElMottaleb (2025), Breiman (2001), Friedman (2001).
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.benchmarks import BenchmarkMetrics
+    from src.analytics.duration_prediction import predict_duration
+
+    # Load benchmarks from DB or use empty list (model handles gracefully)
+    benchmarks: list[BenchmarkMetrics] = []
+    try:
+        db_store = get_store()
+        if hasattr(db_store, "get_benchmarks"):
+            benchmarks = db_store.get_benchmarks()
+    except Exception:
+        pass
+
+    result = predict_duration(schedule, benchmarks)
+
+    return DurationPredictionResponse(
+        predicted_duration_days=result.predicted_duration_days,
+        confidence_low=result.confidence_low,
+        confidence_high=result.confidence_high,
+        actual_duration_days=result.actual_duration_days,
+        delta_days=result.delta_days,
+        model_r_squared=result.model_r_squared,
+        training_samples=result.training_samples,
+        feature_importances=result.feature_importances,
+        methodology=result.methodology,
+        summary=result.summary,
+    )
+
+
+@app.get("/api/v1/projects/{project_id}/scorecard")
+def get_scorecard(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> ScorecardResponse:
+    """Get a comprehensive schedule scorecard with letter grades.
+
+    Aggregates DCMA 14-Point, Health Score, Risk Assessment, Logic
+    Integrity, and Data Completeness into a weighted overall grade.
+
+    References:
+        DCMA 14-Point, GAO Schedule Guide, AACE RP 49R-06, AACE RP 57R-09.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.scorecard import calculate_scorecard
+
+    result = calculate_scorecard(schedule)
+
+    return ScorecardResponse(
+        overall_score=result.overall_score,
+        overall_grade=result.overall_grade,
+        dimensions=[
+            ScorecardDimensionSchema(
+                name=d.name,
+                score=d.score,
+                grade=d.grade,
+                description=d.description,
+                details=d.details,
+            )
+            for d in result.dimensions
+        ],
+        recommendations=result.recommendations,
+        methodology=result.methodology,
+        summary=result.summary,
+    )
+
+
+@app.post("/api/v1/projects/{project_id}/what-if")
+def run_what_if(
+    project_id: str,
+    request: WhatIfRequest,
+    _user: object = Depends(optional_auth),
+) -> WhatIfResponse:
+    """Run a what-if scenario on a project schedule.
+
+    Applies duration adjustments and re-runs CPM to determine impact on
+    project duration, critical path, and per-activity dates.  Supports
+    deterministic (single run) and probabilistic (N iterations with ranges).
+
+    Args:
+        project_id: The stored project identifier.
+        request: Scenario definition with adjustments and iteration count.
+
+    References:
+        AACE RP 57R-09 — Scenario Analysis,
+        PMI PMBOK 7 S4.6 — Measurement Performance Domain.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.whatif import (
+        DurationAdjustment,
+        WhatIfScenario,
+        simulate_whatif,
+    )
+
+    scenario = WhatIfScenario(
+        name=request.name,
+        adjustments=[
+            DurationAdjustment(
+                target=a.target,
+                pct_change=a.pct_change,
+                min_pct=a.min_pct,
+                max_pct=a.max_pct,
+            )
+            for a in request.adjustments
+        ],
+        iterations=request.iterations,
+    )
+
+    result = simulate_whatif(schedule, scenario)
+
+    return WhatIfResponse(
+        scenario_name=result.scenario_name,
+        base_duration_days=result.base_duration_days,
+        adjusted_duration_days=result.adjusted_duration_days,
+        delta_days=result.delta_days,
+        delta_pct=result.delta_pct,
+        critical_path_changed=result.critical_path_changed,
+        new_critical_path=result.new_critical_path,
+        activity_impacts=[
+            ActivityImpactSchema(
+                task_id=i.task_id,
+                task_code=i.task_code,
+                task_name=i.task_name,
+                original_duration_days=i.original_duration_days,
+                adjusted_duration_days=i.adjusted_duration_days,
+                delta_days=i.delta_days,
+                original_total_float=i.original_total_float,
+                adjusted_total_float=i.adjusted_total_float,
+                was_critical=i.was_critical,
+                is_critical=i.is_critical,
+            )
+            for i in result.activity_impacts
+        ],
+        iterations=result.iterations,
+        distribution=result.distribution,
+        p_values=result.p_values,
+        std_days=result.std_days,
+        methodology=result.methodology,
         summary=result.summary,
     )
 

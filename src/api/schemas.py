@@ -1003,6 +1003,102 @@ class DelayPredictionResponse(BaseModel):
     summary: dict[str, Any] = Field(default_factory=dict)
 
 
+# ── What-If Simulator ─────────────────────────────────
+
+
+class DurationAdjustmentSchema(BaseModel):
+    """A duration adjustment for a what-if scenario."""
+
+    target: str = ""  # task_code, "WBS:xxx", or "*"
+    pct_change: float = 0.0
+    min_pct: float | None = None
+    max_pct: float | None = None
+
+
+class WhatIfRequest(BaseModel):
+    """Request body for POST /api/v1/projects/{id}/what-if."""
+
+    name: str = "Scenario"
+    adjustments: list[DurationAdjustmentSchema] = Field(default_factory=list)
+    iterations: int = 1
+
+
+class ActivityImpactSchema(BaseModel):
+    """Per-activity impact of a what-if scenario."""
+
+    task_id: str = ""
+    task_code: str = ""
+    task_name: str = ""
+    original_duration_days: float = 0.0
+    adjusted_duration_days: float = 0.0
+    delta_days: float = 0.0
+    original_total_float: float = 0.0
+    adjusted_total_float: float = 0.0
+    was_critical: bool = False
+    is_critical: bool = False
+
+
+# ── Schedule Scorecard ─────────────────────────────────
+
+
+# ── Duration Prediction ────────────────────────────────
+
+
+class DurationPredictionResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/duration-prediction."""
+
+    predicted_duration_days: float = 0.0
+    confidence_low: float = 0.0
+    confidence_high: float = 0.0
+    actual_duration_days: float = 0.0
+    delta_days: float = 0.0
+    model_r_squared: float = 0.0
+    training_samples: int = 0
+    feature_importances: dict[str, float] = Field(default_factory=dict)
+    methodology: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScorecardDimensionSchema(BaseModel):
+    """A single dimension of the schedule scorecard."""
+
+    name: str = ""
+    score: float = 0.0
+    grade: str = "F"
+    description: str = ""
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScorecardResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/scorecard."""
+
+    overall_score: float = 0.0
+    overall_grade: str = "F"
+    dimensions: list[ScorecardDimensionSchema] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    methodology: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class WhatIfResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/what-if."""
+
+    scenario_name: str = ""
+    base_duration_days: float = 0.0
+    adjusted_duration_days: float = 0.0
+    delta_days: float = 0.0
+    delta_pct: float = 0.0
+    critical_path_changed: bool = False
+    new_critical_path: list[str] = Field(default_factory=list)
+    activity_impacts: list[ActivityImpactSchema] = Field(default_factory=list)
+    iterations: int = 1
+    distribution: list[float] = Field(default_factory=list)
+    p_values: dict[int, float] = Field(default_factory=dict)
+    std_days: float = 0.0
+    methodology: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
 # ── Benchmarks ─────────────────────────────────────────
 
 
