@@ -3,6 +3,19 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — v2.1 — Prediction & Advanced Forensics
+
+### Added
+- Half-step bifurcation analysis (AACE RP 29R-03 MIP 3.4) — separates delay into progress effect vs revision effect (`src/analytics/half_step.py`)
+- `POST /api/v1/forensic/half-step` endpoint for standalone bifurcation analysis
+- `ForensicAnalyzer(bifurcated=True)` mode for integrated MIP 3.4 CPA
+- MCP Server: 10th tool `run_half_step` for Claude integration
+- Forensic PDF report: bifurcation section with progress/revision table and KPIs
+- Frontend: bifurcation chart (progress blue vs revision amber bars) on forensic timeline page
+- Frontend: progress/revision columns in forensic window analysis table
+- `HalfStepResponse` types and API client in frontend
+- 32 new tests for half-step analysis (classification, schedule creation, full analysis, real XER files, edge cases, PDF rendering)
+
 ## [2.0.0] — 2026-04-02 — AI
 
 ### Added
