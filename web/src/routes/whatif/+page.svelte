@@ -2,6 +2,7 @@
 	import { getProjects, runWhatIf } from '$lib/api';
 	import type { WhatIfResponse, DurationAdjustment } from '$lib/types';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { success as toastSuccess, error as toastError } from '$lib/toast';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -47,8 +48,10 @@
 				[adj],
 				useProbabilistic ? iterations : 1
 			);
+			toastSuccess(`Scenario complete: ${result.delta_days > 0 ? '+' : ''}${result.delta_days}d`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Scenario failed';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

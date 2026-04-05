@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { generateSchedule } from '$lib/api';
 	import type { GeneratedScheduleResponse } from '$lib/types';
+	import { success as toastSuccess, error as toastError } from '$lib/toast';
 
 	let result: GeneratedScheduleResponse | null = $state(null);
 	let loading: boolean = $state(false);
@@ -22,8 +23,10 @@
 				projectName || `${projectType} Project`,
 				targetDuration
 			);
+			toastSuccess(`Generated: ${result.activity_count} activities, ${result.predicted_duration_days}d`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Generation failed';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

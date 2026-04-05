@@ -2,6 +2,7 @@
 	import { getProjects, runResourceLeveling } from '$lib/api';
 	import type { LevelingResponse } from '$lib/types';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { success as toastSuccess, error as toastError } from '$lib/toast';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -33,8 +34,10 @@
 				[{ rsrc_id: rsrcId, max_units: maxUnits }],
 				priorityRule
 			);
+			toastSuccess(`Leveled: ${result.leveled_duration_days}d (+${result.extension_days}d)`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Leveling failed';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

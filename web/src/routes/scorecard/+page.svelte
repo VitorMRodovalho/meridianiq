@@ -2,6 +2,7 @@
 	import { getProjects, getScorecard } from '$lib/api';
 	import type { ScorecardResponse } from '$lib/types';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import { success as toastSuccess, error as toastError } from '$lib/toast';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -25,8 +26,10 @@
 		scorecard = null;
 		try {
 			scorecard = await getScorecard(selectedProject);
+			toastSuccess(`Scorecard: Grade ${scorecard.overall_grade}`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load scorecard';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

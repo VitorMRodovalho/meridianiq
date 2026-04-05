@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getProjects, getVisualization } from '$lib/api';
-	import type { VisualizationResponse, VisualizationActivity } from '$lib/types';
+	import type { VisualizationResponse } from '$lib/types';
+	import { success as toastSuccess, error as toastError } from '$lib/toast';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -24,8 +25,10 @@
 		viz = null;
 		try {
 			viz = await getVisualization(selectedProject);
+			toastSuccess(`Loaded: ${viz.total_activities} activities`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load visualization';
+			toastError(error);
 		} finally {
 			loading = false;
 		}
