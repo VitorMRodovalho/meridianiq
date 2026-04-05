@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV } from '$lib/api';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
@@ -12,7 +12,8 @@
 		FloatDistributionResponse,
 		MilestonesResponse,
 		ScheduleHealthResponse,
-		AlertsResponse
+		AlertsResponse,
+		DelayPredictionResponse
 	} from '$lib/types';
 	import type { ReportAvailabilityEntry } from '$lib/api';
 
@@ -27,6 +28,7 @@
 	let milestones: MilestonesResponse | null = $state(null);
 	let healthData: ScheduleHealthResponse | null = $state(null);
 	let alertsData: AlertsResponse | null = $state(null);
+	let predictionData: DelayPredictionResponse | null = $state(null);
 
 	let validationLoading = $state(false);
 	let cpLoading = $state(false);
@@ -34,6 +36,7 @@
 	let msLoading = $state(false);
 	let healthLoading = $state(false);
 	let alertsLoading = $state(false);
+	let predictionLoading = $state(false);
 
 	let reportDropdownOpen = $state(false);
 	let reportGenerating = $state('');
@@ -134,6 +137,10 @@
 				alertsData = { alerts: [], total_alerts: 0, critical_count: 0, warning_count: 0, info_count: 0, aggregate_score: 0, summary: {} };
 			} catch {}
 			alertsLoading = false;
+		} else if (tab === 'prediction' && !predictionData) {
+			predictionLoading = true;
+			try { predictionData = await getDelayPrediction(projectId); } catch {}
+			predictionLoading = false;
 		}
 	}
 
@@ -362,7 +369,8 @@
 					['critical', 'Critical Path'],
 					['float', 'Float Distribution'],
 					['milestones', 'Milestones'],
-					['alerts', 'Alerts']
+					['alerts', 'Alerts'],
+					['prediction', 'Delay Prediction']
 				] as [key, label]}
 					<button
 						class="pb-3 px-1 text-sm font-medium border-b-2 transition-colors {activeTab === key
@@ -861,6 +869,137 @@
 				{/if}
 			{:else}
 				<p class="text-gray-500">Failed to load alerts data.</p>
+			{/if}
+
+		{:else if activeTab === 'prediction'}
+			{#if predictionLoading}
+				<div class="flex items-center gap-2 text-gray-500">
+					<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+					Running delay prediction analysis...
+				</div>
+			{:else if predictionData}
+				<!-- Summary Cards -->
+				<div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold {predictionData.project_risk_level === 'critical' ? 'text-red-600' : predictionData.project_risk_level === 'high' ? 'text-orange-600' : predictionData.project_risk_level === 'medium' ? 'text-yellow-600' : 'text-green-600'}">
+							{predictionData.project_risk_score.toFixed(0)}
+						</p>
+						<p class="text-xs text-gray-500 mt-1">Project Risk Score</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-red-600">{predictionData.critical_risk_count}</p>
+						<p class="text-xs text-gray-500 mt-1">Critical Risk</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-orange-600">{predictionData.high_risk_count}</p>
+						<p class="text-xs text-gray-500 mt-1">High Risk</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-gray-700">{predictionData.predicted_completion_delay.toFixed(0)}d</p>
+						<p class="text-xs text-gray-500 mt-1">Predicted Delay</p>
+					</div>
+				</div>
+
+				<!-- Risk Distribution -->
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+					<div class="bg-white border border-gray-200 rounded-lg p-6">
+						<h3 class="text-sm font-semibold text-gray-900 mb-4">Risk Distribution</h3>
+						<PieChart
+							data={[
+								{ label: 'Low', value: predictionData.risk_distribution.low ?? 0, color: '#22c55e' },
+								{ label: 'Medium', value: predictionData.risk_distribution.medium ?? 0, color: '#eab308' },
+								{ label: 'High', value: predictionData.risk_distribution.high ?? 0, color: '#f97316' },
+								{ label: 'Critical', value: predictionData.risk_distribution.critical ?? 0, color: '#ef4444' }
+							]}
+							size={200}
+						/>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-6">
+						<h3 class="text-sm font-semibold text-gray-900 mb-4">Top Risk Activities</h3>
+						<BarChart
+							data={predictionData.activity_risks.slice(0, 8).map(r => ({
+								label: r.task_code || r.task_id,
+								value: r.risk_score,
+								color: r.risk_level === 'critical' ? '#ef4444' : r.risk_level === 'high' ? '#f97316' : r.risk_level === 'medium' ? '#eab308' : '#22c55e'
+							}))}
+							height={200}
+							horizontal={true}
+							showValues={true}
+							formatValue={(v) => v.toFixed(0)}
+						/>
+					</div>
+				</div>
+
+				<!-- Activity Risk Table -->
+				<div class="bg-white border border-gray-200 rounded-lg">
+					<div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+						<h3 class="text-sm font-semibold text-gray-900">Activity Risk Assessment</h3>
+						<span class="text-xs text-gray-500">{predictionData.methodology}</span>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="min-w-full divide-y divide-gray-200 text-sm">
+							<thead class="bg-gray-50">
+								<tr>
+									<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Activity</th>
+									<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Risk</th>
+									<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Level</th>
+									<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Delay</th>
+									<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Top Factor</th>
+									<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">CP</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-200">
+								{#each predictionData.activity_risks as risk}
+									<tr class="hover:bg-gray-50">
+										<td class="px-4 py-3">
+											<span class="font-mono text-xs text-gray-500">{risk.task_code}</span>
+											<span class="ml-2 text-gray-700">{risk.task_name}</span>
+										</td>
+										<td class="px-4 py-3 text-right">
+											<div class="flex items-center justify-end gap-2">
+												<div class="w-16 bg-gray-200 rounded-full h-1.5">
+													<div
+														class="h-1.5 rounded-full {risk.risk_level === 'critical' ? 'bg-red-500' : risk.risk_level === 'high' ? 'bg-orange-500' : risk.risk_level === 'medium' ? 'bg-yellow-500' : 'bg-green-500'}"
+														style="width: {risk.risk_score}%"
+													></div>
+												</div>
+												<span class="text-xs font-medium w-8 text-right">{risk.risk_score.toFixed(0)}</span>
+											</div>
+										</td>
+										<td class="px-4 py-3 text-center">
+											<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium
+												{risk.risk_level === 'critical' ? 'bg-red-100 text-red-800' :
+												risk.risk_level === 'high' ? 'bg-orange-100 text-orange-800' :
+												risk.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+												'bg-green-100 text-green-800'}">
+												{risk.risk_level}
+											</span>
+										</td>
+										<td class="px-4 py-3 text-right text-xs {risk.predicted_delay_days > 0 ? 'text-red-600 font-medium' : 'text-gray-500'}">
+											{risk.predicted_delay_days > 0 ? `+${risk.predicted_delay_days.toFixed(1)}d` : '-'}
+										</td>
+										<td class="px-4 py-3 text-xs text-gray-600">
+											{#if risk.top_risk_factors.length > 0}
+												<span title={risk.top_risk_factors[0].description}>
+													{risk.top_risk_factors[0].description}
+												</span>
+											{:else}
+												-
+											{/if}
+										</td>
+										<td class="px-4 py-3 text-center">
+											{#if risk.is_critical_path}
+												<span class="text-red-500 font-bold text-xs">CP</span>
+											{/if}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			{:else}
+				<p class="text-gray-500">Failed to load delay prediction data.</p>
 			{/if}
 		{/if}
 	{/if}
