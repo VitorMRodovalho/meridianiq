@@ -336,6 +336,37 @@ def compare_schedules(baseline_id: str, update_id: str) -> str:
     return json.dumps(_serialize(result))
 
 
+@mcp.tool()
+def run_half_step(baseline_id: str, update_id: str) -> str:
+    """Run half-step bifurcation analysis per AACE RP 29R-03 MIP 3.4.
+
+    Separates schedule delay into progress effect (actual work performance)
+    and revision effect (logic/plan changes) by creating an intermediate
+    half-step schedule with only progress applied.
+
+    Args:
+        baseline_id: The earlier (baseline) project identifier.
+        update_id: The later (update) project identifier.
+
+    Returns:
+        JSON with progress_effect, revision_effect, total_delay, critical
+        paths, change classification, and invariant check.
+    """
+    store = _get_store()
+    baseline = store.get(baseline_id)
+    update = store.get(update_id)
+
+    if baseline is None:
+        return json.dumps({"error": "Baseline project not found"})
+    if update is None:
+        return json.dumps({"error": "Update project not found"})
+
+    from src.analytics.half_step import analyze_half_step as _analyze
+
+    result = _analyze(baseline, update)
+    return json.dumps(_serialize(result))
+
+
 # ── Entry point ──
 
 if __name__ == "__main__":

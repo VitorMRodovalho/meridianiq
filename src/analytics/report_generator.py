@@ -946,9 +946,56 @@ class ReportGenerator:
             )
             body += self._section("3. Window Analysis Results", windows_html, page_break=True)
 
-        # Delay waterfall
+        # Half-step bifurcation (MIP 3.4) — if available
+        has_bifurcation = hasattr(timeline, "windows") and any(
+            getattr(w, "half_step_result", None) is not None for w in timeline.windows
+        )
+        section_num = 4
+
+        if has_bifurcation:
+            bif_rows = []
+            total_progress = 0.0
+            total_revision = 0.0
+            for w in timeline.windows:
+                hs = getattr(w, "half_step_result", None)
+                if hs is None:
+                    continue
+                win = getattr(w, "window", None)
+                win_id = str(win.window_number if win else "")
+                p_eff = getattr(hs, "progress_effect", 0.0)
+                r_eff = getattr(hs, "revision_effect", 0.0)
+                t_del = getattr(hs, "total_delay", 0.0)
+                inv = "Yes" if getattr(hs, "invariant_check", False) else "No"
+                bif_rows.append([win_id, f"{p_eff:+.1f}", f"{r_eff:+.1f}", f"{t_del:+.1f}", inv])
+                total_progress += p_eff
+                total_revision += r_eff
+
+            bif_html = self._methodology_box(
+                "Bifurcation per AACE RP 29R-03 MIP 3.4 &mdash; each window&rsquo;s "
+                "delay is split into <strong>progress effect</strong> (actual work "
+                "performance) and <strong>revision effect</strong> (logic/plan changes) "
+                "by constructing an intermediate half-step schedule."
+            )
+            bif_html += self._table(
+                ["Window", "Progress (d)", "Revision (d)", "Total (d)", "Invariant"],
+                bif_rows,
+            )
+            bif_html += self._kpi_grid(
+                [
+                    (f"{total_progress:+.1f}d", "Total Progress Effect", "#3b82f6"),
+                    (f"{total_revision:+.1f}d", "Total Revision Effect", "#f59e0b"),
+                ]
+            )
+            body += self._section(
+                f"{section_num}. Bifurcation Analysis (MIP 3.4)",
+                bif_html,
+                page_break=True,
+            )
+            section_num += 1
+
+        # Delay summary
         body += self._section(
-            "4. Delay Summary",
+            f"{section_num}. Delay Summary",
             self._kpi_grid(
                 [
                     (f"{total_delay:.0f}d", "Total Delay", "#dc2626"),
@@ -959,9 +1006,10 @@ class ReportGenerator:
             ),
             page_break=True,
         )
+        section_num += 1
 
         body += self._section(
-            "5. Conclusions",
+            f"{section_num}. Conclusions",
             f"<p>The forensic window analysis identified {total_delay:.0f} days of project delay "
             f"across {n_windows} analysis windows. Each delay was isolated to specific activities "
             f"and time periods per AACE RP 29R-03 methodology.</p>",

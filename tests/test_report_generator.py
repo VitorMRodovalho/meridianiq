@@ -196,6 +196,14 @@ class MockComparisonResult:
 
 
 @dataclass
+class MockHalfStepResult:
+    progress_effect: float = 10.0
+    revision_effect: float = 5.0
+    total_delay: float = 15.0
+    invariant_check: bool = True
+
+
+@dataclass
 class MockWindow:
     window_number: int = 1
     start_date: datetime = field(default_factory=lambda: datetime(2026, 1, 1))
@@ -203,6 +211,9 @@ class MockWindow:
     delay_days: float = 15.0
     cumulative_delay: float = 15.0
     driving_activity: str = "A1000"
+    half_step_result: MockHalfStepResult | None = None
+    progress_delay_days: float | None = None
+    revision_delay_days: float | None = None
 
 
 @dataclass
@@ -385,6 +396,30 @@ class TestForensicReport:
         html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
         if html:
             assert "45" in html  # total_delay_days
+
+    def test_forensic_report_with_half_step(self):
+        """Verify forensic report includes bifurcation section when half-step data present."""
+        hs = MockHalfStepResult(progress_effect=10.0, revision_effect=5.0, total_delay=15.0)
+        window = MockWindow(half_step_result=hs, progress_delay_days=10.0, revision_delay_days=5.0)
+        timeline = MockTimeline(windows=[window])
+        gen = ReportGenerator()
+        result = gen.generate_forensic_report(timeline)
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Bifurcation" in html
+            assert "MIP 3.4" in html
+            assert "+10.0" in html  # progress effect
+            assert "+5.0" in html  # revision effect
+
+    def test_forensic_report_without_half_step(self):
+        """Verify forensic report omits bifurcation when no half-step data."""
+        window = MockWindow()  # half_step_result defaults to None
+        timeline = MockTimeline(windows=[window])
+        gen = ReportGenerator()
+        result = gen.generate_forensic_report(timeline)
+        html = result.decode("utf-8") if not result.startswith(b"%PDF") else ""
+        if html:
+            assert "Bifurcation" not in html
 
 
 class TestTIAReport:
