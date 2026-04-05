@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getEVMAnalyses, createEVMAnalysis, getProjects } from '$lib/api';
+	import { error as toastError } from '$lib/toast';
 
 	let analyses: any[] = $state([]);
 	let projects: any[] = $state([]);
@@ -34,6 +35,7 @@
 			window.location.href = `/evm/${result.analysis_id}`;
 		} catch (e: any) {
 			error = e.message || 'Analysis failed';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

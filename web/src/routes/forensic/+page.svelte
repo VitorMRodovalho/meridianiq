@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getProjects, getTimelines, createTimeline } from '$lib/api';
 	import type { ProjectListItem, TimelineSummarySchema, TimelineDetailSchema } from '$lib/types';
+	import { error as toastError } from '$lib/toast';
 
 	let projects: ProjectListItem[] = $state([]);
 	let timelines: TimelineSummarySchema[] = $state([]);
@@ -18,6 +19,7 @@
 			timelines = tlRes.timelines;
 		} catch {
 			error = 'Failed to load data';
+			toastError(error);
 		} finally {
 			projectsLoading = false;
 		}
@@ -43,6 +45,7 @@
 			window.location.href = `/forensic/${result.timeline_id}`;
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to create timeline';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

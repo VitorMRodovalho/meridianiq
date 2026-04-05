@@ -4,6 +4,7 @@
 	import type { ProjectListItem, CompareResponse } from '$lib/types';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { error as toastError } from '$lib/toast';
 
 	let projects: ProjectListItem[] = $state([]);
 	let baselineId = $state('');
@@ -19,6 +20,7 @@
 			projects = res.projects;
 		} catch {
 			error = 'Failed to load projects';
+			toastError(error);
 		} finally {
 			projectsLoading = false;
 		}
@@ -40,6 +42,7 @@
 			result = await compareSchedules(baselineId, updateId);
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Comparison failed';
+			toastError(error);
 		} finally {
 			loading = false;
 		}

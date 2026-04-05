@@ -290,6 +290,9 @@
 				</button>
 				{#if exportDropdownOpen}
 					<div class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100" onclick={() => { exportDropdownOpen = false; window.open(`${import.meta.env.VITE_API_URL || ''}/api/v1/projects/${projectId}/export/xer`, '_blank'); }}>
+							XER (.xer) — Primavera P6
+						</button>
 						<button class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100" onclick={() => { exportDropdownOpen = false; handleExcelExport(); }}>
 							Excel (.xlsx) — Full workbook
 						</button>
@@ -383,6 +386,15 @@
 					</button>
 				{/each}
 			</nav>
+		</div>
+
+		<!-- Quick Actions -->
+		<div class="flex flex-wrap gap-2 mb-6">
+			<a href="/scorecard" class="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium hover:bg-indigo-100 transition-colors">Scorecard</a>
+			<a href="/whatif" class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-medium hover:bg-amber-100 transition-colors">What-If</a>
+			<a href="/resources" class="inline-flex items-center gap-1 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-full text-xs font-medium hover:bg-teal-100 transition-colors">Resources</a>
+			<a href="/visualization" class="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium hover:bg-purple-100 transition-colors">4D View</a>
+			<a href="/risk-register" class="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded-full text-xs font-medium hover:bg-red-100 transition-colors">Risk Register</a>
 		</div>
 
 		<!-- Tab Content -->

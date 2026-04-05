@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getRiskSimulations, createRiskSimulation, getProjects } from '$lib/api';
+	import { error as toastError } from '$lib/toast';
 
 	interface SimulationSummary {
 		simulation_id: string;
@@ -39,6 +40,7 @@
 			simulations = data.simulations;
 		} catch (e: any) {
 			error = e.message;
+			toastError(error);
 		} finally {
 			loading = false;
 		}
@@ -72,6 +74,7 @@
 			await loadSimulations();
 		} catch (e: any) {
 			error = e.message;
+			toastError(error);
 		} finally {
 			running = false;
 		}

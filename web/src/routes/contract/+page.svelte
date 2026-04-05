@@ -8,6 +8,7 @@
 		ComplianceCheckSchema,
 		TIAAnalysisSummarySchema
 	} from '$lib/types';
+	import { error as toastError } from '$lib/toast';
 
 	let provisions: ContractProvisionsResponse | null = $state(null);
 	let analyses: TIAAnalysisSummarySchema[] = $state([]);
@@ -27,6 +28,7 @@
 			analyses = tiaRes.analyses;
 		} catch {
 			error = 'Failed to load data';
+			toastError(error);
 		} finally {
 			loading = false;
 		}
@@ -41,6 +43,7 @@
 			checkResult = await contractCheck(selectedAnalysisId);
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Compliance check failed';
+			toastError(error);
 		} finally {
 			checking = false;
 		}

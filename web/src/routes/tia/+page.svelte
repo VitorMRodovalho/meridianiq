@@ -14,6 +14,7 @@
 		DelayFragmentSchema,
 		FragmentActivitySchema
 	} from '$lib/types';
+	import { error as toastError } from '$lib/toast';
 
 	let projects: ProjectListItem[] = $state([]);
 	let analyses: TIAAnalysisSummarySchema[] = $state([]);
@@ -42,6 +43,7 @@
 			analyses = tiaRes.analyses;
 		} catch {
 			error = 'Failed to load data';
+			toastError(error);
 		} finally {
 			projectsLoading = false;
 		}
@@ -101,6 +103,7 @@
 			window.location.href = `/tia/${result.analysis_id}`;
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to create analysis';
+			toastError(error);
 		} finally {
 			loading = false;
 		}
