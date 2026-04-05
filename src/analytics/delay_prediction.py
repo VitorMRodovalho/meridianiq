@@ -766,9 +766,7 @@ class MLDelayModel:
                 y_rows.append(risk.risk_score)
 
         if len(X_rows) < 10:
-            raise ValueError(
-                f"Need at least 10 training samples, got {len(X_rows)}"
-            )
+            raise ValueError(f"Need at least 10 training samples, got {len(X_rows)}")
 
         X = np.array(X_rows)
         y = np.array(y_rows)
@@ -782,13 +780,10 @@ class MLDelayModel:
         gb_imp = self._gb.feature_importances_
         avg_imp = (rf_imp + gb_imp) / 2.0
         importance_map = {
-            _FEATURE_NAMES[i]: round(float(avg_imp[i]), 4)
-            for i in range(len(_FEATURE_NAMES))
+            _FEATURE_NAMES[i]: round(float(avg_imp[i]), 4) for i in range(len(_FEATURE_NAMES))
         }
         # Sort by importance descending
-        importance_map = dict(
-            sorted(importance_map.items(), key=lambda x: x[1], reverse=True)
-        )
+        importance_map = dict(sorted(importance_map.items(), key=lambda x: x[1], reverse=True))
 
         return {
             "samples": len(X_rows),
@@ -826,8 +821,7 @@ class MLDelayModel:
         gb_imp = self._gb.feature_importances_
         avg_imp = (rf_imp + gb_imp) / 2.0
         result = {
-            _FEATURE_NAMES[i]: round(float(avg_imp[i]), 4)
-            for i in range(len(_FEATURE_NAMES))
+            _FEATURE_NAMES[i]: round(float(avg_imp[i]), 4) for i in range(len(_FEATURE_NAMES))
         }
         return dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
 
@@ -846,8 +840,12 @@ def _ml_compute_activity_risk(
     trend_score, trend_factors = _score_trend_risk(f)
 
     all_factors = (
-        float_factors + progress_factors + logic_factors
-        + duration_factors + network_factors + trend_factors
+        float_factors
+        + progress_factors
+        + logic_factors
+        + duration_factors
+        + network_factors
+        + trend_factors
     )
     all_factors.sort(key=lambda rf: rf.contribution, reverse=True)
 
@@ -973,9 +971,7 @@ def predict_delays(
                 while len(train_features) < 10:
                     train_features.extend(features)
                 ml_training_info = ml_model.train([train_features])
-                logger.info(
-                    "ML model auto-trained on %d samples", ml_training_info["samples"]
-                )
+                logger.info("ML model auto-trained on %d samples", ml_training_info["samples"])
             except (ValueError, RuntimeError) as exc:
                 logger.warning("ML training failed, falling back to rules: %s", exc)
                 use_ml = False
@@ -1025,9 +1021,7 @@ def predict_delays(
     if use_ml and ml_model is not None and ml_model.is_trained:
         base_method = "ML ensemble (Random Forest + Gradient Boosting)"
         result.methodology = (
-            f"{base_method} with trend analysis"
-            if baseline
-            else f"{base_method} (single schedule)"
+            f"{base_method} with trend analysis" if baseline else f"{base_method} (single schedule)"
         )
     else:
         result.methodology = (

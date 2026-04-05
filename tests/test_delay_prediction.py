@@ -554,18 +554,14 @@ class TestMLPrediction:
         assert result.has_baseline is True
         assert result.features_used == 35
 
-    def test_ml_confidence_higher_than_rules(
-        self, healthy_schedule: ParsedSchedule
-    ) -> None:
+    def test_ml_confidence_higher_than_rules(self, healthy_schedule: ParsedSchedule) -> None:
         """ML confidence base (0.7) should be >= rule-based (0.6)."""
         rules = predict_delays(healthy_schedule, model="rules")
         ml = predict_delays(healthy_schedule, model="ml")
         avg_rules = sum(r.confidence for r in rules.activity_risks) / max(
             len(rules.activity_risks), 1
         )
-        avg_ml = sum(r.confidence for r in ml.activity_risks) / max(
-            len(ml.activity_risks), 1
-        )
+        avg_ml = sum(r.confidence for r in ml.activity_risks) / max(len(ml.activity_risks), 1)
         assert avg_ml >= avg_rules
 
     def test_ml_skips_complete(self, healthy_schedule: ParsedSchedule) -> None:
