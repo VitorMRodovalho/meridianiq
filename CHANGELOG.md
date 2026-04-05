@@ -19,6 +19,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - `GET /api/v1/projects/{id}/delay-prediction` endpoint with optional baseline enhancement
 - MCP Server: 11th tool `predict_delays` for Claude integration
 - 30 new tests for delay prediction (scoring quality, risk factors, baseline enhancement, edge cases)
+- Zero-Step analysis (Ron Winter PS-1197) — backward half-step for concurrent delay detection
+- `analyze_half_step(include_zero_step=True)` with `concurrent_delay_indicator`
+- Frontend: risk scatter chart (ScatterChart) on delay prediction tab
+- 7 new zero-step tests (509 total)
 
 ## [2.0.0] — 2026-04-02 — AI
 
