@@ -5,16 +5,26 @@
 Exposes schedule analysis capabilities as MCP tools that AI assistants
 (Claude, etc.) can invoke to query and analyze uploaded P6 XER schedules.
 
-Available tools:
+Available tools (19):
+- upload_xer: Parse and store an XER file
 - list_projects: List all uploaded schedules
 - get_project_summary: Get project metadata and activity counts
 - run_dcma: Run DCMA 14-point schedule assessment
 - get_critical_path: Compute and return critical path activities
-- get_float_distribution: Get float distribution across activities
 - get_health_score: Compute composite health score
 - get_float_entropy: Compute Shannon entropy of float distribution
 - analyze_root_cause: Trace backwards to find delay root cause
 - compare_schedules: Compare two schedule versions
+- predict_delays: ML delay risk prediction (RF+GB ensemble)
+- extract_benchmarks: Extract anonymized benchmark metrics
+- run_half_step: MIP 3.4 half-step bifurcation analysis
+- run_what_if: Deterministic/probabilistic scenario simulation
+- get_scorecard: Schedule scorecard with letter grades A-F
+- level_resources: Resource-constrained scheduling (Serial SGS)
+- generate_schedule: Generate schedule from project type/size
+- build_schedule_from_description: NLP-driven schedule generation
+- export_xer: Export schedule to XER format for P6 import
+- optimize_schedule_es: Evolution Strategies RCPSP optimizer
 
 Usage:
     python -m src.mcp_server

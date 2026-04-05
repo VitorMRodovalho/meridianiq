@@ -4,15 +4,14 @@
 
 **The intelligence standard for project schedules**
 
-Open-source schedule intelligence platform — from validation to prediction.
+Open-source schedule intelligence platform — from validation to prediction to generation.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![SvelteKit](https://img.shields.io/badge/SvelteKit-2.0-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
-[![NetworkX](https://img.shields.io/badge/NetworkX-CPM%20Engine-4C9A2A)](https://networkx.org)
-[![NumPy](https://img.shields.io/badge/NumPy-Monte%20Carlo-013243?logo=numpy&logoColor=white)](https://numpy.org)
-[![Tests](https://img.shields.io/badge/Tests-440%2B%20passing-brightgreen)]()
+[![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-2.56-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![Tests](https://img.shields.io/badge/Tests-710%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -36,13 +35,13 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 12 (Parser · CPM · DCMA · Compare · CPA · TIA · Contract · EVM · Monte Carlo · Float Trends/EW/Health · IPS Reconciliation · Recovery Validation) |
+| Analysis engines | 30 + 1 export module (CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Forensics · Half-Step · Delay Prediction ML · Benchmarks · What-If · Scorecard · Resource Leveling · Schedule Generation · Evolution Optimizer · 4D Visualization + more) |
+| MCP tools | 19 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 440+ backend + 25 E2E |
-| Python source lines | ~16,000+ |
+| Tests passing | 710+ backend + 29 E2E |
 | Frontend pages | 24 |
-| API endpoints | 60 |
-| Released versions | 14 (v0.1.0 → v2.0.0) |
+| API endpoints | 70+ |
+| Released versions | 18 (v0.1.0 → v3.0.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -158,7 +157,11 @@ flowchart LR
 | v0.8 | **Intelligence** | Float Trends + Early Warning + Health Score | ✅ Released |
 | v0.9 | **Polish** | UX + CI/CD + E2E + i18n + Demo | ✅ Released |
 | v1.0 | **Enterprise** | Teams + IPS + Recovery + Multi-format + Audit | ✅ Released |
-| v2.0 | **AI** | ML Predictions · NLP · Anomaly Detection | 🔮 Future |
+| v2.0 | **AI** | ML Predictions · NLP · Anomaly Detection · MCP | ✅ Released |
+| v2.1 | **Prediction** | Half-Step MIP 3.4 · Delay ML · Benchmarks · GDPR | ✅ Released |
+| v2.2 | **Scenarios** | What-If Simulator · Scorecard · Duration ML · Pareto | ✅ Released |
+| v2.3 | **Optimization** | Resource Leveling RCPSP · Schedule Generation · Builder | ✅ Released |
+| v3.0 | **Full Lifecycle** | XER Export · ES Optimizer · Benchmark Priors · 4D Viz | ✅ Released |
 
 See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_v20.md).
 
@@ -168,7 +171,7 @@ See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.12+ (CI tests on 3.14)
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier) with URL and anon/service keys
 

@@ -19,7 +19,7 @@ docker compose up meridianiq-api
 ## Test
 
 ```bash
-# Backend (440+ tests, ~8s)
+# Backend (710+ tests)
 python -m pytest tests/ -q
 
 # Frontend type check
@@ -39,7 +39,7 @@ mypy src/ --strict              # type check
 
 ## Architecture
 
-- **26 analysis engines** in `src/analytics/` + 1 export module — each standalone, no cross-dependencies
+- **30 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
 - **API**: FastAPI with 60+ endpoints under `/api/v1/`
 - **Frontend**: SvelteKit + Tailwind v4, 24 pages, Svelte 5 runes ($state, $derived, $effect)
 - **Database**: Supabase PostgreSQL with RLS, 12 migrations in `supabase/migrations/`
@@ -87,4 +87,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.0.0 — "Full Lifecycle" (26 engines, 19 MCP tools, 710 tests)
+- Version: v3.0.0 — "Full Lifecycle" (30 engines, 19 MCP tools, 710 tests)
+- CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
+- Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)

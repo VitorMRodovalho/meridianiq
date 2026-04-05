@@ -1,4 +1,4 @@
-# Known Issues & Backlog — v2.0.0
+# Known Issues & Backlog — v3.0.0
 
 Bug tracking and feature backlog for MeridianIQ.
 

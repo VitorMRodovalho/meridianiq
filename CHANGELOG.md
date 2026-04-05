@@ -17,7 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - 44 new tests (710 total)
 
 ### Stats
-- **26 analysis engines + 1 export module**, 19 MCP tools, **710 tests**
+- **30 analysis engines + 1 export module**, 19 MCP tools, **710 tests**
 
 ### References
 - Oracle Primavera P6 XER Format (round-trip export)
