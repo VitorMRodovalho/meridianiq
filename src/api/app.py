@@ -3391,7 +3391,7 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
 # PDF Report Generation
 # ══════════════════════════════════════════════════════════
 
-_VALID_REPORT_TYPES = {"health", "comparison", "forensic", "tia", "risk", "monthly_review"}
+_VALID_REPORT_TYPES = {"health", "comparison", "forensic", "tia", "risk", "monthly_review", "executive_summary"}
 
 
 @app.post(
@@ -3446,6 +3446,8 @@ def generate_report(
             pdf_bytes = _generate_risk_report(generator, schedule, request, store)
         elif report_type == "monthly_review":
             pdf_bytes = _generate_monthly_review_report(generator, schedule, request, store)
+        elif report_type == "executive_summary":
+            pdf_bytes = _generate_executive_summary(generator, schedule)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -3645,6 +3647,30 @@ def _generate_monthly_review_report(
         comparison_result,
         alerts_result,
         baseline,
+    )
+
+
+def _generate_executive_summary(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+) -> bytes:
+    """Generate executive summary PDF combining scorecard + DCMA + health + risk."""
+    from src.analytics.dcma14 import DCMA14Analyzer
+    from src.analytics.delay_prediction import predict_delays
+    from src.analytics.health_score import HealthScoreCalculator
+    from src.analytics.scorecard import calculate_scorecard
+
+    scorecard = calculate_scorecard(schedule)
+    dcma_result = DCMA14Analyzer(schedule).analyze()
+    health = HealthScoreCalculator(schedule).calculate()
+    delay = predict_delays(schedule)
+
+    return generator.generate_executive_summary(
+        schedule,
+        scorecard=scorecard,
+        dcma_result=dcma_result,
+        health_score=health,
+        delay_prediction=delay,
     )
 
 
