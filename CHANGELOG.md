@@ -3,6 +3,26 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.3.0] — 2026-04-05 — Schedule Optimization
+
+### Added
+- Resource leveling engine — RCPSP via Serial SGS with 4 priority rules (`src/analytics/resource_leveling.py`)
+- `POST /api/v1/projects/{id}/resource-leveling` endpoint with activity shifts and resource profiles
+- ML schedule generation — template-based with stochastic duration estimation (`src/analytics/schedule_generation.py`)
+- `POST /api/v1/schedule/generate` endpoint for 4 project types (commercial, industrial, infrastructure, residential)
+- Conversational schedule builder — NLP-driven generation with Claude API + keyword fallback (`src/analytics/schedule_builder.py`)
+- Generated schedules fully compatible with all 22 analysis engines
+- MCP Server: 15th tool `level_resources`, 16th tool `generate_schedule`, 17th tool `build_schedule_from_description`
+- 53 new tests (666 total)
+
+### Stats
+- **22 analysis engines**, 17 MCP tools, **666 tests**
+
+### References
+- AACE RP 46R-11 (resource analysis), Kolisch (1996) Serial SGS
+- Kelley & Walker (1959) CPM resource extension
+- AbdElMottaleb (2025) ML for construction scheduling
+
 ## [2.2.0] — 2026-04-05 — Scenario Intelligence
 
 ### Added

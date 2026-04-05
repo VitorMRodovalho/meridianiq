@@ -155,10 +155,14 @@ from .schemas import (
     ScheduleHealthResponse,
     # What-If schemas
     ActivityImpactSchema,
+    ActivityShiftSchema,
     DurationPredictionResponse,
+    LevelingRequest,
+    LevelingResponse,
     ParetoPointSchema,
     ParetoRequest,
     ParetoResponse,
+    ResourceProfileSchema,
     ScorecardDimensionSchema,
     ScorecardResponse,
     WhatIfRequest,
@@ -2494,6 +2498,78 @@ def get_delay_prediction(
         methodology=result.methodology,
         features_used=result.features_used,
         has_baseline=result.has_baseline,
+        summary=result.summary,
+    )
+
+
+@app.post("/api/v1/projects/{project_id}/resource-leveling")
+def run_resource_leveling(
+    project_id: str,
+    request: LevelingRequest,
+    _user: object = Depends(optional_auth),
+) -> LevelingResponse:
+    """Run resource-constrained scheduling using Serial SGS.
+
+    Levels resources by scheduling activities at their earliest feasible
+    start, respecting both precedence and resource capacity constraints.
+
+    References:
+        AACE RP 46R-11, Kolisch (1996), Kelley & Walker (1959).
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from src.analytics.resource_leveling import LevelingConfig, ResourceLimit, level_resources
+
+    config = LevelingConfig(
+        resource_limits=[
+            ResourceLimit(
+                rsrc_id=rl.rsrc_id,
+                max_units=rl.max_units,
+                cost_per_unit_day=rl.cost_per_unit_day,
+            )
+            for rl in request.resource_limits
+        ],
+        priority_rule=request.priority_rule,
+        max_project_extension_pct=request.max_project_extension_pct,
+    )
+
+    result = level_resources(schedule, config)
+
+    return LevelingResponse(
+        original_duration_days=result.original_duration_days,
+        leveled_duration_days=result.leveled_duration_days,
+        extension_days=result.extension_days,
+        extension_pct=result.extension_pct,
+        activity_shifts=[
+            ActivityShiftSchema(
+                task_id=s.task_id,
+                task_code=s.task_code,
+                task_name=s.task_name,
+                original_start=s.original_start,
+                leveled_start=s.leveled_start,
+                shift_days=s.shift_days,
+                duration_days=s.duration_days,
+                resources=s.resources,
+            )
+            for s in result.activity_shifts
+        ],
+        resource_profiles=[
+            ResourceProfileSchema(
+                rsrc_id=rp.rsrc_id,
+                rsrc_name=rp.rsrc_name,
+                max_units=rp.max_units,
+                peak_demand=rp.peak_demand,
+                demand_by_day=rp.demand_by_day,
+            )
+            for rp in result.resource_profiles
+        ],
+        overloaded_periods=result.overloaded_periods,
+        leveling_iterations=result.leveling_iterations,
+        priority_rule=result.priority_rule,
+        methodology=result.methodology,
         summary=result.summary,
     )
 

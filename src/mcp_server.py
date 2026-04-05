@@ -498,6 +498,112 @@ def get_scorecard(project_id: str) -> str:
     return json.dumps(_serialize(result))
 
 
+@mcp.tool()
+def level_resources(
+    project_id: str,
+    resource_limits: str = "",
+    priority_rule: str = "late_start",
+) -> str:
+    """Run resource-constrained scheduling via Serial SGS.
+
+    Levels resources by scheduling activities at their earliest feasible
+    start, respecting both precedence and resource capacity constraints.
+
+    Args:
+        project_id: The project identifier.
+        resource_limits: JSON array of limits, e.g.
+            '[{"rsrc_id": "R1", "max_units": 2.0}]'.
+        priority_rule: Priority rule (late_start, early_start, float, duration).
+
+    Returns:
+        JSON with original/leveled duration, extension, activity shifts,
+        and resource profiles.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.analytics.resource_leveling import LevelingConfig, ResourceLimit, level_resources
+
+    limits = []
+    if resource_limits:
+        raw = json.loads(resource_limits)
+        for rl in raw:
+            limits.append(
+                ResourceLimit(
+                    rsrc_id=rl.get("rsrc_id", ""),
+                    max_units=rl.get("max_units", 1.0),
+                )
+            )
+
+    config = LevelingConfig(resource_limits=limits, priority_rule=priority_rule)
+    result = level_resources(schedule, config)
+    return json.dumps(_serialize(result))
+
+
+@mcp.tool()
+def generate_schedule(
+    project_type: str = "commercial",
+    size_category: str = "medium",
+    project_name: str = "Generated Project",
+    target_duration_days: float = 0,
+) -> str:
+    """Generate a complete schedule from project parameters.
+
+    Creates activities, durations, and logical relationships based on
+    project type, size category, and optional target duration.
+
+    Args:
+        project_type: commercial, industrial, infrastructure, or residential.
+        size_category: small, medium, large, or mega.
+        project_name: Name for the generated project.
+        target_duration_days: Target duration (0 = auto).
+
+    Returns:
+        JSON with generated activities, relationships, predicted duration,
+        and full schedule summary.
+    """
+    from src.analytics.schedule_generation import GenerationInput
+    from src.analytics.schedule_generation import generate_schedule as _generate
+
+    params = GenerationInput(
+        project_type=project_type,
+        project_name=project_name,
+        target_duration_days=target_duration_days,
+        size_category=size_category,
+    )
+    result = _generate(params)
+    # Don't serialize parsed_schedule (too large for MCP response)
+    summary = result.summary.copy()
+    summary["activities"] = [
+        {"code": a.task_code, "name": a.task_name, "duration_days": a.duration_days}
+        for a in result.activities[:50]  # Limit to first 50
+    ]
+    return json.dumps(summary)
+
+
+@mcp.tool()
+def build_schedule_from_description(description: str) -> str:
+    """Build a schedule from a natural language project description.
+
+    Interprets the description to extract project type, size, and
+    complexity, then generates a complete schedule.
+
+    Args:
+        description: Natural language project description, e.g.
+            "3-story office building, 18 months, steel frame".
+
+    Returns:
+        JSON with interpreted parameters, generated activity count,
+        and predicted duration.
+    """
+    from src.analytics.schedule_builder import _fallback_build
+
+    result = _fallback_build(description)
+    return json.dumps(_serialize(result.summary))
+
+
 # ── Entry point ──
 
 if __name__ == "__main__":

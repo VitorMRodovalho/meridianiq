@@ -39,7 +39,7 @@ mypy src/ --strict              # type check
 
 ## Architecture
 
-- **19 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
+- **22 analysis engines** in `src/analytics/` — each standalone, no cross-dependencies
 - **API**: FastAPI with 60+ endpoints under `/api/v1/`
 - **Frontend**: SvelteKit + Tailwind v4, 24 pages, Svelte 5 runes ($state, $derived, $effect)
 - **Database**: Supabase PostgreSQL with RLS, 12 migrations in `supabase/migrations/`
@@ -87,4 +87,4 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v2.2.0 — "Scenario Intelligence" (19 engines, 14 MCP tools, 613+ tests)
+- Version: v2.3.0 — "Schedule Optimization" (22 engines, 17 MCP tools, 666 tests)

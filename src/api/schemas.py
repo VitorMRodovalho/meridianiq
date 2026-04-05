@@ -1041,6 +1041,64 @@ class ActivityImpactSchema(BaseModel):
 # ── Schedule Scorecard ─────────────────────────────────
 
 
+# ── Resource Leveling ──────────────────────────────────
+
+
+class ResourceLimitSchema(BaseModel):
+    """Resource capacity limit."""
+
+    rsrc_id: str = ""
+    max_units: float = 1.0
+    cost_per_unit_day: float = 0.0
+
+
+class LevelingRequest(BaseModel):
+    """Request for POST /api/v1/projects/{id}/resource-leveling."""
+
+    resource_limits: list[ResourceLimitSchema] = Field(default_factory=list)
+    priority_rule: str = "late_start"
+    max_project_extension_pct: float | None = None
+
+
+class ActivityShiftSchema(BaseModel):
+    """How an activity was shifted during leveling."""
+
+    task_id: str = ""
+    task_code: str = ""
+    task_name: str = ""
+    original_start: float = 0.0
+    leveled_start: float = 0.0
+    shift_days: float = 0.0
+    duration_days: float = 0.0
+    resources: dict[str, float] = Field(default_factory=dict)
+
+
+class ResourceProfileSchema(BaseModel):
+    """Resource usage profile over time."""
+
+    rsrc_id: str = ""
+    rsrc_name: str = ""
+    max_units: float = 0.0
+    peak_demand: float = 0.0
+    demand_by_day: list[float] = Field(default_factory=list)
+
+
+class LevelingResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/resource-leveling."""
+
+    original_duration_days: float = 0.0
+    leveled_duration_days: float = 0.0
+    extension_days: float = 0.0
+    extension_pct: float = 0.0
+    activity_shifts: list[ActivityShiftSchema] = Field(default_factory=list)
+    resource_profiles: list[ResourceProfileSchema] = Field(default_factory=list)
+    overloaded_periods: int = 0
+    leveling_iterations: int = 0
+    priority_rule: str = ""
+    methodology: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
 # ── Duration Prediction ────────────────────────────────
 
 
