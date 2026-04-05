@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { getProjects, runResourceLeveling } from '$lib/api';
 	import type { LevelingResponse } from '$lib/types';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import ResourceChart from '$lib/components/charts/ResourceChart.svelte';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
-	let result: LevelingResponse | null = $state(null);
+	let result = $state<LevelingResponse | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
 
@@ -45,14 +45,7 @@
 
 	$effect(() => { loadProjects(); });
 
-	const profileChartData = $derived(() => {
-		if (!result || !result.resource_profiles[0]) return [];
-		const profile = result.resource_profiles[0];
-		const step = Math.max(1, Math.floor(profile.demand_by_day.length / 30));
-		return profile.demand_by_day
-			.filter((_: number, i: number) => i % step === 0)
-			.map((d: number, i: number) => ({ label: `D${i * step}`, value: d, threshold: profile.max_units }));
-	});
+	const hasProfile = $derived(result !== null && result.resource_profiles.length > 0);
 </script>
 
 <svelte:head>
@@ -130,10 +123,18 @@
 			</div>
 		</div>
 
-		{#if profileChartData().length > 0}
-			<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-				<BarChart data={profileChartData()} title="Resource Demand Profile" height={220} />
-			</div>
+		{#if hasProfile}
+			{#each result.resource_profiles as profile}
+				<div class="mb-6">
+					<ResourceChart
+						demandByDay={profile.demand_by_day}
+						maxUnits={profile.max_units}
+						title="Resource Demand Profile"
+						rsrcName={profile.rsrc_name || profile.rsrc_id}
+						height={240}
+					/>
+				</div>
+			{/each}
 		{/if}
 
 		{#if result.activity_shifts.length > 0}
