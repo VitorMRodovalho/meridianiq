@@ -2926,10 +2926,12 @@ def optimize_schedule_endpoint(
 
     limits = []
     for rl in request.get("resource_limits", []):
-        limits.append(ResourceLimit(
-            rsrc_id=rl.get("rsrc_id", ""),
-            max_units=rl.get("max_units", 1.0),
-        ))
+        limits.append(
+            ResourceLimit(
+                rsrc_id=rl.get("rsrc_id", ""),
+                max_units=rl.get("max_units", 1.0),
+            )
+        )
 
     config = EvolutionConfig(
         population_size=request.get("population_size", 20),
