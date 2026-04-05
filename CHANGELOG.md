@@ -3,7 +3,7 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — v2.1 — Prediction & Advanced Forensics
+## [2.1.0] — 2026-04-05 — Prediction & Benchmarks
 
 ### Added
 - Half-step bifurcation analysis (AACE RP 29R-03 MIP 3.4) — separates delay into progress effect vs revision effect (`src/analytics/half_step.py`)
@@ -17,22 +17,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - 32 new tests for half-step analysis (classification, schedule creation, full analysis, real XER files, edge cases, PDF rendering)
 - Delay prediction engine — activity-level risk scoring with 35 features, weighted multi-factor model, SHAP-like explainable risk factors (`src/analytics/delay_prediction.py`)
 - `GET /api/v1/projects/{id}/delay-prediction` endpoint with optional baseline enhancement
+- **ML-enhanced delay prediction** — Random Forest + Gradient Boosting ensemble via `?model=ml` parameter (Gondia et al. 2021, Breiman 2001, Friedman 2001)
+- `MLDelayModel` class with auto-training from rule-based teacher, batch prediction, and feature importance extraction
+- `scikit-learn>=1.4` as optional `[ml]` dependency (`pip install meridianiq[ml]`)
+- 20 new ML prediction tests (model training, ensemble scoring, feature importances, fallback behavior)
 - MCP Server: 11th tool `predict_delays` for Claude integration
-- 30 new tests for delay prediction (scoring quality, risk factors, baseline enhancement, edge cases)
 - Zero-Step analysis (Ron Winter PS-1197) — backward half-step for concurrent delay detection
 - `analyze_half_step(include_zero_step=True)` with `concurrent_delay_indicator`
 - Frontend: risk scatter chart (ScatterChart) on delay prediction tab
-- 7 new zero-step tests (509 total)
+- 7 new zero-step tests
 - Benchmark database — anonymized cross-project comparison with percentile ranking (`src/analytics/benchmarks.py`)
 - Supabase migration 013: `benchmark_projects` + `benchmark_metrics` tables with public-read RLS
 - `POST /api/v1/benchmarks/contribute`, `GET /benchmarks/compare/{id}`, `GET /benchmarks/summary` endpoints
 - MCP Server: 12th tool `extract_benchmarks`
-- 18 new benchmark tests (527 total)
+- 18 new benchmark tests
 - SECURITY DEFINER RPCs: `delete_user_data`, `set_project_sandbox`, `contribute_benchmark`
 - GDPR data deletion endpoint: `DELETE /api/v1/user/data` (cascade delete all user data)
 - Programs table RLS policies (was missing — critical security gap fixed)
 - Reports table RLS policies added
 - Supabase migration 014: security RPCs + RLS fixes
+- All 14 Supabase migrations verified and registered in production
+
+### Stats
+- **16 analysis engines**, 12 MCP tools, **547 tests**, 14 migrations, 100 benchmarks seeded
 
 ## [2.0.0] — 2026-04-02 — AI
 

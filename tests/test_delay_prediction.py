@@ -16,6 +16,8 @@ import pytest
 
 from src.analytics.delay_prediction import (
     DelayPredictionResult,
+    MLDelayModel,
+    _HAS_SKLEARN,
     predict_delays,
 )
 from src.parser.models import (
@@ -496,3 +498,181 @@ class TestEdgeCases:
             len(with_base.activity_risks), 1
         )
         assert avg_with >= avg_no
+
+
+# ===========================================================================
+# Tests: ML Prediction (scikit-learn)
+# ===========================================================================
+
+
+@pytest.mark.skipif(not _HAS_SKLEARN, reason="scikit-learn not installed")
+class TestMLPrediction:
+    """Verify ML ensemble prediction mode."""
+
+    def test_ml_returns_result(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        assert isinstance(result, DelayPredictionResult)
+        assert len(result.activity_risks) > 0
+
+    def test_ml_scores_bounded(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        for r in result.activity_risks:
+            assert 0 <= r.risk_score <= 100
+
+    def test_ml_risk_levels_valid(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        valid_levels = {"low", "medium", "high", "critical"}
+        for r in result.activity_risks:
+            assert r.risk_level in valid_levels
+
+    def test_ml_methodology_set(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        assert "ml" in result.methodology.lower() or "ensemble" in result.methodology.lower()
+
+    def test_ml_has_feature_importances(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        assert "feature_importances" in result.summary
+        importances = result.summary["feature_importances"]
+        assert len(importances) > 0
+        assert all(v >= 0 for v in importances.values())
+
+    def test_ml_sorted_descending(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        scores = [r.risk_score for r in result.activity_risks]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_ml_risky_higher_than_healthy(
+        self, healthy_schedule: ParsedSchedule, risky_schedule: ParsedSchedule
+    ) -> None:
+        """ML model should also rank risky schedule higher."""
+        healthy = predict_delays(healthy_schedule, model="ml")
+        risky = predict_delays(risky_schedule, model="ml")
+        assert risky.project_risk_score > healthy.project_risk_score
+
+    def test_ml_with_baseline(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, baseline=healthy_schedule, model="ml")
+        assert result.has_baseline is True
+        assert result.features_used == 35
+
+    def test_ml_confidence_higher_than_rules(
+        self, healthy_schedule: ParsedSchedule
+    ) -> None:
+        """ML confidence base (0.7) should be >= rule-based (0.6)."""
+        rules = predict_delays(healthy_schedule, model="rules")
+        ml = predict_delays(healthy_schedule, model="ml")
+        avg_rules = sum(r.confidence for r in rules.activity_risks) / max(
+            len(rules.activity_risks), 1
+        )
+        avg_ml = sum(r.confidence for r in ml.activity_risks) / max(
+            len(ml.activity_risks), 1
+        )
+        assert avg_ml >= avg_rules
+
+    def test_ml_skips_complete(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule, model="ml")
+        codes = {r.task_code for r in result.activity_risks}
+        assert "A" not in codes
+
+    def test_ml_real_xer(self, baseline: ParsedSchedule) -> None:
+        """ML prediction works with real XER files."""
+        result = predict_delays(baseline, model="ml")
+        assert len(result.activity_risks) > 0
+        assert result.project_risk_score > 0
+
+    def test_ml_real_xer_with_baseline(
+        self, baseline: ParsedSchedule, update1: ParsedSchedule
+    ) -> None:
+        result = predict_delays(update1, baseline=baseline, model="ml")
+        assert result.has_baseline is True
+        assert "ml" in result.methodology.lower() or "ensemble" in result.methodology.lower()
+
+
+@pytest.mark.skipif(not _HAS_SKLEARN, reason="scikit-learn not installed")
+class TestMLModel:
+    """Test MLDelayModel class directly."""
+
+    def test_model_init(self) -> None:
+        model = MLDelayModel()
+        assert not model.is_trained
+        assert len(model.feature_names) == 30
+
+    def test_model_train_requires_min_samples(self) -> None:
+        model = MLDelayModel()
+        with pytest.raises(ValueError, match="at least 10"):
+            model.train([[]])
+
+    def test_model_predict_before_train_fails(self) -> None:
+        model = MLDelayModel()
+        with pytest.raises(RuntimeError, match="not trained"):
+            model.predict_batch([])
+
+    def test_model_train_and_predict(self, risky_schedule: ParsedSchedule) -> None:
+        """Train on risky schedule, predict on same."""
+        from src.analytics.cpm import CPMCalculator
+        from src.analytics.delay_prediction import _extract_features
+
+        cpm = CPMCalculator(risky_schedule).calculate()
+        features = _extract_features(risky_schedule, cpm)
+
+        # Need enough samples — duplicate features
+        big_features = features * 5  # 15 samples
+        model = MLDelayModel()
+        info = model.train([big_features])
+
+        assert model.is_trained
+        assert info["samples"] == 15
+        assert info["features"] == 30
+        assert "feature_importances" in info
+
+        scores = model.predict_batch(features)
+        assert len(scores) == len(features)
+        for s in scores:
+            assert 0 <= s <= 100
+
+    def test_feature_importances(self, risky_schedule: ParsedSchedule) -> None:
+        from src.analytics.cpm import CPMCalculator
+        from src.analytics.delay_prediction import _extract_features
+
+        cpm = CPMCalculator(risky_schedule).calculate()
+        features = _extract_features(risky_schedule, cpm) * 5
+
+        model = MLDelayModel()
+        model.train([features])
+        importances = model.get_feature_importances()
+
+        assert len(importances) == 30
+        assert all(isinstance(v, float) for v in importances.values())
+        # Most important feature should have > 0 importance
+        top_value = list(importances.values())[0]
+        assert top_value > 0
+
+    def test_pretrained_model_in_predict(
+        self, healthy_schedule: ParsedSchedule, risky_schedule: ParsedSchedule
+    ) -> None:
+        """Pass pre-trained model to predict_delays."""
+        from src.analytics.cpm import CPMCalculator
+        from src.analytics.delay_prediction import _extract_features
+
+        # Train on risky
+        cpm = CPMCalculator(risky_schedule).calculate()
+        features = _extract_features(risky_schedule, cpm) * 5
+        model = MLDelayModel()
+        model.train([features])
+
+        # Predict on healthy with pre-trained model
+        result = predict_delays(healthy_schedule, model="ml", ml_model=model)
+        assert len(result.activity_risks) > 0
+        assert "ml" in result.methodology.lower() or "ensemble" in result.methodology.lower()
+
+
+class TestModelFallback:
+    """Verify graceful fallback behavior."""
+
+    def test_rules_is_default(self, healthy_schedule: ParsedSchedule) -> None:
+        result = predict_delays(healthy_schedule)
+        assert "rule-based" in result.methodology.lower()
+
+    def test_invalid_model_uses_rules(self, healthy_schedule: ParsedSchedule) -> None:
+        """Unknown model name falls back to rules."""
+        result = predict_delays(healthy_schedule, model="unknown")
+        assert "rule-based" in result.methodology.lower()

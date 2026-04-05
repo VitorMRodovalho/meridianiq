@@ -87,4 +87,4 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v2.0.0 — next milestone is v2.1 "Prediction & Benchmarks"
+- Version: v2.1.0 — "Prediction & Benchmarks" (16 engines, 547 tests, ML delay prediction)

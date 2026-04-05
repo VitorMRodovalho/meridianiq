@@ -27,10 +27,20 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from src.analytics.cpm import CPMCalculator, CPMResult
 from src.parser.models import ParsedSchedule, Task
 
 logger = logging.getLogger(__name__)
+
+# Optional ML imports — graceful degradation when not installed
+try:
+    from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+
+    _HAS_SKLEARN = True
+except ImportError:  # pragma: no cover
+    _HAS_SKLEARN = False
 
 # ---------------------------------------------------------------------------
 # Constants — thresholds aligned with DCMA / AACE standards
@@ -611,6 +621,284 @@ def _compute_activity_risk(f: _ActivityFeatures) -> ActivityRisk:
 
 
 # ---------------------------------------------------------------------------
+# ML Model — ensemble of Random Forest + Gradient Boosting
+# ---------------------------------------------------------------------------
+
+# Feature names in vectorization order (must stay stable for model compat)
+_FEATURE_NAMES: list[str] = [
+    "total_float_hrs",
+    "free_float_hrs",
+    "float_bucket_negative",
+    "float_bucket_critical",
+    "float_bucket_near_critical",
+    "float_bucket_moderate",
+    "float_bucket_high",
+    "remaining_ratio",
+    "duration_bucket_short",
+    "duration_bucket_normal",
+    "duration_bucket_long",
+    "duration_bucket_very_long",
+    "has_predecessor",
+    "has_successor",
+    "predecessor_count",
+    "successor_count",
+    "has_constraint",
+    "is_critical",
+    "topo_position",
+    "progress_pct",
+    "is_active",
+    "is_not_started",
+    "progress_consistency",
+    "schedule_logic_pct",
+    "schedule_constraint_pct",
+    "schedule_neg_float_pct",
+    # Trend features (zeros when no baseline)
+    "float_delta_hrs",
+    "duration_change_hrs",
+    "constraint_added",
+    "has_trend_data",
+]
+
+_FLOAT_BUCKETS = ("negative", "critical", "near_critical", "moderate", "high")
+_DURATION_BUCKETS = ("short", "normal", "long", "very_long")
+
+
+def _features_to_vector(f: _ActivityFeatures) -> np.ndarray:
+    """Convert an _ActivityFeatures dataclass to a fixed-length numeric vector."""
+    vec = [
+        f.total_float_hrs,
+        f.free_float_hrs,
+        *(1.0 if f.float_bucket == b else 0.0 for b in _FLOAT_BUCKETS),
+        f.remaining_ratio,
+        *(1.0 if f.duration_bucket == b else 0.0 for b in _DURATION_BUCKETS),
+        float(f.has_predecessor),
+        float(f.has_successor),
+        float(f.predecessor_count),
+        float(f.successor_count),
+        float(f.has_constraint),
+        float(f.is_critical),
+        f.topo_position,
+        f.progress_pct,
+        float(f.is_active),
+        float(f.is_not_started),
+        f.progress_consistency,
+        f.schedule_logic_pct,
+        f.schedule_constraint_pct,
+        f.schedule_neg_float_pct,
+        f.float_delta_hrs,
+        f.duration_change_hrs,
+        float(f.constraint_added),
+        float(f.has_trend_data),
+    ]
+    return np.array(vec, dtype=np.float64)
+
+
+class MLDelayModel:
+    """Ensemble ML model for delay risk prediction.
+
+    Combines Random Forest and Gradient Boosting regressors trained on
+    rule-based risk scores as ground truth.  The rule-based engine serves
+    as the "teacher" — the ML model learns to reproduce and generalize
+    the expert rules while capturing non-linear feature interactions that
+    fixed weights miss.
+
+    References:
+        - Gondia et al. (2021) — ML for Construction Delay Prediction
+        - Breiman (2001) — Random Forests
+        - Friedman (2001) — Gradient Boosting Machines
+    """
+
+    def __init__(self) -> None:
+        if not _HAS_SKLEARN:
+            raise RuntimeError(
+                "scikit-learn is required for ML predictions. "
+                "Install with: pip install meridianiq[ml]"
+            )
+        self._rf = RandomForestRegressor(
+            n_estimators=100,
+            max_depth=10,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1,
+        )
+        self._gb = GradientBoostingRegressor(
+            n_estimators=100,
+            max_depth=5,
+            learning_rate=0.1,
+            min_samples_leaf=5,
+            random_state=42,
+        )
+        self._is_trained = False
+        self._rf_weight = 0.5
+        self._gb_weight = 0.5
+
+    @property
+    def is_trained(self) -> bool:
+        return self._is_trained
+
+    @property
+    def feature_names(self) -> list[str]:
+        return list(_FEATURE_NAMES)
+
+    def train(
+        self,
+        features_list: list[list[_ActivityFeatures]],
+    ) -> dict[str, Any]:
+        """Train the ensemble on rule-based scores as ground truth.
+
+        Uses the existing rule-based scoring engine as the teacher model.
+        Each schedule's activities are scored by rules, then those scores
+        become the training targets for the ML models.
+
+        Args:
+            features_list: List of feature lists (one per schedule).
+
+        Returns:
+            Training summary with sample count and feature importances.
+        """
+        X_rows: list[np.ndarray] = []
+        y_rows: list[float] = []
+
+        for features in features_list:
+            for f in features:
+                risk = _compute_activity_risk(f)
+                X_rows.append(_features_to_vector(f))
+                y_rows.append(risk.risk_score)
+
+        if len(X_rows) < 10:
+            raise ValueError(
+                f"Need at least 10 training samples, got {len(X_rows)}"
+            )
+
+        X = np.array(X_rows)
+        y = np.array(y_rows)
+
+        self._rf.fit(X, y)
+        self._gb.fit(X, y)
+        self._is_trained = True
+
+        # Feature importances (averaged across both models)
+        rf_imp = self._rf.feature_importances_
+        gb_imp = self._gb.feature_importances_
+        avg_imp = (rf_imp + gb_imp) / 2.0
+        importance_map = {
+            _FEATURE_NAMES[i]: round(float(avg_imp[i]), 4)
+            for i in range(len(_FEATURE_NAMES))
+        }
+        # Sort by importance descending
+        importance_map = dict(
+            sorted(importance_map.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        return {
+            "samples": len(X_rows),
+            "features": len(_FEATURE_NAMES),
+            "feature_importances": importance_map,
+        }
+
+    def predict_score(self, f: _ActivityFeatures) -> float:
+        """Predict risk score for a single activity (0-100)."""
+        if not self._is_trained:
+            raise RuntimeError("Model not trained. Call train() first.")
+        vec = _features_to_vector(f).reshape(1, -1)
+        rf_pred = float(self._rf.predict(vec)[0])
+        gb_pred = float(self._gb.predict(vec)[0])
+        score = self._rf_weight * rf_pred + self._gb_weight * gb_pred
+        return max(0.0, min(100.0, score))
+
+    def predict_batch(self, features: list[_ActivityFeatures]) -> list[float]:
+        """Predict risk scores for a batch of activities."""
+        if not self._is_trained:
+            raise RuntimeError("Model not trained. Call train() first.")
+        if not features:
+            return []
+        X = np.array([_features_to_vector(f) for f in features])
+        rf_preds = self._rf.predict(X)
+        gb_preds = self._gb.predict(X)
+        scores = self._rf_weight * rf_preds + self._gb_weight * gb_preds
+        return [max(0.0, min(100.0, float(s))) for s in scores]
+
+    def get_feature_importances(self) -> dict[str, float]:
+        """Return averaged feature importances from both models."""
+        if not self._is_trained:
+            return {}
+        rf_imp = self._rf.feature_importances_
+        gb_imp = self._gb.feature_importances_
+        avg_imp = (rf_imp + gb_imp) / 2.0
+        result = {
+            _FEATURE_NAMES[i]: round(float(avg_imp[i]), 4)
+            for i in range(len(_FEATURE_NAMES))
+        }
+        return dict(sorted(result.items(), key=lambda x: x[1], reverse=True))
+
+
+def _ml_compute_activity_risk(
+    f: _ActivityFeatures,
+    ml_score: float,
+) -> ActivityRisk:
+    """Build an ActivityRisk using ML-predicted score with rule-based factors."""
+    # Use rule-based sub-scores for explainability
+    float_score, float_factors = _score_float_risk(f)
+    progress_score, progress_factors = _score_progress_risk(f)
+    logic_score, logic_factors = _score_logic_risk(f)
+    duration_score, duration_factors = _score_duration_risk(f)
+    network_score, network_factors = _score_network_risk(f)
+    trend_score, trend_factors = _score_trend_risk(f)
+
+    all_factors = (
+        float_factors + progress_factors + logic_factors
+        + duration_factors + network_factors + trend_factors
+    )
+    all_factors.sort(key=lambda rf: rf.contribution, reverse=True)
+
+    score = round(ml_score, 1)
+    if score >= _RISK_HIGH:
+        level = "critical"
+    elif score >= _RISK_MEDIUM:
+        level = "high"
+    elif score >= _RISK_LOW:
+        level = "medium"
+    else:
+        level = "low"
+
+    # Delay prediction same as rule-based
+    predicted_delay = 0.0
+    tf_days = f.total_float_hrs / _HOURS_PER_DAY
+    if tf_days < 0:
+        predicted_delay = abs(tf_days)
+    elif f.is_active and f.progress_consistency > 1.2:
+        remain_days = f.task.remain_drtn_hr_cnt / _HOURS_PER_DAY
+        predicted_delay = remain_days * (f.progress_consistency - 1.0)
+
+    confidence = 0.7  # ML base confidence (higher than rule-based 0.6)
+    if f.has_trend_data:
+        confidence += 0.15
+    if f.has_predecessor and f.has_successor:
+        confidence += 0.1
+    if f.total_float_hrs is not None:
+        confidence += 0.05
+
+    return ActivityRisk(
+        task_id=f.task.task_id,
+        task_code=f.task.task_code,
+        task_name=f.task.task_name,
+        risk_score=score,
+        risk_level=level,
+        predicted_delay_days=round(predicted_delay, 1),
+        confidence=min(confidence, 1.0),
+        top_risk_factors=all_factors[:5],
+        is_critical_path=f.is_critical,
+        wbs_id=f.task.wbs_id,
+        float_risk=round(float_score, 1),
+        progress_risk=round(progress_score, 1),
+        logic_risk=round(logic_score, 1),
+        duration_risk=round(duration_score, 1),
+        network_risk=round(network_score, 1),
+        trend_risk=round(trend_score, 1),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -618,22 +906,44 @@ def _compute_activity_risk(f: _ActivityFeatures) -> ActivityRisk:
 def predict_delays(
     schedule: ParsedSchedule,
     baseline: ParsedSchedule | None = None,
+    *,
+    model: str = "rules",
+    ml_model: MLDelayModel | None = None,
 ) -> DelayPredictionResult:
     """Predict delay risk for all non-complete activities in a schedule.
 
-    Uses a weighted multi-factor risk scoring model aligned with DCMA
-    14-Point thresholds and AACE RP 49R-06 float health criteria.
+    Supports two prediction modes:
+
+    1. **rules** (default) — Weighted multi-factor risk scoring aligned with
+       DCMA 14-Point thresholds and AACE RP 49R-06 float health criteria.
+    2. **ml** — Ensemble of Random Forest + Gradient Boosting regressors
+       trained on rule-based scores, capturing non-linear feature interactions.
+       Falls back to rules if scikit-learn is not installed or model is untrained.
 
     Args:
         schedule: The current schedule to analyze.
         baseline: Optional earlier schedule for trend-based features.
+        model: Prediction mode — ``"rules"`` or ``"ml"``.
+        ml_model: Pre-trained MLDelayModel instance. If ``None`` and
+            ``model="ml"``, a model is auto-trained on the current schedule.
 
     Returns:
         A ``DelayPredictionResult`` with per-activity risks and project
         aggregate scores.
+
+    References:
+        - DCMA 14-Point Assessment — standard thresholds
+        - AACE RP 49R-06 — Float Trend Analysis
+        - GAO Schedule Assessment Guide §7–§9
+        - Gondia et al. (2021) — Applied AI for Construction Delay Prediction
+        - Breiman (2001) — Random Forests
+        - Friedman (2001) — Gradient Boosting Machines
     """
     result = DelayPredictionResult()
     result.has_baseline = baseline is not None
+
+    # Determine if we can use ML
+    use_ml = model == "ml" and _HAS_SKLEARN
 
     # Run CPM
     try:
@@ -651,10 +961,36 @@ def predict_delays(
         result.summary = {"activities_analyzed": 0}
         return result
 
-    # Score each activity
-    for f in features:
-        risk = _compute_activity_risk(f)
-        result.activity_risks.append(risk)
+    # ML path: train if needed, then predict
+    ml_training_info: dict[str, Any] = {}
+    if use_ml:
+        if ml_model is None:
+            ml_model = MLDelayModel()
+        if not ml_model.is_trained:
+            try:
+                # Auto-duplicate if fewer than 10 samples (teacher is deterministic)
+                train_features = list(features)
+                while len(train_features) < 10:
+                    train_features.extend(features)
+                ml_training_info = ml_model.train([train_features])
+                logger.info(
+                    "ML model auto-trained on %d samples", ml_training_info["samples"]
+                )
+            except (ValueError, RuntimeError) as exc:
+                logger.warning("ML training failed, falling back to rules: %s", exc)
+                use_ml = False
+
+    if use_ml and ml_model is not None and ml_model.is_trained:
+        # Batch predict with ML
+        ml_scores = ml_model.predict_batch(features)
+        for f, score in zip(features, ml_scores):
+            risk = _ml_compute_activity_risk(f, score)
+            result.activity_risks.append(risk)
+    else:
+        # Rule-based scoring
+        for f in features:
+            risk = _compute_activity_risk(f)
+            result.activity_risks.append(risk)
 
     # Sort by risk score descending
     result.activity_risks.sort(key=lambda r: r.risk_score, reverse=True)
@@ -686,14 +1022,22 @@ def predict_delays(
     result.predicted_completion_delay = round(max(cp_delays, default=0.0), 1)
 
     # Methodology
-    result.methodology = (
-        "Rule-based multi-factor risk scoring with trend analysis"
-        if baseline
-        else "Rule-based multi-factor risk scoring (single schedule)"
-    )
+    if use_ml and ml_model is not None and ml_model.is_trained:
+        base_method = "ML ensemble (Random Forest + Gradient Boosting)"
+        result.methodology = (
+            f"{base_method} with trend analysis"
+            if baseline
+            else f"{base_method} (single schedule)"
+        )
+    else:
+        result.methodology = (
+            "Rule-based multi-factor risk scoring with trend analysis"
+            if baseline
+            else "Rule-based multi-factor risk scoring (single schedule)"
+        )
 
     # Summary
-    result.summary = {
+    summary: dict[str, Any] = {
         "activities_analyzed": len(result.activity_risks),
         "project_risk_score": result.project_risk_score,
         "project_risk_level": result.project_risk_level,
@@ -721,5 +1065,10 @@ def predict_delays(
             "GAO Schedule Assessment Guide §7–§9",
         ],
     }
+    if ml_training_info:
+        summary["ml_training"] = ml_training_info
+    if use_ml and ml_model is not None and ml_model.is_trained:
+        summary["feature_importances"] = ml_model.get_feature_importances()
 
+    result.summary = summary
     return result

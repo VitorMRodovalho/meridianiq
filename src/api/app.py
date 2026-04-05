@@ -2409,6 +2409,7 @@ def get_anomalies(
 def get_delay_prediction(
     project_id: str,
     baseline_id: str | None = None,
+    model: str = "rules",
     _user: object = Depends(optional_auth),
 ) -> DelayPredictionResponse:
     """Predict delay risk for all non-complete activities.
@@ -2419,10 +2420,16 @@ def get_delay_prediction(
     Args:
         project_id: The stored project identifier.
         baseline_id: Optional earlier schedule for trend analysis.
+        model: Prediction mode — ``"rules"`` (default) or ``"ml"``
+            (Random Forest + Gradient Boosting ensemble).
 
     References:
-        DCMA 14-Point Assessment, AACE RP 49R-06, GAO Schedule Guide.
+        DCMA 14-Point Assessment, AACE RP 49R-06, GAO Schedule Guide,
+        Gondia et al. (2021).
     """
+    if model not in ("rules", "ml"):
+        raise HTTPException(status_code=400, detail="model must be 'rules' or 'ml'")
+
     store = get_store()
     schedule = store.get(project_id)
     if schedule is None:
@@ -2436,7 +2443,7 @@ def get_delay_prediction(
 
     from src.analytics.delay_prediction import predict_delays
 
-    result = predict_delays(schedule, baseline=baseline)
+    result = predict_delays(schedule, baseline=baseline, model=model)
 
     return DelayPredictionResponse(
         activity_risks=[
