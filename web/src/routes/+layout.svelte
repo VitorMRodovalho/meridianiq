@@ -9,8 +9,21 @@
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { t, locale, detectLocale, availableLocales } from '$lib/i18n';
 
+	import { browser } from '$app/environment';
+
 	let { children } = $props();
 	let sidebarOpen = $state(false);
+
+	// Collapsible sidebar sections — persist state in localStorage
+	let collapsed: Record<string, boolean> = $state(
+		browser ? JSON.parse(localStorage.getItem('meridianiq-sidebar-collapsed') || '{}') : {}
+	);
+
+	function toggleSection(title: string) {
+		collapsed[title] = !collapsed[title];
+		collapsed = { ...collapsed };
+		if (browser) localStorage.setItem('meridianiq-sidebar-collapsed', JSON.stringify(collapsed));
+	}
 
 	onMount(() => {
 		initAuth();
@@ -133,10 +146,22 @@
 		<nav class="flex-1 px-4 py-3 overflow-y-auto">
 			{#each navSections as section, si}
 				{#if section.title}
-					<p class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{section.title}</p>
+					<button
+						onclick={() => toggleSection(section.title)}
+						class="w-full flex items-center justify-between px-3 pt-4 pb-1 group"
+					>
+						<span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">{section.title}</span>
+						<svg
+							class="w-3 h-3 text-gray-500 transition-transform {collapsed[section.title] ? '-rotate-90' : ''}"
+							fill="none" stroke="currentColor" viewBox="0 0 24 24"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+						</svg>
+					</button>
 				{:else if si > 0}
 					<div class="my-2 border-t border-gray-700"></div>
 				{/if}
+				{#if !section.title || !collapsed[section.title]}
 				<div class="space-y-0.5">
 					{#each section.items as link}
 						<a
@@ -151,6 +176,7 @@
 						</a>
 					{/each}
 				</div>
+				{/if}
 			{/each}
 		</nav>
 
