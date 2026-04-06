@@ -3391,7 +3391,15 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
 # PDF Report Generation
 # ══════════════════════════════════════════════════════════
 
-_VALID_REPORT_TYPES = {"health", "comparison", "forensic", "tia", "risk", "monthly_review", "executive_summary"}
+_VALID_REPORT_TYPES = {
+    "health",
+    "comparison",
+    "forensic",
+    "tia",
+    "risk",
+    "monthly_review",
+    "executive_summary",
+}
 
 
 @app.post(
