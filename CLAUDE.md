@@ -39,9 +39,9 @@ mypy src/ --strict              # type check
 
 ## Architecture
 
-- **30 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 77 endpoints under `/api/v1/`
-- **Frontend**: SvelteKit + Tailwind v4, 39 pages, Svelte 5 runes ($state, $derived, $effect)
+- **32 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
+- **API**: FastAPI with 79 endpoints under `/api/v1/`
+- **Frontend**: SvelteKit + Tailwind v4, 41 pages, Svelte 5 runes ($state, $derived, $effect)
 - **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
@@ -87,6 +87,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.0.0 — "Full Lifecycle" (31 engines, 19 MCP tools, 724+ tests)
+- Version: v3.0.1 — "Frontend Coverage" (32 engines, 19 MCP tools, 734+ tests)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
