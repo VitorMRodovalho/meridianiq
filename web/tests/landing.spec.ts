@@ -8,9 +8,9 @@ test.describe('Landing Page (unauthenticated)', () => {
     await expect(page.getByRole('link', { name: 'View on GitHub' })).toBeVisible();
   });
 
-  test('shows 10 capability cards', async ({ page }) => {
+  test('shows capability cards', async ({ page }) => {
     await page.goto('/');
-    const heading = page.locator('main h2', { hasText: '10 Analysis Engines' });
+    const heading = page.locator('main h2', { hasText: '31 Analysis Engines' });
     await expect(heading).toBeAttached();
     await heading.scrollIntoViewIfNeeded();
     await expect(heading).toBeVisible();
