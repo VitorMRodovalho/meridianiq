@@ -205,7 +205,7 @@
 			<span class="text-xs text-gray-600 mx-1">&middot;</span>
 			<a href="https://github.com/VitorMRodovalho/meridianiq" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-white transition-colors">GitHub</a>
 			<p class="text-xs text-gray-500 mt-2">MeridianIQ &middot; MIT &middot; &copy; 2025 Vitor Maia Rodovalho</p>
-			<p class="text-xs text-gray-500 mt-0.5">v2.0.0</p>
+			<p class="text-xs text-gray-500 mt-0.5">v3.0.0</p>
 		</div>
 	</aside>
 

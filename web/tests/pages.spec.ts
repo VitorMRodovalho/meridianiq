@@ -26,6 +26,14 @@ test.describe('Public pages load without errors', () => {
     ['/risk-register', 'Risk Register'],
     ['/lookahead', 'Look-Ahead Schedule'],
     ['/cashflow', 'Cash Flow Analysis'],
+    ['/anomalies', 'Anomaly Detection'],
+    ['/root-cause', 'Root Cause Analysis'],
+    ['/delay-prediction', 'Delay Prediction'],
+    ['/duration-prediction', 'Duration Prediction'],
+    ['/benchmarks', 'Benchmark Comparison'],
+    ['/float-trends', 'Float Trends'],
+    ['/reports', 'Reports Hub'],
+    ['/optimizer', 'Schedule Optimizer'],
   ];
 
   for (const [route, expectedText] of routes) {
@@ -89,6 +97,62 @@ test.describe('Intelligence pages have interactive controls', () => {
     await page.goto('/visualization');
     await expect(page.locator('select#project')).toBeVisible();
     await expect(page.getByRole('button', { name: /Visualize/i })).toBeVisible();
+  });
+});
+
+test.describe('New analysis pages have interactive controls', () => {
+  test('Anomalies has project selector and button', async ({ page }) => {
+    await page.goto('/anomalies');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Detect Anomalies/i })).toBeVisible();
+  });
+
+  test('Root Cause has project selector and activity input', async ({ page }) => {
+    await page.goto('/root-cause');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.locator('input#activity')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Trace Root Cause/i })).toBeVisible();
+  });
+
+  test('Delay Prediction has model selector', async ({ page }) => {
+    await page.goto('/delay-prediction');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.locator('select#model')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Predict Delays/i })).toBeVisible();
+  });
+
+  test('Duration Prediction has project selector', async ({ page }) => {
+    await page.goto('/duration-prediction');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Predict Duration/i })).toBeVisible();
+  });
+
+  test('Benchmarks has compare and contribute buttons', async ({ page }) => {
+    await page.goto('/benchmarks');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Compare/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Contribute/i })).toBeVisible();
+  });
+
+  test('Float Trends has dual project selectors', async ({ page }) => {
+    await page.goto('/float-trends');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.locator('select#baseline')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Analyze/i })).toBeVisible();
+  });
+
+  test('Reports has check button', async ({ page }) => {
+    await page.goto('/reports');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Check Reports/i })).toBeVisible();
+  });
+
+  test('Optimizer has generation and population inputs', async ({ page }) => {
+    await page.goto('/optimizer');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.locator('input#gens')).toBeVisible();
+    await expect(page.locator('input#pop')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Optimize/i })).toBeVisible();
   });
 });
 
