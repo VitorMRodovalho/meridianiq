@@ -1,1 +1,90 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Dark mode overrides for common UI patterns.
+ * Analysis pages use bg-white, border-gray-200, text-gray-900 extensively.
+ * These global overrides avoid editing every page individually.
+ */
+@layer base {
+	.dark body {
+		color-scheme: dark;
+	}
+
+	/* Cards and panels */
+	.dark .bg-white {
+		background-color: var(--color-gray-900);
+	}
+
+	/* Borders */
+	.dark .border-gray-200 {
+		border-color: var(--color-gray-700);
+	}
+	.dark .border-gray-100 {
+		border-color: var(--color-gray-800);
+	}
+
+	/* Text colors */
+	.dark .text-gray-900 {
+		color: var(--color-gray-100);
+	}
+	.dark .text-gray-800 {
+		color: var(--color-gray-200);
+	}
+	.dark .text-gray-700 {
+		color: var(--color-gray-300);
+	}
+	.dark .text-gray-600 {
+		color: var(--color-gray-400);
+	}
+	.dark .text-gray-500 {
+		color: var(--color-gray-400);
+	}
+	.dark .text-gray-400 {
+		color: var(--color-gray-500);
+	}
+
+	/* Backgrounds */
+	.dark .bg-gray-50 {
+		background-color: var(--color-gray-800);
+	}
+	.dark .bg-gray-100 {
+		background-color: var(--color-gray-800);
+	}
+
+	/* Inputs and selects */
+	.dark select,
+	.dark input[type="text"],
+	.dark input[type="number"],
+	.dark input[type="email"],
+	.dark textarea {
+		background-color: var(--color-gray-800);
+		border-color: var(--color-gray-600);
+		color: var(--color-gray-100);
+	}
+
+	/* Tables */
+	.dark .hover\:bg-gray-50:hover {
+		background-color: var(--color-gray-800);
+	}
+
+	/* Alert/status backgrounds */
+	.dark .bg-red-50 {
+		background-color: color-mix(in srgb, var(--color-red-950) 80%, transparent);
+	}
+	.dark .bg-green-50 {
+		background-color: color-mix(in srgb, var(--color-green-950) 80%, transparent);
+	}
+	.dark .bg-amber-50 {
+		background-color: color-mix(in srgb, var(--color-amber-950) 80%, transparent);
+	}
+	.dark .bg-blue-50 {
+		background-color: color-mix(in srgb, var(--color-blue-950) 80%, transparent);
+	}
+
+	/* SVG chart text */
+	.dark .fill-gray-400 {
+		fill: var(--color-gray-500);
+	}
+}

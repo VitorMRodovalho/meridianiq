@@ -4,6 +4,13 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<script>
+			(function() {
+				var s = localStorage.getItem('meridianiq-theme');
+				var d = s === 'dark' || (s === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+				if (d) document.documentElement.classList.add('dark');
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

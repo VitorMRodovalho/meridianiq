@@ -4,6 +4,7 @@
 	import { user, isLoading, initAuth, signOut } from '$lib/auth';
 	import { isWarmingUp, warmUp } from '$lib/api';
 	import { initAnalytics } from '$lib/analytics';
+	import { isDark, toggleTheme, initTheme } from '$lib/stores/theme';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { t, locale, detectLocale, availableLocales } from '$lib/i18n';
 
@@ -14,6 +15,7 @@
 		initAuth();
 		warmUp();
 		initAnalytics();
+		initTheme();
 		locale.set(detectLocale());
 	});
 
@@ -85,7 +87,7 @@
 	];
 </script>
 
-<div class="flex min-h-screen bg-gray-50">
+<div class="flex min-h-screen bg-gray-50 dark:bg-gray-950">
 	<!-- Mobile hamburger -->
 	<button
 		onclick={() => (sidebarOpen = true)}
@@ -202,6 +204,22 @@
 						<option value={loc.code} selected={loc.code === $locale}>{loc.label}</option>
 					{/each}
 				</select>
+				<button
+					onclick={toggleTheme}
+					class="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+					aria-label="Toggle dark mode"
+					title={$isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+				>
+					{#if $isDark}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+						</svg>
+					{:else}
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+						</svg>
+					{/if}
+				</button>
 			</div>
 			<a href="/docs" onclick={closeSidebar} class="text-xs text-gray-400 hover:text-white transition-colors">Documentation</a>
 			<span class="text-xs text-gray-600 mx-1">&middot;</span>
@@ -212,9 +230,9 @@
 	</aside>
 
 	<!-- Main content -->
-	<main class="flex-1 overflow-auto min-w-0">
+	<main class="flex-1 overflow-auto min-w-0 dark:text-gray-100">
 		{#if $isWarmingUp}
-			<div class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 text-sm text-amber-800">
+			<div class="bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
 				<svg class="animate-spin h-4 w-4 text-amber-600 shrink-0" viewBox="0 0 24 24">
 					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
