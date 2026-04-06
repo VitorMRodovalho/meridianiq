@@ -32,6 +32,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from src.analytics.calendar_validation import validate_calendars
 from src.analytics.comparison import ScheduleComparison
 from src.analytics.report_generator import ReportGenerator
 from src.analytics.contract import ContractComplianceChecker
@@ -3012,6 +3013,36 @@ def optimize_schedule_endpoint(
     data = asdict(result)
     data.pop("best_leveling", None)
     return data
+
+
+@app.get("/api/v1/projects/{project_id}/calendar-validation")
+def get_calendar_validation(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Validate work calendar definitions for integrity and best practices.
+
+    Checks default calendar existence, task coverage, hour consistency,
+    non-standard calendars, orphaned definitions, and excessive diversity.
+
+    Args:
+        project_id: The stored project identifier.
+
+    Returns:
+        CalendarValidationResult with calendars, issues, score, and grade.
+
+    References:
+        DCMA 14-Point Check #13 — Calendar adequacy.
+        GAO Schedule Assessment Guide — Reasonable parameters.
+        AACE RP 49R-06 — Schedule Health Assessment.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = validate_calendars(schedule)
+    return asdict(result)
 
 
 @app.get("/api/v1/projects/{project_id}/float-entropy")

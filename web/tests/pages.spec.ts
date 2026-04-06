@@ -26,6 +26,7 @@ test.describe('Public pages load without errors', () => {
     ['/risk-register', 'Risk Register'],
     ['/lookahead', 'Look-Ahead Schedule'],
     ['/cashflow', 'Cash Flow Analysis'],
+    ['/calendar-validation', 'Calendar Validation'],
     ['/anomalies', 'Anomaly Detection'],
     ['/root-cause', 'Root Cause Analysis'],
     ['/delay-prediction', 'Delay Prediction'],
@@ -145,6 +146,12 @@ test.describe('New analysis pages have interactive controls', () => {
     await page.goto('/reports');
     await expect(page.locator('select#project')).toBeVisible();
     await expect(page.getByRole('button', { name: /Check Reports/i })).toBeVisible();
+  });
+
+  test('Calendar Validation has project selector and validate button', async ({ page }) => {
+    await page.goto('/calendar-validation');
+    await expect(page.locator('select#project')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Validate Calendars/i })).toBeVisible();
   });
 
   test('Optimizer has generation and population inputs', async ({ page }) => {
