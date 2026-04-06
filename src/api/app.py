@@ -33,6 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.analytics.calendar_validation import validate_calendars
+from src.analytics.delay_attribution import compute_delay_attribution
 from src.analytics.comparison import ScheduleComparison
 from src.analytics.report_generator import ReportGenerator
 from src.analytics.contract import ContractComplianceChecker
@@ -3013,6 +3014,39 @@ def optimize_schedule_endpoint(
     data = asdict(result)
     data.pop("best_leveling", None)
     return data
+
+
+@app.get("/api/v1/projects/{project_id}/delay-attribution")
+def get_delay_attribution(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Compute delay attribution breakdown by responsible party.
+
+    Aggregates delay by Owner, Contractor, Shared, Third Party, and
+    Force Majeure. Uses TIA results if available, otherwise estimates
+    from schedule characteristics.
+
+    Args:
+        project_id: The current/update schedule identifier.
+        baseline_id: Optional baseline schedule for comparison.
+
+    Returns:
+        AttributionResult with per-party breakdown, excusable/non-excusable totals.
+
+    References:
+        AACE RP 29R-03, AACE RP 52R-06, SCL Protocol.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    baseline = store.get(baseline_id) if baseline_id else None
+
+    result = compute_delay_attribution(schedule, baseline=baseline)
+    return asdict(result)
 
 
 @app.get("/api/v1/projects/{project_id}/calendar-validation")

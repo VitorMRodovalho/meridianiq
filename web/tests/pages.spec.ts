@@ -27,6 +27,7 @@ test.describe('Public pages load without errors', () => {
     ['/lookahead', 'Look-Ahead Schedule'],
     ['/cashflow', 'Cash Flow Analysis'],
     ['/calendar-validation', 'Calendar Validation'],
+    ['/delay-attribution', 'Delay Attribution'],
     ['/anomalies', 'Anomaly Detection'],
     ['/root-cause', 'Root Cause Analysis'],
     ['/delay-prediction', 'Delay Prediction'],
