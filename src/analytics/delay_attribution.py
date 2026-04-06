@@ -119,15 +119,11 @@ def compute_delay_attribution(
                     PartyDelay(
                         party=name,
                         delay_days=round(days, 1),
-                        pct_of_total=round(days / total * 100, 1)
-                        if total > 0
-                        else 0.0,
+                        pct_of_total=round(days / total * 100, 1) if total > 0 else 0.0,
                     )
                 )
 
-        result.excusable_days = round(
-            owner + shared + third_party + force_majeure, 1
-        )
+        result.excusable_days = round(owner + shared + third_party + force_majeure, 1)
         result.non_excusable_days = round(contractor, 1)
         result.concurrent_days = round(shared, 1)
         return result
@@ -145,10 +141,7 @@ def compute_delay_attribution(
     if baseline:
         base_cpm = CPMCalculator(baseline)
         base_result = base_cpm.calculate()
-        if (
-            cpm_result.project_finish
-            and base_result.project_finish
-        ):
+        if cpm_result.project_finish and base_result.project_finish:
             delta = cpm_result.project_finish - base_result.project_finish
             total_delay = max(0.0, delta.days)
 
@@ -187,7 +180,8 @@ def compute_delay_attribution(
     constraint_tasks = [
         t
         for t in schedule.activities
-        if t.cstr_type and t.cstr_type not in ("", "CS_MEO")
+        if t.cstr_type
+        and t.cstr_type not in ("", "CS_MEO")
         and t.status_code.upper() != "TK_COMPLETE"
     ]
     # Activities with out-of-sequence → likely Contractor execution
@@ -208,9 +202,7 @@ def compute_delay_attribution(
         and t.status_code.upper() != "TK_COMPLETE"
     ]
 
-    total_indicators = (
-        len(constraint_tasks) + len(oos_tasks) + len(critical_tasks)
-    )
+    total_indicators = len(constraint_tasks) + len(oos_tasks) + len(critical_tasks)
     if total_indicators == 0:
         total_indicators = 1
 
@@ -253,11 +245,7 @@ def compute_delay_attribution(
                 PartyDelay(
                     party=name,
                     delay_days=days,
-                    pct_of_total=round(
-                        days / total_delay * 100, 1
-                    )
-                    if total_delay > 0
-                    else 0.0,
+                    pct_of_total=round(days / total_delay * 100, 1) if total_delay > 0 else 0.0,
                     activity_count=count,
                     top_activities=activities,
                 )

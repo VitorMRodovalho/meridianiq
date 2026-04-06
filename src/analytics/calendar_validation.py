@@ -169,11 +169,7 @@ def validate_calendars(schedule: ParsedSchedule) -> CalendarValidationResult:
     for cal in calendars:
         count = task_per_cal.get(cal.clndr_id, 0)
         pct = (count / len(all_tasks) * 100) if all_tasks else 0.0
-        working_days = (
-            cal.week_hr_cnt / cal.day_hr_cnt
-            if cal.day_hr_cnt > 0
-            else 0.0
-        )
+        working_days = cal.week_hr_cnt / cal.day_hr_cnt if cal.day_hr_cnt > 0 else 0.0
         detail = CalendarDetail(
             calendar_id=cal.clndr_id,
             name=cal.clndr_name or cal.clndr_id,
@@ -349,14 +345,10 @@ def validate_calendars(schedule: ParsedSchedule) -> CalendarValidationResult:
                 score -= 5
 
     # Check 6: Non-standard calendars (DCMA #13)
-    non_standard = [
-        c for c in result.calendars if c.week_hr_cnt < 40 and c.task_count > 0
-    ]
+    non_standard = [c for c in result.calendars if c.week_hr_cnt < 40 and c.task_count > 0]
     if non_standard:
         total_affected = sum(c.task_count for c in non_standard)
-        names = ", ".join(
-            f"{c.name} ({c.week_hr_cnt}h)" for c in non_standard[:3]
-        )
+        names = ", ".join(f"{c.name} ({c.week_hr_cnt}h)" for c in non_standard[:3])
         issues.append(
             CalendarIssue(
                 check="non_standard_hours",
@@ -374,16 +366,10 @@ def validate_calendars(schedule: ParsedSchedule) -> CalendarValidationResult:
         score -= 5
 
     # Check 7: Extended calendars (7-day)
-    extended = [
-        c
-        for c in result.calendars
-        if c.working_days_per_week > 5.5 and c.task_count > 0
-    ]
+    extended = [c for c in result.calendars if c.working_days_per_week > 5.5 and c.task_count > 0]
     if extended:
         total_affected = sum(c.task_count for c in extended)
-        names = ", ".join(
-            f"{c.name} ({c.working_days_per_week}d)" for c in extended[:3]
-        )
+        names = ", ".join(f"{c.name} ({c.working_days_per_week}d)" for c in extended[:3])
         issues.append(
             CalendarIssue(
                 check="extended_calendar",

@@ -74,8 +74,7 @@ class TestHealthySchedule:
     def test_dominant_calendar(self) -> None:
         schedule = _make_schedule(
             calendars=[_cal(default="Y"), _cal("CAL2", "7-Day", 8, 56)],
-            tasks=[_task(f"A{i}") for i in range(8)]
-            + [_task(f"B{i}", "CAL2") for i in range(2)],
+            tasks=[_task(f"A{i}") for i in range(8)] + [_task(f"B{i}", "CAL2") for i in range(2)],
         )
         result = validate_calendars(schedule)
         assert result.dominant_calendar == "Standard"
