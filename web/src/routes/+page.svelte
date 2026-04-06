@@ -123,12 +123,14 @@
 		{ title: 'Time Impact Analysis', desc: 'Delay fragments, impacted CPM per AACE RP 52R-06', tag: 'Claims', color: 'bg-orange-500' },
 		{ title: 'Earned Value', desc: 'SPI, CPI, EAC, S-Curve per ANSI/EIA-748', tag: 'Controls', color: 'bg-cyan-500' },
 		{ title: 'Monte Carlo QSRA', desc: '1,000-iteration risk simulation per AACE RP 57R-09', tag: 'Risk', color: 'bg-red-500' },
-		{ title: 'Float Trends', desc: 'Track float distribution across schedule updates', tag: 'Intelligence', color: 'bg-indigo-500' },
-		{ title: 'Early Warning', desc: '12-rule alert engine for proactive monitoring', tag: 'Intelligence', color: 'bg-indigo-500' },
-		{ title: 'Health Score', desc: 'Composite 0-100 metric combining all indicators', tag: 'Intelligence', color: 'bg-indigo-500' },
-		{ title: 'Root Cause Analysis', desc: 'Backwards network trace to delay origin per AACE RP 49R-06', tag: 'Forensic', color: 'bg-orange-500' },
-		{ title: 'NLP Queries', desc: 'Ask questions in natural language — powered by Claude API', tag: 'AI', color: 'bg-violet-500' },
+		{ title: 'What-If Simulator', desc: 'Scenario analysis with deterministic and probabilistic modes', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'Schedule Optimizer', desc: 'Evolution Strategies for RCPSP makespan optimization', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'ML Delay Prediction', desc: 'Activity-level risk scoring with explainable factors', tag: 'AI', color: 'bg-violet-500' },
+		{ title: 'Duration Prediction', desc: 'RF + GB ensemble trained on benchmark database', tag: 'AI', color: 'bg-violet-500' },
 		{ title: 'Anomaly Detection', desc: 'Statistical outlier detection using IQR and z-score methods', tag: 'AI', color: 'bg-violet-500' },
+		{ title: 'Root Cause Analysis', desc: 'Backwards network trace to delay origin via NetworkX', tag: 'Forensic', color: 'bg-orange-500' },
+		{ title: 'Benchmarks', desc: 'Cross-project percentile ranking against 100+ anonymized schedules', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'Schedule Builder', desc: 'Generate schedules from NLP descriptions or project templates', tag: 'AI', color: 'bg-violet-500' },
 	];
 </script>
 
@@ -177,15 +179,15 @@
 			<!-- Key numbers -->
 			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
 				<div>
-					<p class="text-3xl font-bold text-gray-900">13</p>
+					<p class="text-3xl font-bold text-gray-900">31</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">60+</p>
+					<p class="text-3xl font-bold text-gray-900">77</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">440+</p>
+					<p class="text-3xl font-bold text-gray-900">710+</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.tests')}</p>
 				</div>
 				<div>
