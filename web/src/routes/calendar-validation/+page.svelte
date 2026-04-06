@@ -2,6 +2,7 @@
 	import { getProjects } from '$lib/api';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { supabase } from '$lib/supabase';
+	import { t } from '$lib/i18n';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
@@ -122,21 +123,21 @@
 </script>
 
 <svelte:head>
-	<title>Calendar Validation - MeridianIQ</title>
+	<title>{$t('page.calendar')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Calendar Validation</h1>
+		<h1 class="text-2xl font-bold text-gray-900">{$t('page.calendar')}</h1>
 		<p class="text-gray-500 mt-1">Work calendar integrity and compliance (DCMA Check #13, AACE RP 49R-06)</p>
 	</div>
 
 	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">Project</label>
+				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
 				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
-					<option value="">Choose project...</option>
+					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
