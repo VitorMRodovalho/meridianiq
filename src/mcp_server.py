@@ -5,7 +5,7 @@
 Exposes schedule analysis capabilities as MCP tools that AI assistants
 (Claude, etc.) can invoke to query and analyze uploaded P6 XER schedules.
 
-Available tools (19):
+Available tools (21):
 - upload_xer: Parse and store an XER file
 - list_projects: List all uploaded schedules
 - get_project_summary: Get project metadata and activity counts
@@ -25,6 +25,8 @@ Available tools (19):
 - build_schedule_from_description: NLP-driven schedule generation
 - export_xer: Export schedule to XER format for P6 import
 - optimize_schedule_es: Evolution Strategies RCPSP optimizer
+- validate_calendars_tool: Calendar integrity validation (DCMA #13)
+- compute_delay_attribution_tool: Delay breakdown by responsible party
 
 Usage:
     python -m src.mcp_server
@@ -705,6 +707,65 @@ def optimize_schedule_es(
     )
     result = optimize_schedule(schedule, config)
     return json.dumps(_serialize(result.summary))
+
+
+@mcp.tool()
+def validate_calendars_tool(project_id: str) -> str:
+    """Validate work calendar definitions for integrity and best practices.
+
+    Checks default calendar existence, task coverage, hour consistency,
+    non-standard calendars, and orphaned definitions. Returns a score
+    (0-100) with letter grade (A-F) and detailed findings.
+
+    Args:
+        project_id: The project identifier.
+
+    Returns:
+        JSON with score, grade, calendar details, and validation issues.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from dataclasses import asdict
+
+    from src.analytics.calendar_validation import validate_calendars
+
+    result = validate_calendars(schedule)
+    return json.dumps(_serialize(asdict(result)))
+
+
+@mcp.tool()
+def compute_delay_attribution_tool(
+    project_id: str,
+    baseline_id: str = "",
+) -> str:
+    """Compute delay attribution breakdown by responsible party.
+
+    Aggregates delay by Owner, Contractor, Shared, Third Party, and
+    Force Majeure.  Returns excusable vs non-excusable totals and
+    per-party driving activities.
+
+    Args:
+        project_id: The current/update schedule identifier.
+        baseline_id: Optional baseline schedule for comparison.
+
+    Returns:
+        JSON with per-party breakdown and excusable/non-excusable totals.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from dataclasses import asdict
+
+    from src.analytics.delay_attribution import compute_delay_attribution
+
+    baseline = store.get(baseline_id) if baseline_id else None
+    result = compute_delay_attribution(schedule, baseline=baseline)
+    return json.dumps(_serialize(asdict(result)))
 
 
 # ── Entry point ──
