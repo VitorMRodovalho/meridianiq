@@ -3,6 +3,26 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.0.1] — 2026-04-06 — Frontend Coverage
+
+### Added
+- 8 new frontend pages closing all backend/frontend gaps:
+  - `/anomalies` — Statistical outlier detection with ScatterChart + BarChart
+  - `/root-cause` — Backwards network trace with dependency chain + TimelineChart
+  - `/delay-prediction` — Activity risk scoring with ScatterChart + HeatMapChart
+  - `/duration-prediction` — ML ensemble with GaugeChart + confidence range visual
+  - `/benchmarks` — Cross-project percentile comparison with contribute flow
+  - `/float-trends` — Shannon entropy + constraint accumulation analysis
+  - `/reports` — PDF report hub with download cards for 7 report types
+  - `/optimizer` — ES optimizer with convergence curve + activity shifts
+- 5 new documentation sections (anomalies, root-cause, float-trends, optimizer, reports)
+- 8 new E2E tests for interactive controls on new pages
+- Landing page updated: 31 engines, 77 endpoints, 710+ tests, 15 capabilities
+- Sidebar version bumped to v3.0.0
+
+### Stats
+- **39 frontend pages**, 10 SVG chart components, 67 E2E test cases
+
 ## [3.0.0] — 2026-04-05 — Full Lifecycle
 
 ### Added
