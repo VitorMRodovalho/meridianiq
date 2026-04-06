@@ -1,4 +1,4 @@
-# Known Issues & Backlog — v3.0.0
+# Known Issues & Backlog — v3.0.1
 
 Bug tracking and feature backlog for MeridianIQ.
 
@@ -25,6 +25,13 @@ Bug tracking and feature backlog for MeridianIQ.
 | — | No security headers (HSTS, X-Frame) | v1.3.0 |
 | — | No GDPR data deletion workflow | v2.1.0 (migration 014) |
 | — | RLS policies missing on 5 tables | v2.0.0 (migration 011) |
+| — | Cash flow S-Curve visualization | v3.0.0 |
+| — | Risk heat map (probability x impact matrix) | v3.0.0 |
+| — | GanttChart SVG component | v3.0.0 |
+| — | Look-ahead schedule (2/4 week window) | v3.0.0 |
+| — | Executive summary PDF report | v3.0.0 |
+| — | ParetoChart SVG dedicated component | v3.0.0 |
+| — | 8 frontend gap pages (anomalies, root-cause, etc.) | v3.0.1 |
 
 ---
 
@@ -50,21 +57,16 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
-| 1 | Cash flow S-Curve visualization | Cost Engineer, PM | Medium |
-| 2 | Risk heat map (probability x impact matrix) | Risk Manager, Owner Rep | Low |
-| 3 | GanttChart SVG (before/after resource leveling) | Scheduler, CCM | Medium |
-| 4 | Look-ahead schedule (2/4 week window) | CCM, Contractor | Medium |
-| 5 | Executive summary PDF report | Program Director | Medium |
+| 1 | Calendar validation engine | Scheduler | Medium |
+| 2 | Contractor delay attribution summary | Owner Rep | High |
+| 3 | Program shares API + UI | Program Scheduler, Director | Medium |
+| 4 | i18n activation (PT-BR, ES translations) | LATAM market | Medium |
+| 5 | Large schedule profiling (>5K activities) | All | Medium |
 
 ### Medium Impact
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
-| 6 | Program shares API + UI | Program Scheduler, Director | Medium |
-| 7 | ParetoChart SVG dedicated component | PM, Cost Engineer | Low |
-| 8 | Calendar validation engine | Scheduler | Medium |
-| 9 | Contractor delay attribution summary | Owner Rep | High |
-| 10 | i18n activation (PT-BR, ES translations) | LATAM market | Medium |
 
 ### Future / Research
 
@@ -89,7 +91,7 @@ Bug tracking and feature backlog for MeridianIQ.
 - [ ] Compare — two consecutive real-world schedule updates
 - [ ] Float Trends — 3+ sequential uploads
 - [ ] Early Warning — all 12 rules against known test cases
-- [ ] PDF Reports — layout and data for all 6 types
+- [ ] PDF Reports — layout and data for all 7 types
 - [ ] Excel Export — verify 4-sheet workbook accuracy
 - [ ] IPS Reconciliation — master + 2 sub-schedules
 - [ ] Recovery Validation — impacted vs recovery with compressed durations
