@@ -3,6 +3,7 @@
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { supabase } from '$lib/supabase';
 	import { t } from '$lib/i18n';
+	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import WaterfallChart from '$lib/components/charts/WaterfallChart.svelte';
@@ -140,7 +141,9 @@
 		</div>
 	</div>
 
-	{#if error}
+	{#if loading}
+		<AnalysisSkeleton cards={5} />
+	{:else if error}
 		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
