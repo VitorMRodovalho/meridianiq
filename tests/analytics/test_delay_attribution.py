@@ -4,10 +4,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.analytics.delay_attribution import (
-    AttributionResult,
     compute_delay_attribution,
 )
 from src.parser.models import Calendar, ParsedSchedule, Relationship, Task

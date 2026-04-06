@@ -4,10 +4,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.analytics.calendar_validation import (
-    CalendarValidationResult,
     validate_calendars,
 )
 from src.parser.models import Calendar, ParsedSchedule, Task
@@ -168,14 +165,7 @@ class TestHourConsistency:
         assert any(i.check == "excessive_weekly_hours" for i in result.issues)
 
     def test_daily_weekly_mismatch(self) -> None:
-        # 10h/day * 40h/week = 4 implied days (unusual)
-        schedule = _make_schedule(
-            calendars=[_cal(day_hr=10, week_hr=40, default="Y")],
-            tasks=[_task()],
-        )
-        result = validate_calendars(schedule)
-        # 40/10 = 4 days, which is in 1-7 range, no mismatch
-        # But 80h/week / 10h/day = 8 days → should flag
+        # 80h/week / 10h/day = 8 days → should flag
         schedule2 = _make_schedule(
             calendars=[_cal(day_hr=10, week_hr=80, default="Y")],
             tasks=[_task()],
