@@ -5,6 +5,7 @@
 	import { isWarmingUp, warmUp } from '$lib/api';
 	import { initAnalytics } from '$lib/analytics';
 	import { isDark, toggleTheme, initTheme } from '$lib/stores/theme';
+	import Breadcrumb from '$lib/components/Breadcrumb.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import { t, locale, detectLocale, availableLocales } from '$lib/i18n';
 
@@ -240,6 +241,7 @@
 				{$t('warmup.message')}
 			</div>
 		{/if}
+		<Breadcrumb />
 		{@render children()}
 	</main>
 	<ToastContainer />
