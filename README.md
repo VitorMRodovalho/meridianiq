@@ -39,9 +39,9 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | MCP tools | 19 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 724+ backend + 41 E2E |
-| Frontend pages | 31 |
+| Frontend pages | 39 |
 | API endpoints | 77 |
-| SVG chart components | 8 (hand-crafted, no chart.js) |
+| SVG chart components | 10 (hand-crafted, no chart.js) |
 | Released versions | 18 (v0.1.0 → v3.0.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
@@ -65,6 +65,19 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | **Early Warning System** — 12-rule alert engine for proactive monitoring | DCMA EVMS | v0.8 |
 | **Schedule Health Score** — Composite metric combining all indicators | — | v0.8 |
 | **PDF Reports** — WeasyPrint-generated reports for all analysis modules | — | v0.8 |
+| **Half-Step Bifurcation** — Separates progress vs revision delay effects | AACE RP 29R-03 MIP 3.4 | v2.1 |
+| **ML Delay Prediction** — Activity-level risk scoring with SHAP-like factors | Gondia et al. (2021) | v2.1 |
+| **Benchmark Database** — Anonymized cross-project percentile comparison | — | v2.1 |
+| **What-If Simulator** — Deterministic + probabilistic scenario analysis | AACE RP 57R-09 | v2.2 |
+| **Schedule Scorecard** — 5-dimension weighted letter grades A-F | DCMA + GAO | v2.2 |
+| **Duration Prediction** — RF+GB ensemble trained on benchmark data | AbdElMottaleb (2025) | v2.2 |
+| **Resource Leveling** — RCPSP via Serial SGS with 4 priority rules | Kolisch (1996) | v2.3 |
+| **Schedule Generation** — Template-based with stochastic durations | — | v2.3 |
+| **Conversational Builder** — NLP-driven schedule creation via Claude API | — | v2.3 |
+| **XER Export** — Round-trip fidelity write-back to P6 format | Oracle P6 XER | v3.0 |
+| **Evolution Strategies Optimizer** — (mu, lambda) ES for RCPSP | Loncar (2023) | v3.0 |
+| **Anomaly Detection** — IQR/z-score outlier detection for schedule data | — | v2.0 |
+| **Root Cause Analysis** — Backwards network trace via NetworkX | AACE RP 49R-06 | v2.0 |
 
 ---
 
@@ -77,7 +90,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (10)<br/>45 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (31)<br/>77 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
