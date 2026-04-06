@@ -11,6 +11,9 @@
 		{ id: 'evm', title: 'Earned Value Management' },
 		{ id: 'risk', title: 'Monte Carlo Simulation' },
 		{ id: 'health', title: 'Health Score & Alerts' },
+		{ id: 'anomalies', title: 'Anomaly Detection' },
+		{ id: 'rootcause', title: 'Root Cause Analysis' },
+		{ id: 'floattrends', title: 'Float Trends & Entropy' },
 		{ id: 'scorecard', title: 'Schedule Scorecard' },
 		{ id: 'whatif', title: 'What-If Simulator' },
 		{ id: 'resources', title: 'Resource Leveling' },
@@ -19,6 +22,8 @@
 		{ id: 'delay', title: 'Delay & Duration Prediction' },
 		{ id: 'pareto', title: 'Pareto Trade-Off Analysis' },
 		{ id: 'visualization', title: '4D Visualization' },
+		{ id: 'optimizer', title: 'Schedule Optimizer' },
+		{ id: 'reports', title: 'Reports Hub' },
 		{ id: 'export', title: 'XER Export' },
 		{ id: 'mcp', title: 'MCP & AI Integration' },
 		{ id: 'api', title: 'API Reference' },
@@ -205,6 +210,38 @@
 			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Early Warning Rules</h2>
 			<p class="text-gray-600">12 configurable rules monitor for: float erosion velocity, critical path changes, DCMA threshold breaches, near-critical drift, and more.</p>
 
+		{:else if activeSection === 'anomalies'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Anomaly Detection</h1>
+			<p class="text-gray-600 mb-4">Statistical outlier detection using IQR (Interquartile Range) and z-score methods to flag activities with unusual characteristics.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Detection Methods</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Duration anomalies</strong> — Activities with unusually long or short durations</li>
+				<li><strong>Float anomalies</strong> — Extreme positive or negative total float values</li>
+				<li><strong>Progress anomalies</strong> — Physical progress inconsistent with schedule dates</li>
+				<li><strong>Relationship anomalies</strong> — Unusual predecessor/successor counts</li>
+			</ul>
+			<p class="text-gray-600 mt-4">Navigate to <strong>/anomalies</strong> to scan a project. Results include severity levels (high/medium/low) and z-scores for each anomaly.</p>
+
+		{:else if activeSection === 'rootcause'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Root Cause Analysis</h1>
+			<p class="text-gray-600 mb-4">Backwards network trace through the dependency graph to identify the originating delay event driving the project completion date.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">How It Works</h2>
+			<ol class="list-decimal list-inside space-y-1 text-gray-600 text-sm">
+				<li>Start from a target activity (or auto-detect the project completion driver)</li>
+				<li>Walk backwards through driving predecessors using NetworkX</li>
+				<li>At each step, select the predecessor with the latest early finish (the "driver")</li>
+				<li>Continue until reaching an activity with no predecessors (the root cause)</li>
+			</ol>
+			<p class="text-gray-600 mt-4">Navigate to <strong>/root-cause</strong> and optionally specify a target activity ID. The result shows the full dependency chain with total float and relationship types at each step.</p>
+
+		{:else if activeSection === 'floattrends'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Float Trends & Entropy</h1>
+			<p class="text-gray-600 mb-4">Two complementary metrics for assessing schedule manipulation and float health.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Shannon Entropy</h2>
+			<p class="text-gray-600 text-sm mb-4">Measures how uniformly total float is spread across buckets. Low entropy = float concentrated in few categories (suspicious). High entropy = even distribution (healthy). No baseline required.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Constraint Accumulation</h2>
+			<p class="text-gray-600 text-sm">Measures the rate at which hard constraints are being added between schedule versions. Excessive growth is a manipulation indicator per DCMA check #10 and AACE RP 29R-03. Requires both a baseline and update schedule.</p>
+
 		{:else if activeSection === 'scorecard'}
 			<h1 class="text-2xl font-bold text-gray-900 mb-4">Schedule Scorecard</h1>
 			<p class="text-gray-600 mb-4">The scorecard aggregates 5 quality dimensions into a single letter grade (A-F) with actionable recommendations.</p>
@@ -290,6 +327,31 @@
 				<li><span class="text-gray-400 font-bold">Gray</span> — Not started</li>
 				<li><span class="text-purple-400 font-bold">Purple</span> — High float (&gt;44 days)</li>
 			</ul>
+
+		{:else if activeSection === 'optimizer'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Schedule Optimizer</h1>
+			<p class="text-gray-600 mb-4">Uses Evolution Strategies (ES) to optimize resource-constrained schedules by evolving priority rules and resource allocation to minimize makespan.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Parameters</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Generations</strong> — Number of evolutionary generations (default: 50)</li>
+				<li><strong>Population</strong> — Population size per generation (default: 20)</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Output</h2>
+			<p class="text-gray-600 text-sm">Original vs optimized makespan, improvement percentage, convergence curve, best priority rule, and per-activity shifts. Standards: Loncar (2023), Beyer & Schwefel (2002), Kolisch (1996).</p>
+
+		{:else if activeSection === 'reports'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Reports Hub</h1>
+			<p class="text-gray-600 mb-4">Generate and download PDF reports for your project. Available report types:</p>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>Validation</strong> — DCMA 14-Point assessment with traffic lights</li>
+				<li><strong>Baseline Review</strong> — Baseline schedule quality analysis</li>
+				<li><strong>Forensic</strong> — CPA delay analysis with waterfall charts</li>
+				<li><strong>EVM</strong> — Earned Value metrics and S-Curves</li>
+				<li><strong>Monthly Review</strong> — Period-over-period progress update</li>
+				<li><strong>Risk</strong> — Monte Carlo simulation results with P-values</li>
+				<li><strong>Executive Summary</strong> — One-page overview for leadership</li>
+			</ul>
+			<p class="text-gray-600 mt-4">Navigate to <strong>/reports</strong>, select a project, and click "Check Reports" to see which types have sufficient data. Reports are generated as PDFs using WeasyPrint.</p>
 
 		{:else if activeSection === 'export'}
 			<h1 class="text-2xl font-bold text-gray-900 mb-4">XER Export</h1>
