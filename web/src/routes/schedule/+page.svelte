@@ -18,6 +18,16 @@
 	let showDependencies: boolean = $state(false);
 	let criticalOnly: boolean = $state(false);
 
+	const statusCounts = $derived(data ? {
+		all: data.activities.length,
+		active: data.activities.filter(a => a.status === 'active').length,
+		not_started: data.activities.filter(a => a.status === 'not_started').length,
+		complete: data.activities.filter(a => a.status === 'complete').length,
+		critical: data.activities.filter(a => a.is_critical).length,
+		negative_float: data.activities.filter(a => a.total_float_days < 0).length,
+		milestones: data.activities.filter(a => a.task_type === 'milestone').length,
+	} : null);
+
 	async function loadProjects() {
 		try {
 			const res = await getProjects();
@@ -120,6 +130,26 @@
 	{/if}
 
 	{#if data}
+		<!-- Status filter pills -->
+		{#if statusCounts}
+		<div class="flex items-center gap-2 mb-4 flex-wrap">
+			{#each [
+				['All', 'all', 'bg-gray-600'],
+				['Active', 'active', 'bg-blue-500'],
+				['Not Started', 'not_started', 'bg-gray-400'],
+				['Complete', 'complete', 'bg-green-500'],
+				['Critical', 'critical', 'bg-red-500'],
+				['Neg Float', 'negative_float', 'bg-red-400'],
+				['Milestones', 'milestones', 'bg-amber-500'],
+			] as [label, key, color]}
+				<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+					<span class="w-2 h-2 rounded-full {color}"></span>
+					{label}: {statusCounts[key as keyof typeof statusCounts]}
+				</span>
+			{/each}
+		</div>
+		{/if}
+
 		<!-- Summary cards -->
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
@@ -146,5 +176,57 @@
 
 		<!-- Schedule Viewer -->
 		<ScheduleViewer {data} {showFloat} {showBaseline} {showDependencies} {criticalOnly} />
+
+		<!-- Activity data table -->
+		<details class="mt-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+				Activity Table ({data.activities.length} activities)
+			</summary>
+			<div class="overflow-x-auto max-h-96">
+				<table class="w-full text-[10px]">
+					<thead class="sticky top-0 bg-gray-50 dark:bg-gray-800">
+						<tr>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Code</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Name</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Status</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Type</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Duration</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">TF</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Progress</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Early Start</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Early Finish</th>
+							<th class="text-center py-1.5 px-2 font-semibold text-gray-500">CP</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Alerts</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.activities as act}
+							<tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800">
+								<td class="py-1 px-2 font-mono text-gray-500">{act.task_code}</td>
+								<td class="py-1 px-2 text-gray-900 dark:text-gray-100 truncate max-w-48">{act.task_name}</td>
+								<td class="py-1 px-2">
+									<span class="px-1 py-0.5 rounded text-[8px] font-bold uppercase
+										{act.status === 'complete' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+										act.status === 'active' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+										'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}">{act.status}</span>
+								</td>
+								<td class="py-1 px-2 text-gray-500 capitalize">{act.task_type}</td>
+								<td class="py-1 px-2 text-right font-mono">{act.duration_days}d</td>
+								<td class="py-1 px-2 text-right font-mono {act.total_float_days < 0 ? 'text-red-600 font-bold' : act.total_float_days === 0 ? 'text-amber-600' : 'text-gray-500'}">{act.total_float_days}d</td>
+								<td class="py-1 px-2 text-right font-mono">{act.progress_pct > 0 ? act.progress_pct + '%' : ''}</td>
+								<td class="py-1 px-2 text-gray-500">{act.early_start}</td>
+								<td class="py-1 px-2 text-gray-500">{act.early_finish}</td>
+								<td class="py-1 px-2 text-center">{act.is_critical ? '●' : ''}</td>
+								<td class="py-1 px-2">
+									{#each act.alerts as alert}
+										<span class="px-1 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-[8px] mr-0.5">{alert.replace('_', ' ')}</span>
+									{/each}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</details>
 	{/if}
 </main>
