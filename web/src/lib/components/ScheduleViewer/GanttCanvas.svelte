@@ -312,19 +312,20 @@
 				{@const fromX = rel.type === 'FS' || rel.type === 'FF' ? xPos(fromDates.finish) : xPos(fromDates.start)}
 				{@const toX = rel.type === 'FS' || rel.type === 'SS' ? xPos(toDates.start) : xPos(toDates.finish)}
 				{@const midX = fromX + (toX - fromX) * 0.5}
+				{@const isHighlighted = hoveredId === rel.from_id || hoveredId === rel.to_id}
 				<path
 					d="M{fromX},{fromY} C{midX},{fromY} {midX},{toY} {toX},{toY}"
 					fill="none"
-					stroke="#94a3b8"
-					stroke-width="1"
-					opacity="0.5"
-					class="dark:stroke-gray-500"
+					stroke={isHighlighted ? '#3b82f6' : '#94a3b8'}
+					stroke-width={isHighlighted ? 2 : 1}
+					opacity={isHighlighted ? 0.9 : 0.5}
+					class={isHighlighted ? '' : 'dark:stroke-gray-500'}
 				/>
 				<!-- Arrow head -->
 				<polygon
 					points="{toX},{toY} {toX - 4},{toY - 2.5} {toX - 4},{toY + 2.5}"
-					fill="#94a3b8"
-					opacity="0.6"
+					fill={isHighlighted ? '#3b82f6' : '#94a3b8'}
+					opacity={isHighlighted ? 0.9 : 0.6}
 					class="dark:fill-gray-500"
 				/>
 			{/if}
