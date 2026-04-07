@@ -154,14 +154,17 @@
 					class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 				/>
 			</div>
-			<div class="flex items-end">
+			<div class="flex items-end gap-2">
 				<button
 					onclick={runSimulation}
 					disabled={!selectedProject || running}
-					class="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+					class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
 				>
 					{running ? 'Running...' : 'Run Simulation'}
 				</button>
+				{#if selectedProject}
+					<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap">Schedule</a>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -187,6 +190,7 @@
 							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">P50</th>
 							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">P80</th>
 							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Mean</th>
+							<th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Det vs P80</th>
 							<th class="px-6 py-3"></th>
 						</tr>
 					</thead>
@@ -200,6 +204,14 @@
 								<td class="px-6 py-3 text-sm text-right font-medium text-blue-600">{sim.p50_days.toFixed(1)}d</td>
 								<td class="px-6 py-3 text-sm text-right font-medium text-orange-600">{sim.p80_days.toFixed(1)}d</td>
 								<td class="px-6 py-3 text-sm text-right text-gray-600">{sim.mean_days.toFixed(1)}d</td>
+								<td class="px-6 py-3 w-32">
+									<div class="flex items-center gap-0.5 h-3">
+										<div class="h-full rounded bg-blue-400 opacity-40" style="width: {(sim.deterministic_days / Math.max(sim.p80_days, sim.deterministic_days, 1)) * 100}%"></div>
+									</div>
+									<div class="flex items-center gap-0.5 h-3 -mt-0.5">
+										<div class="h-full rounded bg-orange-500 opacity-60" style="width: {(sim.p80_days / Math.max(sim.p80_days, sim.deterministic_days, 1)) * 100}%"></div>
+									</div>
+								</td>
 								<td class="px-6 py-3 text-right">
 									<a
 										href="/risk/{sim.simulation_id}"
