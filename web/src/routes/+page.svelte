@@ -133,6 +133,7 @@
 		{ title: 'Schedule Builder', desc: 'Generate schedules from NLP descriptions or project templates', tag: 'AI', color: 'bg-violet-500' },
 		{ title: 'Calendar Validation', desc: 'Work calendar integrity checks per DCMA #13 with scoring', tag: 'Validation', color: 'bg-blue-500' },
 		{ title: 'Delay Attribution', desc: 'Party breakdown: Owner vs Contractor excusable/non-excusable', tag: 'Claims', color: 'bg-orange-500' },
+		{ title: 'Interactive Gantt', desc: 'WBS tree, baseline comparison, float bars, dependency lines, search & filter', tag: 'Visualization', color: 'bg-teal-500' },
 	];
 </script>
 
@@ -310,6 +311,7 @@
 					{ href: '/upload', title: 'Upload XER File', desc: 'Parse and analyze a Primavera P6 schedule export', icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12', bg: 'bg-blue-100', fg: 'text-blue-600' },
 					{ href: '/compare', title: 'Compare Schedules', desc: 'Detect changes and manipulation between versions', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', bg: 'bg-purple-100', fg: 'text-purple-600' },
 					{ href: '/scorecard', title: 'Schedule Scorecard', desc: 'Quick A-F grade across 5 quality dimensions', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-green-100', fg: 'text-green-600' },
+					{ href: '/schedule', title: 'Schedule Viewer', desc: 'Interactive Gantt with WBS, baseline, and dependencies', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', bg: 'bg-teal-100', fg: 'text-teal-600' },
 					{ href: '/reports', title: 'Reports Hub', desc: 'Generate and download PDF reports', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', bg: 'bg-amber-100', fg: 'text-amber-600' },
 				] as action}
 					<a
