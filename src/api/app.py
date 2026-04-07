@@ -3464,6 +3464,8 @@ _VALID_REPORT_TYPES = {
     "risk",
     "monthly_review",
     "executive_summary",
+    "calendar",
+    "attribution",
 }
 
 
@@ -3521,6 +3523,12 @@ def generate_report(
             pdf_bytes = _generate_monthly_review_report(generator, schedule, request, store)
         elif report_type == "executive_summary":
             pdf_bytes = _generate_executive_summary(generator, schedule)
+        elif report_type == "calendar":
+            result = validate_calendars(schedule)
+            pdf_bytes = generator.generate_calendar_report(schedule, result)
+        elif report_type == "attribution":
+            result = compute_delay_attribution(schedule)
+            pdf_bytes = generator.generate_attribution_report(schedule, result)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -3905,6 +3913,26 @@ def get_available_reports(
         {
             "type": "monthly_review",
             "name": "Monthly Review Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
+    # --- calendar: always computable from the schedule itself ---
+    reports.append(
+        {
+            "type": "calendar",
+            "name": "Calendar Validation Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
+    # --- attribution: always computable (enhanced with baseline) ---
+    reports.append(
+        {
+            "type": "attribution",
+            "name": "Delay Attribution Report",
             "ready": True,
             "reason": "",
         }

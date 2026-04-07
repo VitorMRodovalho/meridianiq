@@ -459,6 +459,126 @@ class ReportGenerator:
         html = self._wrap_html("Executive Summary", "\n".join(sections))
         return self._html_to_pdf(html)
 
+    def generate_calendar_report(
+        self,
+        schedule: Any,
+        validation_result: Any,
+    ) -> bytes:
+        """Generate Calendar Validation Report PDF.
+
+        Args:
+            schedule: ParsedSchedule object.
+            validation_result: CalendarValidationResult.
+
+        Returns:
+            PDF bytes.
+
+        References:
+            DCMA 14-Point Check #13 — Calendar adequacy.
+            AACE RP 49R-06 — Schedule Health Assessment.
+        """
+        project_name = ""
+        if schedule and hasattr(schedule, "projects") and schedule.projects:
+            project_name = schedule.projects[0].proj_short_name or "Project"
+
+        sections = []
+        vr = validation_result
+
+        sections.append(
+            f"<h2>Calendar Health: {vr.grade} ({vr.score:.0f}/100)</h2>"
+            f"<p>Calendars: {vr.total_calendars} | "
+            f"Tasks with calendar: {vr.tasks_with_calendar} / {vr.total_tasks} | "
+            f"Default: {'Yes' if vr.has_default else 'No'}</p>"
+        )
+
+        if vr.issues:
+            rows = "".join(
+                f"<tr><td class='{'red' if i.severity == 'critical' else 'amber' if i.severity == 'warning' else ''}'>"
+                f"{i.severity.upper()}</td><td>{_esc(i.description)}</td>"
+                f"<td>{i.affected_tasks}</td></tr>"
+                for i in vr.issues
+            )
+            sections.append(
+                "<h2>Findings</h2>"
+                "<table><tr><th>Severity</th><th>Description</th><th>Tasks</th></tr>"
+                f"{rows}</table>"
+            )
+
+        if vr.calendars:
+            rows = "".join(
+                f"<tr><td>{_esc(c.name)}</td><td>{'Yes' if c.is_default else ''}</td>"
+                f"<td>{c.day_hr_cnt}</td><td>{c.week_hr_cnt}</td>"
+                f"<td>{c.working_days_per_week}</td>"
+                f"<td>{c.task_count} ({c.pct_of_tasks}%)</td></tr>"
+                for c in vr.calendars
+            )
+            sections.append(
+                "<h2>Calendar Details</h2>"
+                "<table><tr><th>Name</th><th>Default</th><th>Hrs/Day</th>"
+                "<th>Hrs/Week</th><th>Days/Week</th><th>Tasks</th></tr>"
+                f"{rows}</table>"
+            )
+
+        sections.append(f"<p class='methodology'>{vr.methodology}</p>")
+        body = "\n".join(sections)
+        html = self._html_wrapper("Calendar Validation Report", project_name, body)
+        return self._html_to_pdf(html)
+
+    def generate_attribution_report(
+        self,
+        schedule: Any,
+        attribution_result: Any,
+    ) -> bytes:
+        """Generate Delay Attribution Report PDF.
+
+        Args:
+            schedule: ParsedSchedule object.
+            attribution_result: AttributionResult.
+
+        Returns:
+            PDF bytes.
+
+        References:
+            AACE RP 29R-03 — Forensic Schedule Analysis.
+            AACE RP 52R-06 — Time Impact Analysis.
+            SCL Delay and Disruption Protocol.
+        """
+        project_name = ""
+        if schedule and hasattr(schedule, "projects") and schedule.projects:
+            project_name = schedule.projects[0].proj_short_name or "Project"
+
+        ar = attribution_result
+        sections = []
+
+        sections.append(
+            f"<h2>Delay Attribution Summary</h2>"
+            f"<p>Total Delay: <strong>{ar.total_delay_days} days</strong> | "
+            f"Excusable: {ar.excusable_days}d | "
+            f"Non-Excusable: {ar.non_excusable_days}d | "
+            f"Concurrent: {ar.concurrent_days}d | "
+            f"Source: {ar.data_source}</p>"
+        )
+
+        if ar.parties:
+            rows = "".join(
+                f"<tr><td><strong>{_esc(p.party)}</strong></td>"
+                f"<td>{p.delay_days}d</td><td>{p.pct_of_total}%</td>"
+                f"<td>{p.activity_count}</td>"
+                f"<td>{', '.join(p.top_activities[:3]) if p.top_activities else '-'}</td></tr>"
+                for p in ar.parties
+            )
+            sections.append(
+                "<h2>Party Breakdown</h2>"
+                "<table><tr><th>Party</th><th>Delay</th><th>%</th>"
+                "<th>Activities</th><th>Top Drivers</th></tr>"
+                f"{rows}</table>"
+            )
+
+        sections.append(f"<p class='methodology'>{ar.methodology}</p>")
+        body = "\n".join(sections)
+        html = self._html_wrapper("Delay Attribution Report", project_name, body)
+        return self._html_to_pdf(html)
+
     # ------------------------------------------------------------------
     # PDF conversion
     # ------------------------------------------------------------------
