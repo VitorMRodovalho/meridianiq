@@ -331,6 +331,34 @@
 						{/each}
 					</div>
 				{/if}
+				<!-- Mini timeline bar -->
+				{#if a.early_start && a.early_finish && data}
+					{@const projStart = new Date(data.project_start + 'T00:00:00').getTime()}
+					{@const projEnd = new Date(data.project_finish + 'T00:00:00').getTime()}
+					{@const projSpan = Math.max(1, projEnd - projStart)}
+					{@const actStart = new Date(a.early_start + 'T00:00:00').getTime()}
+					{@const actEnd = new Date(a.early_finish + 'T00:00:00').getTime()}
+					{@const leftPct = ((actStart - projStart) / projSpan) * 100}
+					{@const widthPct = Math.max(0.5, ((actEnd - actStart) / projSpan) * 100)}
+					<div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+						<p class="text-[9px] text-gray-500 mb-1">Activity Timeline</p>
+						<div class="relative h-6 bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
+							{#if a.baseline_start && a.baseline_finish}
+								{@const blStart = new Date(a.baseline_start + 'T00:00:00').getTime()}
+								{@const blEnd = new Date(a.baseline_finish + 'T00:00:00').getTime()}
+								{@const blLeft = ((blStart - projStart) / projSpan) * 100}
+								{@const blWidth = Math.max(0.5, ((blEnd - blStart) / projSpan) * 100)}
+								<div class="absolute top-4 h-1.5 bg-gray-400 opacity-30 rounded" style="left: {blLeft}%; width: {blWidth}%"></div>
+							{/if}
+							<div class="absolute top-1 h-3 rounded opacity-30 {a.is_critical ? 'bg-red-500' : 'bg-blue-500'}" style="left: {leftPct}%; width: {widthPct}%"></div>
+							<div class="absolute top-1 h-3 rounded {a.is_critical ? 'bg-red-500' : 'bg-blue-500'}" style="left: {leftPct}%; width: {widthPct * Math.min(a.progress_pct / 100, 1)}%"></div>
+						</div>
+						<div class="flex justify-between mt-0.5 text-[7px] text-gray-400">
+							<span>{data.project_start}</span>
+							<span>{data.project_finish}</span>
+						</div>
+					</div>
+				{/if}
 			</div>
 		{/if}
 
