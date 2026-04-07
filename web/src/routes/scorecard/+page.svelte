@@ -92,6 +92,9 @@
 			>
 				{loading ? 'Loading...' : 'Get Scorecard'}
 			</button>
+			{#if selectedProject}
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+			{/if}
 		</div>
 	</div>
 

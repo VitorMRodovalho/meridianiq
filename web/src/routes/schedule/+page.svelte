@@ -98,12 +98,22 @@
 		}
 	}
 
+	let autoLoaded = $state(false);
+
 	$effect(() => {
 		loadProjects();
 		// Read URL params for pre-selection from compare page
 		const params = $page.url.searchParams;
 		if (params.get('project')) selectedProject = params.get('project')!;
 		if (params.get('baseline')) baselineProject = params.get('baseline')!;
+	});
+
+	// Auto-load when URL params provide project ID
+	$effect(() => {
+		if (selectedProject && projects.length > 0 && !data && !loading && !autoLoaded) {
+			autoLoaded = true;
+			loadSchedule();
+		}
 	});
 
 	// Table sorting
