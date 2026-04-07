@@ -3,6 +3,7 @@
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import { supabase } from '$lib/supabase';
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
@@ -18,6 +19,40 @@
 	let showBaseline: boolean = $state(true);
 	let showDependencies: boolean = $state(false);
 	let criticalOnly: boolean = $state(false);
+	let statusFilter: string = $state('all');
+
+	// Filtered data based on status
+	const displayData = $derived.by(() => {
+		if (!data || statusFilter === 'all') return data;
+		let filtered: typeof data.activities;
+		switch (statusFilter) {
+			case 'active': filtered = data.activities.filter(a => a.status === 'active'); break;
+			case 'not_started': filtered = data.activities.filter(a => a.status === 'not_started'); break;
+			case 'complete': filtered = data.activities.filter(a => a.status === 'complete'); break;
+			case 'critical': filtered = data.activities.filter(a => a.is_critical); break;
+			case 'negative_float': filtered = data.activities.filter(a => a.total_float_days < 0); break;
+			case 'milestones': filtered = data.activities.filter(a => a.task_type === 'milestone'); break;
+			case 'constrained': filtered = data.activities.filter(a => a.constraint_type && a.constraint_type !== '' && a.constraint_type !== 'CS_MEO'); break;
+			default: filtered = data.activities;
+		}
+		return { ...data, activities: filtered };
+	});
+
+	// Float distribution for mini-chart
+	const floatDistribution = $derived(data ? (() => {
+		const buckets = { 'Negative': 0, '0': 0, '1-10': 0, '11-20': 0, '21-44': 0, '>44': 0 };
+		for (const a of data.activities) {
+			if (a.status === 'complete') continue;
+			const f = a.total_float_days;
+			if (f < 0) buckets['Negative']++;
+			else if (f === 0) buckets['0']++;
+			else if (f <= 10) buckets['1-10']++;
+			else if (f <= 20) buckets['11-20']++;
+			else if (f <= 44) buckets['21-44']++;
+			else buckets['>44']++;
+		}
+		return Object.entries(buckets).map(([label, value]) => ({ label, value }));
+	})() : []);
 
 	const statusCounts = $derived(data ? {
 		all: data.activities.length,
@@ -181,6 +216,17 @@
 					<input type="checkbox" bind:checked={criticalOnly} class="w-3.5 h-3.5 rounded" />
 					Critical Path Only
 				</label>
+				<span class="w-px h-4 bg-gray-200 dark:bg-gray-700"></span>
+				<select bind:value={statusFilter} class="text-xs rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 px-2 py-0.5">
+					<option value="all">All Status</option>
+					<option value="active">Active</option>
+					<option value="not_started">Not Started</option>
+					<option value="complete">Complete</option>
+					<option value="critical">Critical</option>
+					<option value="negative_float">Negative Float</option>
+					<option value="milestones">Milestones</option>
+					<option value="constrained">Constrained</option>
+				</select>
 			</div>
 		{/if}
 	</div>
@@ -253,9 +299,19 @@
 			</div>
 		</div>
 
+		<!-- Float distribution -->
+		{#if floatDistribution.length > 0}
+			<details class="mb-4">
+				<summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700">Float Distribution (non-complete activities)</summary>
+				<div class="mt-2">
+					<BarChart data={floatDistribution} title="Float Distribution (days)" height={140} />
+				</div>
+			</details>
+		{/if}
+
 		<!-- Schedule Viewer -->
 		<ScheduleViewer
-			{data} {showFloat} {showBaseline} {showDependencies} {criticalOnly}
+			data={displayData || data} {showFloat} {showBaseline} {showDependencies} {criticalOnly}
 			onActivityClick={(taskId) => { selectedActivity = data?.activities.find(a => a.task_id === taskId) || null; }}
 		/>
 

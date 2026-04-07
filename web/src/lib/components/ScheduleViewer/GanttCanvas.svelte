@@ -230,6 +230,12 @@
 						rx="2" fill="none" stroke={color} stroke-width="0.5" opacity="0.5"
 					/>
 
+					<!-- Constraint indicator -->
+					{#if act.constraint_type && act.constraint_type !== '' && act.constraint_type !== 'CS_MEO'}
+						<rect x={x - 1} y={y + BAR_PAD - 1} width={8} height={8} rx="2" fill="#7c3aed" opacity="0.8" />
+						<text x={x + 3} y={y + BAR_PAD + 5} text-anchor="middle" class="text-[5px] fill-white font-bold select-none">C</text>
+					{/if}
+
 					<!-- Duration label (if bar wide enough) -->
 					{#if w > 30}
 						<text

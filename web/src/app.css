@@ -88,3 +88,26 @@
 		fill: var(--color-gray-500);
 	}
 }
+
+/* Print stylesheet */
+@media print {
+	aside, nav, .no-print, button, select, input {
+		display: none !important;
+	}
+	main {
+		margin: 0 !important;
+		padding: 0.5cm !important;
+	}
+	.schedule-viewer {
+		border: none !important;
+		height: auto !important;
+	}
+	.wbs-tree {
+		width: 200px !important;
+	}
+	* {
+		color-adjust: exact !important;
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
+	}
+}
