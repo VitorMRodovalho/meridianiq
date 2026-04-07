@@ -10,7 +10,7 @@ test.describe('Landing Page (unauthenticated)', () => {
 
   test('shows capability cards', async ({ page }) => {
     await page.goto('/');
-    const heading = page.locator('main h2', { hasText: '31 Analysis Engines' });
+    const heading = page.locator('main h2', { hasText: '33 Analysis Engines' });
     await expect(heading).toBeAttached();
     await heading.scrollIntoViewIfNeeded();
     await expect(heading).toBeVisible();
