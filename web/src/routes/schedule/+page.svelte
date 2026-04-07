@@ -368,30 +368,38 @@
 		</div>
 
 		<!-- Summary cards -->
-		<div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
-			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{data.summary.total_activities}</p>
-				<p class="text-xs text-gray-500 uppercase">Activities</p>
+		<div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{data.summary.total_activities.toLocaleString()}</p>
+				<p class="text-[9px] text-gray-500 uppercase">Activities</p>
 			</div>
-			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-red-600">{data.summary.critical_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Critical</p>
-			</div>
-			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-orange-500">{data.summary.near_critical_count || 0}</p>
-				<p class="text-xs text-gray-500 uppercase">Near-Crit</p>
-			</div>
-			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-green-600">{data.summary.complete_pct.toFixed(0)}%</p>
-				<p class="text-xs text-gray-500 uppercase">Complete</p>
+				<p class="text-[9px] text-gray-500 uppercase">Complete</p>
 			</div>
-			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
+				<p class="text-lg font-bold text-red-600">{data.summary.critical_count}</p>
+				<p class="text-[9px] text-gray-500 uppercase">Critical</p>
+			</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
+				<p class="text-lg font-bold text-orange-500">{data.summary.near_critical_count || 0}</p>
+				<p class="text-[9px] text-gray-500 uppercase">Near-Crit</p>
+			</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-amber-600">{data.summary.negative_float_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Neg. Float</p>
+				<p class="text-[9px] text-gray-500 uppercase">Neg Float</p>
 			</div>
-			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
+				<p class="text-lg font-bold {(data.summary.avg_float_days ?? 0) < 0 ? 'text-red-600' : 'text-blue-600'}">{data.summary.avg_float_days ?? '—'}d</p>
+				<p class="text-[9px] text-gray-500 uppercase">Avg Float</p>
+			</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
+				<p class="text-lg font-bold text-purple-600">{data.summary.constraint_count ?? 0}</p>
+				<p class="text-[9px] text-gray-500 uppercase">Constraints</p>
+			</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{data.summary.milestones_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Milestones</p>
+				<p class="text-[9px] text-gray-500 uppercase">Milestones</p>
 			</div>
 		</div>
 

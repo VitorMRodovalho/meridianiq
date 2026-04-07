@@ -65,5 +65,11 @@ export interface ScheduleViewData {
 		milestones_count: number;
 		relationship_count: number;
 		calendar_count: number;
+		avg_float_days?: number;
+		constraint_count?: number;
+		loe_count?: number;
+		complete_count?: number;
+		active_count?: number;
+		not_started_count?: number;
 	};
 }

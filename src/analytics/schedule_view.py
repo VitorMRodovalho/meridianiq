@@ -366,6 +366,19 @@ def build_schedule_view(
     near_critical = sum(
         1 for a in result.activities if 0 < a.total_float_days <= 10 and a.status != "complete"
     )
+    non_complete = [a for a in result.activities if a.status != "complete"]
+    avg_float = (
+        round(sum(a.total_float_days for a in non_complete) / len(non_complete), 1)
+        if non_complete
+        else 0.0
+    )
+    constraint_count = sum(
+        1
+        for a in result.activities
+        if a.constraint_type and a.constraint_type not in ("", "CS_MEO")
+    )
+    loe_count = sum(1 for a in result.activities if a.task_type == "loe")
+
     result.summary = {
         "total_activities": len(result.activities),
         "critical_count": len(critical_ids),
@@ -377,6 +390,12 @@ def build_schedule_view(
         "milestones_count": sum(1 for a in result.activities if a.task_type == "milestone"),
         "relationship_count": len(result.relationships),
         "calendar_count": len(schedule.calendars),
+        "avg_float_days": avg_float,
+        "constraint_count": constraint_count,
+        "loe_count": loe_count,
+        "complete_count": complete_count,
+        "active_count": sum(1 for a in result.activities if a.status == "active"),
+        "not_started_count": sum(1 for a in result.activities if a.status == "not_started"),
     }
 
     return result
