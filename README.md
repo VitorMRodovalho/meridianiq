@@ -35,16 +35,39 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 32 + 1 export module (CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Forensics · Half-Step · Delay Prediction ML · Benchmarks · What-If · Scorecard · Resource Leveling · Schedule Generation · Evolution Optimizer · 4D Visualization · Calendar Validation · Delay Attribution + more) |
+| Analysis engines | 33 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 761+ backend + 70+ E2E |
-| Frontend pages | 39 |
-| API endpoints | 77 |
-| SVG chart components | 10 (hand-crafted, no chart.js) |
-| Released versions | 20 (v0.1.0 → v3.1.0) |
+| Frontend pages | 42 (including Interactive Schedule Viewer) |
+| API endpoints | 80 |
+| SVG chart components | 10 + ScheduleViewer (hand-crafted, no chart.js) |
+| Released versions | 22 (v0.1.0 → v3.2.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
+
+---
+
+## Interactive Schedule Viewer
+
+The flagship feature — a production-grade Gantt chart built entirely with SVG (zero external dependencies):
+
+- **WBS Tree** — Collapsible work breakdown structure with activity counts
+- **Gantt Bars** — Color-coded by status (critical, active, complete, not started)
+- **Progress Overlay** — Physical % complete as filled bar portion
+- **Baseline Comparison** — Gray dashed bars below current bars showing planned dates
+- **Float Visualization** — Amber bars from early finish to late finish
+- **Sliding Right Detection** — Amber arrows for delayed activities
+- **Dependency Lines** — SVG bezier curves (FS/FF/SS/SF) with hover highlighting
+- **Critical Path Toggle** — Filter to show only critical activities
+- **Search & Filter** — By name/code, status, constraints
+- **Sortable Activity Table** — 11 columns with click-to-sort headers
+- **Activity Detail Panel** — Click a bar to see 12 fields + predecessors/successors
+- **Date Axis** — Day/Week/Month zoom with data date and today markers
+- **Keyboard Shortcuts** — +/- zoom, E/C expand/collapse, ? help modal
+- **CSV Export** — Download filtered activity data
+- **Dark Mode** — Inherits from global theme
+- **Print Ready** — Print stylesheet preserves colors
 
 ---
 
