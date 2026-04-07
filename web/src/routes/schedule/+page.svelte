@@ -151,6 +151,21 @@
 		</div>
 		{/if}
 
+		<!-- Progress bar -->
+		<div class="mb-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+			<div class="flex items-center justify-between mb-1">
+				<span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Overall Progress</span>
+				<span class="text-xs font-bold {data.summary.complete_pct >= 90 ? 'text-green-600' : data.summary.complete_pct >= 50 ? 'text-blue-600' : 'text-amber-600'}">{data.summary.complete_pct.toFixed(1)}%</span>
+			</div>
+			<div class="h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+				<div class="h-full rounded-full transition-all bg-gradient-to-r from-blue-500 to-green-500" style="width: {data.summary.complete_pct}%"></div>
+			</div>
+			<div class="flex justify-between mt-1 text-[9px] text-gray-400">
+				<span>{data.project_start}</span>
+				<span>{data.project_finish}</span>
+			</div>
+		</div>
+
 		<!-- Summary cards -->
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
