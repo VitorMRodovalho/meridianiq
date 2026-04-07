@@ -179,9 +179,13 @@
 			{#if act.task_type === 'milestone'}
 				<!-- Milestone diamond -->
 				<g
+					role="button"
+					tabindex="0"
+					aria-label="{act.task_name} (milestone)"
 					transform="translate({x}, {y + rowHeight / 2})"
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}
+					onclick={() => onClick?.(act.task_id)}
 					class="cursor-pointer"
 				>
 					<polygon points="0,-6 6,0 0,6 -6,0" fill={color} stroke="white" stroke-width="1" />
@@ -189,6 +193,9 @@
 			{:else}
 				<!-- Activity bar group -->
 				<g
+					role="button"
+					tabindex="0"
+					aria-label="{act.task_name}"
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}
 					onclick={() => onClick?.(act.task_id)}

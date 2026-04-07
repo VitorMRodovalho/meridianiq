@@ -5,6 +5,7 @@
 		'': 'Dashboard',
 		'projects': 'Projects',
 		'upload': 'Upload',
+		'schedule': 'Schedule',
 		'compare': 'Compare',
 		'forensic': 'Forensic',
 		'tia': 'TIA',

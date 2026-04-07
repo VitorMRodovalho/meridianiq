@@ -69,17 +69,19 @@
 		{#each visibleRows as row, i}
 			{@const y = i * rowHeight}
 			{#if row.type === 'wbs' && row.wbsNode}
-				<div
-					class="flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800"
+				<button
+					type="button"
+					class="w-full flex items-center gap-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 text-left"
 					style="height: {rowHeight}px; padding-left: {row.indent * 16 + 4}px;"
 					onclick={() => onToggleWbs(row.wbsNode!.wbs_id)}
+					aria-expanded={!collapsedWbs.has(row.wbsNode.wbs_id)}
 				>
 					<svg class="w-3 h-3 text-gray-400 shrink-0 transition-transform {collapsedWbs.has(row.wbsNode.wbs_id) ? '-rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 					</svg>
 					<span class="text-[10px] font-semibold text-gray-700 dark:text-gray-300 truncate">{row.wbsNode.short_name || row.wbsNode.name}</span>
 					<span class="text-[8px] text-gray-400 ml-auto shrink-0">{row.wbsNode.activity_count}</span>
-				</div>
+				</button>
 			{:else if row.type === 'activity' && row.activity}
 				<div
 					class="flex items-center border-b border-gray-50 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800"
