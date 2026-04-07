@@ -151,12 +151,26 @@
 				</div>
 			</dl>
 
-			<a
-				href="/projects/{result.project_id}"
-				class="mt-6 inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-			>
-				{$t('upload.view')}
-			</a>
+			<div class="flex items-center gap-3 mt-6">
+				<a
+					href="/projects/{result.project_id}"
+					class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+				>
+					{$t('upload.view')}
+				</a>
+				<a
+					href="/schedule?project={result.project_id}"
+					class="inline-block bg-teal-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-teal-700 transition-colors"
+				>
+					View Schedule
+				</a>
+				<a
+					href="/scorecard?project={result.project_id}"
+					class="inline-block bg-gray-100 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+				>
+					Scorecard
+				</a>
+			</div>
 		</div>
 	{/if}
 </div>

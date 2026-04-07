@@ -22,7 +22,7 @@ export default {
 	'landing.stats.endpoints': 'Endpoints da API',
 	'landing.stats.tests': 'Testes Aprovados',
 	'landing.stats.cost': 'Custo Mensal',
-	'landing.capabilities.title': '31 Motores de Analise',
+	'landing.capabilities.title': '33 Motores de Analise',
 	'landing.standards.title': 'Construido sobre padroes publicados',
 	'landing.standards.subtitle': 'Toda metodologia e rastreavel a sua fonte. Sem caixas pretas.',
 
