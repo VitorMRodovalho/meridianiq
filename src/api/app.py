@@ -3153,6 +3153,76 @@ def get_calendar_validation(
     return asdict(result)
 
 
+@app.post("/api/v1/trends")
+def get_schedule_trends(
+    body: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Compute schedule trends across multiple project updates.
+
+    Accepts a list of project IDs representing sequential schedule updates.
+    Returns trend data points and insights.
+
+    Reference: AACE RP 29R-03 — Forensic Schedule Analysis.
+    """
+    project_ids: list[str] = body.get("project_ids", [])
+    if not project_ids:
+        raise HTTPException(status_code=400, detail="project_ids required")
+    if len(project_ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 projects per trend")
+
+    from src.analytics.schedule_metadata import extract_metadata
+    from src.analytics.schedule_trends import analyze_trends, compute_trend_point
+
+    store = get_store()
+    user_id = _user["id"] if _user else None
+
+    points = []
+    for pid in project_ids:
+        schedule = store.get(pid, user_id=user_id)
+        if schedule is None:
+            continue
+        meta = extract_metadata(
+            filename="",
+            project_name=schedule.projects[0].proj_short_name if schedule.projects else "",
+        )
+        point = compute_trend_point(schedule, pid, update_number=meta.update_number)
+        points.append(point)
+
+    result = analyze_trends(points)
+    return {
+        "series_name": result.series_name,
+        "point_count": len(result.points),
+        "insights": result.insights,
+        "points": [
+            {
+                "project_id": p.project_id,
+                "project_name": p.project_name,
+                "data_date": p.data_date,
+                "update_number": p.update_number,
+                "activity_count": p.activity_count,
+                "relationship_count": p.relationship_count,
+                "wbs_count": p.wbs_count,
+                "milestone_count": p.milestone_count,
+                "complete_count": p.complete_count,
+                "active_count": p.active_count,
+                "not_started_count": p.not_started_count,
+                "complete_pct": p.complete_pct,
+                "avg_total_float": p.avg_total_float,
+                "negative_float_count": p.negative_float_count,
+                "zero_float_count": p.zero_float_count,
+                "critical_count": p.critical_count,
+                "near_critical_count": p.near_critical_count,
+                "logic_density": p.logic_density,
+                "constraint_count": p.constraint_count,
+                "loe_count": p.loe_count,
+                "project_duration_days": p.project_duration_days,
+            }
+            for p in result.points
+        ],
+    }
+
+
 @app.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
     project_id: str,
