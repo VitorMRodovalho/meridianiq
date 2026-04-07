@@ -160,11 +160,14 @@
 			{#if span}
 				{@const sx = xPos(span.start)}
 				{@const sw = Math.max(4, xPos(span.finish) - sx)}
-				<rect
-					x={sx} y={y + rowHeight / 2 - 2}
-					width={sw} height={4}
-					rx="2" fill="#6b7280" opacity="0.3"
-				/>
+				<g>
+					<title>{row.wbsNode.name} — {span.count} activities | {span.start} → {span.finish}</title>
+					<rect
+						x={sx} y={y + rowHeight / 2 - 2}
+						width={sw} height={4}
+						rx="2" fill="#6b7280" opacity="0.3"
+					/>
+				</g>
 				<polygon points="{sx},{y + rowHeight / 2 - 4} {sx},{y + rowHeight / 2 + 4} {sx - 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
 				<polygon points="{sx + sw},{y + rowHeight / 2 - 4} {sx + sw},{y + rowHeight / 2 + 4} {sx + sw + 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
 			{/if}
