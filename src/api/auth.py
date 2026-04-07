@@ -327,11 +327,7 @@ def revoke_api_key(user_id: str, key_id: str) -> bool:
     if sb:
         try:
             res = (
-                sb.table("api_keys")
-                .delete()
-                .eq("key_id", key_id)
-                .eq("user_id", user_id)
-                .execute()
+                sb.table("api_keys").delete().eq("key_id", key_id).eq("user_id", user_id).execute()
             )
             if res.data:
                 logger.info("API key %s revoked for user %s (Supabase)", key_id, user_id)

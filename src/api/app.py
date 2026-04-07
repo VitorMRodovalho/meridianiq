@@ -203,6 +203,7 @@ except ImportError:
         def limit(self, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
             def decorator(func):  # type: ignore[no-untyped-def]
                 return func
+
             return decorator
 
     limiter = _NoOpLimiter()  # type: ignore[assignment]
@@ -1744,7 +1745,9 @@ def _evm_result_to_schema(result: Any, project_id: str = "") -> EVMAnalysisSchem
 
 @app.post("/api/v1/evm/analyze/{project_id}", response_model=EVMAnalysisSchema)
 @limiter.limit("10/minute")
-def run_evm_analysis(request: Request, project_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
+def run_evm_analysis(
+    request: Request, project_id: str, _user: object = Depends(optional_auth)
+) -> EVMAnalysisSchema:
     """Run Earned Value Management analysis on a project.
 
     Computes SPI, CPI, SV, CV, EAC, ETC, VAC, TCPI from resource
