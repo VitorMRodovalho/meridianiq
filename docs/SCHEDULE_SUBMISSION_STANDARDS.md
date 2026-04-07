@@ -1,105 +1,125 @@
 # Schedule Submission Standards — Industry Reference
 
-Research for MeridianIQ Schedule Viewer column requirements.
+Comprehensive research for MeridianIQ Schedule Viewer column requirements.
+Sources: AACE RP 29R-03, DCMA 14-Point, AIA G703, USACE UFGS, SCL Protocol, DOT specs.
 
-## MUST-HAVE Columns (Required by DCMA, AACE, AIA)
+## MUST-HAVE Columns (22 fields — required by virtually all standards)
 
-These columns are required in virtually every professional schedule submission:
+| # | Field | Source | MeridianIQ Status |
+|---|-------|--------|-------------------|
+| 1 | Activity ID | All | Done (task_code) |
+| 2 | Activity Name | All | Done (task_name) |
+| 3 | WBS Code | DCMA, USACE, CM | Done (table + tree) |
+| 4 | Original Duration | DCMA, AACE, DOT | Done (duration_days) |
+| 5 | Remaining Duration | DCMA, AACE, USACE | Done (remaining_days) |
+| 6 | Actual Start | All | Done (AS column) |
+| 7 | Actual Finish | All | Done (AF column) |
+| 8 | Early Start | DCMA, AACE, DOT | Done (ES column) |
+| 9 | Early Finish | DCMA, AACE, DOT | Done (EF column) |
+| 10 | Total Float | All | Done (TF column) |
+| 11 | % Complete | DCMA, DOT, CM | Done (progress_pct) |
+| 12 | Predecessors/Successors | DCMA, AACE | Done (detail panel) |
+| 13 | Relationship Type (FS/FF/SS/SF) | DCMA (90% FS rule) | Done (dependency lines) |
+| 14 | Calendar | DCMA, AACE, DOT | Done (detail panel) |
+| 15 | Constraint Type | DCMA | Done (badge + detail) |
+| 16 | Constraint Date | DCMA | Done (detail panel) |
+| 17 | Critical Path Flag | All | Done (toggle + badge) |
+| 18 | Baseline Start | DCMA (BEI), CM | Done (with baseline) |
+| 19 | Baseline Finish | DCMA (BEI), CM | Done (with baseline) |
+| 20 | Data Date | All | Done (marker line) |
+| 21 | Forecast Completion Date | All | Done (project_finish) |
+| 22 | Contractual Completion Date | CM, SCL | Not tracked (needs DB field) |
 
-| # | Column | Field | Our Status |
-|---|--------|-------|-----------|
-| 1 | Activity ID | task_code | Done |
-| 2 | Activity Name | task_name | Done |
-| 3 | WBS | wbs_path | Done (table + tree) |
-| 4 | Original Duration | target_drtn_hr_cnt / day_hours | Done (duration_days) |
-| 5 | Remaining Duration | remain_drtn_hr_cnt / day_hours | Done (remaining_days) |
-| 6 | % Complete | phys_complete_pct | Done (progress_pct) |
-| 7 | Early Start | early_start_date | Done |
-| 8 | Early Finish | early_end_date | Done |
-| 9 | Late Start | late_start_date | Done |
-| 10 | Late Finish | late_end_date | Done |
-| 11 | Total Float | total_float_hr_cnt / day_hours | Done |
-| 12 | Free Float | free_float_hr_cnt / day_hours | Done |
-| 13 | Actual Start | act_start_date | Done |
-| 14 | Actual Finish | act_end_date | Done |
-| 15 | Calendar | clndr_id | Done (detail panel) |
-| 16 | Activity Status | status_code | Done |
-| 17 | Activity Type | task_type | Done |
-| 18 | Constraint Type | cstr_type | Done (badge + detail) |
-| 19 | Constraint Date | cstr_date | Done (detail panel) |
-| 20 | Critical Path indicator | is_critical | Done |
+**Score: 21/22 MUST-HAVE implemented (95.5%)**
 
-## SHOULD-HAVE (Professional Quality)
+## SHOULD-HAVE Columns (11 fields)
 
-| # | Column | Field | Our Status |
-|---|--------|-------|-----------|
-| 21 | Predecessor List | relationships | Done (detail panel only) |
-| 22 | Successor List | relationships | Done (detail panel only) |
-| 23 | Baseline Start | baseline_start | Done (with baseline) |
-| 24 | Baseline Finish | baseline_finish | Done (with baseline) |
-| 25 | Start Variance (days) | early_start - baseline_start | Not computed |
-| 26 | Finish Variance (days) | early_finish - baseline_finish | Not computed |
-| 27 | Float Variance (days) | current_TF - baseline_TF | Not computed |
-| 28 | Resource Assignments | task_resources | Not in viewer |
-| 29 | Budget Cost | target_cost | Not in viewer |
-| 30 | Actual Cost | act_reg_cost | Not in viewer |
+| # | Field | Source | MeridianIQ Status |
+|---|-------|--------|-------------------|
+| 23 | Late Start | CPM, AACE | Done (LS) |
+| 24 | Late Finish | CPM, AACE | Done (LF) |
+| 25 | Free Float | DOT, CM | Done (FF column) |
+| 26 | Physical % Complete | DOT, USACE | Done (same as progress_pct) |
+| 27 | Responsibility Code | USACE, CM | Not available |
+| 28 | Activity Code(s) | USACE, CM | Available in parser, not shown |
+| 29 | Lag Value | DCMA | Done (detail panel) |
+| 30 | Milestone Flag | All | Done (diamond shape) |
+| 31 | Start Variance (BL vs Current) | CM | Done (start_variance_days) |
+| 32 | Finish Variance (BL vs Current) | CM | Done (finish_variance_days) |
+| 33 | At Completion Duration | DOT | Not computed |
 
-## NICE-TO-HAVE (Enhanced Reporting)
+**Score: 9/11 SHOULD-HAVE implemented (81.8%)**
 
-| # | Column | Our Status |
-|---|--------|-----------|
-| 31 | Complete % Type (Duration/Physical/Units) | Available in data |
-| 32 | Duration Type | Available in data |
-| 33 | Float Path | Available in data |
-| 34 | Driving Path Flag | Available in data |
-| 35 | Priority Type | Available in data |
-| 36 | Resource Units (Budget/Actual/Remaining) | Available in data |
+## NICE-TO-HAVE (Cost/EVM context — 9 fields)
+
+| # | Field | Source | MeridianIQ Status |
+|---|-------|--------|-------------------|
+| 34 | Budgeted Total Cost | USACE, AIA | Available (target_cost) |
+| 35 | Actual Total Cost | USACE, EVM | Available (act_reg_cost) |
+| 36 | Remaining Total Cost | USACE, EVM | Available (remain_cost) |
+| 37 | Earned Value | USACE, DCMA | Computed in EVM engine |
+| 38 | Planned Value | USACE, DCMA | Computed in EVM engine |
+| 39 | CPI | EVM | Computed in EVM engine |
+| 40 | SPI | EVM | Computed in EVM engine |
+| 41 | Resource Assignment | DCMA (100%) | Available in parser |
+| 42 | Resource Hours/Units | EVM | Available in parser |
 
 ## Summary Metrics Required
 
-Per AACE RP 29R-03 and DCMA 14-Point:
-- Total Activities, Relationships, Calendars count (Done - summary cards)
-- Activity status distribution (Done - status pills)
-- Relationship type distribution (Not shown)
-- Critical path length and activities (Done - critical count + toggle)
-- Float distribution histogram (Done - collapsible)
-- Negative float count (Done - summary card)
-- Milestone count (Done - summary card)
-- Schedule completion % (Done - progress bar)
+| Metric | Source | MeridianIQ Status |
+|--------|--------|-------------------|
+| Overall % Complete (planned vs actual) | All | Done (progress bar) |
+| Days Ahead/Behind Schedule | CM | Done (variance) |
+| Projected Completion Date | All | Done (project_finish) |
+| TF on Completion Milestone | AACE, DCMA | Computable |
+| CPLI | DCMA | Not computed |
+| BEI | DCMA | Not computed |
+| Critical Activity Count | CM | Done (summary card) |
+| Near-Critical Count (TF 1-10) | CM | Not shown |
+| DCMA 14-Point Summary | DCMA | Done (separate page) |
+| Milestones Variance Table | CM, SCL | Done (detail panel) |
+| Added/Deleted Activities | CM | Done (compare page) |
+| Logic Changes Count | CM | Done (compare page) |
 
-## Visual Requirements
+## Visual Format Requirements
 
-Per industry practice:
-- **Gantt bars** with status coloring ✓
-- **Baseline bars** below current bars ✓
-- **Progress fill** on activity bars ✓
-- **Milestone diamonds** ✓
-- **Data date vertical line** ✓
-- **Today line** ✓
-- **Dependency lines** (FS/FF/SS/SF) ✓
-- **Float bars** (early finish → late finish) ✓
-- **Critical path highlighting** ✓
-- **WBS hierarchy** with collapse/expand ✓
-- **Constraint indicators** ✓
+| Element | Source | MeridianIQ Status |
+|---------|--------|-------------------|
+| Gantt bars (early dates) | All | Done |
+| Critical path red | DOT, CM | Done |
+| Baseline bars alongside | CM | Done |
+| Data date vertical line | All | Done |
+| Today line | CM | Done |
+| Milestone diamonds | All | Done |
+| WBS grouping | DOT, CM | Done (tree) |
+| Sort by start within groups | DOT | Done |
+| Title block (project, contract, data date) | DOT, CM | Partial (name + data date) |
+| Relationship lines | P6 | Done |
+| Float bars | Industry | Done |
+| Progress fill on bars | Industry | Done |
 
-## PDF Report Format (AACE RP 29R-03 S5.3)
+## Monthly Narrative Report Sections (CM Practice)
 
-A forensic schedule report should include:
-1. Cover page with project identification
-2. Table of contents
-3. Executive summary
-4. Methodology statement citing applicable standards
-5. Data summary (schedule metadata, activity counts)
-6. Analysis results (tables with findings)
-7. Schedule printout (Gantt chart with standard columns)
-8. Conclusions and recommendations
-9. Appendices (data tables, detailed calculations)
+Per DOT specs, USACE, and CM industry practice:
+1. Executive Summary (ahead/behind, planned vs actual %, projected vs contractual) — **Done** (scorecard, exec summary PDF)
+2. Critical Path Analysis (longest path, near-critical) — **Done** (CP toggle, float trends)
+3. Progress This Period — **Done** (compare page, forensic)
+4. Upcoming Work (look-ahead) — **Done** (lookahead page)
+5. Milestone Status — **Done** (milestones page)
+6. Schedule Changes — **Done** (compare page)
+7. Delays and Recovery — **Done** (forensic, TIA, delay attribution)
+8. Resource/Manpower Summary — Partial (resource leveling)
+9. Weather Days — Not tracked
 
 ## Sources
 
-- AACE Recommended Practice 29R-03 — Forensic Schedule Analysis
-- DCMA 14-Point Assessment — Schedule Quality Metrics
+- AACE RP 29R-03 — Forensic Schedule Analysis (Section 5.3 Documentation)
+- DCMA 14-Point Assessment — Schedule quality metrics
 - AIA A201/G703 — General Conditions / Certificate for Payment
-- SCL Delay and Disruption Protocol, 2nd Edition
+- USACE UFGS 01 32 01 — Project Schedule specification
+- USACE ER 1-1-11 — SDEF Format
+- SCDOT, NYSDOT, MnDOT — State DOT schedule specifications
+- SCL Delay and Disruption Protocol, 2nd Ed. (Appendix B — Records)
 - GAO Schedule Assessment Guide (2020)
-- PMI Practice Standard for Scheduling (3rd Edition)
+- PMI Practice Standard for Scheduling
+- FAR 52.236-15 — Federal schedules for construction
