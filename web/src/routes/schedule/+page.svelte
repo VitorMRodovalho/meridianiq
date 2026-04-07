@@ -118,6 +118,47 @@
 		}
 	});
 
+	// Column configuration
+	interface ColDef {
+		id: string;
+		label: string;
+		sortKey: string;
+		align: string;
+		visible: boolean;
+		render: (act: import('$lib/components/ScheduleViewer/types').ActivityView) => string;
+	}
+
+	let columns = $state<ColDef[]>([
+		{ id: 'code', label: 'Code', sortKey: 'code', align: 'text-left', visible: true, render: a => a.task_code },
+		{ id: 'name', label: 'Name', sortKey: 'name', align: 'text-left', visible: true, render: a => a.task_name },
+		{ id: 'wbs', label: 'WBS', sortKey: '', align: 'text-left', visible: true, render: a => a.wbs_path?.split('/').pop() || '' },
+		{ id: 'status', label: 'Status', sortKey: 'status', align: 'text-left', visible: true, render: a => a.status },
+		{ id: 'type', label: 'Type', sortKey: '', align: 'text-left', visible: false, render: a => a.task_type },
+		{ id: 'od', label: 'OD', sortKey: 'duration', align: 'text-right', visible: true, render: a => a.duration_days + 'd' },
+		{ id: 'rd', label: 'RD', sortKey: '', align: 'text-right', visible: true, render: a => a.remaining_days > 0 ? a.remaining_days + 'd' : '' },
+		{ id: 'tf', label: 'TF', sortKey: 'float', align: 'text-right', visible: true, render: a => a.total_float_days + 'd' },
+		{ id: 'ff', label: 'FF', sortKey: '', align: 'text-right', visible: true, render: a => a.free_float_days !== 0 ? a.free_float_days + 'd' : '' },
+		{ id: 'pct', label: '%', sortKey: 'progress', align: 'text-right', visible: true, render: a => a.progress_pct > 0 ? a.progress_pct + '%' : '' },
+		{ id: 'es', label: 'ES', sortKey: 'start', align: 'text-left', visible: true, render: a => a.early_start },
+		{ id: 'ef', label: 'EF', sortKey: 'finish', align: 'text-left', visible: true, render: a => a.early_finish },
+		{ id: 'ls', label: 'LS', sortKey: '', align: 'text-left', visible: false, render: a => (a as any).late_start || '' },
+		{ id: 'lf', label: 'LF', sortKey: '', align: 'text-left', visible: false, render: a => (a as any).late_finish || '' },
+		{ id: 'as', label: 'AS', sortKey: '', align: 'text-left', visible: true, render: a => a.actual_start || '' },
+		{ id: 'af', label: 'AF', sortKey: '', align: 'text-left', visible: true, render: a => a.actual_finish || '' },
+		{ id: 'bs', label: 'BL Start', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_start || '' },
+		{ id: 'bf', label: 'BL Finish', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_finish || '' },
+		{ id: 'cp', label: 'CP', sortKey: '', align: 'text-center', visible: true, render: a => a.is_critical ? '●' : '' },
+		{ id: 'constraint', label: 'Constr.', sortKey: '', align: 'text-left', visible: false, render: a => a.constraint_type && a.constraint_type !== 'CS_MEO' ? a.constraint_type : '' },
+		{ id: 'alerts', label: 'Alerts', sortKey: '', align: 'text-left', visible: true, render: _ => '' },
+	]);
+
+	const visibleColumns = $derived(columns.filter(c => c.visible));
+	let showColumnConfig = $state(false);
+
+	function toggleColumn(id: string) {
+		columns = columns.map(c => c.id === id ? { ...c, visible: !c.visible } : c);
+	}
+
 	// Table sorting
 	let sortCol = $state<string>('');
 	let sortAsc = $state(true);
@@ -154,6 +195,23 @@
 		});
 		return acts;
 	});
+
+	// Table virtual scrolling
+	const TABLE_ROW_H = 24;
+	const TABLE_BUFFER = 30;
+	let tableContainer: HTMLDivElement | null = $state(null);
+	let tableScrollTop = $state(0);
+	let tableContainerH = $state(384);
+
+	function handleTableScroll(e: Event) {
+		const el = e.target as HTMLDivElement;
+		tableScrollTop = el.scrollTop;
+		tableContainerH = el.clientHeight;
+	}
+
+	const tableVStart = $derived(Math.max(0, Math.floor(tableScrollTop / TABLE_ROW_H) - TABLE_BUFFER));
+	const tableVEnd = $derived(Math.min(sortedActivities.length, Math.ceil((tableScrollTop + tableContainerH) / TABLE_ROW_H) + TABLE_BUFFER));
+	const tableRenderedRows = $derived(sortedActivities.slice(tableVStart, tableVEnd));
 
 	function exportCSV() {
 		if (!data) return;
@@ -547,67 +605,86 @@
 
 		<!-- Activity data table -->
 		<details class="mt-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-				Activity Table ({data.activities.length} activities)
+			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between">
+				<span>Activity Table ({data.activities.length} activities)</span>
+				<button
+					type="button"
+					onclick={(e: MouseEvent) => { e.stopPropagation(); showColumnConfig = !showColumnConfig; }}
+					class="text-[9px] px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+					title="Configure columns"
+				>
+					Columns ({visibleColumns.length}/{columns.length})
+				</button>
 			</summary>
-			<div class="overflow-x-auto max-h-96">
+
+			<!-- Column config dropdown -->
+			{#if showColumnConfig}
+				<div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-wrap gap-2">
+					{#each columns as col}
+						<label class="flex items-center gap-1 text-[9px] text-gray-600 dark:text-gray-400 cursor-pointer">
+							<input type="checkbox" checked={col.visible} onchange={() => toggleColumn(col.id)} class="w-3 h-3 rounded" />
+							{col.label}
+						</label>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="overflow-x-auto overflow-y-auto max-h-96" bind:this={tableContainer} onscroll={handleTableScroll}>
 				<table class="w-full text-[10px]">
-					<thead class="sticky top-0 bg-gray-50 dark:bg-gray-800">
+					<thead class="sticky top-0 bg-gray-50 dark:bg-gray-800 z-10">
 						<tr>
-							{#each [
-								['code', 'Code', 'text-left'],
-								['name', 'Name', 'text-left'],
-								['', 'WBS', 'text-left'],
-								['status', 'Status', 'text-left'],
-								['duration', 'OD', 'text-right'],
-								['', 'RD', 'text-right'],
-								['float', 'TF', 'text-right'],
-								['', 'FF', 'text-right'],
-								['progress', '%', 'text-right'],
-								['start', 'ES', 'text-left'],
-								['finish', 'EF', 'text-left'],
-								['', 'AS', 'text-left'],
-								['', 'AF', 'text-left'],
-								['', 'CP', 'text-center'],
-								['', 'Alerts', 'text-left'],
-							] as [col, label, align]}
-								<th class="{align} py-1.5 px-2 font-semibold text-gray-500 {col ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 select-none' : ''}"
-									onclick={() => col && toggleSort(col)}
+							{#each visibleColumns as col}
+								<th class="{col.align} py-1.5 px-2 font-semibold text-gray-500 {col.sortKey ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 select-none' : ''}"
+									onclick={() => col.sortKey && toggleSort(col.sortKey)}
 								>
-									{label}{#if sortCol === col}<span class="ml-0.5">{sortAsc ? '▲' : '▼'}</span>{/if}
+									{col.label}{#if sortCol === col.sortKey}<span class="ml-0.5">{sortAsc ? '▲' : '▼'}</span>{/if}
 								</th>
 							{/each}
 						</tr>
 					</thead>
 					<tbody>
-						{#each sortedActivities as act}
-							<tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800">
-								<td class="py-1 px-2 font-mono text-gray-500">{act.task_code}</td>
-								<td class="py-1 px-2 text-gray-900 dark:text-gray-100 truncate max-w-48">{act.task_name}</td>
-								<td class="py-1 px-2 text-[8px] text-gray-400 truncate max-w-24" title="{act.wbs_path}">{act.wbs_path?.split('/').pop() || ''}</td>
-								<td class="py-1 px-2">
-									<span class="px-1 py-0.5 rounded text-[8px] font-bold uppercase
-										{act.status === 'complete' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-										act.status === 'active' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-										'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}">{act.status}</span>
-								</td>
-								<td class="py-1 px-2 text-right font-mono">{act.duration_days}d</td>
-								<td class="py-1 px-2 text-right font-mono text-gray-400">{act.remaining_days > 0 ? act.remaining_days + 'd' : ''}</td>
-								<td class="py-1 px-2 text-right font-mono {act.total_float_days < 0 ? 'text-red-600 font-bold' : act.total_float_days === 0 ? 'text-amber-600' : 'text-gray-500'}">{act.total_float_days}d</td>
-								<td class="py-1 px-2 text-right font-mono text-gray-400">{act.free_float_days !== 0 ? act.free_float_days + 'd' : ''}</td>
-								<td class="py-1 px-2 text-right font-mono">{act.progress_pct > 0 ? act.progress_pct + '%' : ''}</td>
-								<td class="py-1 px-2 text-gray-500">{act.early_start}</td>
-								<td class="py-1 px-2 text-gray-500">{act.early_finish}</td>
-								<td class="py-1 px-2 text-gray-400 text-[9px]">{act.actual_start || ''}</td>
-								<td class="py-1 px-2 text-gray-400 text-[9px]">{act.actual_finish || ''}</td>
-								<td class="py-1 px-2 text-center">{act.is_critical ? '●' : ''}</td>
-								<td class="py-1 px-2">
-									{#each act.alerts as alert}
-										<span class="px-1 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-[8px] mr-0.5">{alert.replace('_', ' ')}</span>
-									{/each}
-								</td>
+						<!-- Virtual scrolling spacer -->
+						{#if tableVStart > 0}
+							<tr><td colspan={visibleColumns.length} style="height: {tableVStart * TABLE_ROW_H}px; padding: 0;"></td></tr>
+						{/if}
+						{#each tableRenderedRows as act}
+							<tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800" style="height: {TABLE_ROW_H}px;">
+								{#each visibleColumns as col}
+									{#if col.id === 'name'}
+										<td class="py-1 px-2 text-gray-900 dark:text-gray-100 truncate max-w-48">{col.render(act)}</td>
+									{:else if col.id === 'wbs'}
+										<td class="py-1 px-2 text-[8px] text-gray-400 truncate max-w-24" title="{act.wbs_path}">{col.render(act)}</td>
+									{:else if col.id === 'status'}
+										<td class="py-1 px-2">
+											<span class="px-1 py-0.5 rounded text-[8px] font-bold uppercase
+												{act.status === 'complete' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+												act.status === 'active' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+												'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}">{col.render(act)}</span>
+										</td>
+									{:else if col.id === 'tf'}
+										<td class="py-1 px-2 text-right font-mono {act.total_float_days < 0 ? 'text-red-600 font-bold' : act.total_float_days === 0 ? 'text-amber-600' : 'text-gray-500'}">{col.render(act)}</td>
+									{:else if col.id === 'cp'}
+										<td class="py-1 px-2 text-center {act.is_critical ? 'text-red-600' : ''}">{col.render(act)}</td>
+									{:else if col.id === 'alerts'}
+										<td class="py-1 px-2">
+											{#each act.alerts as alert}
+												<span class="px-1 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-[8px] mr-0.5">{alert.replace('_', ' ')}</span>
+											{/each}
+										</td>
+									{:else if col.id === 'code'}
+										<td class="py-1 px-2 font-mono text-gray-500">{col.render(act)}</td>
+									{:else if col.align === 'text-right'}
+										<td class="py-1 px-2 text-right font-mono text-gray-500">{col.render(act)}</td>
+									{:else}
+										<td class="py-1 px-2 text-gray-500">{col.render(act)}</td>
+									{/if}
+								{/each}
 							</tr>
 						{/each}
+						<!-- Bottom spacer -->
+						{#if tableVEnd < sortedActivities.length}
+							<tr><td colspan={visibleColumns.length} style="height: {(sortedActivities.length - tableVEnd) * TABLE_ROW_H}px; padding: 0;"></td></tr>
+						{/if}
 					</tbody>
 				</table>
 			</div>

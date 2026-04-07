@@ -472,12 +472,40 @@ async def upload_xer(
 
     data_date = None
     name = ""
+    dd_dt = None
     if schedule.projects:
         proj = schedule.projects[0]
         name = proj.proj_short_name
-        dd = proj.last_recalc_date or proj.sum_data_date
-        if dd:
-            data_date = dd.isoformat()
+        dd_dt = proj.last_recalc_date or proj.sum_data_date
+        if dd_dt:
+            data_date = dd_dt.isoformat()
+
+    # Extract schedule metadata intelligence
+    from src.analytics.schedule_metadata import extract_metadata
+    from src.api.schemas import ScheduleMetadataSchema
+
+    meta = extract_metadata(
+        filename=file.filename or "",
+        project_name=name,
+        data_date=dd_dt,
+        activities=schedule.activities,
+        raw_tables=schedule.raw_tables if hasattr(schedule, "raw_tables") else None,
+    )
+    meta_schema = ScheduleMetadataSchema(
+        update_number=meta.update_number,
+        revision_number=meta.revision_number,
+        is_draft=meta.is_draft,
+        is_final=meta.is_final,
+        is_baseline=meta.is_baseline,
+        schedule_type=meta.schedule_type,
+        schedule_prefix=meta.schedule_prefix,
+        has_baseline_dates=meta.has_baseline_dates,
+        baseline_coverage_pct=meta.baseline_coverage_pct,
+        retained_logic=meta.retained_logic,
+        progress_override=meta.progress_override,
+        multiple_float_paths=meta.multiple_float_paths,
+        tags=meta.tags,
+    )
 
     return ProjectSummary(
         project_id=project_id,
@@ -487,6 +515,7 @@ async def upload_xer(
         calendar_count=len(schedule.calendars),
         wbs_count=len(schedule.wbs_nodes),
         data_date=data_date,
+        metadata=meta_schema,
     )
 
 

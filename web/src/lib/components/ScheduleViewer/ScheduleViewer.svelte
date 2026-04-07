@@ -145,6 +145,37 @@
 		return () => document.removeEventListener('keydown', handleKey);
 	});
 
+	// PDF export — opens print dialog with full schedule SVG
+	function exportPdf() {
+		if (!scrollContainer) return;
+		const svg = scrollContainer.querySelector('svg');
+		if (!svg) return;
+
+		const svgClone = svg.cloneNode(true) as SVGElement;
+		const projectName = data.project_name || 'Schedule';
+		const dateStr = data.data_date ? ` — Data Date: ${formatDateShort(data.data_date)}` : '';
+
+		const printWindow = window.open('', '_blank');
+		if (!printWindow) return;
+
+		printWindow.document.write(`<!DOCTYPE html>
+<html><head><title>${projectName} — Gantt Chart</title>
+<style>
+@page { size: landscape; margin: 10mm; }
+body { margin: 0; font-family: system-ui, sans-serif; }
+h1 { font-size: 14px; margin: 4px 0; color: #111; }
+.meta { font-size: 10px; color: #666; margin-bottom: 8px; }
+svg { width: 100%; height: auto; }
+</style></head><body>
+<h1>${projectName}${dateStr}</h1>
+<div class="meta">${searchFilteredData.activities.length} activities | Printed ${new Date().toLocaleDateString()}</div>
+${svgClone.outerHTML}
+</body></html>`);
+		printWindow.document.close();
+		printWindow.focus();
+		setTimeout(() => printWindow.print(), 300);
+	}
+
 	// Tooltip data
 	const hoveredActivity = $derived(
 		hoveredId ? searchFilteredData.activities.find(a => a.task_id === hoveredId) : null
@@ -209,6 +240,13 @@
 			<button onclick={collapseAll} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Collapse All">
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M15 15h4.5M15 15v4.5m0-4.5l5.5 5.5" />
+				</svg>
+			</button>
+			<span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+			<!-- Export PDF (print) -->
+			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Export PDF (Print)">
+				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
 				</svg>
 			</button>
 		</div>

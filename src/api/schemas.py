@@ -23,6 +23,24 @@ class HealthResponse(BaseModel):
 # ── Upload ───────────────────────────────────────────────
 
 
+class ScheduleMetadataSchema(BaseModel):
+    """Intelligent metadata extracted from filename and XER data."""
+
+    update_number: Optional[int] = None
+    revision_number: Optional[int] = None
+    is_draft: bool = False
+    is_final: bool = False
+    is_baseline: bool = False
+    schedule_type: str = "unknown"
+    schedule_prefix: str = ""
+    has_baseline_dates: bool = False
+    baseline_coverage_pct: float = 0.0
+    retained_logic: bool = False
+    progress_override: bool = False
+    multiple_float_paths: bool = False
+    tags: list[str] = Field(default_factory=list)
+
+
 class ProjectSummary(BaseModel):
     """Summary returned after uploading an XER file."""
 
@@ -33,6 +51,7 @@ class ProjectSummary(BaseModel):
     calendar_count: int = 0
     wbs_count: int = 0
     data_date: Optional[str] = None
+    metadata: Optional[ScheduleMetadataSchema] = None
 
 
 # ── Project list ─────────────────────────────────────────
