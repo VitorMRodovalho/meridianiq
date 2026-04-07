@@ -304,6 +304,13 @@
 				<p class="text-sm text-gray-500 mt-1">ID: {project.project_id} &middot; Data Date: {project.data_date || 'N/A'}</p>
 			</div>
 			<div class="flex items-center gap-2">
+			<a
+				href="/schedule?project={projectId}"
+				class="inline-flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition-colors"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+				Schedule
+			</a>
 			<!-- Data Export Dropdown -->
 			<div class="relative">
 				<button
