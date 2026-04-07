@@ -3261,6 +3261,77 @@ def get_schedule_trends(
     }
 
 
+@app.post("/api/v1/cost/upload")
+@limiter.limit("5/minute")
+async def upload_cost_data(
+    request: Request,
+    file: UploadFile = File(...),
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Upload a CBS Excel file and parse cost breakdown structure.
+
+    Returns CBS hierarchy, WBS budgets, and CBS-WBS mappings.
+
+    Reference: AACE RP 10S-90 — Cost Engineering Terminology.
+    """
+    filename = (file.filename or "").lower()
+    if not filename.endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="Upload an Excel file (.xlsx)")
+
+    file_bytes = await file.read()
+    if not file_bytes or len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File empty or too large (max 50MB)")
+
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp.write(file_bytes)
+        tmp_path = Path(tmp.name)
+
+    try:
+        from src.analytics.cost_integration import parse_cbs_excel
+
+        result = parse_cbs_excel(str(tmp_path))
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return {
+        "filename": file.filename,
+        "budget_date": result.budget_date,
+        "total_budget": result.total_budget,
+        "total_contingency": result.total_contingency,
+        "total_escalation": result.total_escalation,
+        "program_total": result.program_total,
+        "cbs_element_count": len(result.cbs_elements),
+        "wbs_budget_count": len(result.wbs_budgets),
+        "mapping_count": len(result.cbs_wbs_mappings),
+        "insights": result.insights,
+        "cbs_elements": [
+            {
+                "cbs_code": e.cbs_code,
+                "cbs_level1": e.cbs_level1,
+                "cbs_level2": e.cbs_level2,
+                "scope": e.scope,
+                "wbs_code": e.wbs_code,
+                "estimate": e.estimate,
+                "contingency": e.contingency,
+                "budget": e.budget,
+            }
+            for e in result.cbs_elements
+        ],
+        "wbs_budgets": [
+            {"wbs_code": w.wbs_code, "total_budget": w.total_budget} for w in result.wbs_budgets
+        ],
+        "cbs_wbs_mappings": [
+            {
+                "cost_category": m.cost_category,
+                "cbs_code": m.cbs_code,
+                "wbs_level1": m.wbs_level1,
+                "notes": m.notes,
+            }
+            for m in result.cbs_wbs_mappings
+        ],
+    }
+
+
 @app.get("/api/v1/projects/{project_id}/narrative")
 def get_narrative_report(
     project_id: str,
