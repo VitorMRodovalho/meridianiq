@@ -35,14 +35,14 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 30 + 1 export module (CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Forensics · Half-Step · Delay Prediction ML · Benchmarks · What-If · Scorecard · Resource Leveling · Schedule Generation · Evolution Optimizer · 4D Visualization + more) |
-| MCP tools | 19 (Claude integration via FastMCP) |
+| Analysis engines | 32 + 1 export module (CPM · DCMA · Compare · CPA · TIA · EVM · Monte Carlo · Forensics · Half-Step · Delay Prediction ML · Benchmarks · What-If · Scorecard · Resource Leveling · Schedule Generation · Evolution Optimizer · 4D Visualization · Calendar Validation · Delay Attribution + more) |
+| MCP tools | 21 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 724+ backend + 41 E2E |
+| Tests passing | 748+ backend + 70 E2E |
 | Frontend pages | 39 |
 | API endpoints | 77 |
 | SVG chart components | 10 (hand-crafted, no chart.js) |
-| Released versions | 18 (v0.1.0 → v3.0.0) |
+| Released versions | 20 (v0.1.0 → v3.1.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
