@@ -140,6 +140,9 @@
 						{loading ? 'Analyzing...' : `Analyze ${selectedIds.length} Schedules`}
 					</button>
 					<span class="text-xs text-gray-500">{selectedIds.length} selected</span>
+						{#if selectedIds.length >= 2}
+							<a href="/schedule?project={selectedIds[selectedIds.length - 1]}&baseline={selectedIds[0]}" class="text-xs text-teal-600 hover:text-teal-800 font-medium ml-2">View Schedule with Baseline</a>
+						{/if}
 				</div>
 			{/if}
 		</div>
