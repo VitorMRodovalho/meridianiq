@@ -120,6 +120,23 @@
 	{/if}
 
 	{#if result}
+		<!-- Quick actions -->
+		<div class="flex items-center gap-3 mb-4">
+			<a
+				href="/schedule?project={updateId}&baseline={baselineId}"
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-md text-xs font-medium hover:bg-teal-700"
+			>
+				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+				View in Schedule Viewer
+			</a>
+			{#if result.significant_float_changes.length > 0}
+				<span class="text-xs text-gray-500">
+					Float erosion: <strong class="text-red-600">{result.significant_float_changes.filter(f => f.direction === 'decreased').length}</strong> decreased,
+					<strong class="text-green-600">{result.significant_float_changes.filter(f => f.direction === 'increased').length}</strong> increased
+				</span>
+			{/if}
+		</div>
+
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
 			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">

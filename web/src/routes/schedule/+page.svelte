@@ -5,6 +5,7 @@
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import { supabase } from '$lib/supabase';
+	import { page } from '$app/stores';
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 
@@ -97,7 +98,13 @@
 		}
 	}
 
-	$effect(() => { loadProjects(); });
+	$effect(() => {
+		loadProjects();
+		// Read URL params for pre-selection from compare page
+		const params = $page.url.searchParams;
+		if (params.get('project')) selectedProject = params.get('project')!;
+		if (params.get('baseline')) baselineProject = params.get('baseline')!;
+	});
 
 	// Table sorting
 	let sortCol = $state<string>('');
