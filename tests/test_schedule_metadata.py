@@ -154,8 +154,6 @@ class TestTags:
         assert "BASELINE" in meta.tags
 
     def test_project_name_fallback(self) -> None:
-        meta = extract_metadata(
-            "file.xer", project_name="BPTR - MPS UP 18 Rev 00"
-        )
+        meta = extract_metadata("file.xer", project_name="BPTR - MPS UP 18 Rev 00")
         assert meta.update_number == 18
         assert meta.schedule_type == "mps"

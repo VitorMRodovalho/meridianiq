@@ -136,8 +136,7 @@ def extract_metadata(
     if activities:
         meta.activity_count = len(activities)
         acts_with_baseline = sum(
-            1 for a in activities
-            if hasattr(a, "target_start_date") and a.target_start_date
+            1 for a in activities if hasattr(a, "target_start_date") and a.target_start_date
         )
         meta.has_baseline_dates = acts_with_baseline > 0
         meta.baseline_coverage_pct = (
@@ -150,9 +149,7 @@ def extract_metadata(
             opts = sched_opts[0]
             meta.retained_logic = opts.get("sched_retained_logic") == "Y"
             meta.progress_override = opts.get("sched_progress_override") == "Y"
-            meta.multiple_float_paths = (
-                opts.get("enable_multiple_longest_path_calc") == "Y"
-            )
+            meta.multiple_float_paths = opts.get("enable_multiple_longest_path_calc") == "Y"
 
     # ── Build tags ────────────────────────────────────────
 
