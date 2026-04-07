@@ -6,9 +6,11 @@
 
 	interface Props {
 		data: ScheduleViewData;
+		showFloat?: boolean;
+		showBaseline?: boolean;
 	}
 
-	let { data }: Props = $props();
+	let { data, showFloat = true, showBaseline = true }: Props = $props();
 
 	const ROW_HEIGHT = 24;
 
@@ -123,6 +125,8 @@
 				rowHeight={ROW_HEIGHT}
 				{scrollTop}
 				{hoveredId}
+				{showFloat}
+				{showBaseline}
 				onHover={handleHover}
 			/>
 		</div>
@@ -144,6 +148,12 @@
 			{#if hoveredActivity.progress_pct > 0}
 				<span class="text-blue-600">{hoveredActivity.progress_pct}%</span>
 			{/if}
+			{#if hoveredActivity.baseline_start && hoveredActivity.baseline_finish}
+				<span class="text-gray-400">BL: {formatDateShort(hoveredActivity.baseline_start)}—{formatDateShort(hoveredActivity.baseline_finish)}</span>
+				{#if hoveredActivity.early_finish > hoveredActivity.baseline_finish}
+					<span class="text-amber-600 font-bold">SLIDING RIGHT</span>
+				{/if}
+			{/if}
 			{#each hoveredActivity.alerts as alert}
 				<span class="px-1 py-0.5 bg-red-100 text-red-700 rounded text-[8px] font-bold">{alert.replace('_', ' ')}</span>
 			{/each}
@@ -157,6 +167,12 @@
 		<span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm bg-green-500"></span> Complete</span>
 		<span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm bg-gray-400"></span> Not Started</span>
 		<span class="flex items-center gap-1"><span class="w-2 h-2 rotate-45 bg-amber-500"></span> Milestone</span>
+		{#if showBaseline}
+			<span class="flex items-center gap-1"><span class="w-3 h-1.5 rounded-sm bg-gray-400 opacity-50 border border-dashed border-gray-500"></span> Baseline</span>
+		{/if}
+		{#if showFloat}
+			<span class="flex items-center gap-1"><span class="w-3 h-1 rounded-sm bg-amber-400 opacity-60"></span> Float</span>
+		{/if}
 		{#if data.data_date}
 			<span class="ml-auto text-amber-600">Data Date: {formatDateShort(data.data_date)}</span>
 		{/if}

@@ -9,9 +9,12 @@
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
+	let baselineProject: string = $state('');
 	let data = $state<ScheduleViewData | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
+	let showFloat: boolean = $state(true);
+	let showBaseline: boolean = $state(true);
 
 	async function loadProjects() {
 		try {
@@ -33,7 +36,8 @@
 			const headers: Record<string, string> = session?.access_token
 				? { Authorization: `Bearer ${session.access_token}` }
 				: {};
-			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/schedule-view`, { headers });
+			const params = baselineProject ? `?baseline_id=${baselineProject}` : '';
+			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/schedule-view${params}`, { headers });
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
 			toastSuccess(`Loaded ${data!.summary.total_activities} activities`);
@@ -59,11 +63,20 @@
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
-		<div class="flex items-end gap-4">
-			<div class="flex-1">
+		<div class="flex items-end gap-4 flex-wrap">
+			<div class="flex-1 min-w-48">
 				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
 				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
+					{#each projects as p}
+						<option value={p.project_id}>{p.name || p.project_id}</option>
+					{/each}
+				</select>
+			</div>
+			<div class="flex-1 min-w-48">
+				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline (optional)</label>
+				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
+					<option value="">None</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
@@ -74,6 +87,18 @@
 				{loading ? 'Loading...' : 'View Schedule'}
 			</button>
 		</div>
+		{#if data}
+			<div class="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+					<input type="checkbox" bind:checked={showBaseline} class="w-3.5 h-3.5 rounded" />
+					Show Baseline
+				</label>
+				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+					<input type="checkbox" bind:checked={showFloat} class="w-3.5 h-3.5 rounded" />
+					Show Float
+				</label>
+			</div>
+		{/if}
 	</div>
 
 	{#if loading}
@@ -110,6 +135,6 @@
 		</div>
 
 		<!-- Schedule Viewer -->
-		<ScheduleViewer {data} />
+		<ScheduleViewer {data} {showFloat} {showBaseline} />
 	{/if}
 </main>

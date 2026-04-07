@@ -14,6 +14,8 @@
 		rowHeight: number;
 		scrollTop: number;
 		hoveredId: string;
+		showFloat?: boolean;
+		showBaseline?: boolean;
 		onHover: (id: string) => void;
 	}
 
@@ -28,6 +30,8 @@
 		rowHeight,
 		scrollTop,
 		hoveredId,
+		showFloat = true,
+		showBaseline = true,
 		onHover,
 	}: Props = $props();
 
@@ -174,6 +178,45 @@
 						>
 							{act.duration_days > 0 ? `${act.duration_days}d` : ''}
 						</text>
+					{/if}
+
+					<!-- Baseline bar (thin, below main bar) -->
+					{#if showBaseline && act.baseline_start && act.baseline_finish}
+						{@const bx = xPos(act.baseline_start)}
+						{@const bw = Math.max(2, xPos(act.baseline_finish) - bx)}
+						<rect
+							x={bx} y={y + BAR_PAD + BAR_H + 1}
+							width={bw} height={3}
+							rx="1" fill="#9ca3af" opacity="0.4"
+							stroke="#9ca3af" stroke-width="0.5" stroke-dasharray="3 2"
+						/>
+						<!-- Sliding right arrow if current finish > baseline finish -->
+						{#if act.early_finish > act.baseline_finish}
+							<polygon
+								points="{x + w + 2},{y + BAR_PAD + BAR_H / 2 - 3} {x + w + 7},{y + BAR_PAD + BAR_H / 2} {x + w + 2},{y + BAR_PAD + BAR_H / 2 + 3}"
+								fill="#f59e0b" opacity="0.8"
+							/>
+						{/if}
+					{/if}
+
+					<!-- Float bar (early finish → late finish) -->
+					{#if showFloat && act.total_float_days > 0 && act.late_finish && act.early_finish}
+						{@const fx = xPos(act.early_finish)}
+						{@const fw = Math.max(1, xPos(act.late_finish) - fx)}
+						<rect
+							x={fx} y={y + BAR_PAD + 5}
+							width={fw} height={4}
+							rx="1" fill="#f59e0b" opacity="0.4"
+						/>
+					{/if}
+
+					<!-- Negative float border -->
+					{#if act.total_float_days < 0}
+						<rect
+							x={x - 2} y={y + BAR_PAD - 1}
+							width={w + 4} height={BAR_H + 2}
+							rx="3" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.6"
+						/>
 					{/if}
 
 					<!-- Alert indicators -->
