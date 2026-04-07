@@ -63,6 +63,26 @@
 	}
 
 	$effect(() => { loadProjects(); });
+
+	function exportCSV() {
+		if (!data) return;
+		const headers = ['Code', 'Name', 'Status', 'Type', 'Duration', 'Total Float', 'Progress', 'Early Start', 'Early Finish', 'Late Start', 'Late Finish', 'Critical', 'WBS Path', 'Alerts'];
+		const rows = data.activities.map(a => [
+			a.task_code, a.task_name, a.status, a.task_type,
+			a.duration_days, a.total_float_days, a.progress_pct,
+			a.early_start, a.early_finish, a.late_start, a.late_finish,
+			a.is_critical ? 'Yes' : 'No', a.wbs_path,
+			a.alerts.join('; '),
+		]);
+		const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+		const blob = new Blob([csv], { type: 'text/csv' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `schedule-${selectedProject}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <svelte:head>
@@ -99,6 +119,12 @@
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
 				{loading ? 'Loading...' : 'View Schedule'}
 			</button>
+			{#if data}
+				<button onclick={exportCSV}
+					class="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700">
+					Export CSV
+				</button>
+			{/if}
 		</div>
 		{#if data}
 			<div class="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
