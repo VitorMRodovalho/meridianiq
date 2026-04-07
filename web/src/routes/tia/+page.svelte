@@ -124,12 +124,17 @@
 				Prospective delay analysis per AACE RP 52R-06
 			</p>
 		</div>
-		<button
-			onclick={() => (showCreate = !showCreate)}
-			class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-		>
-			{showCreate ? 'Cancel' : 'New Analysis'}
-		</button>
+		<div class="flex items-center gap-2">
+			<button
+				onclick={() => (showCreate = !showCreate)}
+				class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+			>
+				{showCreate ? 'Cancel' : 'New Analysis'}
+			</button>
+			{#if selectedProjectId}
+				<a href="/schedule?project={selectedProjectId}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+			{/if}
+		</div>
 	</div>
 
 	{#if loading}
