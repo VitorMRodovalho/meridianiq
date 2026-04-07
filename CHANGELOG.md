@@ -3,6 +3,33 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.1.0] — 2026-04-06 — UX Polish
+
+### Added
+- Calendar validation engine — 9 checks, score 0-100, grade A-F (`src/analytics/calendar_validation.py`)
+- `GET /api/v1/projects/{id}/calendar-validation` endpoint
+- `/calendar-validation` frontend page with GaugeChart, PieChart, BarChart
+- Delay attribution engine — party breakdown (Owner/Contractor/Shared/Third Party/Force Majeure)
+- `GET /api/v1/projects/{id}/delay-attribution` endpoint with excusable/non-excusable totals
+- `/delay-attribution` frontend page with PieChart, BarChart, stacked bar
+- Dark mode with class-based toggling, localStorage persistence, system preference detection
+- Global CSS overrides automatically darken all 41 pages without per-page edits
+- Loading skeletons (Skeleton + AnalysisSkeleton components) on 24 analysis pages
+- Breadcrumb navigation — global component, auto-inferred from URL path
+- Collapsible sidebar sections (Analysis, Intelligence, Enterprise) with localStorage state
+- Active link highlighting in sidebar (blue bg for current page)
+- i18n expansion: 40+ new keys for PT-BR and ES (page titles, common UI labels)
+- 2 new MCP tools: `validate_calendars_tool`, `compute_delay_attribution_tool` (21 total)
+- 24 new backend tests (calendar validation 17, delay attribution 7)
+
+### Stats
+- **32 analysis engines + 1 export module**, 21 MCP tools, **734+ tests**, 41 pages
+
+### References
+- DCMA 14-Point Check #13 (calendar adequacy)
+- AACE RP 29R-03, AACE RP 52R-06, SCL Protocol (delay attribution)
+- AACE RP 49R-06 (calendar health assessment)
+
 ## [3.0.1] — 2026-04-06 — Frontend Coverage
 
 ### Added

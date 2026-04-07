@@ -41,7 +41,7 @@ mypy src/ --strict              # type check
 
 - **32 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
 - **API**: FastAPI with 79 endpoints under `/api/v1/`
-- **Frontend**: SvelteKit + Tailwind v4, 41 pages, Svelte 5 runes ($state, $derived, $effect)
+- **Frontend**: SvelteKit + Tailwind v4, 41 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es)
 - **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
@@ -63,7 +63,9 @@ mypy src/ --strict              # type check
 - Store: `src/database/store.py` — Supabase client abstraction
 - Auth: `src/api/auth.py` — JWT verification via JWKS, `optional_auth` decorator
 - Frontend auth: `web/src/lib/stores/auth.ts` — lazy init to avoid circular deps
-- Charts: `web/src/lib/components/charts/` — 6 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart)
+- Charts: `web/src/lib/components/charts/` — 10 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart, ResourceChart, HeatMapChart, ParetoChart, GanttChart)
+- UI: Breadcrumb, Skeleton, AnalysisSkeleton, ToastContainer, ThemeToggle components
+- Theme: `web/src/lib/stores/theme.ts` — dark mode with localStorage + system preference
 - MCP Server: `src/mcp_server.py` — 19 tools for Claude integration via FastMCP
 - NLP: `src/analytics/nlp_query.py` — Claude API integration, sends summary not raw data
 - Root Cause: `src/analytics/root_cause.py` — backwards network trace via NetworkX
@@ -87,6 +89,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.0.1 — "Frontend Coverage" (32 engines, 19 MCP tools, 734+ tests)
+- Version: v3.1.0 — "UX Polish" (32 engines, 21 MCP tools, 734+ tests)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
