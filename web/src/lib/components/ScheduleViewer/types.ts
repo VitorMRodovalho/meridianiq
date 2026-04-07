@@ -59,8 +59,11 @@ export interface ScheduleViewData {
 	summary: {
 		total_activities: number;
 		critical_count: number;
+		near_critical_count: number;
 		complete_pct: number;
 		negative_float_count: number;
 		milestones_count: number;
+		relationship_count: number;
+		calendar_count: number;
 	};
 }

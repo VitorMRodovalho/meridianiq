@@ -308,7 +308,7 @@
 		</div>
 
 		<!-- Summary cards -->
-		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+		<div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{data.summary.total_activities}</p>
 				<p class="text-xs text-gray-500 uppercase">Activities</p>
@@ -316,6 +316,10 @@
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{data.summary.critical_count}</p>
 				<p class="text-xs text-gray-500 uppercase">Critical</p>
+			</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-orange-500">{data.summary.near_critical_count || 0}</p>
+				<p class="text-xs text-gray-500 uppercase">Near-Crit</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-green-600">{data.summary.complete_pct.toFixed(0)}%</p>
