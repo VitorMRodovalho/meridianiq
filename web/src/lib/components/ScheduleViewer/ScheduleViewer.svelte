@@ -33,6 +33,8 @@
 		};
 	});
 
+	import { daysBetween } from './utils';
+
 	const ROW_HEIGHT = 24;
 
 	// State
@@ -40,7 +42,21 @@
 	let zoomLevel = $state<'day' | 'week' | 'month'>('week');
 	let scrollTop = $state(0);
 	let hoveredId = $state('');
+	let searchQuery = $state('');
 	let scrollContainer: HTMLDivElement | null = $state(null);
+
+	// Search filter
+	const searchFilteredData = $derived.by(() => {
+		const base = filteredData;
+		if (!searchQuery.trim()) return base;
+		const q = searchQuery.toLowerCase();
+		const matchedActivities = base.activities.filter(
+			a => a.task_name.toLowerCase().includes(q) ||
+				a.task_code.toLowerCase().includes(q) ||
+				a.task_id.toLowerCase().includes(q)
+		);
+		return { ...base, activities: matchedActivities };
+	});
 
 	function toggleWbs(wbsId: string) {
 		const next = new Set(collapsedWbs);
@@ -79,7 +95,7 @@
 
 	// Tooltip data
 	const hoveredActivity = $derived(
-		hoveredId ? data.activities.find(a => a.task_id === hoveredId) : null
+		hoveredId ? searchFilteredData.activities.find(a => a.task_id === hoveredId) : null
 	);
 </script>
 
@@ -89,10 +105,28 @@
 		<div class="flex items-center gap-3">
 			<h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{data.project_name || 'Schedule'}</h3>
 			<span class="text-[10px] text-gray-500 dark:text-gray-400">
-				{data.summary.total_activities} activities | {data.summary.critical_count} critical | {data.summary.complete_pct.toFixed(0)}% complete
+				{searchFilteredData.activities.length}{searchFilteredData.activities.length !== data.summary.total_activities ? ` of ${data.summary.total_activities}` : ''} activities | {data.summary.critical_count} critical | {data.summary.complete_pct.toFixed(0)}% complete
+				{#if data.project_start && data.project_finish}
+					| {daysBetween(data.project_start, data.project_finish)}d span
+				{/if}
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
+			<!-- Search -->
+			<div class="relative">
+				<input
+					type="text"
+					bind:value={searchQuery}
+					placeholder="Search activities..."
+					class="w-36 text-[10px] rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 pr-6"
+				/>
+				{#if searchQuery}
+					<button onclick={() => searchQuery = ''} class="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+					</button>
+				{/if}
+			</div>
+			<span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
 			<!-- Zoom controls -->
 			{#each ['day', 'week', 'month'] as level}
 				<button
@@ -121,8 +155,8 @@
 	<div class="flex" style="height: 500px;">
 		<!-- WBS Tree -->
 		<WBSTree
-			activities={filteredData.activities}
-			wbsTree={filteredData.wbs_tree}
+			activities={searchFilteredData.activities}
+			wbsTree={searchFilteredData.wbs_tree}
 			{collapsedWbs}
 			rowHeight={ROW_HEIGHT}
 			{scrollTop}
@@ -136,13 +170,13 @@
 			class="flex-1 overflow-auto"
 		>
 			<GanttCanvas
-				activities={filteredData.activities}
-				wbsTree={filteredData.wbs_tree}
-				relationships={showDependencies ? filteredData.relationships : []}
+				activities={searchFilteredData.activities}
+				wbsTree={searchFilteredData.wbs_tree}
+				relationships={showDependencies ? searchFilteredData.relationships : []}
 				{collapsedWbs}
-				startDate={filteredData.project_start}
-				endDate={filteredData.project_finish}
-				dataDate={filteredData.data_date}
+				startDate={searchFilteredData.project_start}
+				endDate={searchFilteredData.project_finish}
+				dataDate={searchFilteredData.data_date}
 				{zoomLevel}
 				rowHeight={ROW_HEIGHT}
 				{scrollTop}
