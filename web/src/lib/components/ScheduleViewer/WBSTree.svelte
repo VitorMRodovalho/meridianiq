@@ -29,13 +29,15 @@
 		wbsNode?: WBSNode;
 		activity?: ActivityView;
 		indent: number;
+		wbsPath?: string;
 	}
 
 	const allRows = $derived.by(() => {
 		const rows: RowItem[] = [];
 
-		function addWbsNode(node: WBSNode, indent: number) {
-			rows.push({ type: 'wbs', wbsNode: node, indent });
+		function addWbsNode(node: WBSNode, indent: number, parentPath: string) {
+			const path = parentPath ? `${parentPath} / ${node.name}` : node.name;
+			rows.push({ type: 'wbs', wbsNode: node, indent, wbsPath: path });
 			if (!collapsedWbs.has(node.wbs_id)) {
 				for (const act of activities) {
 					if (act.wbs_id === node.wbs_id) {
@@ -43,13 +45,13 @@
 					}
 				}
 				for (const child of node.children) {
-					addWbsNode(child, indent + 1);
+					addWbsNode(child, indent + 1, path);
 				}
 			}
 		}
 
 		for (const root of wbsTree) {
-			addWbsNode(root, 0);
+			addWbsNode(root, 0, '');
 		}
 		return rows;
 	});
@@ -84,12 +86,12 @@
 						style="height: {rowHeight}px; padding-left: {row.indent * 16 + 4}px; top: {absoluteIdx * rowHeight}px; left: 0; right: 0;"
 						onclick={() => onToggleWbs(row.wbsNode!.wbs_id)}
 						aria-expanded={!collapsedWbs.has(row.wbsNode.wbs_id)}
-						title="{row.wbsNode.short_name ? row.wbsNode.short_name + ' — ' : ''}{row.wbsNode.name}"
+						title="{row.wbsPath || row.wbsNode.name}"
 					>
 						<svg class="w-3 h-3 text-gray-400 shrink-0 transition-transform {collapsedWbs.has(row.wbsNode.wbs_id) ? '-rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 						</svg>
-						{#if row.wbsNode.short_name && row.wbsNode.short_name !== row.wbsNode.name}
+						{#if row.wbsNode.short_name && row.wbsNode.short_name !== row.wbsNode.name && !/^\d+$/.test(row.wbsNode.short_name)}
 							<span class="text-[8px] text-gray-400 shrink-0 font-mono">{row.wbsNode.short_name}</span>
 						{/if}
 						<span class="text-[10px] font-semibold text-gray-700 dark:text-gray-300 truncate">{row.wbsNode.name}</span>

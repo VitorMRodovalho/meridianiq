@@ -27,22 +27,24 @@ export function generateTimeTicks(
 	startDate: string,
 	endDate: string,
 	zoomLevel: 'day' | 'week' | 'month',
+	svgWidth: number = 1200,
 ): { date: string; label: string; x: number }[] {
 	const start = parseDate(startDate);
 	const end = parseDate(endDate);
 	const totalDays = Math.max(1, daysBetween(startDate, endDate));
 	const ticks: { date: string; label: string; x: number }[] = [];
 
-	// Dynamic step: ensure max ~25 labels to prevent overlap
-	const MAX_LABELS = 25;
+	// Minimum pixel distance between labels (prevents overlap)
+	const MIN_PX = 48;
+	const maxLabels = Math.min(25, Math.floor(svgWidth / MIN_PX));
+
 	let stepDays: number;
 	if (zoomLevel === 'month') {
-		stepDays = Math.max(30, Math.ceil(totalDays / MAX_LABELS / 30) * 30);
+		stepDays = Math.max(30, Math.ceil(totalDays / maxLabels / 30) * 30);
 	} else if (zoomLevel === 'week') {
-		stepDays = Math.max(7, Math.ceil(totalDays / MAX_LABELS / 7) * 7);
+		stepDays = Math.max(7, Math.ceil(totalDays / maxLabels / 7) * 7);
 	} else {
-		// Day zoom: adapt step if too many days
-		stepDays = Math.max(1, Math.ceil(totalDays / MAX_LABELS));
+		stepDays = Math.max(1, Math.ceil(totalDays / maxLabels));
 	}
 
 	const current = new Date(start);
@@ -53,12 +55,14 @@ export function generateTimeTicks(
 		const x = dayOffset / totalDays;
 
 		let label: string;
-		if (stepDays >= 28 || zoomLevel === 'month') {
+		if (stepDays >= 90) {
+			label = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+		} else if (stepDays >= 28 || zoomLevel === 'month') {
 			label = current.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 		} else if (stepDays >= 5) {
 			label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 		} else {
-			label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+			label = current.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
 		}
 
 		ticks.push({ date: iso, label, x });

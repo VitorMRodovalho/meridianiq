@@ -8,8 +8,8 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | ID | Description | Severity | Found |
 |----|-------------|----------|-------|
-| BUG-020 | Schedule Viewer: WBS tree not showing level names/path — only short_name | Medium | v3.2.0 |
-| BUG-021 | Schedule Viewer: date axis labels overlap on day zoom with long schedules | Medium | v3.2.0 |
+| BUG-020 | ~~Schedule Viewer: WBS tree not showing level names/path~~ — fixed: full path in tooltip, numeric-only codes filtered | ~~Medium~~ | v3.3.0 |
+| BUG-021 | ~~Schedule Viewer: date axis labels overlap on day zoom~~ — fixed: min 48px spacing, adaptive label format | ~~Medium~~ | v3.3.0 |
 | BUG-022 | Schedule Viewer: dependency lines route to hidden rows when WBS collapsed | Low | v3.2.0 |
 | BUG-023 | /programs route exists but missing from sidebar navigation | Low | v3.2.0 |
 | BUG-024 | /demo route not discoverable from sidebar | Low | v3.2.0 |
@@ -67,8 +67,8 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Large schedule profiling (>5K activities) | P1 | Not tested — may cause rendering issues |
-| Schedule Viewer virtual scrolling | P1 | Renders all rows — needs viewport-aware for 1K+ |
+| ~~Large schedule profiling (>5K activities)~~ | ~~P1~~ | Tested with 10K+ activities — virtual scrolling works |
+| ~~Schedule Viewer virtual scrolling~~ | ~~P1~~ | Done — viewport-aware rendering with 20-row buffer |
 | Audit trail IP not populated | P2 | Schema field exists, frontend doesn't send |
 | Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
 | slowapi potentially unmaintained | P2 | Evaluate starlette-ratelimit alternative |
@@ -84,12 +84,12 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
-| 1 | Fix WBS level names display | All | Low |
-| 2 | Fix date axis label overlap | All | Low |
-| 3 | Standard columns (Actual Start/Finish, Remaining Duration, Free Float) | Scheduler | Medium |
-| 4 | Column configuration panel (show/hide/reorder) | All | Medium |
-| 5 | PDF/image export of Gantt view | PM, Owner Rep | Medium |
-| 6 | Non-working day shading (weekends/holidays) | Scheduler | Medium |
+| ~~1~~ | ~~Fix WBS level names display~~ — done: path tooltip, numeric code filter | All | ~~Low~~ |
+| ~~2~~ | ~~Fix date axis label overlap~~ — done: min-px spacing, adaptive format | All | ~~Low~~ |
+| ~~3~~ | ~~Standard columns~~ — done: 23 columns incl. AS/AF/RD/FF/BL/Var | Scheduler | ~~Medium~~ |
+| ~~4~~ | ~~Column configuration panel~~ — done: show/hide with checkbox panel | All | ~~Medium~~ |
+| ~~5~~ | ~~PDF/image export~~ — done: print dialog with full SVG | PM, Owner Rep | ~~Medium~~ |
+| ~~6~~ | ~~Non-working day shading~~ — done: weekend bands on timeline | Scheduler | ~~Medium~~ |
 
 ### High Impact — Platform
 
@@ -98,13 +98,13 @@ Bug tracking and feature backlog for MeridianIQ.
 | 7 | Add /programs to sidebar + program-level dashboard | Program Director | Medium |
 | 8 | Resource histogram below Gantt | Scheduler, PM | High |
 | 9 | EVM S-Curve inline visualization | Cost Engineer | Medium |
-| 10 | Sidebar search/filter for 34+ links | All | Low |
+| ~~10~~ | ~~Sidebar search/filter for 34+ links~~ — done: / to focus search | All | ~~Low~~ |
 
 ### Medium Impact
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
-| 11 | Drag-to-pan on Gantt timeline | All | Medium |
+| ~~11~~ | ~~Drag-to-pan on Gantt timeline~~ — done: mouse drag scrolls both axes | All | ~~Medium~~ |
 | 12 | Calendar exception parsing (CALEXCEPTION table) | Scheduler | Medium |
 | 13 | Activity grouping by any field | All | Medium |
 | 14 | WebSocket for Monte Carlo/optimizer progress | All | Medium |
@@ -124,15 +124,15 @@ Bug tracking and feature backlog for MeridianIQ.
 
 ## Open Testing Checklist
 
-- [ ] Upload — large XER files (1,000+ activities)
+- [x] Upload — large XER files (1,000+ activities) — tested with 10K+ acts
 - [ ] Upload — MS Project XML files (validate parser)
 - [ ] Upload — XER with special characters (accents, symbols)
 - [ ] DCMA 14-Point — verify against Schedule Validator reference
 - [ ] Critical Path — non-standard work hours calendar
-- [ ] Schedule Viewer — test with real production XER (500+ activities)
-- [ ] Schedule Viewer — baseline comparison with consecutive updates
-- [ ] Schedule Viewer — verify WBS names display correctly
-- [ ] Compare — two consecutive real-world schedule updates
+- [x] Schedule Viewer — test with real production XER (500+ activities) — tested 10K+
+- [x] Schedule Viewer — baseline comparison with consecutive updates
+- [x] Schedule Viewer — verify WBS names display correctly — path tooltip + code filter
+- [x] Compare — two consecutive real-world schedule updates — tested MPS UP03 vs UP04
 - [ ] Float Trends — 3+ sequential uploads
 - [ ] PDF Reports — layout and data for all 9 types
 - [ ] Excel Export — verify 4-sheet workbook accuracy
