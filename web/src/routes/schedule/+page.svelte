@@ -64,6 +64,43 @@
 
 	$effect(() => { loadProjects(); });
 
+	// Table sorting
+	let sortCol = $state<string>('');
+	let sortAsc = $state(true);
+
+	function toggleSort(col: string) {
+		if (sortCol === col) {
+			sortAsc = !sortAsc;
+		} else {
+			sortCol = col;
+			sortAsc = true;
+		}
+	}
+
+	const sortedActivities = $derived.by(() => {
+		if (!data || !sortCol) return data?.activities || [];
+		const acts = [...data.activities];
+		const dir = sortAsc ? 1 : -1;
+		acts.sort((a, b) => {
+			let va: any, vb: any;
+			switch (sortCol) {
+				case 'code': va = a.task_code; vb = b.task_code; break;
+				case 'name': va = a.task_name; vb = b.task_name; break;
+				case 'status': va = a.status; vb = b.status; break;
+				case 'duration': va = a.duration_days; vb = b.duration_days; break;
+				case 'float': va = a.total_float_days; vb = b.total_float_days; break;
+				case 'progress': va = a.progress_pct; vb = b.progress_pct; break;
+				case 'start': va = a.early_start; vb = b.early_start; break;
+				case 'finish': va = a.early_finish; vb = b.early_finish; break;
+				default: return 0;
+			}
+			if (va < vb) return -1 * dir;
+			if (va > vb) return 1 * dir;
+			return 0;
+		});
+		return acts;
+	});
+
 	function exportCSV() {
 		if (!data) return;
 		const headers = ['Code', 'Name', 'Status', 'Type', 'Duration', 'Total Float', 'Progress', 'Early Start', 'Early Finish', 'Late Start', 'Late Finish', 'Critical', 'WBS Path', 'Alerts'];
@@ -306,21 +343,29 @@
 				<table class="w-full text-[10px]">
 					<thead class="sticky top-0 bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Code</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Name</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Status</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Type</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Duration</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">TF</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Progress</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Early Start</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Early Finish</th>
-							<th class="text-center py-1.5 px-2 font-semibold text-gray-500">CP</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Alerts</th>
+							{#each [
+								['code', 'Code', 'text-left'],
+								['name', 'Name', 'text-left'],
+								['status', 'Status', 'text-left'],
+								['', 'Type', 'text-left'],
+								['duration', 'Duration', 'text-right'],
+								['float', 'TF', 'text-right'],
+								['progress', 'Progress', 'text-right'],
+								['start', 'Start', 'text-left'],
+								['finish', 'Finish', 'text-left'],
+								['', 'CP', 'text-center'],
+								['', 'Alerts', 'text-left'],
+							] as [col, label, align]}
+								<th class="{align} py-1.5 px-2 font-semibold text-gray-500 {col ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 select-none' : ''}"
+									onclick={() => col && toggleSort(col)}
+								>
+									{label}{#if sortCol === col}<span class="ml-0.5">{sortAsc ? '▲' : '▼'}</span>{/if}
+								</th>
+							{/each}
 						</tr>
 					</thead>
 					<tbody>
-						{#each data.activities as act}
+						{#each sortedActivities as act}
 							<tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800">
 								<td class="py-1 px-2 font-mono text-gray-500">{act.task_code}</td>
 								<td class="py-1 px-2 text-gray-900 dark:text-gray-100 truncate max-w-48">{act.task_name}</td>

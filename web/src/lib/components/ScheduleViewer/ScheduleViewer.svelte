@@ -2,6 +2,7 @@
 	import type { ScheduleViewData } from './types';
 	import WBSTree from './WBSTree.svelte';
 	import GanttCanvas from './GanttCanvas.svelte';
+	import { onMount } from 'svelte';
 	import { formatDateShort } from './utils';
 
 	interface Props {
@@ -94,6 +95,25 @@
 	function handleHover(id: string) {
 		hoveredId = id;
 	}
+
+	// Keyboard shortcuts
+	onMount(() => {
+		function handleKey(e: KeyboardEvent) {
+			if (e.key === '+' || e.key === '=') {
+				if (zoomLevel === 'month') zoomLevel = 'week';
+				else if (zoomLevel === 'week') zoomLevel = 'day';
+			} else if (e.key === '-') {
+				if (zoomLevel === 'day') zoomLevel = 'week';
+				else if (zoomLevel === 'week') zoomLevel = 'month';
+			} else if (e.key === 'e') {
+				expandAll();
+			} else if (e.key === 'c' && !e.ctrlKey && !e.metaKey) {
+				collapseAll();
+			}
+		}
+		document.addEventListener('keydown', handleKey);
+		return () => document.removeEventListener('keydown', handleKey);
+	});
 
 	// Tooltip data
 	const hoveredActivity = $derived(

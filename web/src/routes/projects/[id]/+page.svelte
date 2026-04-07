@@ -6,6 +6,8 @@
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
+	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
+	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -42,6 +44,8 @@
 	let calendarLoading = $state(false);
 	let attributionData = $state<any>(null);
 	let attributionLoading = $state(false);
+	let scheduleViewData = $state<ScheduleViewData | null>(null);
+	let scheduleViewLoading = $state(false);
 
 	let reportDropdownOpen = $state(false);
 	let reportGenerating = $state('');
@@ -146,6 +150,14 @@
 			predictionLoading = true;
 			try { predictionData = await getDelayPrediction(projectId); } catch {}
 			predictionLoading = false;
+		} else if (tab === 'schedule' && !scheduleViewData) {
+			scheduleViewLoading = true;
+			try {
+				const BASE = import.meta.env.VITE_API_URL || '';
+				const res = await fetch(`${BASE}/api/v1/projects/${projectId}/schedule-view`);
+				if (res.ok) scheduleViewData = await res.json();
+			} catch {}
+			scheduleViewLoading = false;
 		} else if (tab === 'calendar' && !calendarData) {
 			calendarLoading = true;
 			try {
@@ -395,6 +407,7 @@
 					['milestones', 'Milestones'],
 					['alerts', 'Alerts'],
 					['prediction', 'Delay Prediction'],
+					['schedule', 'Schedule'],
 					['calendar', 'Calendars'],
 					['attribution', 'Delay Attribution'],
 				] as [key, label]}
@@ -1054,6 +1067,18 @@
 				<p class="text-gray-500">Failed to load delay prediction data.</p>
 			{/if}
 		{/if}
+
+		{:else if activeTab === 'schedule'}
+			{#if scheduleViewLoading}
+				<div class="animate-pulse space-y-4">
+					<div class="h-20 bg-gray-200 rounded"></div>
+					<div class="h-64 bg-gray-200 rounded"></div>
+				</div>
+			{:else if scheduleViewData}
+				<ScheduleViewer data={scheduleViewData} />
+			{:else}
+				<p class="text-gray-500">Failed to load schedule view.</p>
+			{/if}
 
 		{:else if activeTab === 'calendar'}
 			{#if calendarLoading}
