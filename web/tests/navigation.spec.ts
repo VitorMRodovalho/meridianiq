@@ -10,7 +10,7 @@ test.describe('Navigation (desktop)', () => {
       await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
     }
     // Auth-required sections should be hidden
-    await expect(sidebar.getByText('Analysis', { exact: true })).not.toBeVisible();
+    await expect(sidebar.getByText('Schedule', { exact: true })).not.toBeVisible();
     await expect(sidebar.getByText('Enterprise', { exact: true })).not.toBeVisible();
   });
 
