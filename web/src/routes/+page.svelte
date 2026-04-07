@@ -134,6 +134,8 @@
 		{ title: 'Calendar Validation', desc: 'Work calendar integrity checks per DCMA #13 with scoring', tag: 'Validation', color: 'bg-blue-500' },
 		{ title: 'Delay Attribution', desc: 'Party breakdown: Owner vs Contractor excusable/non-excusable', tag: 'Claims', color: 'bg-orange-500' },
 		{ title: 'Interactive Gantt', desc: 'WBS tree, baseline comparison, float bars, dependency lines, search & filter', tag: 'Visualization', color: 'bg-teal-500' },
+		{ title: 'Schedule Trends', desc: 'Period-over-period evolution tracking with auto-insights per AACE RP 29R-03', tag: 'Intelligence', color: 'bg-indigo-500' },
+		{ title: 'Metadata Intelligence', desc: 'Auto-detect update number, revision, type, baseline from XER data', tag: 'Intelligence', color: 'bg-indigo-500' },
 	];
 </script>
 
@@ -182,15 +184,15 @@
 			<!-- Key numbers -->
 			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
 				<div>
-					<p class="text-3xl font-bold text-gray-900">33</p>
+					<p class="text-3xl font-bold text-gray-900">35</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">80</p>
+					<p class="text-3xl font-bold text-gray-900">82</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">761+</p>
+					<p class="text-3xl font-bold text-gray-900">792+</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.tests')}</p>
 				</div>
 				<div>
@@ -344,6 +346,7 @@
 					{ href: '/compare', title: 'Compare Schedules', desc: 'Detect changes and manipulation between versions', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', bg: 'bg-purple-100', fg: 'text-purple-600' },
 					{ href: '/scorecard', title: 'Schedule Scorecard', desc: 'Quick A-F grade across 5 quality dimensions', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-green-100', fg: 'text-green-600' },
 					{ href: '/schedule', title: 'Schedule Viewer', desc: 'Interactive Gantt with WBS, baseline, and dependencies', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', bg: 'bg-teal-100', fg: 'text-teal-600' },
+					{ href: '/trends', title: 'Schedule Trends', desc: 'Track evolution across sequential updates', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', bg: 'bg-indigo-100', fg: 'text-indigo-600' },
 					{ href: '/reports', title: 'Reports Hub', desc: 'Generate and download PDF reports', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', bg: 'bg-amber-100', fg: 'text-amber-600' },
 				] as action}
 					<a
@@ -442,15 +445,16 @@
 										</span>
 									</div>
 								{/if}
-								<div class="mt-3 flex gap-4 text-xs text-gray-500">
-									<span class="flex items-center gap-1">
-										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-										{project.activity_count} activities
-									</span>
-									<span class="flex items-center gap-1">
-										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-										{project.relationship_count} rels
-									</span>
+								<div class="mt-3 flex items-center gap-3 text-xs text-gray-500">
+									<span>{project.activity_count.toLocaleString()} acts</span>
+									<span>{project.relationship_count.toLocaleString()} rels</span>
+									{#if project.tags?.length}
+										<span class="flex gap-1 ml-auto">
+											{#each project.tags.slice(0, 3) as tag}
+												<span class="px-1.5 py-0.5 rounded text-[8px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-500">{tag}</span>
+											{/each}
+										</span>
+									{/if}
 								</div>
 								{#if healthScores[project.project_id]}
 									<div class="mt-3">

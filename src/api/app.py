@@ -3171,6 +3171,8 @@ def get_schedule_trends(
     if len(project_ids) > 50:
         raise HTTPException(status_code=400, detail="Maximum 50 projects per trend")
 
+    include_scorecard: bool = body.get("include_scorecard", False)
+
     from src.analytics.schedule_metadata import extract_metadata
     from src.analytics.schedule_trends import analyze_trends, compute_trend_point
 
@@ -3187,6 +3189,17 @@ def get_schedule_trends(
             project_name=schedule.projects[0].proj_short_name if schedule.projects else "",
         )
         point = compute_trend_point(schedule, pid, update_number=meta.update_number)
+
+        if include_scorecard:
+            try:
+                from src.analytics.scorecard import calculate_scorecard
+
+                sc = calculate_scorecard(schedule)
+                point.quality_score = sc.overall_score
+                point.quality_grade = sc.overall_grade
+            except Exception:
+                pass  # Skip if scorecard fails
+
         points.append(point)
 
     result = analyze_trends(points)
@@ -3217,6 +3230,8 @@ def get_schedule_trends(
                 "constraint_count": p.constraint_count,
                 "loe_count": p.loe_count,
                 "project_duration_days": p.project_duration_days,
+                "quality_score": p.quality_score,
+                "quality_grade": p.quality_grade or None,
             }
             for p in result.points
         ],

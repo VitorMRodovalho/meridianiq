@@ -36,6 +36,8 @@
 		constraint_count: number;
 		loe_count: number;
 		project_duration_days: number;
+		quality_score: number | null;
+		quality_grade: string | null;
 	}
 
 	interface TrendData {
@@ -90,7 +92,7 @@
 			const res = await fetch(`${BASE}/api/v1/trends`, {
 				method: 'POST',
 				headers,
-				body: JSON.stringify({ project_ids: selectedIds }),
+				body: JSON.stringify({ project_ids: selectedIds, include_scorecard: true }),
 			});
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
@@ -119,6 +121,7 @@
 	const criticalChart = $derived(chartFrom(p => p.critical_count));
 	const negFloatChart = $derived(chartFrom(p => p.negative_float_count));
 	const logicDensityChart = $derived(chartFrom(p => Math.round(p.logic_density * 100) / 100));
+	const qualityChart = $derived(chartFrom(p => p.quality_score ?? 0));
 </script>
 
 <svelte:head>
@@ -212,6 +215,14 @@
 				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Logic Density (rels/acts)</h3>
 				<BarChart data={logicDensityChart} height={200}/>
 			</div>
+
+			<!-- Quality Score -->
+			{#if qualityChart.some(d => d.value > 0)}
+				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Schedule Quality Score (0-100)</h3>
+					<BarChart data={qualityChart} height={200}/>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Data table -->
@@ -234,6 +245,7 @@
 							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Neg TF</th>
 							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Near CP</th>
 							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Density</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Score</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -250,6 +262,7 @@
 								<td class="py-1 px-2 text-right font-mono {p.negative_float_count > 0 ? 'text-red-600 font-bold' : 'text-gray-400'}">{p.negative_float_count}</td>
 								<td class="py-1 px-2 text-right font-mono text-amber-500">{p.near_critical_count}</td>
 								<td class="py-1 px-2 text-right font-mono text-gray-400">{p.logic_density}</td>
+								<td class="py-1 px-2 text-right font-mono {(p.quality_score ?? 0) >= 70 ? 'text-green-600' : (p.quality_score ?? 0) >= 50 ? 'text-amber-600' : 'text-red-600'}">{p.quality_score != null ? `${p.quality_score.toFixed(0)} ${p.quality_grade || ''}` : '—'}</td>
 							</tr>
 						{/each}
 					</tbody>

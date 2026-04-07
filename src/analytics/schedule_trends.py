@@ -54,6 +54,10 @@ class TrendPoint:
     # Duration
     project_duration_days: int = 0
 
+    # Quality (optional — computed from scorecard)
+    quality_score: float | None = None
+    quality_grade: str = ""
+
 
 @dataclass
 class TrendAnalysis:
