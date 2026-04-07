@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getRiskSimulations, createRiskSimulation, getProjects } from '$lib/api';
 	import { error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	interface SimulationSummary {
@@ -104,13 +105,13 @@
 		<h2 class="text-lg font-semibold text-gray-900 mb-4">New Simulation</h2>
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 			<div>
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">Project</label>
+				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
 				<select
 					id="project"
 					bind:value={selectedProject}
 					class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 				>
-					<option value="">Select project...</option>
+					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name} ({p.project_id})</option>
 					{/each}

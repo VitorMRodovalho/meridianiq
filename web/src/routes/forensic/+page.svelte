@@ -3,6 +3,7 @@
 	import { getProjects, getTimelines, createTimeline } from '$lib/api';
 	import type { ProjectListItem, TimelineSummarySchema, TimelineDetailSchema } from '$lib/types';
 	import { error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let projects: ProjectListItem[] = $state([]);

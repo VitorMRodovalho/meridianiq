@@ -3,6 +3,7 @@
 	import type { LevelingResponse } from '$lib/types';
 	import ResourceChart from '$lib/components/charts/ResourceChart.svelte';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
@@ -62,9 +63,9 @@
 	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 			<div>
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">Project</label>
+				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
 				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
-					<option value="">Choose project...</option>
+					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}

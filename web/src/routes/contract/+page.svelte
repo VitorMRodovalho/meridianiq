@@ -9,6 +9,7 @@
 		TIAAnalysisSummarySchema
 	} from '$lib/types';
 	import { error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 
 	let provisions: ContractProvisionsResponse | null = $state(null);
 	let analyses: TIAAnalysisSummarySchema[] = $state([]);

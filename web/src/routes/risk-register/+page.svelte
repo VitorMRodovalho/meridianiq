@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import HeatMapChart from '$lib/components/charts/HeatMapChart.svelte';
 
 	interface RiskEntry {

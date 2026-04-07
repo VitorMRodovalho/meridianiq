@@ -47,8 +47,8 @@
 		sidebarOpen = false;
 	}
 
-	interface NavItem { href: string; label: string; icon: string; }
-	interface NavSection { title: string; items: NavItem[]; }
+	interface NavItem { href: string; label: string; icon: string; auth?: boolean; }
+	interface NavSection { title: string; items: NavItem[]; auth?: boolean; }
 
 	const navSections: NavSection[] = [
 		{
@@ -60,7 +60,7 @@
 			],
 		},
 		{
-			title: 'Analysis',
+			title: 'Analysis', auth: true,
 			items: [
 				{ href: '/compare', label: 'Compare', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4' },
 				{ href: '/forensic', label: 'Forensic', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
@@ -76,7 +76,7 @@
 			],
 		},
 		{
-			title: 'Intelligence',
+			title: 'Intelligence', auth: true,
 			items: [
 				{ href: '/scorecard', label: 'Scorecard', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
 				{ href: '/whatif', label: 'What-If', icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
@@ -94,7 +94,7 @@
 			],
 		},
 		{
-			title: 'Enterprise',
+			title: 'Enterprise', auth: true,
 			items: [
 				{ href: '/ips', label: 'IPS Reconcile', icon: 'M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2' },
 				{ href: '/recovery', label: 'Recovery', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
@@ -155,6 +155,9 @@
 		</div>
 		<nav class="flex-1 px-4 py-3 overflow-y-auto">
 			{#each navSections as section, si}
+				{#if section.auth && !$user}
+					<!-- Hidden: requires authentication -->
+				{:else}
 				{#if section.title}
 					<button
 						onclick={() => toggleSection(section.title)}
@@ -190,6 +193,7 @@
 						</a>
 					{/each}
 				</div>
+				{/if}
 				{/if}
 			{/each}
 		</nav>

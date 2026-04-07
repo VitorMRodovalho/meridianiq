@@ -5,6 +5,7 @@
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import { error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let projects: ProjectListItem[] = $state([]);

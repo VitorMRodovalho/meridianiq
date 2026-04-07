@@ -15,6 +15,7 @@
 		FragmentActivitySchema
 	} from '$lib/types';
 	import { error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
@@ -161,7 +162,7 @@
 						onchange={onProjectChange}
 						class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 					>
-						<option value="">Select a project...</option>
+						<option value="">{$t('common.choose_project')}</option>
 						{#each projects as p}
 							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} activities)</option>
 						{/each}

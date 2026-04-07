@@ -2,6 +2,7 @@
 	import { generateSchedule } from '$lib/api';
 	import type { GeneratedScheduleResponse } from '$lib/types';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let result: GeneratedScheduleResponse | null = $state(null);

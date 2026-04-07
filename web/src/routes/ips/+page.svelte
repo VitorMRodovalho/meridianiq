@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getProjects, reconcileIPS } from '$lib/api';
+	import { t } from '$lib/i18n';
 	import type { ProjectListItem } from '$lib/types';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
