@@ -83,17 +83,19 @@
 					<span class="text-[8px] text-gray-400 ml-auto shrink-0">{row.wbsNode.activity_count}</span>
 				</button>
 			{:else if row.type === 'activity' && row.activity}
+				{@const act = row.activity}
 				<div
-					class="flex items-center border-b border-gray-50 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800"
+					class="flex items-center border-b border-gray-50 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800 group"
 					style="height: {rowHeight}px; padding-left: {row.indent * 16 + 4}px;"
-					title="{row.activity.task_code} — {row.activity.task_name}"
+					title="{act.task_code} — {act.task_name} | TF: {act.total_float_days}d | {act.progress_pct}%"
 				>
-					{#if row.activity.task_type === 'milestone'}
+					{#if act.task_type === 'milestone'}
 						<span class="w-2 h-2 rotate-45 bg-amber-500 shrink-0 mr-1.5"></span>
 					{:else}
-						<span class="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 {row.activity.is_critical ? 'bg-red-500' : row.activity.status === 'complete' ? 'bg-green-500' : row.activity.status === 'active' ? 'bg-blue-500' : 'bg-gray-300'}"></span>
+						<span class="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 {act.is_critical ? 'bg-red-500' : act.status === 'complete' ? 'bg-green-500' : act.status === 'active' ? 'bg-blue-500' : 'bg-gray-300'}"></span>
 					{/if}
-					<span class="text-[9px] text-gray-600 dark:text-gray-400 truncate">{row.activity.task_name || row.activity.task_code}</span>
+					<span class="text-[9px] text-gray-600 dark:text-gray-400 truncate flex-1">{act.task_name || act.task_code}</span>
+					<span class="text-[7px] font-mono shrink-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity {act.total_float_days < 0 ? 'text-red-500 font-bold' : act.total_float_days === 0 ? 'text-amber-500' : 'text-gray-400'}">{act.total_float_days}d</span>
 				</div>
 			{/if}
 		{/each}
