@@ -41,6 +41,31 @@
 	const ROW_HEIGHT = 24;
 	let viewerHeight = $state(500);
 
+	// Smart defaults based on data
+	function initDefaults() {
+		// Auto-collapse if >100 activities
+		if (data.summary.total_activities > 100) {
+			const all = new Set<string>();
+			function collectWbs(nodes: typeof data.wbs_tree) {
+				for (const n of nodes) {
+					if (n.children.length > 0) all.add(n.wbs_id);
+					collectWbs(n.children);
+				}
+			}
+			collectWbs(data.wbs_tree);
+			collapsedWbs = all;
+		}
+		// Auto-zoom based on project duration
+		if (data.project_start && data.project_finish) {
+			const days = daysBetween(data.project_start, data.project_finish);
+			if (days > 365) zoomLevel = 'month';
+			else if (days > 60) zoomLevel = 'week';
+			else zoomLevel = 'day';
+		}
+	}
+
+	$effect(() => { initDefaults(); });
+
 	// State
 	let collapsedWbs = $state<Set<string>>(new Set());
 	let zoomLevel = $state<'day' | 'week' | 'month'>('week');
