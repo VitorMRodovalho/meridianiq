@@ -3,6 +3,40 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.2.0] — 2026-04-07 — Schedule Viewer
+
+### Added
+- **Interactive Schedule Viewer** — production-grade Gantt chart for P6 schedules
+  - ScheduleViewer component suite (6 files in `web/src/lib/components/ScheduleViewer/`)
+  - Collapsible WBS tree panel with activity counts and hierarchy navigation
+  - SVG Gantt bars with status coloring (critical=red, active=blue, complete=green)
+  - Progress overlay bars (% complete as filled portion)
+  - Milestone diamond shapes for finish milestones
+  - Date axis with Day/Week/Month zoom levels
+  - Data date marker (amber dashed line)
+  - Baseline comparison bars (gray dashed, below current bars)
+  - Float bars (amber, extending from early finish to late finish)
+  - Sliding right detection (amber arrow for delayed activities)
+  - Negative float indicators (red dashed border)
+  - SVG bezier dependency lines (FS/FF/SS/SF) with arrow heads
+  - Critical Path Only filter toggle
+  - Show Float / Show Baseline / Dependencies toggles
+  - Interactive tooltip bar showing activity details on hover
+  - Expand All / Collapse All controls
+  - Summary KPI cards (activities, critical, complete%, neg float, milestones)
+- `schedule_view` engine — WBS tree builder + activity flattener (`src/analytics/schedule_view.py`)
+- `GET /api/v1/projects/{id}/schedule-view` endpoint with optional `?baseline_id=`
+- `/schedule` frontend page with project + baseline selectors
+- 13 backend tests for schedule view engine
+
+### Stats
+- **33 analysis engines + 1 export module**, 21 MCP tools, **761+ tests**, 42 pages
+
+### References
+- AACE RP 49R-06 — Identifying Critical Activities
+- GAO Schedule Assessment Guide
+- DCMA 14-Point Assessment — Schedule structure
+
 ## [3.1.0] — 2026-04-06 — UX Polish
 
 ### Added
