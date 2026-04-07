@@ -26,6 +26,7 @@ test.describe('Public pages load without errors', () => {
     ['/risk-register', 'Risk Register'],
     ['/lookahead', 'Look-Ahead Schedule'],
     ['/cashflow', 'Cash Flow Analysis'],
+    ['/schedule', 'Schedule Viewer'],
     ['/calendar-validation', 'Calendar Validation'],
     ['/delay-attribution', 'Delay Attribution'],
     ['/anomalies', 'Anomaly Detection'],

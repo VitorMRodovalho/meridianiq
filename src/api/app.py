@@ -33,6 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from src.analytics.calendar_validation import validate_calendars
+from src.analytics.schedule_view import build_schedule_view
 from src.analytics.delay_attribution import compute_delay_attribution
 from src.analytics.comparison import ScheduleComparison
 from src.analytics.report_generator import ReportGenerator
@@ -3014,6 +3015,39 @@ def optimize_schedule_endpoint(
     data = asdict(result)
     data.pop("best_leveling", None)
     return data
+
+
+@app.get("/api/v1/projects/{project_id}/schedule-view")
+def get_schedule_view(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Get pre-computed layout data for the interactive Gantt viewer.
+
+    Returns WBS tree hierarchy, flattened activities with dates and
+    indent levels, relationships, and summary metrics — all optimized
+    for the frontend ScheduleViewer component.
+
+    Args:
+        project_id: The schedule identifier.
+        baseline_id: Optional baseline schedule for comparison bars.
+
+    Returns:
+        ScheduleViewResult with WBS tree, activities, relationships, summary.
+
+    References:
+        AACE RP 49R-06 — Identifying Critical Activities.
+        GAO Schedule Assessment Guide.
+    """
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    baseline = store.get(baseline_id) if baseline_id else None
+    result = build_schedule_view(schedule, baseline=baseline)
+    return asdict(result)
 
 
 @app.get("/api/v1/projects/{project_id}/delay-attribution")
