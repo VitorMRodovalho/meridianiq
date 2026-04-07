@@ -22,6 +22,15 @@
 	const chartWidth = $derived(width - padLeft);
 	const ticks = $derived(generateTimeTicks(startDate, endDate, zoomLevel));
 
+	const todayX = $derived(() => {
+		if (!startDate || !endDate) return -1;
+		const start = new Date(startDate + 'T00:00:00').getTime();
+		const end = new Date(endDate + 'T00:00:00').getTime();
+		const now = new Date().setHours(0, 0, 0, 0);
+		if (now < start || now > end) return -1;
+		return padLeft + ((now - start) / (end - start)) * chartWidth;
+	});
+
 	const dateDateX = $derived(() => {
 		if (!dataDate || !startDate || !endDate) return -1;
 		const start = new Date(startDate + 'T00:00:00').getTime();
@@ -49,6 +58,12 @@
 	{#if dateDateX() >= 0}
 		<line x1={dateDateX()} y1="0" x2={dateDateX()} y2="9999" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7" />
 		<text x={dateDateX()} y="10" text-anchor="middle" class="text-[7px] fill-amber-600 font-bold select-none">DD</text>
+	{/if}
+
+	<!-- Today line -->
+	{#if todayX() >= 0}
+		<line x1={todayX()} y1="0" x2={todayX()} y2="9999" stroke="#10b981" stroke-width="1.5" opacity="0.6" />
+		<text x={todayX()} y="10" text-anchor="middle" class="text-[7px] fill-green-600 font-bold select-none">Today</text>
 	{/if}
 
 	<!-- Bottom border -->

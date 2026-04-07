@@ -223,6 +223,11 @@
 						/>
 					{/if}
 
+					<!-- Native SVG tooltip -->
+					<title>{act.task_code} — {act.task_name}
+Duration: {act.duration_days}d | Float: {act.total_float_days}d | Progress: {act.progress_pct}%
+{act.early_start} → {act.early_finish}{act.is_critical ? ' | CRITICAL' : ''}</title>
+
 					<!-- Bar border -->
 					<rect
 						x={x} y={y + BAR_PAD}
