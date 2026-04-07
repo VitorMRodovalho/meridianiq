@@ -380,6 +380,50 @@
 						</div>
 					{/if}
 				</div>
+				<!-- Predecessors/Successors -->
+				{#if data}
+					{@const preds = data.relationships.filter(r => r.to_id === a.task_id)}
+					{@const succs = data.relationships.filter(r => r.from_id === a.task_id)}
+					{#if preds.length > 0 || succs.length > 0}
+						<div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+							{#if preds.length > 0}
+								<div>
+									<p class="text-[9px] text-gray-500 mb-1">Predecessors ({preds.length})</p>
+									<div class="space-y-0.5">
+										{#each preds as rel}
+											{@const predAct = data.activities.find(a2 => a2.task_id === rel.from_id)}
+											{#if predAct}
+												<p class="text-[9px] text-gray-600 dark:text-gray-400 truncate">
+													<span class="font-mono text-gray-400">{rel.type}</span>
+													{#if rel.lag_days !== 0}<span class="text-amber-500">+{rel.lag_days}d</span>{/if}
+													{predAct.task_code} — {predAct.task_name}
+												</p>
+											{/if}
+										{/each}
+									</div>
+								</div>
+							{/if}
+							{#if succs.length > 0}
+								<div>
+									<p class="text-[9px] text-gray-500 mb-1">Successors ({succs.length})</p>
+									<div class="space-y-0.5">
+										{#each succs as rel}
+											{@const succAct = data.activities.find(a2 => a2.task_id === rel.to_id)}
+											{#if succAct}
+												<p class="text-[9px] text-gray-600 dark:text-gray-400 truncate">
+													<span class="font-mono text-gray-400">{rel.type}</span>
+													{#if rel.lag_days !== 0}<span class="text-amber-500">+{rel.lag_days}d</span>{/if}
+													{succAct.task_code} — {succAct.task_name}
+												</p>
+											{/if}
+										{/each}
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				{/if}
+
 				{#if a.alerts.length > 0}
 					<div class="mt-3 flex gap-1">
 						{#each a.alerts as alert}
