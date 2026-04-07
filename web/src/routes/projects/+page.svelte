@@ -211,6 +211,7 @@
 									Relationships <span class="text-blue-500">{sortIcon('relationships')}</span>
 								</button>
 							</th>
+							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quick Links</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200">
@@ -223,6 +224,13 @@
 								<td class="px-6 py-4 text-sm text-gray-500">{project.project_id}</td>
 								<td class="px-6 py-4 text-sm text-gray-500 text-right">{project.activity_count}</td>
 								<td class="px-6 py-4 text-sm text-gray-500 text-right">{project.relationship_count}</td>
+								<td class="px-6 py-4 text-right" onclick={(e) => e.stopPropagation()}>
+									<div class="flex items-center justify-end gap-1">
+										<a href="/schedule?project={project.project_id}" class="px-1.5 py-0.5 text-[10px] text-teal-600 hover:bg-teal-50 rounded" title="Schedule">Gantt</a>
+										<a href="/scorecard?project={project.project_id}" class="px-1.5 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50 rounded" title="Scorecard">Score</a>
+										<a href="/anomalies?project={project.project_id}" class="px-1.5 py-0.5 text-[10px] text-amber-600 hover:bg-amber-50 rounded" title="Anomalies">Anom</a>
+									</div>
+								</td>
 							</tr>
 						{/each}
 					</tbody>
