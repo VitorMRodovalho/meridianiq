@@ -370,12 +370,25 @@
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.duration_days}d</p>
 					</div>
 					<div>
+						<p class="text-gray-500">Remaining</p>
+						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.remaining_days}d</p>
+					</div>
+					<div>
 						<p class="text-gray-500">Total Float</p>
 						<p class="font-semibold {a.total_float_days < 0 ? 'text-red-600' : a.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">{a.total_float_days}d</p>
 					</div>
 					<div>
+						<p class="text-gray-500">Free Float</p>
+						<p class="font-semibold text-gray-500">{a.free_float_days}d</p>
+					</div>
+					<div>
 						<p class="text-gray-500">Progress</p>
-						<p class="font-semibold text-blue-600">{a.progress_pct}%</p>
+						<div class="flex items-center gap-1.5">
+							<div class="w-12 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+								<div class="h-full rounded-full {a.is_critical ? 'bg-red-500' : 'bg-blue-500'}" style="width: {a.progress_pct}%"></div>
+							</div>
+							<span class="font-semibold text-blue-600">{a.progress_pct}%</span>
+						</div>
 					</div>
 					<div>
 						<p class="text-gray-500">Critical</p>
@@ -397,6 +410,18 @@
 						<p class="text-gray-500">Late Finish</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.late_finish || '—'}</p>
 					</div>
+					{#if a.actual_start}
+						<div>
+							<p class="text-gray-500">Actual Start</p>
+							<p class="font-semibold text-green-600">{a.actual_start}</p>
+						</div>
+					{/if}
+					{#if a.actual_finish}
+						<div>
+							<p class="text-gray-500">Actual Finish</p>
+							<p class="font-semibold text-green-600">{a.actual_finish}</p>
+						</div>
+					{/if}
 					{#if a.baseline_start}
 						<div>
 							<p class="text-gray-500">Baseline Start</p>
@@ -407,6 +432,16 @@
 							<p class="font-semibold text-gray-500">{a.baseline_finish}</p>
 						</div>
 					{/if}
+					{#if a.constraint_type && a.constraint_type !== 'CS_MEO'}
+						<div>
+							<p class="text-gray-500">Constraint</p>
+							<p class="font-semibold text-purple-600">{a.constraint_type} {a.constraint_date || ''}</p>
+						</div>
+					{/if}
+					<div>
+						<p class="text-gray-500">Calendar</p>
+						<p class="font-semibold text-gray-500">{a.calendar_id || '—'}</p>
+					</div>
 				</div>
 				<!-- Predecessors/Successors -->
 				{#if data}
