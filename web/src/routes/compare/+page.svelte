@@ -343,20 +343,32 @@
 							<tr>
 								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
 								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Old Duration</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">New Duration</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Old</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">New</th>
 								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Delta</th>
+								<th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase w-32">Visual</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each result.duration_changes as change}
+								{@const oldVal = parseFloat(change.old_value)}
+								{@const newVal = parseFloat(change.new_value)}
+								{@const maxVal = Math.max(oldVal, newVal, 1)}
 								<tr class="hover:bg-gray-50">
 									<td class="px-4 py-2 font-medium text-gray-900">{change.task_id}</td>
 									<td class="px-4 py-2 text-gray-700">{change.task_name}</td>
 									<td class="px-4 py-2 text-right text-gray-500">{change.old_value}</td>
 									<td class="px-4 py-2 text-right text-gray-500">{change.new_value}</td>
-									<td class="px-4 py-2 text-right font-medium {parseFloat(change.new_value) > parseFloat(change.old_value) ? 'text-red-600' : 'text-green-600'}">
-										{(parseFloat(change.new_value) - parseFloat(change.old_value)).toFixed(1)}
+									<td class="px-4 py-2 text-right font-medium {newVal > oldVal ? 'text-red-600' : 'text-green-600'}">
+										{(newVal - oldVal).toFixed(1)}
+									</td>
+									<td class="px-4 py-2">
+										<div class="flex items-center gap-0.5 h-4">
+											<div class="h-2 rounded bg-gray-400 opacity-50" style="width: {(oldVal / maxVal) * 100}%"></div>
+										</div>
+										<div class="flex items-center gap-0.5 h-4 -mt-1">
+											<div class="h-2 rounded {newVal > oldVal ? 'bg-red-500' : 'bg-green-500'}" style="width: {(newVal / maxVal) * 100}%"></div>
+										</div>
 									</td>
 								</tr>
 							{/each}
@@ -381,17 +393,24 @@
 								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">New Float</th>
 								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Delta</th>
 								<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Direction</th>
+								<th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase w-24">Erosion</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each result.significant_float_changes as change}
-								<tr class="hover:bg-gray-50">
+								{@const maxFloat = Math.max(Math.abs(change.old_float), Math.abs(change.new_float), 1)}
+								<tr class="hover:bg-gray-50 {change.delta < -5 ? 'bg-red-50' : ''}">
 									<td class="px-4 py-2 font-medium text-gray-900">{change.task_id}</td>
 									<td class="px-4 py-2 text-gray-700">{change.task_name}</td>
 									<td class="px-4 py-2 text-right text-gray-500">{change.old_float.toFixed(1)}</td>
 									<td class="px-4 py-2 text-right text-gray-500">{change.new_float.toFixed(1)}</td>
 									<td class="px-4 py-2 text-right font-medium {change.delta < 0 ? 'text-red-600' : 'text-green-600'}">{change.delta.toFixed(1)}</td>
 									<td class="px-4 py-2 text-center text-lg">{change.direction === 'decreased' ? '\u2193' : '\u2191'}</td>
+									<td class="px-4 py-2">
+										<div class="h-1.5 rounded-full bg-gray-200 overflow-hidden">
+											<div class="h-full rounded-full {change.delta < 0 ? 'bg-red-500' : 'bg-green-500'}" style="width: {Math.min(100, Math.abs(change.delta) / maxFloat * 100)}%"></div>
+										</div>
+									</td>
 								</tr>
 							{/each}
 						</tbody>
