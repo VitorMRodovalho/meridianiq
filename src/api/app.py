@@ -181,7 +181,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="1.3.0-dev",
+    version="3.5.0",
 )
 
 # Rate limiting

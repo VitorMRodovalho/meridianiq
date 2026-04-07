@@ -39,9 +39,9 @@ mypy src/ --strict              # type check
 
 ## Architecture
 
-- **33 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 80 endpoints under `/api/v1/`
-- **Frontend**: SvelteKit + Tailwind v4, 42 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es), keyboard shortcuts (?)
+- **37 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
+- **API**: FastAPI with 84 endpoints under `/api/v1/`, rate-limited critical endpoints
+- **Frontend**: SvelteKit + Tailwind v4, 49 pages, Svelte 5 runes ($state, $derived, $effect), dark mode (45/46 pages), i18n (en/pt-BR/es), keyboard shortcuts (?)
 - **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
@@ -90,6 +90,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.2.0 — "Schedule Viewer" (33 engines, 22 MCP tools, 761+ tests)
+- Version: v3.5.0 — "Cost-Schedule Intelligence" (37 engines, 22 MCP tools, 810+ tests)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)

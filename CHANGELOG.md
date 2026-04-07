@@ -3,6 +3,65 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.5.0] — 2026-04-07 — Cost-Schedule Intelligence
+
+### New Engines
+- **schedule_metadata** (34th) — extract update#, revision, type (MPS/IMS/CMAR/baseline), scheduling options from filename + XER data
+- **schedule_trends** (35th) — period-over-period evolution tracking with auto-insights (AACE RP 29R-03)
+- **cost_integration** (36th) — CBS/WBS correlation from Excel budget files (AACE RP 10S-90)
+- **narrative_report** (37th) — structured text generation for claims and status reports
+
+### Schedule Viewer Enhancements
+- Virtual scrolling — GanttCanvas + WBSTree + activity table render only visible rows (10K+ activities supported)
+- Drag-to-pan — mouse drag scrolls Gantt both axes
+- Weekend shading — Sat/Sun gray bands on timeline
+- Holiday shading — P6 calendar exceptions (amber bands on weekday holidays)
+- Baseline variance badges — +Xd/-Xd indicators on slipped activities
+- PDF export — print dialog with full SVG Gantt
+- Column configuration — 23 columns, show/hide panel (Type, LS, LF, BL Start/Finish, Constraint, Start/Finish Variance)
+- WBS filter — dropdown in activity table for WBS path filtering
+- WBS path tooltip — full hierarchy path, numeric-only codes filtered
+- Date axis — min 48px spacing prevents label overlap, adaptive format
+
+### New Pages
+- `/trends` — 7 bar charts (scope, completion, float, CP, neg float, density, quality score) + insights panel
+- `/narrative` — structured narrative report with severity-tagged sections + copy-to-clipboard
+- `/pareto` — cost-duration trade-off scatter chart with Pareto frontier
+- `/cost` — CBS Excel upload, KPI cards, WBS budget chart, CBS-WBS mapping table
+- `/programs` — program index page with revision counts
+
+### Security
+- Fixed CORS wildcard bypass in global exception handler (was overriding whitelist on 5xx)
+- API key persistence — Supabase `api_keys` table with RLS (migration 017), in-memory fallback
+- Rate limiting — @limiter.limit() on 7 endpoints (upload 10/m, auth 5/m, compute 5-10/m)
+- Error handler — generic message in production, detailed only in development
+- Upload drop zone — keyboard accessible (Enter/Space)
+
+### Frontend Polish
+- Dark mode — 45/46 pages (batch fix with Tailwind dark: classes)
+- 8 KPI summary cards (added avg float, constraint count)
+- Cross-navigation links (Scorecard, Compare, Trends from schedule page)
+- Clickable predecessors/successors in activity detail (network navigation)
+- Metadata tags on upload page (color-coded: MPS, DRAFT, FINAL, BASELINE)
+- Upload quality indicators (baseline coverage, retained logic, progress override)
+- Dashboard updated (stats, capabilities, Trends quick action, project tags)
+- Fixed 4 missing page titles (EVM, Risk)
+
+### Bug Fixes
+- BUG-020: WBS tree full path tooltip + numeric code filter
+- BUG-021: Date axis label overlap on day zoom (min 48px spacing)
+- BUG-022: Dependency lines to collapsed rows (fixed by virtual scrolling)
+- BUG-023: /programs added to sidebar + index page
+- BUG-024: /demo already in sidebar (false report)
+
+### Documentation
+- Gap assessment v3.3 (persona journeys, security audit, cost data exploration)
+- BUGS.md fully updated (10+ items marked done)
+
+### Stats
+- **37 engines + 1 export**, 84 endpoints, **810+ tests**, 49 pages, 22 MCP, 17 migrations
+- Tested with 83 sandbox schedules (21 MPS + 34 IMS + 28 CMAR) + CBS cost data ($3.6B)
+
 ## [3.2.0] — 2026-04-07 — Schedule Viewer
 
 ### Added

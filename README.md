@@ -35,11 +35,11 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 33 + 1 export module |
+| Analysis engines | 37 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 761+ backend + 70+ E2E |
-| Frontend pages | 42 (including Interactive Schedule Viewer) |
+| Tests passing | 810+ backend + 70+ E2E |
+| Frontend pages | 49 (including Interactive Schedule Viewer + Cost Integration) |
 | API endpoints | 80 |
 | SVG chart components | 10 + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | 22 (v0.1.0 → v3.2.0) |
@@ -116,7 +116,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (33)<br/>80 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (37)<br/>84 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
