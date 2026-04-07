@@ -14,6 +14,7 @@
 
 	let { children } = $props();
 	let sidebarOpen = $state(false);
+	let showShortcuts = $state(false);
 
 	// Collapsible sidebar sections — persist state in localStorage
 	let collapsed: Record<string, boolean> = $state(
@@ -37,6 +38,10 @@
 			if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
 				e.preventDefault();
 				toggleTheme();
+			} else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) {
+				showShortcuts = !showShortcuts;
+			} else if (e.key === 'Escape' && showShortcuts) {
+				showShortcuts = false;
 			}
 		}
 		document.addEventListener('keydown', handleKeydown);
@@ -314,4 +319,31 @@
 		</svelte:boundary>
 	</main>
 	<ToastContainer />
+
+	<!-- Keyboard shortcuts modal -->
+	{#if showShortcuts}
+		<div class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center" onclick={() => showShortcuts = false} role="dialog" aria-label="Keyboard shortcuts">
+			<div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full mx-4" onclick={(e) => e.stopPropagation()}>
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h2>
+					<button onclick={() => showShortcuts = false} class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Close">
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+					</button>
+				</div>
+				<div class="space-y-3 text-sm">
+					<p class="text-xs text-gray-500 uppercase font-semibold">Global</p>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Toggle dark mode</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">Ctrl+D</kbd></div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Show shortcuts</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">?</kbd></div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Close modal</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">Esc</kbd></div>
+					<div class="border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
+						<p class="text-xs text-gray-500 uppercase font-semibold">Schedule Viewer</p>
+					</div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Zoom in</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">+</kbd></div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Zoom out</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">-</kbd></div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Expand all WBS</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">E</kbd></div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Collapse all WBS</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">C</kbd></div>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>
