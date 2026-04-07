@@ -559,7 +559,8 @@
 								['name', 'Name', 'text-left'],
 								['', 'WBS', 'text-left'],
 								['status', 'Status', 'text-left'],
-								['duration', 'Dur', 'text-right'],
+								['duration', 'OD', 'text-right'],
+								['', 'RD', 'text-right'],
 								['float', 'TF', 'text-right'],
 								['', 'FF', 'text-right'],
 								['progress', '%', 'text-right'],
@@ -591,6 +592,7 @@
 										'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}">{act.status}</span>
 								</td>
 								<td class="py-1 px-2 text-right font-mono">{act.duration_days}d</td>
+								<td class="py-1 px-2 text-right font-mono text-gray-400">{act.remaining_days > 0 ? act.remaining_days + 'd' : ''}</td>
 								<td class="py-1 px-2 text-right font-mono {act.total_float_days < 0 ? 'text-red-600 font-bold' : act.total_float_days === 0 ? 'text-amber-600' : 'text-gray-500'}">{act.total_float_days}d</td>
 								<td class="py-1 px-2 text-right font-mono text-gray-400">{act.free_float_days !== 0 ? act.free_float_days + 'd' : ''}</td>
 								<td class="py-1 px-2 text-right font-mono">{act.progress_pct > 0 ? act.progress_pct + '%' : ''}</td>
