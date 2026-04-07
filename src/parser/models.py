@@ -44,6 +44,7 @@ class Calendar(BaseModel):
     week_hr_cnt: float = 40.0
     clndr_type: str = ""
     default_flag: str = "N"
+    clndr_data: str = ""
 
 
 class WBS(BaseModel):

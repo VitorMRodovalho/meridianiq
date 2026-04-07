@@ -161,6 +161,23 @@
 		columns = columns.map(c => c.id === id ? { ...c, visible: !c.visible } : c);
 	}
 
+	// WBS filter for activity table
+	let wbsFilter = $state('');
+	const uniqueWbsPaths = $derived.by(() => {
+		if (!data) return [];
+		const paths = new Set<string>();
+		for (const a of data.activities) {
+			if (a.wbs_path) {
+				const parts = a.wbs_path.split('/');
+				// Add each level
+				for (let i = 1; i <= parts.length; i++) {
+					paths.add(parts.slice(0, i).join('/'));
+				}
+			}
+		}
+		return [...paths].sort();
+	});
+
 	// Table sorting
 	let sortCol = $state<string>('');
 	let sortAsc = $state(true);
@@ -175,8 +192,12 @@
 	}
 
 	const sortedActivities = $derived.by(() => {
-		if (!data || !sortCol) return data?.activities || [];
-		const acts = [...data.activities];
+		let base = data?.activities || [];
+		if (wbsFilter) {
+			base = base.filter(a => a.wbs_path?.startsWith(wbsFilter));
+		}
+		if (!sortCol) return base;
+		const acts = [...base];
 		const dir = sortAsc ? 1 : -1;
 		acts.sort((a, b) => {
 			let va: any, vb: any;
@@ -286,6 +307,10 @@
 					class="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700">
 					Export CSV
 				</button>
+				<span class="w-px h-6 bg-gray-200 dark:bg-gray-700"></span>
+				<a href="/scorecard?project={selectedProject}" class="text-[10px] px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-medium">Scorecard</a>
+				<a href="/compare" class="text-[10px] px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-medium">Compare</a>
+				<a href="/trends" class="text-[10px] px-2 py-1.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-100 font-medium">Trends</a>
 			{/if}
 		</div>
 		{#if data}
@@ -616,15 +641,27 @@
 		<!-- Activity data table -->
 		<details class="mt-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
 			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between">
-				<span>Activity Table ({data.activities.length} activities)</span>
-				<button
-					type="button"
-					onclick={(e: MouseEvent) => { e.stopPropagation(); showColumnConfig = !showColumnConfig; }}
-					class="text-[9px] px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-					title="Configure columns"
-				>
-					Columns ({visibleColumns.length}/{columns.length})
-				</button>
+				<span>Activity Table ({sortedActivities.length}{wbsFilter ? `/${data.activities.length}` : ''} activities)</span>
+				<span class="flex items-center gap-2">
+					<select
+						onclick={(e: MouseEvent) => e.stopPropagation()}
+						bind:value={wbsFilter}
+						class="text-[9px] rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 px-1.5 py-0.5 max-w-40"
+					>
+						<option value="">All WBS</option>
+						{#each uniqueWbsPaths as path}
+							<option value={path}>{path.split('/').pop()}</option>
+						{/each}
+					</select>
+					<button
+						type="button"
+						onclick={(e: MouseEvent) => { e.stopPropagation(); showColumnConfig = !showColumnConfig; }}
+						class="text-[9px] px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+						title="Configure columns"
+					>
+						Columns ({visibleColumns.length}/{columns.length})
+					</button>
+				</span>
 			</summary>
 
 			<!-- Column config dropdown -->

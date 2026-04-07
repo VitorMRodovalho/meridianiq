@@ -314,6 +314,7 @@ ${svgClone.outerHTML}
 				startDate={searchFilteredData.project_start}
 				endDate={searchFilteredData.project_finish}
 				dataDate={searchFilteredData.data_date}
+				holidays={data.holidays || []}
 				{zoomLevel}
 				rowHeight={ROW_HEIGHT}
 				{scrollTop}

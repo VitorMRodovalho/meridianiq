@@ -56,6 +56,7 @@ export interface ScheduleViewData {
 	wbs_tree: WBSNode[];
 	activities: ActivityView[];
 	relationships: RelationshipView[];
+	holidays?: string[];
 	summary: {
 		total_activities: number;
 		critical_count: number;

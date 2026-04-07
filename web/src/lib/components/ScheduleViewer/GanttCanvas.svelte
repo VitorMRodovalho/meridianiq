@@ -16,6 +16,7 @@
 		scrollTop: number;
 		containerHeight: number;
 		hoveredId: string;
+		holidays?: string[];
 		showFloat?: boolean;
 		showBaseline?: boolean;
 		showWeekends?: boolean;
@@ -36,6 +37,7 @@
 		scrollTop,
 		containerHeight,
 		hoveredId,
+		holidays = [],
 		showFloat = true,
 		showBaseline = true,
 		showWeekends = true,
@@ -172,6 +174,15 @@
 	<!-- Weekend shading -->
 	{#each weekendRects as wr}
 		<rect x={wr.x} y={HEADER_H} width={wr.w} height={svgHeight - HEADER_H} fill="#f1f5f9" opacity="0.4" class="dark:fill-gray-800" />
+	{/each}
+
+	<!-- Holiday shading (weekday non-work days from P6 calendar) -->
+	{#each holidays as hol}
+		{@const hx = xPos(hol)}
+		{@const hw = WIDTH / totalDays}
+		{#if hx >= 0 && hx <= WIDTH}
+			<rect x={hx} y={HEADER_H} width={Math.max(hw, 1)} height={svgHeight - HEADER_H} fill="#fef3c7" opacity="0.3" class="dark:fill-amber-950" />
+		{/if}
 	{/each}
 
 	<!-- SVG pattern for LOE activities -->

@@ -16,8 +16,9 @@ References:
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from src.analytics.cpm import CPMCalculator
@@ -97,6 +98,7 @@ class ScheduleViewResult:
     activities: list[ActivityView] = field(default_factory=list)
     relationships: list[RelationshipView] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
+    holidays: list[str] = field(default_factory=list)  # ISO date strings
 
 
 def _fmt_date(dt: datetime | None) -> str:
@@ -122,6 +124,47 @@ def _status_label(status_code: str) -> str:
     if sc == "TK_ACTIVE":
         return "active"
     return "not_started"
+
+
+def parse_calendar_holidays(schedule: ParsedSchedule) -> list[str]:
+    """Extract holiday dates from the default P6 calendar data blob.
+
+    P6 embeds calendar exceptions in a CalendarData blob within the CALENDAR
+    table.  Exceptions are encoded as ``(d|NNNNN)`` where NNNNN is the number
+    of days since the P6 epoch (1899-12-31).
+
+    Only parses the default calendar (``default_flag == 'Y'``) to avoid
+    duplicates from contractor-specific calendars.  Filters to weekday-only
+    exceptions (Mon-Fri) since weekends are already shaded by the frontend.
+
+    Returns:
+        Sorted list of unique ISO date strings (holidays on weekdays only).
+    """
+    p6_epoch = date(1899, 12, 31)
+    holidays: set[str] = set()
+
+    # Use default calendar, or first base calendar if no default
+    default_cals = [c for c in schedule.calendars if c.default_flag == "Y"]
+    if not default_cals:
+        default_cals = [c for c in schedule.calendars if c.clndr_type == "CA_Base"][:1]
+    if not default_cals:
+        return []
+
+    data_blob = getattr(default_cals[0], "clndr_data", None) or ""
+    if not data_blob:
+        return []
+
+    for match in re.finditer(r"\(d\|(\d+)\)", data_blob):
+        day_num = int(match.group(1))
+        try:
+            dt = p6_epoch + timedelta(days=day_num)
+            # Only include weekday holidays (Mon-Fri) — weekends already shaded
+            if dt.weekday() < 5:
+                holidays.add(dt.isoformat())
+        except (ValueError, OverflowError):
+            continue
+
+    return sorted(holidays)
 
 
 def build_schedule_view(
@@ -397,5 +440,8 @@ def build_schedule_view(
         "active_count": sum(1 for a in result.activities if a.status == "active"),
         "not_started_count": sum(1 for a in result.activities if a.status == "not_started"),
     }
+
+    # Parse calendar holidays for non-working day shading
+    result.holidays = parse_calendar_holidays(schedule)
 
     return result
