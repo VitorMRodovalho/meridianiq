@@ -90,6 +90,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.2.0 — "Schedule Viewer" (33 engines, 21 MCP tools, 761+ tests)
+- Version: v3.2.0 — "Schedule Viewer" (33 engines, 22 MCP tools, 761+ tests)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
