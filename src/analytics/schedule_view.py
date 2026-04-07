@@ -363,14 +363,22 @@ def build_schedule_view(
 
     # Summary
     complete_count = sum(1 for a in result.activities if a.status == "complete")
+    near_critical = sum(
+        1
+        for a in result.activities
+        if 0 < a.total_float_days <= 10 and a.status != "complete"
+    )
     result.summary = {
         "total_activities": len(result.activities),
         "critical_count": len(critical_ids),
+        "near_critical_count": near_critical,
         "complete_pct": round(complete_count / len(result.activities) * 100, 1)
         if result.activities
         else 0.0,
         "negative_float_count": sum(1 for a in result.activities if a.total_float_days < 0),
         "milestones_count": sum(1 for a in result.activities if a.task_type == "milestone"),
+        "relationship_count": len(result.relationships),
+        "calendar_count": len(schedule.calendars),
     }
 
     return result

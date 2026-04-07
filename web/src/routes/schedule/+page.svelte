@@ -31,6 +31,7 @@
 			case 'not_started': filtered = data.activities.filter(a => a.status === 'not_started'); break;
 			case 'complete': filtered = data.activities.filter(a => a.status === 'complete'); break;
 			case 'critical': filtered = data.activities.filter(a => a.is_critical); break;
+			case 'near_critical': filtered = data.activities.filter(a => a.total_float_days > 0 && a.total_float_days <= 10 && a.status !== 'complete'); break;
 			case 'negative_float': filtered = data.activities.filter(a => a.total_float_days < 0); break;
 			case 'milestones': filtered = data.activities.filter(a => a.task_type === 'milestone'); break;
 			case 'constrained': filtered = data.activities.filter(a => a.constraint_type && a.constraint_type !== '' && a.constraint_type !== 'CS_MEO'); break;
@@ -61,6 +62,7 @@
 		not_started: data.activities.filter(a => a.status === 'not_started').length,
 		complete: data.activities.filter(a => a.status === 'complete').length,
 		critical: data.activities.filter(a => a.is_critical).length,
+		near_critical: data.activities.filter(a => a.total_float_days > 0 && a.total_float_days <= 10 && a.status !== 'complete').length,
 		negative_float: data.activities.filter(a => a.total_float_days < 0).length,
 		milestones: data.activities.filter(a => a.task_type === 'milestone').length,
 	} : null);
@@ -251,6 +253,7 @@
 					<option value="not_started">Not Started</option>
 					<option value="complete">Complete</option>
 					<option value="critical">Critical</option>
+					<option value="near_critical">Near-Critical (TF 1-10)</option>
 					<option value="negative_float">Negative Float</option>
 					<option value="milestones">Milestones</option>
 					<option value="constrained">Constrained</option>
@@ -277,6 +280,7 @@
 				['Not Started', 'not_started', 'bg-gray-400'],
 				['Complete', 'complete', 'bg-green-500'],
 				['Critical', 'critical', 'bg-red-500'],
+				['Near-Crit', 'near_critical', 'bg-orange-400'],
 				['Neg Float', 'negative_float', 'bg-red-400'],
 				['Milestones', 'milestones', 'bg-amber-500'],
 			] as [label, key, color]}
