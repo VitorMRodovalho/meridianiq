@@ -22,7 +22,7 @@ export function formatDateFull(iso: string): string {
 	return iso?.slice(0, 10) || '';
 }
 
-/** Generate tick marks for the time axis. */
+/** Generate tick marks for the time axis with dynamic density. */
 export function generateTimeTicks(
 	startDate: string,
 	endDate: string,
@@ -33,7 +33,18 @@ export function generateTimeTicks(
 	const totalDays = Math.max(1, daysBetween(startDate, endDate));
 	const ticks: { date: string; label: string; x: number }[] = [];
 
-	const stepDays = zoomLevel === 'day' ? 1 : zoomLevel === 'week' ? 7 : 30;
+	// Dynamic step: ensure max ~25 labels to prevent overlap
+	const MAX_LABELS = 25;
+	let stepDays: number;
+	if (zoomLevel === 'month') {
+		stepDays = Math.max(30, Math.ceil(totalDays / MAX_LABELS / 30) * 30);
+	} else if (zoomLevel === 'week') {
+		stepDays = Math.max(7, Math.ceil(totalDays / MAX_LABELS / 7) * 7);
+	} else {
+		// Day zoom: adapt step if too many days
+		stepDays = Math.max(1, Math.ceil(totalDays / MAX_LABELS));
+	}
+
 	const current = new Date(start);
 
 	while (current <= end) {
@@ -42,12 +53,12 @@ export function generateTimeTicks(
 		const x = dayOffset / totalDays;
 
 		let label: string;
-		if (zoomLevel === 'month') {
+		if (stepDays >= 28 || zoomLevel === 'month') {
 			label = current.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-		} else if (zoomLevel === 'week') {
+		} else if (stepDays >= 5) {
 			label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 		} else {
-			label = current.getDate().toString();
+			label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 		}
 
 		ticks.push({ date: iso, label, x });

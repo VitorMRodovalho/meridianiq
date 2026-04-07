@@ -155,11 +155,13 @@
 
 	function exportCSV() {
 		if (!data) return;
-		const headers = ['Code', 'Name', 'Status', 'Type', 'Duration', 'Total Float', 'Progress', 'Early Start', 'Early Finish', 'Late Start', 'Late Finish', 'Critical', 'WBS Path', 'Alerts'];
+		const headers = ['Code', 'Name', 'Status', 'Type', 'Duration', 'Total Float', 'Progress', 'Early Start', 'Early Finish', 'Actual Start', 'Actual Finish', 'Late Start', 'Late Finish', 'Critical', 'WBS Path', 'Alerts'];
 		const rows = data.activities.map(a => [
 			a.task_code, a.task_name, a.status, a.task_type,
 			a.duration_days, a.total_float_days, a.progress_pct,
-			a.early_start, a.early_finish, a.late_start, a.late_finish,
+			a.early_start, a.early_finish,
+			a.actual_start || '', a.actual_finish || '',
+			a.late_start, a.late_finish,
 			a.is_critical ? 'Yes' : 'No', a.wbs_path,
 			a.alerts.join('; '),
 		]);
@@ -505,8 +507,10 @@
 								['duration', 'Duration', 'text-right'],
 								['float', 'TF', 'text-right'],
 								['progress', 'Progress', 'text-right'],
-								['start', 'Start', 'text-left'],
-								['finish', 'Finish', 'text-left'],
+								['start', 'ES', 'text-left'],
+								['finish', 'EF', 'text-left'],
+								['', 'AS', 'text-left'],
+								['', 'AF', 'text-left'],
 								['', 'CP', 'text-center'],
 								['', 'Alerts', 'text-left'],
 							] as [col, label, align]}
@@ -535,6 +539,8 @@
 								<td class="py-1 px-2 text-right font-mono">{act.progress_pct > 0 ? act.progress_pct + '%' : ''}</td>
 								<td class="py-1 px-2 text-gray-500">{act.early_start}</td>
 								<td class="py-1 px-2 text-gray-500">{act.early_finish}</td>
+								<td class="py-1 px-2 text-gray-400 text-[9px]">{act.actual_start || ''}</td>
+								<td class="py-1 px-2 text-gray-400 text-[9px]">{act.actual_finish || ''}</td>
 								<td class="py-1 px-2 text-center">{act.is_critical ? '●' : ''}</td>
 								<td class="py-1 px-2">
 									{#each act.alerts as alert}
