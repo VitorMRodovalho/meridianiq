@@ -152,10 +152,13 @@
 	<div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
 		<div class="flex items-center gap-3">
 			<h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{data.project_name || 'Schedule'}</h3>
-			<span class="text-[10px] text-gray-500 dark:text-gray-400">
-				{searchFilteredData.activities.length}{searchFilteredData.activities.length !== data.summary.total_activities ? ` of ${data.summary.total_activities}` : ''} activities | {data.summary.critical_count} critical | {data.summary.complete_pct.toFixed(0)}% complete
+			<span class="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+				<span class="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded font-mono">{searchFilteredData.activities.length}{searchFilteredData.activities.length !== data.summary.total_activities ? `/${data.summary.total_activities}` : ''}</span>
+				<span class="text-red-500">{data.summary.critical_count}cp</span>
+				<span class="text-orange-400">{data.summary.near_critical_count}nc</span>
+				<span class="text-green-500">{data.summary.complete_pct.toFixed(0)}%</span>
 				{#if data.project_start && data.project_finish}
-					| {daysBetween(data.project_start, data.project_finish)}d span
+					<span>{daysBetween(data.project_start, data.project_finish)}d</span>
 				{/if}
 			</span>
 		</div>
