@@ -190,12 +190,22 @@ try:
     from slowapi.errors import RateLimitExceeded
     from slowapi.util import get_remote_address
 
-    limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["60/minute"],
+        enabled=os.getenv("RATE_LIMIT_ENABLED", "true").lower() != "false",
+    )
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-    _has_rate_limiter = True
 except ImportError:
-    _has_rate_limiter = False
+    # No-op limiter when slowapi is not installed
+    class _NoOpLimiter:
+        def limit(self, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+            def decorator(func):  # type: ignore[no-untyped-def]
+                return func
+            return decorator
+
+    limiter = _NoOpLimiter()  # type: ignore[assignment]
 
 # CORS — whitelist known origins (not wildcard)
 _CORS_ORIGINS = [
@@ -398,7 +408,9 @@ _sandbox_projects: set[str] = set()
 
 
 @app.post("/api/v1/upload", response_model=ProjectSummary)
+@limiter.limit("10/minute")
 async def upload_xer(
+    request: Request,
     file: UploadFile = File(...),
     is_sandbox: bool = Form(False),
     _user: object = Depends(optional_auth),
@@ -1067,6 +1079,7 @@ def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> M
 
 
 @app.post("/api/v1/compare", response_model=CompareResponse)
+@limiter.limit("20/minute")
 def compare_schedules(
     request: CompareRequest, _user: object = Depends(optional_auth)
 ) -> CompareResponse:
@@ -1468,6 +1481,7 @@ def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
 
 
 @app.post("/api/v1/tia/analyze", response_model=TIAAnalysisSchema)
+@limiter.limit("10/minute")
 def tia_analyze(
     request: TIAAnalyzeRequest, _user: object = Depends(optional_auth)
 ) -> TIAAnalysisSchema:
@@ -1729,7 +1743,8 @@ def _evm_result_to_schema(result: Any, project_id: str = "") -> EVMAnalysisSchem
 
 
 @app.post("/api/v1/evm/analyze/{project_id}", response_model=EVMAnalysisSchema)
-def run_evm_analysis(project_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
+@limiter.limit("10/minute")
+def run_evm_analysis(request: Request, project_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
     """Run Earned Value Management analysis on a project.
 
     Computes SPI, CPI, SV, CV, EAC, ETC, VAC, TCPI from resource
@@ -2874,6 +2889,7 @@ def get_visualization(
 
 
 @app.post("/api/v1/schedule/generate")
+@limiter.limit("5/minute")
 def generate_schedule_endpoint(
     request: dict,
     _user: object = Depends(optional_auth),
@@ -3017,6 +3033,7 @@ def export_xer(
 
 
 @app.post("/api/v1/projects/{project_id}/optimize")
+@limiter.limit("5/minute")
 def optimize_schedule_endpoint(
     project_id: str,
     request: dict,
@@ -4646,7 +4663,9 @@ def validate_recovery(
 
 
 @app.post("/api/v1/api-keys")
+@limiter.limit("5/minute")
 def create_api_key(
+    request: Request,
     body: dict,
     _user: object = Depends(require_auth),
 ) -> dict:

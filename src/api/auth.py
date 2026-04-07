@@ -157,9 +157,26 @@ def optional_auth(
 # API Key Management
 # ══════════════════════════════════════════════════════════
 
-# In-memory API key store: hash(key) -> {user_id, name, created_at}
-# In production, this would be stored in Supabase.
-_api_keys: dict[str, dict] = {}
+# ── API Key Store ────────────────────────────────────────
+# Uses Supabase when available, falls back to in-memory for dev.
+
+_api_keys: dict[str, dict] = {}  # In-memory fallback
+
+
+def _get_supabase_client() -> object | None:
+    """Get Supabase client if configured."""
+    try:
+        import os
+
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        if not url or not key:
+            return None
+        from supabase import create_client
+
+        return create_client(url, key)
+    except Exception:
+        return None
 
 
 def _hash_key(key: str) -> str:
@@ -170,7 +187,8 @@ def _hash_key(key: str) -> str:
 def generate_api_key(user_id: str, name: str = "default") -> dict:
     """Generate a new API key for a user.
 
-    The raw key is returned only once — subsequent lookups use the hash.
+    Persists to Supabase ``api_keys`` table if available,
+    otherwise stores in-memory.  The raw key is returned only once.
 
     Args:
         user_id: The user's ID.
@@ -182,24 +200,47 @@ def generate_api_key(user_id: str, name: str = "default") -> dict:
     raw_key = f"miq_{secrets.token_urlsafe(32)}"
     key_hash = _hash_key(raw_key)
     key_id = f"key_{secrets.token_hex(4)}"
+    created_at = datetime.now().isoformat()
 
-    _api_keys[key_hash] = {
+    entry = {
         "key_id": key_id,
         "user_id": user_id,
         "name": name,
-        "created_at": datetime.now().isoformat(),
+        "created_at": created_at,
     }
+
+    # Try Supabase persistence
+    sb = _get_supabase_client()
+    if sb:
+        try:
+            sb.table("api_keys").insert(
+                {
+                    "key_id": key_id,
+                    "key_hash": key_hash,
+                    "user_id": user_id,
+                    "name": name,
+                    "created_at": created_at,
+                }
+            ).execute()
+            logger.info("API key %s created for user %s (Supabase)", key_id, user_id)
+        except Exception as exc:
+            logger.warning("Supabase api_keys insert failed, using in-memory: %s", exc)
+            _api_keys[key_hash] = entry
+    else:
+        _api_keys[key_hash] = entry
 
     return {
         "key": raw_key,
         "key_id": key_id,
         "name": name,
-        "created_at": _api_keys[key_hash]["created_at"],
+        "created_at": created_at,
     }
 
 
 def validate_api_key(raw_key: str) -> Optional[dict]:
     """Validate an API key and return the associated user info.
+
+    Checks Supabase first, then in-memory fallback.
 
     Args:
         raw_key: The raw API key from the request header.
@@ -208,6 +249,24 @@ def validate_api_key(raw_key: str) -> Optional[dict]:
         User dict with id, email, role — or None if invalid.
     """
     key_hash = _hash_key(raw_key)
+
+    # Try Supabase
+    sb = _get_supabase_client()
+    if sb:
+        try:
+            res = sb.table("api_keys").select("*").eq("key_hash", key_hash).execute()
+            if res.data:
+                entry = res.data[0]
+                return {
+                    "id": entry["user_id"],
+                    "email": "",
+                    "role": "api_key",
+                    "key_id": entry["key_id"],
+                }
+        except Exception:
+            pass  # Fall through to in-memory
+
+    # In-memory fallback
     entry = _api_keys.get(key_hash)
     if entry is None:
         return None
@@ -229,6 +288,21 @@ def list_api_keys(user_id: str) -> list[dict]:
     Returns:
         List of key metadata (key_id, name, created_at).
     """
+    # Try Supabase
+    sb = _get_supabase_client()
+    if sb:
+        try:
+            res = (
+                sb.table("api_keys")
+                .select("key_id, name, created_at")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            if res.data:
+                return res.data
+        except Exception:
+            pass
+
     return [
         {"key_id": v["key_id"], "name": v["name"], "created_at": v["created_at"]}
         for v in _api_keys.values()
@@ -239,6 +313,8 @@ def list_api_keys(user_id: str) -> list[dict]:
 def revoke_api_key(user_id: str, key_id: str) -> bool:
     """Revoke an API key.
 
+    Deletes from Supabase if available, otherwise removes from in-memory.
+
     Args:
         user_id: The user's ID (for ownership check).
         key_id: The key identifier to revoke.
@@ -246,6 +322,24 @@ def revoke_api_key(user_id: str, key_id: str) -> bool:
     Returns:
         True if revoked, False if not found.
     """
+    # Try Supabase
+    sb = _get_supabase_client()
+    if sb:
+        try:
+            res = (
+                sb.table("api_keys")
+                .delete()
+                .eq("key_id", key_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            if res.data:
+                logger.info("API key %s revoked for user %s (Supabase)", key_id, user_id)
+                return True
+        except Exception:
+            pass
+
+    # In-memory fallback
     to_remove = None
     for h, v in _api_keys.items():
         if v["key_id"] == key_id and v["user_id"] == user_id:

@@ -12,6 +12,7 @@ from pathlib import Path
 
 os.environ["ENVIRONMENT"] = "development"
 os.environ["SUPABASE_JWT_SECRET"] = "test-secret"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 # Auto-generate synthetic XER fixtures (gitignored via *.xer)
 _fixtures_dir = Path(__file__).parent / "fixtures"
