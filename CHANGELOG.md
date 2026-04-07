@@ -43,8 +43,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Sidebar version bumped to v3.2.0
 - Landing page stats updated (33/80/761+)
 
+### Schedule Viewer Enhancements (v3.2.0 continued)
+- Fixed WBS tree: shows full name + short_name code with tooltip
+- Fixed date axis: dynamic density (max 25 labels, adapts to schedule length)
+- Standard columns added: WBS, Free Float (FF), Actual Start (AS), Actual Finish (AF), Remaining Duration
+- Start/Finish variance vs baseline (color-coded late/early in detail panel)
+- Activity detail panel: 18 fields + predecessors/successors + mini-timeline + progress bar
+- Near-critical count (TF 1-10d) — summary card, filter, status pill
+- Actual progress bars (green) for active + complete activities
+- LOE activities: diagonal hatch pattern + dashed border
+- Status filter: 9 options (All/Active/Not Started/Complete/Critical/Near-Crit/Neg Float/Milestones/Constrained)
+- CSV export: 19 fields including WBS, Free Float, Constraint, Actual dates
+- Enhanced SVG tooltips: remaining duration, free float, actual dates
+
+### Platform Enhancements
+- Sidebar reorganized: 6 sections matching scheduler workflow (Schedule→Claims→Risk→AI→Enterprise)
+- EVM page: SPI/CPI gauge cards, inline S-Curve SVG, traffic light badges, EAC variance
+- Compare page: visual diff bars (duration before/after, float erosion)
+- Industry standards research: docs/SCHEDULE_SUBMISSION_STANDARDS.md (AIA/DCMA/AACE/SCL audit — 21/22 must-have columns)
+- Dependencies updated: fastapi 0.135.3, uvicorn 0.44, sentry-sdk 2.57, vite 8.0.5
+
 ### Stats
-- **33 analysis engines + 1 export module**, 22 MCP tools, **761+ tests**, 42 pages, 60 commits
+- **33 analysis engines + 1 export module**, 22 MCP tools, **761+ tests**, 42 pages, ~95 session commits
 
 ### References
 - AACE RP 49R-06 — Identifying Critical Activities
