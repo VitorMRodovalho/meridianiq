@@ -15,6 +15,16 @@
 	let { children } = $props();
 	let sidebarOpen = $state(false);
 	let showShortcuts = $state(false);
+	let sidebarSearch = $state('');
+
+	const filteredNavSections = $derived.by(() => {
+		if (!sidebarSearch.trim()) return navSections;
+		const q = sidebarSearch.toLowerCase();
+		return navSections.map(section => ({
+			...section,
+			items: section.items.filter(item => item.label.toLowerCase().includes(q)),
+		})).filter(section => section.items.length > 0 || !section.title);
+	});
 
 	// Collapsible sidebar sections — persist state in localStorage
 	let collapsed: Record<string, boolean> = $state(
@@ -173,8 +183,17 @@
 				</svg>
 			</button>
 		</div>
-		<nav class="flex-1 px-4 py-3 overflow-y-auto">
-			{#each navSections as section, si}
+		<!-- Sidebar search -->
+		<div class="px-4 pt-3 pb-1">
+			<input
+				type="text"
+				bind:value={sidebarSearch}
+				placeholder="Search pages..."
+				class="w-full bg-gray-800 text-gray-300 text-xs rounded-md border border-gray-700 px-3 py-1.5 placeholder-gray-500 focus:outline-none focus:border-gray-500"
+			/>
+		</div>
+		<nav class="flex-1 px-4 py-1 overflow-y-auto">
+			{#each filteredNavSections as section, si}
 				{#if section.auth && !$user}
 					<!-- Hidden: requires authentication -->
 				{:else}
