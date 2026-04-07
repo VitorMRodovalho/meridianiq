@@ -38,6 +38,10 @@
 	let healthLoading = $state(false);
 	let alertsLoading = $state(false);
 	let predictionLoading = $state(false);
+	let calendarData = $state<any>(null);
+	let calendarLoading = $state(false);
+	let attributionData = $state<any>(null);
+	let attributionLoading = $state(false);
 
 	let reportDropdownOpen = $state(false);
 	let reportGenerating = $state('');
@@ -142,6 +146,22 @@
 			predictionLoading = true;
 			try { predictionData = await getDelayPrediction(projectId); } catch {}
 			predictionLoading = false;
+		} else if (tab === 'calendar' && !calendarData) {
+			calendarLoading = true;
+			try {
+				const BASE = import.meta.env.VITE_API_URL || '';
+				const res = await fetch(`${BASE}/api/v1/projects/${projectId}/calendar-validation`);
+				if (res.ok) calendarData = await res.json();
+			} catch {}
+			calendarLoading = false;
+		} else if (tab === 'attribution' && !attributionData) {
+			attributionLoading = true;
+			try {
+				const BASE = import.meta.env.VITE_API_URL || '';
+				const res = await fetch(`${BASE}/api/v1/projects/${projectId}/delay-attribution`);
+				if (res.ok) attributionData = await res.json();
+			} catch {}
+			attributionLoading = false;
 		}
 	}
 
@@ -374,7 +394,9 @@
 					['float', 'Float Distribution'],
 					['milestones', 'Milestones'],
 					['alerts', 'Alerts'],
-					['prediction', 'Delay Prediction']
+					['prediction', 'Delay Prediction'],
+					['calendar', 'Calendars'],
+					['attribution', 'Delay Attribution'],
 				] as [key, label]}
 					<button
 						class="pb-3 px-1 text-sm font-medium border-b-2 transition-colors {activeTab === key
@@ -1032,5 +1054,92 @@
 				<p class="text-gray-500">Failed to load delay prediction data.</p>
 			{/if}
 		{/if}
+
+		{:else if activeTab === 'calendar'}
+			{#if calendarLoading}
+				<div class="animate-pulse space-y-4">
+					<div class="h-20 bg-gray-200 rounded"></div>
+					<div class="h-40 bg-gray-200 rounded"></div>
+				</div>
+			{:else if calendarData}
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+					<div class="bg-white border-2 rounded-lg p-4 text-center {calendarData.grade === 'A' ? 'border-green-200 text-green-600' : calendarData.grade === 'B' ? 'border-blue-200 text-blue-600' : 'border-amber-200 text-amber-600'}">
+						<p class="text-3xl font-bold">{calendarData.grade}</p>
+						<p class="text-xs uppercase mt-1">Grade</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold text-gray-900">{calendarData.score.toFixed(0)}/100</p>
+						<p class="text-xs text-gray-500 uppercase">Score</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold text-blue-600">{calendarData.total_calendars}</p>
+						<p class="text-xs text-gray-500 uppercase">Calendars</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold {calendarData.tasks_without_calendar > 0 ? 'text-red-600' : 'text-green-600'}">{calendarData.tasks_without_calendar}</p>
+						<p class="text-xs text-gray-500 uppercase">Unassigned</p>
+					</div>
+				</div>
+				{#if calendarData.issues.length > 0}
+					<div class="bg-white border border-gray-200 rounded-lg p-6">
+						<h3 class="text-sm font-semibold text-gray-900 mb-3">Findings ({calendarData.issues.length})</h3>
+						{#each calendarData.issues as issue}
+							<div class="flex items-start gap-2 py-2 border-b border-gray-100">
+								<span class="px-1.5 py-0.5 rounded text-xs font-bold uppercase {issue.severity === 'critical' ? 'bg-red-100 text-red-800' : issue.severity === 'warning' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">{issue.severity}</span>
+								<p class="text-sm text-gray-700">{issue.description}</p>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-green-600 text-sm font-medium">All calendar definitions are valid.</p>
+				{/if}
+			{:else}
+				<p class="text-gray-500">Failed to load calendar validation data.</p>
+			{/if}
+
+		{:else if activeTab === 'attribution'}
+			{#if attributionLoading}
+				<div class="animate-pulse space-y-4">
+					<div class="h-20 bg-gray-200 rounded"></div>
+					<div class="h-40 bg-gray-200 rounded"></div>
+				</div>
+			{:else if attributionData}
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold text-gray-900">{attributionData.total_delay_days}d</p>
+						<p class="text-xs text-gray-500 uppercase">Total Delay</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold text-blue-600">{attributionData.excusable_days}d</p>
+						<p class="text-xs text-gray-500 uppercase">Excusable</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold text-red-600">{attributionData.non_excusable_days}d</p>
+						<p class="text-xs text-gray-500 uppercase">Non-Excusable</p>
+					</div>
+					<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+						<p class="text-xl font-bold text-gray-600 capitalize">{attributionData.data_source}</p>
+						<p class="text-xs text-gray-500 uppercase">Source</p>
+					</div>
+				</div>
+				{#if attributionData.parties.length > 0}
+					<div class="bg-white border border-gray-200 rounded-lg p-6">
+						<h3 class="text-sm font-semibold text-gray-900 mb-3">Party Breakdown</h3>
+						{#each attributionData.parties as party}
+							<div class="flex items-center justify-between py-2 border-b border-gray-100">
+								<span class="text-sm font-medium text-gray-900">{party.party}</span>
+								<div class="flex items-center gap-3">
+									<span class="text-sm font-bold">{party.delay_days}d</span>
+									<span class="text-xs text-gray-500">{party.pct_of_total}%</span>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-green-600 text-sm font-medium">No delay detected.</p>
+				{/if}
+			{:else}
+				<p class="text-gray-500">Failed to load delay attribution data.</p>
+			{/if}
 	{/if}
 </div>

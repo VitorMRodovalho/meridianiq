@@ -305,39 +305,30 @@
 			{/if}
 
 			<!-- Quick Actions -->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-				<a
-					href="/upload"
-					class="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all"
-				>
-					<div class="flex items-center gap-4">
-						<div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-							<svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-							</svg>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+				{#each [
+					{ href: '/upload', title: 'Upload XER File', desc: 'Parse and analyze a Primavera P6 schedule export', icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12', bg: 'bg-blue-100', fg: 'text-blue-600' },
+					{ href: '/compare', title: 'Compare Schedules', desc: 'Detect changes and manipulation between versions', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', bg: 'bg-purple-100', fg: 'text-purple-600' },
+					{ href: '/scorecard', title: 'Schedule Scorecard', desc: 'Quick A-F grade across 5 quality dimensions', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-green-100', fg: 'text-green-600' },
+					{ href: '/reports', title: 'Reports Hub', desc: 'Generate and download PDF reports', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', bg: 'bg-amber-100', fg: 'text-amber-600' },
+				] as action}
+					<a
+						href={action.href}
+						class="block bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
+					>
+						<div class="flex items-center gap-4">
+							<div class="w-11 h-11 {action.bg} rounded-lg flex items-center justify-center shrink-0">
+								<svg class="w-5 h-5 {action.fg}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={action.icon} />
+								</svg>
+							</div>
+							<div>
+								<h2 class="text-sm font-semibold text-gray-900">{action.title}</h2>
+								<p class="text-xs text-gray-500">{action.desc}</p>
+							</div>
 						</div>
-						<div>
-							<h2 class="text-lg font-semibold text-gray-900">Upload XER File</h2>
-							<p class="text-sm text-gray-500">Parse and analyze a Primavera P6 schedule export</p>
-						</div>
-					</div>
-				</a>
-				<a
-					href="/compare"
-					class="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all"
-				>
-					<div class="flex items-center gap-4">
-						<div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-							<svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-							</svg>
-						</div>
-						<div>
-							<h2 class="text-lg font-semibold text-gray-900">Compare Schedules</h2>
-							<p class="text-sm text-gray-500">Detect changes and manipulation between versions</p>
-						</div>
-					</div>
-				</a>
+					</a>
+				{/each}
 			</div>
 
 			<!-- Programs -->
