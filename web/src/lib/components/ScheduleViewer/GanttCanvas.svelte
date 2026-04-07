@@ -14,6 +14,7 @@
 		zoomLevel: 'day' | 'week' | 'month';
 		rowHeight: number;
 		scrollTop: number;
+		containerHeight: number;
 		hoveredId: string;
 		showFloat?: boolean;
 		showBaseline?: boolean;
@@ -32,6 +33,7 @@
 		zoomLevel,
 		rowHeight,
 		scrollTop,
+		containerHeight,
 		hoveredId,
 		showFloat = true,
 		showBaseline = true,
@@ -44,6 +46,7 @@
 	const HEADER_H = 28;
 	const BAR_H = 14;
 	const BAR_PAD = (rowHeight - BAR_H) / 2;
+	const BUFFER_ROWS = 20;
 
 	const totalDays = $derived(Math.max(1, daysBetween(startDate, endDate)));
 
@@ -56,14 +59,14 @@
 		return Math.max(2, xPos(end) - xPos(start));
 	}
 
-	// Build visible rows matching WBSTree order
+	// Build ALL rows matching WBSTree order (not filtered by viewport)
 	interface VisRow {
 		type: 'wbs' | 'activity';
 		activity?: ActivityView;
 		wbsNode?: WBSNode;
 	}
 
-	const visibleRows = $derived.by(() => {
+	const allRows = $derived.by(() => {
 		const rows: VisRow[] = [];
 		function addNode(node: WBSNode) {
 			rows.push({ type: 'wbs', wbsNode: node });
@@ -78,7 +81,12 @@
 		return rows;
 	});
 
-	const svgHeight = $derived(HEADER_H + visibleRows.length * rowHeight + 20);
+	// Virtual scrolling: only render rows in the visible viewport + buffer
+	const virtualStart = $derived(Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS));
+	const virtualEnd = $derived(Math.min(allRows.length, Math.ceil((scrollTop + containerHeight) / rowHeight) + BUFFER_ROWS));
+	const renderedRows = $derived(allRows.slice(virtualStart, virtualEnd));
+
+	const svgHeight = $derived(HEADER_H + allRows.length * rowHeight + 20);
 
 	// WBS summary spans (earliest start → latest finish per WBS node)
 	const wbsSpans = $derived.by(() => {
@@ -97,10 +105,10 @@
 		return spans;
 	});
 
-	// Build row index for dependency line routing
+	// Build row index for dependency line routing — uses ABSOLUTE indices from allRows
 	const activityRowIndex = $derived.by(() => {
 		const idx = new Map<string, number>();
-		visibleRows.forEach((row, i) => {
+		allRows.forEach((row, i) => {
 			if (row.type === 'activity' && row.activity) {
 				idx.set(row.activity.task_id, i);
 			}
@@ -141,16 +149,17 @@
 		{/if}
 	{/each}
 
-	<!-- Activity bars -->
-	{#each visibleRows as row, i}
-		{@const y = HEADER_H + i * rowHeight}
+	<!-- SVG pattern for LOE activities -->
+	<defs>
+		<pattern id="loe-pattern" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+			<line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" stroke-width="1.5" opacity="0.4" />
+		</pattern>
+	</defs>
 
-		<!-- SVG pattern for LOE activities -->
-		<defs>
-			<pattern id="loe-pattern" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-				<line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" stroke-width="1.5" opacity="0.4" />
-			</pattern>
-		</defs>
+	<!-- Activity bars (virtual scrolling: only render visible rows + buffer) -->
+	{#each renderedRows as row, i}
+		{@const absoluteIdx = virtualStart + i}
+		{@const y = HEADER_H + absoluteIdx * rowHeight}
 
 		{#if row.type === 'wbs' && row.wbsNode}
 			<!-- WBS summary row background -->
@@ -343,14 +352,17 @@ ES: {act.early_start} → EF: {act.early_finish}{act.actual_start ? ` | AS: ${ac
 		{/if}
 	{/each}
 
-	<!-- Dependency lines -->
+	<!-- Dependency lines (only render if at least one endpoint is near viewport) -->
 	{#if relationships.length > 0}
 		{#each relationships as rel}
 			{@const fromRow = activityRowIndex.get(rel.from_id)}
 			{@const toRow = activityRowIndex.get(rel.to_id)}
 			{@const fromDates = activityDates.get(rel.from_id)}
 			{@const toDates = activityDates.get(rel.to_id)}
-			{#if fromRow !== undefined && toRow !== undefined && fromDates && toDates}
+			{#if fromRow !== undefined && toRow !== undefined && fromDates && toDates && (
+				(fromRow >= virtualStart - BUFFER_ROWS && fromRow <= virtualEnd + BUFFER_ROWS) ||
+				(toRow >= virtualStart - BUFFER_ROWS && toRow <= virtualEnd + BUFFER_ROWS)
+			)}
 				{@const fromY = HEADER_H + fromRow * rowHeight + rowHeight / 2}
 				{@const toY = HEADER_H + toRow * rowHeight + rowHeight / 2}
 				{@const fromX = rel.type === 'FS' || rel.type === 'FF' ? xPos(fromDates.finish) : xPos(fromDates.start)}

@@ -113,9 +113,13 @@
 		collapsedWbs = all;
 	}
 
+	// Track actual content area height for virtual scrolling
+	let containerHeight = $state(500);
+
 	function handleScroll(e: Event) {
 		const target = e.target as HTMLDivElement;
 		scrollTop = target.scrollTop;
+		containerHeight = target.clientHeight;
 	}
 
 	function handleHover(id: string) {
@@ -219,6 +223,7 @@
 			{collapsedWbs}
 			rowHeight={ROW_HEIGHT}
 			{scrollTop}
+			{containerHeight}
 			onToggleWbs={toggleWbs}
 		/>
 
@@ -239,6 +244,7 @@
 				{zoomLevel}
 				rowHeight={ROW_HEIGHT}
 				{scrollTop}
+				{containerHeight}
 				{hoveredId}
 				{showFloat}
 				{showBaseline}
