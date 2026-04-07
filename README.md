@@ -101,6 +101,9 @@ The flagship feature — a production-grade Gantt chart built entirely with SVG 
 | **Evolution Strategies Optimizer** — (mu, lambda) ES for RCPSP | Loncar (2023) | v3.0 |
 | **Anomaly Detection** — IQR/z-score outlier detection for schedule data | — | v2.0 |
 | **Root Cause Analysis** — Backwards network trace via NetworkX | AACE RP 49R-06 | v2.0 |
+| **Calendar Validation** — 9 checks with scoring per DCMA #13 | DCMA EVMS, AACE RP 49R-06 | v3.1 |
+| **Delay Attribution** — Party breakdown (Owner/Contractor/Shared) | AACE RP 29R-03, SCL Protocol | v3.1 |
+| **Interactive Schedule Viewer** — WBS tree, Gantt bars, baseline, float, dependencies | AACE RP 49R-06, GAO Guide | v3.2 |
 
 ---
 
@@ -113,7 +116,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (31)<br/>77 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (33)<br/>80 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"

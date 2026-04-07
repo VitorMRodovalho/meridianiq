@@ -1,6 +1,18 @@
-# Known Issues & Backlog — v3.0.1
+# Known Issues & Backlog — v3.2.0
 
 Bug tracking and feature backlog for MeridianIQ.
+
+---
+
+## Active Bugs
+
+| ID | Description | Severity | Found |
+|----|-------------|----------|-------|
+| BUG-020 | Schedule Viewer: WBS tree not showing level names/path — only short_name | Medium | v3.2.0 |
+| BUG-021 | Schedule Viewer: date axis labels overlap on day zoom with long schedules | Medium | v3.2.0 |
+| BUG-022 | Schedule Viewer: dependency lines route to hidden rows when WBS collapsed | Low | v3.2.0 |
+| BUG-023 | /programs route exists but missing from sidebar navigation | Low | v3.2.0 |
+| BUG-024 | /demo route not discoverable from sidebar | Low | v3.2.0 |
 
 ---
 
@@ -30,7 +42,7 @@ Bug tracking and feature backlog for MeridianIQ.
 | — | GanttChart SVG component | v3.0.0 |
 | — | Look-ahead schedule (2/4 week window) | v3.0.0 |
 | — | Executive summary PDF report | v3.0.0 |
-| — | ParetoChart SVG dedicated component | v3.0.0 |
+| ��� | ParetoChart SVG dedicated component | v3.0.0 |
 | — | 8 frontend gap pages (anomalies, root-cause, etc.) | v3.0.1 |
 | — | Dark mode with Tailwind CSS overrides | v3.1.0 |
 | — | Loading skeletons on 24 pages | v3.1.0 |
@@ -42,6 +54,12 @@ Bug tracking and feature backlog for MeridianIQ.
 | — | Delay attribution engine (party breakdown) | v3.1.0 |
 | — | i18n 90+ keys PT-BR/ES (page titles, common labels) | v3.1.0 |
 | — | 2 MCP tools (calendar, attribution) | v3.1.0 |
+| — | RBAC sidebar (hide when unauthenticated) | v3.1.0 |
+| — | Interactive Schedule Viewer (30+ features, 4 waves) | v3.2.0 |
+| — | 404 error page, SEO meta tags, keyboard shortcuts modal | v3.2.0 |
+| — | Compare visual diff (duration bars, float erosion bars) | v3.2.0 |
+| — | Cross-page "View Schedule" links (18 entry points) | v3.2.0 |
+| — | Upload success: View Schedule + Scorecard buttons | v3.2.0 |
 
 ---
 
@@ -49,41 +67,58 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Large schedule profiling (>5K activities) | P2 | Not systematically tested |
+| Large schedule profiling (>5K activities) | P1 | Not tested — may cause rendering issues |
+| Schedule Viewer virtual scrolling | P1 | Renders all rows — needs viewport-aware for 1K+ |
 | Audit trail IP not populated | P2 | Schema field exists, frontend doesn't send |
 | Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
 | slowapi potentially unmaintained | P2 | Evaluate starlette-ratelimit alternative |
-| No RBAC enforcement on frontend | P2 | Sidebar shows all links regardless of role |
-| Wire $t() i18n keys to remaining pages | P3 | Keys exist in 3 langs, most pages still hardcoded |
+| Wire $t() i18n keys to page titles | P3 | Keys exist, most page titles still hardcoded English |
+| Sidebar has 34 links (cognitive load) | P2 | Consider regrouping or adding search |
+| a11y warnings in ScheduleViewer (3) | P3 | SVG `<g>` click without keyboard handler |
 
 ---
 
 ## Feature Backlog (Prioritized)
 
-### High Impact
+### High Impact — Schedule Viewer
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
-| 1 | Calendar validation engine | Scheduler | Medium |
-| 2 | Contractor delay attribution summary | Owner Rep | High |
-| 3 | Program shares API + UI | Program Scheduler, Director | Medium |
-| 4 | i18n activation (PT-BR, ES translations) | LATAM market | Medium |
-| 5 | Large schedule profiling (>5K activities) | All | Medium |
+| 1 | Fix WBS level names display | All | Low |
+| 2 | Fix date axis label overlap | All | Low |
+| 3 | Standard columns (Actual Start/Finish, Remaining Duration, Free Float) | Scheduler | Medium |
+| 4 | Column configuration panel (show/hide/reorder) | All | Medium |
+| 5 | PDF/image export of Gantt view | PM, Owner Rep | Medium |
+| 6 | Non-working day shading (weekends/holidays) | Scheduler | Medium |
+
+### High Impact — Platform
+
+| # | Feature | Personas | Effort |
+|---|---------|----------|--------|
+| 7 | Add /programs to sidebar + program-level dashboard | Program Director | Medium |
+| 8 | Resource histogram below Gantt | Scheduler, PM | High |
+| 9 | EVM S-Curve inline visualization | Cost Engineer | Medium |
+| 10 | Sidebar search/filter for 34+ links | All | Low |
 
 ### Medium Impact
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
+| 11 | Drag-to-pan on Gantt timeline | All | Medium |
+| 12 | Calendar exception parsing (CALEXCEPTION table) | Scheduler | Medium |
+| 13 | Activity grouping by any field | All | Medium |
+| 14 | WebSocket for Monte Carlo/optimizer progress | All | Medium |
+| 15 | Earned value overlay on timeline | Cost Engineer | High |
 
 ### Future / Research
 
 | # | Feature | Personas | Effort |
 |---|---------|----------|--------|
-| 11 | Federated learning (cross-org ML) | AI Researcher | High |
-| 12 | BIM-lite integration (IFC metadata) | Architect, CCM | High |
-| 13 | WebSocket for long operations (MC, ES) | All | Medium |
-| 14 | Dark mode | Developer | Low |
-| 15 | Loading skeletons | All | Low |
+| 16 | AIA G703/DCMA schedule submission PDF format | Claims | High |
+| 17 | Federated learning (cross-org ML) | AI Researcher | High |
+| 18 | BIM-lite integration (IFC metadata) | Architect | High |
+| 19 | Resource-constrained critical path on Gantt | Scheduler | High |
+| 20 | GIS for infrastructure linear scheduling | Field | High |
 
 ---
 
@@ -94,17 +129,18 @@ Bug tracking and feature backlog for MeridianIQ.
 - [ ] Upload — XER with special characters (accents, symbols)
 - [ ] DCMA 14-Point — verify against Schedule Validator reference
 - [ ] Critical Path — non-standard work hours calendar
-- [ ] Float Distribution — P6 hours to days on non-8hr calendars
+- [ ] Schedule Viewer — test with real production XER (500+ activities)
+- [ ] Schedule Viewer — baseline comparison with consecutive updates
+- [ ] Schedule Viewer — verify WBS names display correctly
 - [ ] Compare — two consecutive real-world schedule updates
 - [ ] Float Trends — 3+ sequential uploads
-- [ ] Early Warning — all 12 rules against known test cases
-- [ ] PDF Reports — layout and data for all 7 types
+- [ ] PDF Reports — layout and data for all 9 types
 - [ ] Excel Export — verify 4-sheet workbook accuracy
 - [ ] IPS Reconciliation — master + 2 sub-schedules
 - [ ] Recovery Validation — impacted vs recovery with compressed durations
 - [ ] Organizations — create, invite, share, audit trail
 - [ ] Auth — token expiry and refresh flow
-- [ ] Mobile — all pages accessible via hamburger menu
+- [ ] Mobile — all pages + hamburger menu + collapsible sections
+- [ ] Dark mode — verify all 42 pages render correctly
+- [ ] Print — verify schedule page prints with correct layout
 - [ ] XER Export — round-trip fidelity with real P6 import
-- [ ] Risk Register — CRUD + Monte Carlo integration
-- [ ] Resource Leveling — real XER with resource assignments
