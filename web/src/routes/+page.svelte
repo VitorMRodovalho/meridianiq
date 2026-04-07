@@ -131,6 +131,8 @@
 		{ title: 'Root Cause Analysis', desc: 'Backwards network trace to delay origin via NetworkX', tag: 'Forensic', color: 'bg-orange-500' },
 		{ title: 'Benchmarks', desc: 'Cross-project percentile ranking against 100+ anonymized schedules', tag: 'Intelligence', color: 'bg-indigo-500' },
 		{ title: 'Schedule Builder', desc: 'Generate schedules from NLP descriptions or project templates', tag: 'AI', color: 'bg-violet-500' },
+		{ title: 'Calendar Validation', desc: 'Work calendar integrity checks per DCMA #13 with scoring', tag: 'Validation', color: 'bg-blue-500' },
+		{ title: 'Delay Attribution', desc: 'Party breakdown: Owner vs Contractor excusable/non-excusable', tag: 'Claims', color: 'bg-orange-500' },
 	];
 </script>
 
@@ -222,7 +224,7 @@
 					{$t('landing.standards.subtitle')}
 				</p>
 				<div class="flex flex-wrap justify-center gap-3">
-					{#each ['AACE RP 29R-03', 'AACE RP 52R-06', 'AACE RP 57R-09', 'ANSI/EIA-748', 'DCMA EVMS', 'GAO Schedule Guide', 'SCL Protocol'] as std}
+					{#each ['AACE RP 29R-03', 'AACE RP 49R-06', 'AACE RP 52R-06', 'AACE RP 57R-09', 'ANSI/EIA-748', 'DCMA EVMS', 'GAO Schedule Guide', 'ISO 31000', 'SCL Protocol'] as std}
 						<span class="px-3 py-1.5 bg-gray-800 text-gray-300 text-xs font-mono rounded-full">{std}</span>
 					{/each}
 				</div>
