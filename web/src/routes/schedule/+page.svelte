@@ -155,14 +155,14 @@
 
 	function exportCSV() {
 		if (!data) return;
-		const headers = ['Code', 'Name', 'Status', 'Type', 'Duration', 'Total Float', 'Progress', 'Early Start', 'Early Finish', 'Actual Start', 'Actual Finish', 'Late Start', 'Late Finish', 'Critical', 'WBS Path', 'Alerts'];
+		const headers = ['Code', 'Name', 'WBS', 'Status', 'Type', 'Duration', 'Total Float', 'Free Float', 'Progress', 'Early Start', 'Early Finish', 'Actual Start', 'Actual Finish', 'Late Start', 'Late Finish', 'Critical', 'Constraint', 'WBS Path', 'Alerts'];
 		const rows = data.activities.map(a => [
-			a.task_code, a.task_name, a.status, a.task_type,
-			a.duration_days, a.total_float_days, a.progress_pct,
+			a.task_code, a.task_name, a.wbs_path?.split('/').pop() || '', a.status, a.task_type,
+			a.duration_days, a.total_float_days, a.free_float_days, a.progress_pct,
 			a.early_start, a.early_finish,
 			a.actual_start || '', a.actual_finish || '',
 			a.late_start, a.late_finish,
-			a.is_critical ? 'Yes' : 'No', a.wbs_path,
+			a.is_critical ? 'Yes' : 'No', a.constraint_type || '', a.wbs_path,
 			a.alerts.join('; '),
 		]);
 		const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
@@ -502,11 +502,12 @@
 							{#each [
 								['code', 'Code', 'text-left'],
 								['name', 'Name', 'text-left'],
+								['', 'WBS', 'text-left'],
 								['status', 'Status', 'text-left'],
-								['', 'Type', 'text-left'],
-								['duration', 'Duration', 'text-right'],
+								['duration', 'Dur', 'text-right'],
 								['float', 'TF', 'text-right'],
-								['progress', 'Progress', 'text-right'],
+								['', 'FF', 'text-right'],
+								['progress', '%', 'text-right'],
 								['start', 'ES', 'text-left'],
 								['finish', 'EF', 'text-left'],
 								['', 'AS', 'text-left'],
@@ -527,15 +528,16 @@
 							<tr class="border-t border-gray-100 dark:border-gray-800 hover:bg-blue-50 dark:hover:bg-gray-800">
 								<td class="py-1 px-2 font-mono text-gray-500">{act.task_code}</td>
 								<td class="py-1 px-2 text-gray-900 dark:text-gray-100 truncate max-w-48">{act.task_name}</td>
+								<td class="py-1 px-2 text-[8px] text-gray-400 truncate max-w-24" title="{act.wbs_path}">{act.wbs_path?.split('/').pop() || ''}</td>
 								<td class="py-1 px-2">
 									<span class="px-1 py-0.5 rounded text-[8px] font-bold uppercase
 										{act.status === 'complete' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
 										act.status === 'active' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
 										'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}">{act.status}</span>
 								</td>
-								<td class="py-1 px-2 text-gray-500 capitalize">{act.task_type}</td>
 								<td class="py-1 px-2 text-right font-mono">{act.duration_days}d</td>
 								<td class="py-1 px-2 text-right font-mono {act.total_float_days < 0 ? 'text-red-600 font-bold' : act.total_float_days === 0 ? 'text-amber-600' : 'text-gray-500'}">{act.total_float_days}d</td>
+								<td class="py-1 px-2 text-right font-mono text-gray-400">{act.free_float_days !== 0 ? act.free_float_days + 'd' : ''}</td>
 								<td class="py-1 px-2 text-right font-mono">{act.progress_pct > 0 ? act.progress_pct + '%' : ''}</td>
 								<td class="py-1 px-2 text-gray-500">{act.early_start}</td>
 								<td class="py-1 px-2 text-gray-500">{act.early_finish}</td>
