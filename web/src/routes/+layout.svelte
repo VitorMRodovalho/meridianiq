@@ -112,6 +112,9 @@
 	];
 </script>
 
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md focus:text-sm">
+	Skip to content
+</a>
 <div class="flex min-h-screen bg-gray-50 dark:bg-gray-950">
 	<!-- Mobile hamburger -->
 	<button
@@ -276,7 +279,7 @@
 	</aside>
 
 	<!-- Main content -->
-	<main class="flex-1 overflow-auto min-w-0 dark:text-gray-100">
+	<main id="main-content" class="flex-1 overflow-auto min-w-0 dark:text-gray-100">
 		{#if $isWarmingUp}
 			<div class="bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
 				<svg class="animate-spin h-4 w-4 text-amber-600 shrink-0" viewBox="0 0 24 24">
