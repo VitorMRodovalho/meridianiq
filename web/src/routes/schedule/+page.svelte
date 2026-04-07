@@ -179,9 +179,18 @@
 </svelte:head>
 
 <main class="max-w-[1400px] mx-auto px-4 py-6">
-	<div class="mb-6">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Viewer</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Interactive Gantt chart with WBS hierarchy, progress bars, and critical path</p>
+	<div class="flex items-center justify-between mb-6">
+		<div>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Viewer</h1>
+			<p class="text-gray-500 dark:text-gray-400 mt-1">Interactive Gantt chart with WBS hierarchy, progress bars, and critical path</p>
+		</div>
+		{#if selectedProject}
+			<div class="flex items-center gap-2">
+				<a href="/projects/{selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">Project Detail</a>
+				<a href="/scorecard?project={selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">Scorecard</a>
+				<a href="/anomalies?project={selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">Anomalies</a>
+			</div>
+		{/if}
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
