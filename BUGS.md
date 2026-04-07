@@ -32,6 +32,16 @@ Bug tracking and feature backlog for MeridianIQ.
 | — | Executive summary PDF report | v3.0.0 |
 | — | ParetoChart SVG dedicated component | v3.0.0 |
 | — | 8 frontend gap pages (anomalies, root-cause, etc.) | v3.0.1 |
+| — | Dark mode with Tailwind CSS overrides | v3.1.0 |
+| — | Loading skeletons on 24 pages | v3.1.0 |
+| — | Breadcrumb navigation | v3.1.0 |
+| — | Collapsible sidebar sections | v3.1.0 |
+| — | Active link highlighting | v3.1.0 |
+| — | Error boundary (svelte:boundary) | v3.1.0 |
+| — | Calendar validation engine (DCMA #13) | v3.1.0 |
+| — | Delay attribution engine (party breakdown) | v3.1.0 |
+| — | i18n 90+ keys PT-BR/ES (page titles, common labels) | v3.1.0 |
+| — | 2 MCP tools (calendar, attribution) | v3.1.0 |
 
 ---
 
@@ -39,15 +49,12 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| No loading skeletons (uses spinners) | P3 | Perceived performance; shimmer effect preferred |
-| No breadcrumb navigation | P3 | Deep pages lack wayfinding |
-| No dark mode | P3 | Developer/researcher preference |
 | Large schedule profiling (>5K activities) | P2 | Not systematically tested |
 | Audit trail IP not populated | P2 | Schema field exists, frontend doesn't send |
 | Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
 | slowapi potentially unmaintained | P2 | Evaluate starlette-ratelimit alternative |
 | No RBAC enforcement on frontend | P2 | Sidebar shows all links regardless of role |
-| i18n pages not translated (only wired) | P2 | PT-BR and ES translations not created |
+| Wire $t() i18n keys to remaining pages | P3 | Keys exist in 3 langs, most pages still hardcoded |
 
 ---
 
