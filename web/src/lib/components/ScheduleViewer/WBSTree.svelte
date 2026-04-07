@@ -94,12 +94,19 @@
 					title="{act.task_code} — {act.task_name} | TF: {act.total_float_days}d | {act.progress_pct}%"
 				>
 					{#if act.task_type === 'milestone'}
-						<span class="w-2 h-2 rotate-45 bg-amber-500 shrink-0 mr-1.5"></span>
+						<span class="w-2 h-2 rotate-45 bg-amber-500 shrink-0 mr-1.5" title="Milestone"></span>
+					{:else if act.task_type === 'loe'}
+						<span class="w-2.5 h-1.5 shrink-0 mr-1 border border-dashed border-gray-400 bg-gray-100 dark:bg-gray-700 rounded-sm" title="LOE"></span>
 					{:else}
-						<span class="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 {act.is_critical ? 'bg-red-500' : act.status === 'complete' ? 'bg-green-500' : act.status === 'active' ? 'bg-blue-500' : 'bg-gray-300'}"></span>
+						<span class="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 {act.is_critical ? 'bg-red-500' : act.status === 'complete' ? 'bg-green-500' : act.status === 'active' ? 'bg-blue-500' : 'bg-gray-300'}" title="{act.status}"></span>
 					{/if}
 					<span class="text-[9px] text-gray-600 dark:text-gray-400 truncate flex-1">{act.task_name || act.task_code}</span>
-					<span class="text-[7px] font-mono shrink-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity {act.total_float_days < 0 ? 'text-red-500 font-bold' : act.total_float_days === 0 ? 'text-amber-500' : 'text-gray-400'}">{act.total_float_days}d</span>
+					<span class="shrink-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+						{#if act.progress_pct > 0 && act.progress_pct < 100}
+							<span class="w-6 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"><span class="block h-full rounded-full bg-blue-500" style="width:{act.progress_pct}%"></span></span>
+						{/if}
+						<span class="text-[7px] font-mono {act.total_float_days < 0 ? 'text-red-500 font-bold' : act.total_float_days === 0 ? 'text-amber-500' : 'text-gray-400'}">{act.total_float_days}d</span>
+					</span>
 				</div>
 			{/if}
 		{/each}
