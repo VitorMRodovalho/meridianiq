@@ -10,6 +10,7 @@
 	import { t, locale, detectLocale, availableLocales } from '$lib/i18n';
 
 	import { browser } from '$app/environment';
+	import { page } from '$app/stores';
 
 	let { children } = $props();
 	let sidebarOpen = $state(false);
@@ -164,10 +165,14 @@
 				{#if !section.title || !collapsed[section.title]}
 				<div class="space-y-0.5">
 					{#each section.items as link}
+						{@const isActive = $page.url.pathname === link.href || ($page.url.pathname.startsWith(link.href + '/') && link.href !== '/')}
 						<a
 							href={link.href}
 							onclick={closeSidebar}
-							class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+							class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors {isActive
+								? 'bg-blue-600 text-white'
+								: 'text-gray-300 hover:bg-gray-800 hover:text-white'}"
+							aria-current={isActive ? 'page' : undefined}
 						>
 							<svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={link.icon} />

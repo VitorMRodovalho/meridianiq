@@ -3,6 +3,7 @@
 	import type { LevelingResponse } from '$lib/types';
 	import ResourceChart from '$lib/components/charts/ResourceChart.svelte';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -95,7 +96,9 @@
 		</div>
 	</div>
 
-	{#if error}
+	{#if loading}
+		<AnalysisSkeleton />
+	{:else if error}
 		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>

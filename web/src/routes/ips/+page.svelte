@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getProjects, reconcileIPS } from '$lib/api';
 	import type { ProjectListItem } from '$lib/types';
+	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 
@@ -139,7 +140,9 @@
 			{/if}
 		</div>
 
-		{#if error}
+		{#if loading}
+		<AnalysisSkeleton />
+	{:else if error}
 			<div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mb-8">{error}</div>
 		{/if}
 

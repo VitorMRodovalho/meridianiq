@@ -3,6 +3,7 @@
 	import { getProjects, getTimelines, createTimeline } from '$lib/api';
 	import type { ProjectListItem, TimelineSummarySchema, TimelineDetailSchema } from '$lib/types';
 	import { error as toastError } from '$lib/toast';
+	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let timelines: TimelineSummarySchema[] = $state([]);
@@ -77,7 +78,9 @@
 		</button>
 	</div>
 
-	{#if error}
+	{#if loading}
+		<AnalysisSkeleton />
+	{:else if error}
 		<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-6">
 			{error}
 		</div>

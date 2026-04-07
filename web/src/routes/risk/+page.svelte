@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getRiskSimulations, createRiskSimulation, getProjects } from '$lib/api';
 	import { error as toastError } from '$lib/toast';
+	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	interface SimulationSummary {
 		simulation_id: string;
@@ -92,7 +93,9 @@
 		<p class="text-gray-500 mt-1">Monte Carlo schedule risk simulation per AACE RP 57R-09</p>
 	</div>
 
-	{#if error}
+	{#if loading}
+		<AnalysisSkeleton />
+	{:else if error}
 		<div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
 	{/if}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getEVMAnalyses, createEVMAnalysis, getProjects } from '$lib/api';
 	import { error as toastError } from '$lib/toast';
+	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
 	let analyses: any[] = $state([]);
 	let projects: any[] = $state([]);
@@ -78,7 +79,9 @@
 				{loading ? 'Analyzing...' : 'Run EVM'}
 			</button>
 		</div>
-		{#if error}
+		{#if loading}
+		<AnalysisSkeleton />
+	{:else if error}
 			<p class="mt-3 text-sm text-red-600">{error}</p>
 		{/if}
 	</div>
