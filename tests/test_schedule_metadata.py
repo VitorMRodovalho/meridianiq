@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from src.analytics.schedule_metadata import ScheduleMetadata, extract_metadata
+from src.analytics.schedule_metadata import extract_metadata
 
 
 class TestFilenameExtraction:
