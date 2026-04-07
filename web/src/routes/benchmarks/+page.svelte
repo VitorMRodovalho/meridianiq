@@ -172,6 +172,9 @@
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
 				{loading ? 'Comparing...' : 'Compare'}
 			</button>
+			{#if selectedProject}
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+			{/if}
 			<button onclick={contribute} disabled={!selectedProject || contributing}
 				class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50">
 				{contributing ? 'Contributing...' : 'Contribute'}
