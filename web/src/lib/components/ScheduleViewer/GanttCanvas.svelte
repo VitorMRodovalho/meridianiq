@@ -18,6 +18,7 @@
 		showFloat?: boolean;
 		showBaseline?: boolean;
 		onHover: (id: string) => void;
+		onClick?: (id: string) => void;
 	}
 
 	let {
@@ -35,6 +36,7 @@
 		showFloat = true,
 		showBaseline = true,
 		onHover,
+		onClick,
 	}: Props = $props();
 
 	const WIDTH = 1200;
@@ -77,6 +79,23 @@
 	});
 
 	const svgHeight = $derived(HEADER_H + visibleRows.length * rowHeight + 20);
+
+	// WBS summary spans (earliest start → latest finish per WBS node)
+	const wbsSpans = $derived.by(() => {
+		const spans = new Map<string, { start: string; finish: string; count: number }>();
+		for (const act of activities) {
+			if (!act.early_start || !act.early_finish) continue;
+			const existing = spans.get(act.wbs_id);
+			if (!existing) {
+				spans.set(act.wbs_id, { start: act.early_start, finish: act.early_finish, count: 1 });
+			} else {
+				if (act.early_start < existing.start) existing.start = act.early_start;
+				if (act.early_finish > existing.finish) existing.finish = act.early_finish;
+				existing.count++;
+			}
+		}
+		return spans;
+	});
 
 	// Build row index for dependency line routing
 	const activityRowIndex = $derived.by(() => {
@@ -129,6 +148,19 @@
 		{#if row.type === 'wbs' && row.wbsNode}
 			<!-- WBS summary row background -->
 			<rect x="0" {y} width={WIDTH} height={rowHeight} fill="#f9fafb" opacity="0.5" class="dark:fill-gray-800" />
+			<!-- WBS summary bar (span of all child activities) -->
+			{@const span = wbsSpans.get(row.wbsNode.wbs_id)}
+			{#if span}
+				{@const sx = xPos(span.start)}
+				{@const sw = Math.max(4, xPos(span.finish) - sx)}
+				<rect
+					x={sx} y={y + rowHeight / 2 - 2}
+					width={sw} height={4}
+					rx="2" fill="#6b7280" opacity="0.3"
+				/>
+				<polygon points="{sx},{y + rowHeight / 2 - 4} {sx},{y + rowHeight / 2 + 4} {sx - 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
+				<polygon points="{sx + sw},{y + rowHeight / 2 - 4} {sx + sw},{y + rowHeight / 2 + 4} {sx + sw + 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
+			{/if}
 		{:else if row.type === 'activity' && row.activity}
 			{@const act = row.activity}
 			{@const x = xPos(act.early_start)}
@@ -159,6 +191,7 @@
 				<g
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}
+					onclick={() => onClick?.(act.task_id)}
 					class="cursor-pointer"
 				>
 					<!-- Background bar (full duration) -->

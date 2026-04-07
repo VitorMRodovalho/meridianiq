@@ -13,6 +13,7 @@
 	let data = $state<ScheduleViewData | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
+	let selectedActivity = $state<import('$lib/components/ScheduleViewer/types').ActivityView | null>(null);
 	let showFloat: boolean = $state(true);
 	let showBaseline: boolean = $state(true);
 	let showDependencies: boolean = $state(false);
@@ -175,7 +176,85 @@
 		</div>
 
 		<!-- Schedule Viewer -->
-		<ScheduleViewer {data} {showFloat} {showBaseline} {showDependencies} {criticalOnly} />
+		<ScheduleViewer
+			{data} {showFloat} {showBaseline} {showDependencies} {criticalOnly}
+			onActivityClick={(taskId) => { selectedActivity = data?.activities.find(a => a.task_id === taskId) || null; }}
+		/>
+
+		<!-- Activity detail panel (click on bar) -->
+		{#if selectedActivity}
+			{@const a = selectedActivity}
+			<div class="mt-4 bg-white dark:bg-gray-900 rounded-lg border border-blue-200 dark:border-blue-800 p-4">
+				<div class="flex items-center justify-between mb-3">
+					<div>
+						<h3 class="text-sm font-bold text-gray-900 dark:text-gray-100">{a.task_code} — {a.task_name}</h3>
+						<p class="text-[10px] text-gray-500">{a.wbs_path}</p>
+					</div>
+					<button onclick={() => selectedActivity = null} class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+					</button>
+				</div>
+				<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+					<div>
+						<p class="text-gray-500">Status</p>
+						<p class="font-semibold capitalize {a.status === 'complete' ? 'text-green-600' : a.status === 'active' ? 'text-blue-600' : 'text-gray-600'}">{a.status}</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Type</p>
+						<p class="font-semibold capitalize text-gray-700 dark:text-gray-300">{a.task_type}</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Duration</p>
+						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.duration_days}d</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Total Float</p>
+						<p class="font-semibold {a.total_float_days < 0 ? 'text-red-600' : a.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">{a.total_float_days}d</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Progress</p>
+						<p class="font-semibold text-blue-600">{a.progress_pct}%</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Critical</p>
+						<p class="font-semibold {a.is_critical ? 'text-red-600' : 'text-gray-400'}">{a.is_critical ? 'YES' : 'No'}</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Early Start</p>
+						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.early_start}</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Early Finish</p>
+						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.early_finish}</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Late Start</p>
+						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.late_start || '—'}</p>
+					</div>
+					<div>
+						<p class="text-gray-500">Late Finish</p>
+						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.late_finish || '—'}</p>
+					</div>
+					{#if a.baseline_start}
+						<div>
+							<p class="text-gray-500">Baseline Start</p>
+							<p class="font-semibold text-gray-500">{a.baseline_start}</p>
+						</div>
+						<div>
+							<p class="text-gray-500">Baseline Finish</p>
+							<p class="font-semibold text-gray-500">{a.baseline_finish}</p>
+						</div>
+					{/if}
+				</div>
+				{#if a.alerts.length > 0}
+					<div class="mt-3 flex gap-1">
+						{#each a.alerts as alert}
+							<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-[9px] font-bold">{alert.replace(/_/g, ' ')}</span>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Activity data table -->
 		<details class="mt-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">

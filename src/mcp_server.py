@@ -5,7 +5,7 @@
 Exposes schedule analysis capabilities as MCP tools that AI assistants
 (Claude, etc.) can invoke to query and analyze uploaded P6 XER schedules.
 
-Available tools (21):
+Available tools (22):
 - upload_xer: Parse and store an XER file
 - list_projects: List all uploaded schedules
 - get_project_summary: Get project metadata and activity counts
@@ -27,6 +27,7 @@ Available tools (21):
 - optimize_schedule_es: Evolution Strategies RCPSP optimizer
 - validate_calendars_tool: Calendar integrity validation (DCMA #13)
 - compute_delay_attribution_tool: Delay breakdown by responsible party
+- get_schedule_view_tool: Schedule layout data for Gantt visualization
 
 Usage:
     python -m src.mcp_server
@@ -766,6 +767,65 @@ def compute_delay_attribution_tool(
     baseline = store.get(baseline_id) if baseline_id else None
     result = compute_delay_attribution(schedule, baseline=baseline)
     return json.dumps(_serialize(asdict(result)))
+
+
+@mcp.tool()
+def get_schedule_view_tool(
+    project_id: str,
+    baseline_id: str = "",
+) -> str:
+    """Get schedule layout data for Gantt visualization.
+
+    Returns WBS tree, flattened activities with dates/float/status,
+    relationships, and summary metrics.  Optionally includes baseline
+    dates for comparison when baseline_id is provided.
+
+    Args:
+        project_id: The schedule identifier.
+        baseline_id: Optional baseline schedule for comparison.
+
+    Returns:
+        JSON with project metadata, WBS tree, activities, relationships, summary.
+    """
+    store = _get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        return json.dumps({"error": "Project not found"})
+
+    from src.analytics.schedule_view import build_schedule_view
+
+    baseline = store.get(baseline_id) if baseline_id else None
+    result = build_schedule_view(schedule, baseline=baseline)
+    # Return summary only (full activities list too large for chat)
+    summary = {
+        "project_name": result.project_name,
+        "data_date": result.data_date,
+        "project_start": result.project_start,
+        "project_finish": result.project_finish,
+        "summary": result.summary,
+        "wbs_count": len(result.wbs_tree),
+        "relationship_count": len(result.relationships),
+        "critical_activities": [
+            {
+                "task_code": a.task_code,
+                "task_name": a.task_name,
+                "duration_days": a.duration_days,
+                "total_float_days": a.total_float_days,
+            }
+            for a in result.activities
+            if a.is_critical
+        ][:20],
+        "negative_float_activities": [
+            {
+                "task_code": a.task_code,
+                "task_name": a.task_name,
+                "total_float_days": a.total_float_days,
+            }
+            for a in result.activities
+            if a.total_float_days < 0
+        ][:10],
+    }
+    return json.dumps(_serialize(summary))
 
 
 # ── Entry point ──

@@ -10,6 +10,7 @@
 		showBaseline?: boolean;
 		showDependencies?: boolean;
 		criticalOnly?: boolean;
+		onActivityClick?: (taskId: string) => void;
 	}
 
 	let {
@@ -18,6 +19,7 @@
 		showBaseline = true,
 		showDependencies = false,
 		criticalOnly = false,
+		onActivityClick,
 	}: Props = $props();
 
 	// Filter activities if criticalOnly
@@ -184,6 +186,7 @@
 				{showFloat}
 				{showBaseline}
 				onHover={handleHover}
+				onClick={onActivityClick}
 			/>
 		</div>
 	</div>
