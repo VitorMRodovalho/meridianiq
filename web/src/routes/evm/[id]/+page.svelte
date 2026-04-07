@@ -78,6 +78,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>EVM Analysis | MeridianIQ</title>
+</svelte:head>
+
 {#if loading}
 	<div class="p-8 text-center text-gray-500 dark:text-gray-400">Loading analysis...</div>
 {:else if error}

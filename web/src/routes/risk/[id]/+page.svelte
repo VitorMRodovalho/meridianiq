@@ -123,6 +123,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Risk Simulation | MeridianIQ</title>
+</svelte:head>
+
 <div class="p-8 max-w-7xl mx-auto">
 	<div class="mb-6">
 		<a href="/risk" class="text-blue-600 hover:text-blue-800 text-sm">&larr; Back to Simulations</a>

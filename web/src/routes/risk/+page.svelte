@@ -88,6 +88,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Risk (QSRA) | MeridianIQ</title>
+</svelte:head>
+
 <div class="p-8 max-w-6xl mx-auto">
 	<div class="mb-8">
 		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Risk Analysis (QSRA)</h1>
