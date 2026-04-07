@@ -176,10 +176,9 @@ test.describe('Docs page sections', () => {
 });
 
 test.describe('Sidebar navigation', () => {
-  test('has Intelligence section links', async ({ page }) => {
+  test('Intelligence section hidden when unauthenticated', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Scorecard' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'What-If' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Schedule Builder' })).toBeVisible();
+    // Auth-required sections are hidden for unauthenticated users
+    await expect(page.locator('aside').getByText('Intelligence')).not.toBeVisible();
   });
 });

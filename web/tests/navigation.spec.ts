@@ -3,12 +3,15 @@ import { test, expect } from '@playwright/test';
 test.describe('Navigation (desktop)', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test('sidebar has all nav links', async ({ page }) => {
+  test('sidebar has public nav links (unauthenticated)', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('aside');
-    for (const label of ['Dashboard', 'Upload', 'Projects', 'Compare', 'Forensic', 'TIA', 'Contract', 'EVM', 'Risk', 'IPS Reconcile', 'Recovery', 'Value Milestones', 'Organizations', 'Settings']) {
+    for (const label of ['Dashboard', 'Upload', 'Projects', 'Settings']) {
       await expect(sidebar.getByText(label, { exact: true })).toBeVisible();
     }
+    // Auth-required sections should be hidden
+    await expect(sidebar.getByText('Analysis')).not.toBeVisible();
+    await expect(sidebar.getByText('Intelligence')).not.toBeVisible();
   });
 
   test('sidebar shows MeridianIQ branding', async ({ page }) => {
