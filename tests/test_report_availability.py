@@ -79,7 +79,16 @@ class TestAvailableReports:
         data = resp.json()
 
         types = {r["type"] for r in data["reports"]}
-        expected = {"health", "dcma", "comparison", "evm", "risk", "monthly_review", "calendar", "attribution"}
+        expected = {
+            "health",
+            "dcma",
+            "comparison",
+            "evm",
+            "risk",
+            "monthly_review",
+            "calendar",
+            "attribution",
+        }
         assert expected == types
 
     def test_available_reports_project_not_found(self, client: TestClient) -> None:
