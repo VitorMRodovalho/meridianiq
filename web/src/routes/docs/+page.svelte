@@ -22,6 +22,7 @@
 		{ id: 'delay', title: 'Delay & Duration Prediction' },
 		{ id: 'pareto', title: 'Pareto Trade-Off Analysis' },
 		{ id: 'visualization', title: '4D Visualization' },
+		{ id: 'schedule', title: 'Schedule Viewer' },
 		{ id: 'optimizer', title: 'Schedule Optimizer' },
 		{ id: 'reports', title: 'Reports Hub' },
 		{ id: 'export', title: 'XER Export' },
@@ -327,6 +328,27 @@
 				<li><span class="text-gray-400 font-bold">Gray</span> — Not started</li>
 				<li><span class="text-purple-400 font-bold">Purple</span> — High float (&gt;44 days)</li>
 			</ul>
+
+		{:else if activeSection === 'schedule'}
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Schedule Viewer</h1>
+			<p class="text-gray-600 mb-4">Interactive Gantt chart for P6 schedules with WBS hierarchy, baseline comparison, float visualization, and dependency lines.</p>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Features</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+				<li><strong>WBS Tree</strong> — Collapsible work breakdown structure with activity counts</li>
+				<li><strong>Gantt Bars</strong> — Color-coded by status (critical, active, complete, not started)</li>
+				<li><strong>Progress Overlay</strong> — Physical % complete as filled portion of bar</li>
+				<li><strong>Milestones</strong> — Diamond shapes for finish milestones</li>
+				<li><strong>Date Axis</strong> — Day/Week/Month zoom levels with data date marker</li>
+				<li><strong>Baseline Bars</strong> — Gray dashed bars below current bars showing planned dates</li>
+				<li><strong>Float Bars</strong> — Amber bars extending from early finish to late finish</li>
+				<li><strong>Sliding Right</strong> — Amber arrow indicator for delayed activities</li>
+				<li><strong>Dependency Lines</strong> — SVG bezier curves (FS/FF/SS/SF) with arrow heads</li>
+				<li><strong>Critical Path Filter</strong> — Toggle to show only critical activities</li>
+				<li><strong>Search</strong> — Filter activities by name, code, or ID</li>
+				<li><strong>Activity Table</strong> — Collapsible tabular view with 11 columns</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Usage</h2>
+			<p class="text-gray-600 text-sm">Navigate to <strong>/schedule</strong>, select a project, optionally select a baseline for comparison, and click "View Schedule". Use the toolbar to zoom, search, toggle overlays, and expand/collapse the WBS hierarchy.</p>
 
 		{:else if activeSection === 'optimizer'}
 			<h1 class="text-2xl font-bold text-gray-900 mb-4">Schedule Optimizer</h1>
