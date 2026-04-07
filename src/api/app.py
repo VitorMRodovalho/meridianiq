@@ -3261,6 +3261,77 @@ def get_schedule_trends(
     }
 
 
+@app.get("/api/v1/projects/{project_id}/narrative")
+def get_narrative_report(
+    project_id: str,
+    baseline_id: str | None = None,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Generate a narrative schedule status report.
+
+    Combines schedule metrics, scorecard, and optional comparison into
+    structured text sections for claims documentation or status reports.
+
+    Reference: AACE RP 29R-03 — Forensic Schedule Analysis.
+    """
+    from dataclasses import asdict as _asdict
+
+    from src.analytics.narrative_report import generate_schedule_narrative
+    from src.analytics.scorecard import calculate_scorecard
+
+    store = get_store()
+    user_id = _user["id"] if _user else None
+    schedule = store.get(project_id, user_id=user_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Build schedule view for summary
+    view = build_schedule_view(schedule)
+
+    # Scorecard
+    scorecard_data = None
+    try:
+        sc = calculate_scorecard(schedule)
+        scorecard_data = _asdict(sc)
+    except Exception:
+        pass
+
+    # Comparison (if baseline provided)
+    comparison_data = None
+    if baseline_id:
+        baseline = store.get(baseline_id, user_id=user_id)
+        if baseline:
+            try:
+                comp = ScheduleComparison(baseline, schedule)
+                comparison_data = comp.compare()
+            except Exception:
+                pass
+
+    report = generate_schedule_narrative(
+        project_name=view.project_name,
+        data_date=view.data_date,
+        summary=view.summary,
+        scorecard=scorecard_data,
+        comparison=comparison_data,
+    )
+
+    return {
+        "title": report.title,
+        "project_name": report.project_name,
+        "data_date": report.data_date,
+        "generated_at": report.generated_at,
+        "executive_summary": report.executive_summary,
+        "sections": [
+            {
+                "title": s.title,
+                "content": s.content,
+                "severity": s.severity,
+            }
+            for s in report.sections
+        ],
+    }
+
+
 @app.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
     project_id: str,
