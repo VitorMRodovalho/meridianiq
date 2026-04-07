@@ -118,27 +118,40 @@ Testing with 3 sequential MPS updates:
 
 ---
 
-## 5. Risk & Compliance Assessment
+## 5. Security & Compliance Audit (Agent-Assisted)
 
-### Security
-- [ ] CORS: Currently using wildcard in development — production should whitelist domains
-- [ ] Auth: `optional_auth` on upload endpoint — allows anonymous uploads
-- [ ] File upload: 50MB limit, type validation (XER/XML only) ✅
-- [ ] Rate limiting: slowapi configured ✅
-- [ ] No SQL injection risk — Supabase client abstraction ✅
-- [ ] No XSS risk — Svelte auto-escapes by default ✅
+### HIGH Severity (Fix Before Production)
 
-### Compliance
-- [ ] MIT license — need to verify all dependencies are compatible
-- [ ] GDPR: Soft-delete migration exists (014) ✅
-- [ ] No client names in code — confirmed via grep ✅
-- [ ] Academic citations in engine docstrings — need to verify completeness
+1. **CORS Exception Handler Bypass** — Global exception handler returns `Access-Control-Allow-Origin: *` on all 5xx errors, bypassing the whitelist (`src/api/app.py:234-245`). Fix: remove wildcard headers, let CORS middleware handle all responses.
 
-### Governance
-- [ ] CHANGELOG.md exists but may be outdated
-- [ ] BUGS.md updated this session ✅
-- [ ] No formal release process (no git tags for v3.3.0)
-- [ ] No CONTRIBUTING.md or CODE_OF_CONDUCT.md
+2. **API Key Storage In-Memory** — `_api_keys` dict resets on every restart (`src/api/auth.py:160`). Fix: migrate to Supabase `api_keys` table.
+
+3. **Rate Limiting Not Applied** — `slowapi` Limiter instantiated but NO endpoints decorated with `@limiter.limit()`. Fix: apply decorators to upload, auth, compute-heavy endpoints.
+
+### MEDIUM Severity
+
+4. **Error Messages Leak Internal State** — `{"detail": str(exc)}` in global handler could expose paths, SQL errors. Fix: return generic message in production.
+
+5. **GDPR Deletion Silent Failure** — Fallback deletes use `except: pass` without logging. Fix: log failures, return partial success status.
+
+6. **API Key Ownership Not Verified** — No check that authenticated user owns the key during revocation.
+
+### PASSING ✅
+
+- **No hardcoded secrets** — all from env vars
+- **No SQL injection** — Supabase client only, parameterized
+- **No XSS** — Svelte auto-escape, no `{@html}` usage
+- **MIT license compliant** — no GPL dependencies
+- **File upload validated** — type whitelist, 50MB limit, empty check
+- **No client data in code** — test fixtures synthetic
+- **Academic citations present** — all engines cite standards
+- **GDPR deletion workflow exists** — cascade deletes via RPC
+
+### Frontend Type Safety Issues
+
+- **15+ pages use `any` types** without guards (evm, risk, demo, settings, programs, milestones)
+- **Upload drop zone not keyboard accessible** — has `role="button"` but no `tabindex="0"`
+- **Home page error handling** — sets `error = ''` in catch but still displays it
 
 ---
 

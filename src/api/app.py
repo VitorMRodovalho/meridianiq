@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 import os
 import tempfile
 from dataclasses import asdict
@@ -175,6 +176,8 @@ from .auth import optional_auth, require_auth
 from .storage import EVMStore, ProjectStore, ReportStore, RiskStore, TIAStore, TimelineStore
 from src.database.store import get_store as _get_db_store
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
@@ -233,16 +236,16 @@ app.include_router(org_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Catch-all exception handler that ensures CORS headers on error responses."""
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc)},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
-        },
-    )
+    """Catch-all exception handler — returns generic message in production.
+
+    CORS headers are handled by CORSMiddleware; no wildcard override here.
+    """
+    import os
+
+    is_dev = os.getenv("ENVIRONMENT", "development") == "development"
+    detail = str(exc) if is_dev else "Internal server error"
+    logger.error("Unhandled exception: %s", exc, exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 
 # Global stores (singletons for the app lifetime)

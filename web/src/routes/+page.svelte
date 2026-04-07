@@ -55,8 +55,8 @@
 					// Skip projects where health calc fails
 				}
 			}
-		} catch {
-			error = '';
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to connect to backend';
 		} finally {
 			loading = false;
 		}

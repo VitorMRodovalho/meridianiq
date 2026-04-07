@@ -76,6 +76,8 @@
 		ondragover={handleDragOver}
 		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
+		onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('xer-file')?.click(); }}}
+		aria-label="Drop XER file here or press Enter to browse"
 	>
 		{#if loading}
 			<div class="flex flex-col items-center gap-3">
