@@ -39,6 +39,7 @@
 	import { daysBetween } from './utils';
 
 	const ROW_HEIGHT = 24;
+	let viewerHeight = $state(500);
 
 	// State
 	let collapsedWbs = $state<Set<string>>(new Set());
@@ -159,6 +160,14 @@
 				</button>
 			{/each}
 			<span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+			<!-- Height controls -->
+			<button onclick={() => viewerHeight = Math.max(300, viewerHeight - 100)} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Shorter" aria-label="Shorter">
+				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+			</button>
+			<button onclick={() => viewerHeight = Math.min(900, viewerHeight + 100)} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Taller" aria-label="Taller">
+				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+			</button>
+			<span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
 			<!-- Expand/Collapse -->
 			<button onclick={expandAll} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Expand All">
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +183,7 @@
 	</div>
 
 	<!-- Main content: WBS Tree (left) + Gantt (right) -->
-	<div class="flex" style="height: 500px;">
+	<div class="flex" style="height: {viewerHeight}px;">
 		<!-- WBS Tree -->
 		<WBSTree
 			activities={searchFilteredData.activities}
