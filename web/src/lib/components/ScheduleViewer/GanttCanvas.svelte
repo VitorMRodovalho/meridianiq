@@ -225,8 +225,8 @@
 
 					<!-- Native SVG tooltip -->
 					<title>{act.task_code} — {act.task_name}
-Duration: {act.duration_days}d | Float: {act.total_float_days}d | Progress: {act.progress_pct}%
-{act.early_start} → {act.early_finish}{act.is_critical ? ' | CRITICAL' : ''}</title>
+Duration: {act.duration_days}d | Remaining: {act.remaining_days}d | TF: {act.total_float_days}d | FF: {act.free_float_days}d | Progress: {act.progress_pct}%
+ES: {act.early_start} → EF: {act.early_finish}{act.actual_start ? ` | AS: ${act.actual_start}` : ''}{act.actual_finish ? ` | AF: ${act.actual_finish}` : ''}{act.is_critical ? ' | CRITICAL' : ''}</title>
 
 					<!-- Bar border -->
 					<rect
