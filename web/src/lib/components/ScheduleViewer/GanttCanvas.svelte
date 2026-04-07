@@ -223,6 +223,29 @@
 						/>
 					{/if}
 
+					<!-- Actual completion bar (solid green for complete activities) -->
+					{#if act.actual_start && act.actual_finish && act.status === 'complete'}
+						{@const acx = xPos(act.actual_start)}
+						{@const acw = Math.max(2, xPos(act.actual_finish) - acx)}
+						<rect
+							x={acx} y={y + BAR_PAD + BAR_H - 3}
+							width={acw} height={3}
+							rx="1" fill="#10b981" opacity="0.9"
+						/>
+					{/if}
+
+					<!-- Actual progress bar (green, shows actual_start → proportional progress) -->
+					{#if act.actual_start && act.status === 'active' && act.progress_pct > 0}
+						{@const ax = xPos(act.actual_start)}
+						{@const plannedW = Math.max(2, xPos(act.early_finish) - xPos(act.early_start))}
+						{@const actualW = Math.max(2, plannedW * (act.progress_pct / 100))}
+						<rect
+							x={ax} y={y + BAR_PAD + BAR_H - 3}
+							width={actualW} height={3}
+							rx="1" fill="#10b981" opacity="0.7"
+						/>
+					{/if}
+
 					<!-- Native SVG tooltip -->
 					<title>{act.task_code} — {act.task_name}
 Duration: {act.duration_days}d | Remaining: {act.remaining_days}d | TF: {act.total_float_days}d | FF: {act.free_float_days}d | Progress: {act.progress_pct}%
