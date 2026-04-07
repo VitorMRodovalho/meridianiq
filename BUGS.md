@@ -10,9 +10,9 @@ Bug tracking and feature backlog for MeridianIQ.
 |----|-------------|----------|-------|
 | BUG-020 | ~~Schedule Viewer: WBS tree not showing level names/path~~ — fixed: full path in tooltip, numeric-only codes filtered | ~~Medium~~ | v3.3.0 |
 | BUG-021 | ~~Schedule Viewer: date axis labels overlap on day zoom~~ — fixed: min 48px spacing, adaptive label format | ~~Medium~~ | v3.3.0 |
-| BUG-022 | Schedule Viewer: dependency lines route to hidden rows when WBS collapsed | Low | v3.2.0 |
-| BUG-023 | /programs route exists but missing from sidebar navigation | Low | v3.2.0 |
-| BUG-024 | /demo route not discoverable from sidebar | Low | v3.2.0 |
+| BUG-022 | ~~Schedule Viewer: dependency lines to hidden rows~~ — fixed by virtual scrolling (collapsed rows not in index) | ~~Low~~ | v3.3.0 |
+| BUG-023 | ~~`/programs` missing from sidebar~~ — fixed: added to Enterprise section + index page | ~~Low~~ | v3.3.0 |
+| BUG-024 | `/demo` already in sidebar (Getting Started section) — was false report | N/A | v3.2.0 |
 
 ---
 

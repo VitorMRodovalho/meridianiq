@@ -569,11 +569,11 @@
 										{#each preds as rel}
 											{@const predAct = data.activities.find(a2 => a2.task_id === rel.from_id)}
 											{#if predAct}
-												<p class="text-[9px] text-gray-600 dark:text-gray-400 truncate">
-													<span class="font-mono text-gray-400">{rel.type}</span>
-													{#if rel.lag_days !== 0}<span class="text-amber-500">+{rel.lag_days}d</span>{/if}
-													{predAct.task_code} — {predAct.task_name}
-												</p>
+												<button type="button" onclick={() => selectedActivity = predAct} class="block w-full text-left text-[9px] text-gray-600 dark:text-gray-400 truncate hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
+													<span class="font-mono px-1 py-0.5 rounded {rel.is_driving ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : 'text-gray-400'}">{rel.type}</span>
+													{#if rel.lag_days !== 0}<span class="text-amber-500 font-mono">{rel.lag_days > 0 ? '+' : ''}{rel.lag_days}d</span>{/if}
+													<span class="font-mono text-gray-400">{predAct.task_code}</span> {predAct.task_name}
+												</button>
 											{/if}
 										{/each}
 									</div>
@@ -586,11 +586,11 @@
 										{#each succs as rel}
 											{@const succAct = data.activities.find(a2 => a2.task_id === rel.to_id)}
 											{#if succAct}
-												<p class="text-[9px] text-gray-600 dark:text-gray-400 truncate">
-													<span class="font-mono text-gray-400">{rel.type}</span>
-													{#if rel.lag_days !== 0}<span class="text-amber-500">+{rel.lag_days}d</span>{/if}
-													{succAct.task_code} — {succAct.task_name}
-												</p>
+												<button type="button" onclick={() => selectedActivity = succAct} class="block w-full text-left text-[9px] text-gray-600 dark:text-gray-400 truncate hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">
+													<span class="font-mono px-1 py-0.5 rounded {rel.is_driving ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : 'text-gray-400'}">{rel.type}</span>
+													{#if rel.lag_days !== 0}<span class="text-amber-500 font-mono">{rel.lag_days > 0 ? '+' : ''}{rel.lag_days}d</span>{/if}
+													<span class="font-mono text-gray-400">{succAct.task_code}</span> {succAct.task_name}
+												</button>
 											{/if}
 										{/each}
 									</div>
