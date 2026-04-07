@@ -145,6 +145,13 @@
 	{#each visibleRows as row, i}
 		{@const y = HEADER_H + i * rowHeight}
 
+		<!-- SVG pattern for LOE activities -->
+		<defs>
+			<pattern id="loe-pattern" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+				<line x1="0" y1="0" x2="0" y2="6" stroke="#9ca3af" stroke-width="1.5" opacity="0.4" />
+			</pattern>
+		</defs>
+
 		{#if row.type === 'wbs' && row.wbsNode}
 			<!-- WBS summary row background -->
 			<rect x="0" {y} width={WIDTH} height={rowHeight} fill="#f9fafb" opacity="0.5" class="dark:fill-gray-800" />
@@ -202,11 +209,17 @@
 					class="cursor-pointer"
 				>
 					<!-- Background bar (full duration) -->
-					<rect
-						x={x} y={y + BAR_PAD}
-						width={w} height={BAR_H}
-						rx="2" fill={color} opacity="0.2"
-					/>
+					{#if act.task_type === 'loe'}
+						<!-- LOE: hatched pattern -->
+						<rect x={x} y={y + BAR_PAD} width={w} height={BAR_H} rx="2" fill="url(#loe-pattern)" />
+						<rect x={x} y={y + BAR_PAD} width={w} height={BAR_H} rx="2" fill="none" stroke="#9ca3af" stroke-width="0.5" stroke-dasharray="4 2" />
+					{:else}
+						<rect
+							x={x} y={y + BAR_PAD}
+							width={w} height={BAR_H}
+							rx="2" fill={color} opacity="0.2"
+						/>
+					{/if}
 
 					<!-- Progress fill -->
 					{#if act.progress_pct > 0}

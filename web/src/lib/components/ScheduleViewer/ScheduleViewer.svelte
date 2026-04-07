@@ -256,6 +256,7 @@
 		<span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm bg-gray-400"></span> Not Started</span>
 		<span class="flex items-center gap-1"><span class="w-2 h-2 rotate-45 bg-amber-500"></span> Milestone</span>
 		<span class="flex items-center gap-1"><span class="w-3 h-1 rounded-sm bg-green-500 opacity-80"></span> Actual</span>
+		<span class="flex items-center gap-1"><span class="w-3 h-2 rounded-sm border border-dashed border-gray-400 bg-gray-100"></span> LOE</span>
 		{#if showBaseline}
 			<span class="flex items-center gap-1"><span class="w-3 h-1.5 rounded-sm bg-gray-400 opacity-50 border border-dashed border-gray-500"></span> Baseline</span>
 		{/if}
