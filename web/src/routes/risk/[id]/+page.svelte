@@ -129,13 +129,13 @@
 	</div>
 
 	{#if loading}
-		<div class="text-center text-gray-500 py-12">Loading simulation...</div>
+		<div class="text-center text-gray-500 dark:text-gray-400 py-12">Loading simulation...</div>
 	{:else if error}
-		<div class="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
 	{:else}
 		<div class="mb-6">
-			<h1 class="text-2xl font-bold text-gray-900">{projectName} - Risk Simulation</h1>
-			<p class="text-gray-500 mt-1">{simulationId} &middot; {iterations.toLocaleString()} iterations</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{projectName} - Risk Simulation</h1>
+			<p class="text-gray-500 dark:text-gray-400 mt-1">{simulationId} &middot; {iterations.toLocaleString()} iterations</p>
 		</div>
 
 		<!-- P-Value Summary Cards -->
@@ -143,10 +143,10 @@
 			{#each [10, 50, 80, 90] as pct}
 				{@const pv = getPValue(pct)}
 				{#if pv}
-					<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-						<div class="text-xs font-medium text-gray-500 uppercase">P{pct}</div>
-						<div class="text-2xl font-bold text-gray-900 mt-1">{pv.duration_days.toFixed(1)}d</div>
-						<div class="text-sm mt-1 {pv.delta_days > 0 ? 'text-red-600' : pv.delta_days < 0 ? 'text-green-600' : 'text-gray-500'}">
+					<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+						<div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">P{pct}</div>
+						<div class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{pv.duration_days.toFixed(1)}d</div>
+						<div class="text-sm mt-1 {pv.delta_days > 0 ? 'text-red-600' : pv.delta_days < 0 ? 'text-green-600' : 'text-gray-500 dark:text-gray-400'}">
 							{pv.delta_days > 0 ? '+' : ''}{pv.delta_days.toFixed(1)}d vs deterministic
 						</div>
 					</div>
@@ -156,23 +156,23 @@
 
 		<!-- Statistics -->
 		<div class="grid grid-cols-3 gap-4 mb-8">
-			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-				<div class="text-xs font-medium text-gray-500 uppercase">Deterministic</div>
-				<div class="text-xl font-bold text-gray-900 mt-1">{deterministicDays.toFixed(1)} days</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+				<div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deterministic</div>
+				<div class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{deterministicDays.toFixed(1)} days</div>
 			</div>
-			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-				<div class="text-xs font-medium text-gray-500 uppercase">Mean</div>
-				<div class="text-xl font-bold text-gray-900 mt-1">{meanDays.toFixed(1)} days</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+				<div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Mean</div>
+				<div class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{meanDays.toFixed(1)} days</div>
 			</div>
-			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-				<div class="text-xs font-medium text-gray-500 uppercase">Std Dev</div>
-				<div class="text-xl font-bold text-gray-900 mt-1">{stdDays.toFixed(2)} days</div>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+				<div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Std Dev</div>
+				<div class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stdDays.toFixed(2)} days</div>
 			</div>
 		</div>
 
 		<!-- Histogram -->
-		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Completion Duration Distribution</h2>
+		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Completion Duration Distribution</h2>
 			<svg viewBox="0 0 {W} {H}" class="w-full" style="max-height: 350px;">
 				<!-- Bars -->
 				{#each histogramBars() as bar}
@@ -212,10 +212,10 @@
 		</div>
 
 		<!-- Tornado Diagram -->
-		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Sensitivity (Tornado Diagram)</h2>
+		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Sensitivity (Tornado Diagram)</h2>
 			{#if sensitivity.length === 0}
-				<p class="text-gray-500 text-sm">No sensitivity data available.</p>
+				<p class="text-gray-500 dark:text-gray-400 text-sm">No sensitivity data available.</p>
 			{:else}
 				<svg viewBox="0 0 {W} {Math.max(H, 50 + sensitivity.slice(0, 15).length * 25)}" class="w-full" style="max-height: 450px;">
 					<!-- Center line -->
@@ -248,26 +248,26 @@
 		</div>
 
 		<!-- Criticality Index Table -->
-		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Criticality Index</h2>
+		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Criticality Index</h2>
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200">
-					<thead class="bg-gray-50">
+					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Activity</th>
-							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-							<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Criticality %</th>
-							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-64">Bar</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Activity</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+							<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Criticality %</th>
+							<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-64">Bar</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200">
 						{#each criticality.filter(c => c.criticality_pct > 0) as c}
-							<tr class="hover:bg-gray-50">
-								<td class="px-4 py-2 text-sm font-mono text-gray-600">{c.activity_id}</td>
-								<td class="px-4 py-2 text-sm text-gray-900">{c.activity_name}</td>
-								<td class="px-4 py-2 text-sm text-right font-medium text-gray-900">{c.criticality_pct.toFixed(1)}%</td>
+							<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+								<td class="px-4 py-2 text-sm font-mono text-gray-600 dark:text-gray-400">{c.activity_id}</td>
+								<td class="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">{c.activity_name}</td>
+								<td class="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-gray-100">{c.criticality_pct.toFixed(1)}%</td>
 								<td class="px-4 py-2">
-									<div class="w-full bg-gray-100 rounded-full h-3">
+									<div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3">
 										<div
 											class="h-3 rounded-full {c.criticality_pct >= 80 ? 'bg-red-500' : c.criticality_pct >= 50 ? 'bg-orange-400' : 'bg-blue-400'}"
 											style="width: {Math.min(c.criticality_pct, 100)}%"
@@ -282,8 +282,8 @@
 		</div>
 
 		<!-- Cumulative S-Curve -->
-		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Cumulative Probability (S-Curve)</h2>
+		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Cumulative Probability (S-Curve)</h2>
 			<svg viewBox="0 0 {W} {H}" class="w-full" style="max-height: 350px;">
 				<!-- Grid lines -->
 				{#each [0.25, 0.5, 0.75, 1.0] as prob}

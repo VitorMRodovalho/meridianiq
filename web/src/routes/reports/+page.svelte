@@ -102,15 +102,15 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Reports Hub</h1>
-		<p class="text-gray-500 mt-1">Generate and download PDF reports for your project</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports Hub</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Generate and download PDF reports for your project</p>
 	</div>
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -127,28 +127,28 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
 
 	{#if reports.length > 0}
-		<div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-			<p class="text-sm text-gray-600">{readyCount} of {reports.length} reports ready for download</p>
+		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
+			<p class="text-sm text-gray-600 dark:text-gray-400">{readyCount} of {reports.length} reports ready for download</p>
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 			{#each reports as report}
-				<div class="bg-white rounded-lg border border-gray-200 p-5 flex flex-col">
+				<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-5 flex flex-col">
 					<div class="flex items-start gap-3 mb-3">
-						<div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 {report.ready ? 'bg-blue-100' : 'bg-gray-100'}">
+						<div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 {report.ready ? 'bg-blue-100' : 'bg-gray-100 dark:bg-gray-800'}">
 							<svg class="w-5 h-5 {report.ready ? 'text-blue-600' : 'text-gray-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={reportIcon(report.report_type)} />
 							</svg>
 						</div>
 						<div class="min-w-0">
-							<h3 class="text-sm font-semibold text-gray-900">{report.name}</h3>
-							<p class="text-xs text-gray-500 mt-0.5">{report.description}</p>
+							<h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{report.name}</h3>
+							<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{report.description}</p>
 						</div>
 					</div>
 					{#if report.ready}
@@ -171,7 +171,7 @@
 							{/if}
 						</button>
 					{:else}
-						<div class="mt-auto px-3 py-2 bg-gray-50 rounded-md text-xs text-gray-500 text-center">
+						<div class="mt-auto px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-md text-xs text-gray-500 dark:text-gray-400 text-center">
 							{report.reason}
 						</div>
 					{/if}

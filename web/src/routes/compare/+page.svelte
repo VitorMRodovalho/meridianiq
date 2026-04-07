@@ -56,23 +56,23 @@
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">
-	<h1 class="text-2xl font-bold text-gray-900 mb-6">Compare Schedules</h1>
+	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Compare Schedules</h1>
 
 	<!-- Selection -->
-	<div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
 		{#if projectsLoading}
-			<p class="text-gray-500">Loading projects...</p>
+			<p class="text-gray-500 dark:text-gray-400">Loading projects...</p>
 		{:else if projects.length < 2}
-			<p class="text-gray-500">Upload at least two XER files to compare schedules.</p>
+			<p class="text-gray-500 dark:text-gray-400">Upload at least two XER files to compare schedules.</p>
 			<a href="/upload" class="mt-3 inline-block text-sm text-blue-600 hover:underline">Upload XER File</a>
 		{:else}
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
 				<div>
-					<label for="baseline" class="block text-sm font-medium text-gray-700 mb-1">Baseline Schedule</label>
+					<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline Schedule</label>
 					<select
 						id="baseline"
 						bind:value={baselineId}
-						class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+						class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 					>
 						<option value="">Select baseline...</option>
 						{#each projects as p}
@@ -81,11 +81,11 @@
 					</select>
 				</div>
 				<div>
-					<label for="update" class="block text-sm font-medium text-gray-700 mb-1">Update Schedule</label>
+					<label for="update" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Update Schedule</label>
 					<select
 						id="update"
 						bind:value={updateId}
-						class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+						class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 					>
 						<option value="">Select update...</option>
 						{#each projects as p}
@@ -109,11 +109,11 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-6">{error}</div>
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-6">{error}</div>
 	{/if}
 
 	{#if loading}
-		<div class="flex items-center gap-2 text-gray-500">
+		<div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
 			<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
 			Running comparison analysis...
 		</div>
@@ -130,7 +130,7 @@
 				View in Schedule Viewer
 			</a>
 			{#if result.significant_float_changes.length > 0}
-				<span class="text-xs text-gray-500">
+				<span class="text-xs text-gray-500 dark:text-gray-400">
 					Float erosion: <strong class="text-red-600">{result.significant_float_changes.filter(f => f.direction === 'decreased').length}</strong> decreased,
 					<strong class="text-green-600">{result.significant_float_changes.filter(f => f.direction === 'increased').length}</strong> increased
 				</span>
@@ -139,30 +139,30 @@
 
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Changed</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Changed</p>
 				<p class="text-2xl font-bold {result.changed_percentage > 20 ? 'text-red-600' : result.changed_percentage > 5 ? 'text-yellow-600' : 'text-green-600'}">
 					{result.changed_percentage.toFixed(1)}%
 				</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Added</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Added</p>
 				<p class="text-2xl font-bold text-green-600">{result.activities_added.length}</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Deleted</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Deleted</p>
 				<p class="text-2xl font-bold text-red-600">{result.activities_deleted.length}</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Modified</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Modified</p>
 				<p class="text-2xl font-bold text-blue-600">{result.activity_modifications.length}</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Rel Added</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Rel Added</p>
 				<p class="text-2xl font-bold text-green-600">{result.relationships_added.length}</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">CP Changed</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">CP Changed</p>
 				<p class="text-lg font-bold {result.critical_path_changed ? 'text-red-600' : 'text-green-600'}">
 					{result.critical_path_changed ? 'YES' : 'NO'}
 				</p>
@@ -200,7 +200,7 @@
 
 		<!-- Match Method + Code Restructuring -->
 		{#if result.match_stats}
-			<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+			<div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg p-4 mb-6">
 				<h3 class="text-sm font-medium text-blue-800 mb-2">Matching Method</h3>
 				<div class="grid grid-cols-3 gap-4 text-sm">
 					<div>
@@ -225,7 +225,7 @@
 		{/if}
 
 		{#if result.code_restructuring && result.code_restructuring.length > 0}
-			<div class="border border-yellow-300 bg-yellow-50 rounded-lg p-4 mb-6">
+			<div class="border border-yellow-300 bg-yellow-50 dark:bg-yellow-950 rounded-lg p-4 mb-6">
 				<h3 class="text-sm font-medium text-yellow-800 mb-2">Schedule Restructuring Detected ({result.code_restructuring.length} code changes)</h3>
 				<div class="max-h-48 overflow-y-auto">
 					<table class="w-full text-xs">
@@ -244,7 +244,7 @@
 		{/if}
 
 		<!-- Manipulation Classification Banner -->
-		{@const classColor = result.manipulation_classification === 'red_flag' ? 'border-red-300 bg-red-50' : result.manipulation_classification === 'suspicious' ? 'border-yellow-300 bg-yellow-50' : 'border-green-300 bg-green-50'}
+		{@const classColor = result.manipulation_classification === 'red_flag' ? 'border-red-300 bg-red-50 dark:bg-red-950' : result.manipulation_classification === 'suspicious' ? 'border-yellow-300 bg-yellow-50 dark:bg-yellow-950' : 'border-green-300 bg-green-50 dark:bg-green-950'}
 		{@const classText = result.manipulation_classification === 'red_flag' ? 'text-red-800' : result.manipulation_classification === 'suspicious' ? 'text-yellow-800' : 'text-green-800'}
 		{@const classLabel = result.manipulation_classification === 'red_flag' ? 'RED FLAG' : result.manipulation_classification === 'suspicious' ? 'SUSPICIOUS' : 'NORMAL'}
 
@@ -265,7 +265,7 @@
 				{#if result.manipulation_score !== undefined}
 					<div class="text-right">
 						<p class="text-2xl font-bold {classText}">{result.manipulation_score}</p>
-						<p class="text-xs text-gray-500">Risk Score</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400">Risk Score</p>
 					</div>
 				{/if}
 			</div>
@@ -277,18 +277,18 @@
 			{#if result.manipulation_flags.length > 0}
 				<div class="space-y-3">
 					{#each result.manipulation_flags as flag}
-						<div class="bg-white rounded-lg border border-gray-200 p-4">
+						<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
 							<div class="flex items-center gap-2 mb-1">
 								<span class="text-xs font-bold px-2 py-0.5 rounded-full {flag.classification === 'red_flag' ? 'bg-red-200 text-red-800' : flag.classification === 'suspicious' ? 'bg-yellow-200 text-yellow-800' : 'bg-gray-200 text-gray-800'}">
 									{(flag.classification || flag.severity).toUpperCase().replace('_', ' ')}
 								</span>
-								<span class="text-sm font-medium text-gray-900">{flag.indicator}</span>
+								<span class="text-sm font-medium text-gray-900 dark:text-gray-100">{flag.indicator}</span>
 								{#if flag.score}
 									<span class="text-xs text-gray-400 ml-auto">Score: {flag.score}</span>
 								{/if}
 							</div>
-							<p class="text-sm text-gray-600">Activity: {flag.task_id} — {flag.task_name}</p>
-							<p class="text-sm text-gray-500 mt-1">{flag.description}</p>
+							<p class="text-sm text-gray-600 dark:text-gray-400">Activity: {flag.task_id} — {flag.task_name}</p>
+							<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{flag.description}</p>
 							{#if flag.rationale}
 								<p class="text-xs text-gray-400 mt-1 italic">{flag.rationale}</p>
 							{/if}
@@ -301,27 +301,27 @@
 		<!-- Detailed Changes -->
 
 		{#if result.activity_modifications.length > 0}
-			<details class="bg-white border border-gray-200 rounded-lg mb-4">
-				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 hover:bg-gray-50">
+			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					Activity Changes ({result.activity_modifications.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
-						<thead class="bg-gray-50">
+						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Change Type</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Old Value</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">New Value</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change Type</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Old Value</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">New Value</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each result.activity_modifications as change}
-								<tr class="hover:bg-gray-50">
-									<td class="px-4 py-2 font-medium text-gray-900">{change.task_id}</td>
-									<td class="px-4 py-2 text-gray-700">{change.task_name}</td>
-									<td class="px-4 py-2 text-gray-500">{change.change_type}</td>
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+									<td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{change.task_id}</td>
+									<td class="px-4 py-2 text-gray-700 dark:text-gray-300">{change.task_name}</td>
+									<td class="px-4 py-2 text-gray-500 dark:text-gray-400">{change.change_type}</td>
 									<td class="px-4 py-2 text-red-600">{change.old_value}</td>
 									<td class="px-4 py-2 text-green-600">{change.new_value}</td>
 								</tr>
@@ -333,20 +333,20 @@
 		{/if}
 
 		{#if result.duration_changes.length > 0}
-			<details class="bg-white border border-gray-200 rounded-lg mb-4">
-				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 hover:bg-gray-50">
+			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					Duration Changes ({result.duration_changes.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
-						<thead class="bg-gray-50">
+						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Old</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">New</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Delta</th>
-								<th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase w-32">Visual</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Old</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">New</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Delta</th>
+								<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-32">Visual</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -354,11 +354,11 @@
 								{@const oldVal = parseFloat(change.old_value)}
 								{@const newVal = parseFloat(change.new_value)}
 								{@const maxVal = Math.max(oldVal, newVal, 1)}
-								<tr class="hover:bg-gray-50">
-									<td class="px-4 py-2 font-medium text-gray-900">{change.task_id}</td>
-									<td class="px-4 py-2 text-gray-700">{change.task_name}</td>
-									<td class="px-4 py-2 text-right text-gray-500">{change.old_value}</td>
-									<td class="px-4 py-2 text-right text-gray-500">{change.new_value}</td>
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+									<td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{change.task_id}</td>
+									<td class="px-4 py-2 text-gray-700 dark:text-gray-300">{change.task_name}</td>
+									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">{change.old_value}</td>
+									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">{change.new_value}</td>
 									<td class="px-4 py-2 text-right font-medium {newVal > oldVal ? 'text-red-600' : 'text-green-600'}">
 										{(newVal - oldVal).toFixed(1)}
 									</td>
@@ -379,31 +379,31 @@
 		{/if}
 
 		{#if result.significant_float_changes.length > 0}
-			<details class="bg-white border border-gray-200 rounded-lg mb-4">
-				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 hover:bg-gray-50">
+			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					Float Changes ({result.significant_float_changes.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
-						<thead class="bg-gray-50">
+						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Old Float</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">New Float</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Delta</th>
-								<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Direction</th>
-								<th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase w-24">Erosion</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Old Float</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">New Float</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Delta</th>
+								<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Direction</th>
+								<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-24">Erosion</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each result.significant_float_changes as change}
 								{@const maxFloat = Math.max(Math.abs(change.old_float), Math.abs(change.new_float), 1)}
-								<tr class="hover:bg-gray-50 {change.delta < -5 ? 'bg-red-50' : ''}">
-									<td class="px-4 py-2 font-medium text-gray-900">{change.task_id}</td>
-									<td class="px-4 py-2 text-gray-700">{change.task_name}</td>
-									<td class="px-4 py-2 text-right text-gray-500">{change.old_float.toFixed(1)}</td>
-									<td class="px-4 py-2 text-right text-gray-500">{change.new_float.toFixed(1)}</td>
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 {change.delta < -5 ? 'bg-red-50 dark:bg-red-950' : ''}">
+									<td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{change.task_id}</td>
+									<td class="px-4 py-2 text-gray-700 dark:text-gray-300">{change.task_name}</td>
+									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">{change.old_float.toFixed(1)}</td>
+									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">{change.new_float.toFixed(1)}</td>
 									<td class="px-4 py-2 text-right font-medium {change.delta < 0 ? 'text-red-600' : 'text-green-600'}">{change.delta.toFixed(1)}</td>
 									<td class="px-4 py-2 text-center text-lg">{change.direction === 'decreased' ? '\u2193' : '\u2191'}</td>
 									<td class="px-4 py-2">
@@ -425,24 +425,24 @@
 				...result.relationships_deleted.map(r => ({ ...r, type: 'Deleted' })),
 				...result.relationships_modified.map(r => ({ ...r, type: 'Modified' }))
 			]}
-			<details class="bg-white border border-gray-200 rounded-lg mb-4">
-				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 hover:bg-gray-50">
+			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					Relationship Changes ({allRelChanges.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
-						<thead class="bg-gray-50">
+						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pred ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Change Type</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Pred ID</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change Type</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each allRelChanges as rel}
-								<tr class="hover:bg-gray-50">
-									<td class="px-4 py-2 font-medium text-gray-900">{rel.task_id}</td>
-									<td class="px-4 py-2 text-gray-700">{rel.pred_task_id}</td>
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+									<td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{rel.task_id}</td>
+									<td class="px-4 py-2 text-gray-700 dark:text-gray-300">{rel.pred_task_id}</td>
 									<td class="px-4 py-2">
 										<span class="px-2 py-0.5 rounded-full text-xs font-medium {rel.type === 'Added' ? 'bg-green-100 text-green-800' : rel.type === 'Deleted' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">
 											{rel.type}
@@ -457,25 +457,25 @@
 		{/if}
 
 		{#if result.constraint_changes.length > 0}
-			<details class="bg-white border border-gray-200 rounded-lg mb-4">
-				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 hover:bg-gray-50">
+			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					Constraint Changes ({result.constraint_changes.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
-						<thead class="bg-gray-50">
+						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Change Type</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change Type</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Details</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each result.constraint_changes as change}
-								<tr class="hover:bg-gray-50">
-									<td class="px-4 py-2 font-medium text-gray-900">{change.task_id}</td>
-									<td class="px-4 py-2 text-gray-700">{change.change_type}</td>
-									<td class="px-4 py-2 text-gray-500">{change.old_value} {change.new_value ? `\u2192 ${change.new_value}` : ''}</td>
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+									<td class="px-4 py-2 font-medium text-gray-900 dark:text-gray-100">{change.task_id}</td>
+									<td class="px-4 py-2 text-gray-700 dark:text-gray-300">{change.change_type}</td>
+									<td class="px-4 py-2 text-gray-500 dark:text-gray-400">{change.old_value} {change.new_value ? `\u2192 ${change.new_value}` : ''}</td>
 								</tr>
 							{/each}
 						</tbody>

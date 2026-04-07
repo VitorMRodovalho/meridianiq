@@ -136,7 +136,7 @@
 	</div>
 
 	{#if loading}
-		<div class="flex items-center gap-2 text-gray-500">
+		<div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
 			<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"
 				><circle
 					class="opacity-25"
@@ -155,46 +155,46 @@
 			Loading forensic timeline...
 		</div>
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 text-sm text-red-700">{error}</div>
 	{:else if timeline}
-		<h1 class="text-2xl font-bold text-gray-900 mb-1">
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
 			{timeline.project_name || 'Forensic Timeline'}
 		</h1>
-		<p class="text-sm text-gray-500 mb-6">{timeline.timeline_id}</p>
+		<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{timeline.timeline_id}</p>
 
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Total Delay</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Total Delay</p>
 				<p
 					class="text-2xl font-bold {timeline.total_delay_days > 0
 						? 'text-red-600'
 						: timeline.total_delay_days < 0
 							? 'text-green-600'
-							: 'text-gray-500'}"
+							: 'text-gray-500 dark:text-gray-400'}"
 				>
 					{timeline.total_delay_days > 0 ? '+' : ''}{timeline.total_delay_days.toFixed(0)}d
 				</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Windows</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Windows</p>
 				<p class="text-2xl font-bold text-blue-600">{timeline.windows.length}</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Contract End</p>
-				<p class="text-lg font-bold text-gray-700">{formatDate(timeline.contract_completion)}</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Contract End</p>
+				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{formatDate(timeline.contract_completion)}</p>
 			</div>
-			<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 uppercase">Current End</p>
-				<p class="text-lg font-bold text-gray-700">{formatDate(timeline.current_completion)}</p>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Current End</p>
+				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{formatDate(timeline.current_completion)}</p>
 			</div>
 		</div>
 
 		<!-- Delay Waterfall Chart -->
 		{#if timeline.windows.length > 0}
 			{@const bars = getWaterfallBars(timeline.windows)}
-			<div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-				<h2 class="text-lg font-semibold text-gray-900 mb-4">Delay Waterfall</h2>
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Delay Waterfall</h2>
 				<div class="overflow-x-auto">
 					<svg
 						viewBox="0 0 {chartWidth} {chartHeight + 40}"
@@ -262,12 +262,12 @@
 		<!-- Bifurcation Chart (MIP 3.4) -->
 		{#if hasBifurcation && timeline.windows.length > 0}
 			{@const bifBars = getBifurcationBars(timeline.windows)}
-			<div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-				<h2 class="text-lg font-semibold text-gray-900 mb-1">Half-Step Bifurcation</h2>
-				<p class="text-xs text-gray-500 mb-4">
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Half-Step Bifurcation</h2>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
 					AACE RP 29R-03 MIP 3.4 — Progress effect vs revision effect per window
 				</p>
-				<div class="flex items-center gap-4 text-xs text-gray-600 mb-3">
+				<div class="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400 mb-3">
 					<span class="flex items-center gap-1">
 						<span class="inline-block w-3 h-3 rounded" style="background:#3b82f6"></span>
 						Progress
@@ -352,20 +352,20 @@
 				{#if timeline.summary?.bifurcated}
 					<div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
 						<div class="text-center">
-							<p class="text-xs text-gray-500">Total Progress Effect</p>
+							<p class="text-xs text-gray-500 dark:text-gray-400">Total Progress Effect</p>
 							<p class="text-lg font-bold text-blue-600">
 								{Number(timeline.summary.total_progress_delay_days ?? 0) > 0 ? '+' : ''}{Number(timeline.summary.total_progress_delay_days ?? 0).toFixed(1)}d
 							</p>
 						</div>
 						<div class="text-center">
-							<p class="text-xs text-gray-500">Total Revision Effect</p>
+							<p class="text-xs text-gray-500 dark:text-gray-400">Total Revision Effect</p>
 							<p class="text-lg font-bold text-amber-600">
 								{Number(timeline.summary.total_revision_delay_days ?? 0) > 0 ? '+' : ''}{Number(timeline.summary.total_revision_delay_days ?? 0).toFixed(1)}d
 							</p>
 						</div>
 						<div class="text-center">
-							<p class="text-xs text-gray-500">Methodology</p>
-							<p class="text-xs font-medium text-gray-700">MIP 3.4</p>
+							<p class="text-xs text-gray-500 dark:text-gray-400">Methodology</p>
+							<p class="text-xs font-medium text-gray-700 dark:text-gray-300">MIP 3.4</p>
 						</div>
 					</div>
 				{/if}
@@ -373,27 +373,27 @@
 		{/if}
 
 		<!-- Window Table -->
-		<div class="bg-white border border-gray-200 rounded-lg">
-			<div class="px-6 py-4 border-b border-gray-200">
-				<h2 class="text-lg font-semibold text-gray-900">Analysis Windows</h2>
+		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
+			<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Analysis Windows</h2>
 			</div>
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200 text-sm">
-					<thead class="bg-gray-50">
+					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Window</th
 							>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Period</th
 							>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Completion Start</th
 							>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Completion End</th
 							>
-							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Delay</th
 							>
 							{#if hasBifurcation}
@@ -404,10 +404,10 @@
 									>Revision</th
 								>
 							{/if}
-							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Cumulative</th
 							>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Driving Activity</th
 							>
 						</tr>
@@ -415,17 +415,17 @@
 					<tbody class="divide-y divide-gray-200">
 						{#each timeline.windows as w}
 							<tr
-								class="hover:bg-gray-50 cursor-pointer"
+								class="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
 								onclick={() => toggleWindow(w.window_number)}
 							>
-								<td class="px-4 py-3 font-medium text-gray-900">{w.window_id}</td>
-								<td class="px-4 py-3 text-gray-700"
+								<td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{w.window_id}</td>
+								<td class="px-4 py-3 text-gray-700 dark:text-gray-300"
 									>{formatDate(w.start_date)} - {formatDate(w.end_date)}</td
 								>
-								<td class="px-4 py-3 text-gray-500"
+								<td class="px-4 py-3 text-gray-500 dark:text-gray-400"
 									>{formatDate(w.completion_date_start)}</td
 								>
-								<td class="px-4 py-3 text-gray-500"
+								<td class="px-4 py-3 text-gray-500 dark:text-gray-400"
 									>{formatDate(w.completion_date_end)}</td
 								>
 								<td
@@ -433,7 +433,7 @@
 										? 'text-red-600'
 										: w.delay_days < 0
 											? 'text-green-600'
-											: 'text-gray-500'}"
+											: 'text-gray-500 dark:text-gray-400'}"
 								>
 									{w.delay_days > 0 ? '+' : ''}{w.delay_days.toFixed(0)}d
 								</td>
@@ -458,18 +458,18 @@
 										? 'text-red-600'
 										: w.cumulative_delay < 0
 											? 'text-green-600'
-											: 'text-gray-500'}"
+											: 'text-gray-500 dark:text-gray-400'}"
 								>
 									{w.cumulative_delay > 0 ? '+' : ''}{w.cumulative_delay.toFixed(0)}d
 								</td>
-								<td class="px-4 py-3 font-mono text-gray-700">{w.driving_activity}</td>
+								<td class="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{w.driving_activity}</td>
 							</tr>
 							{#if expandedWindow === w.window_number}
 								<tr>
-									<td colspan={hasBifurcation ? 9 : 7} class="px-6 py-4 bg-gray-50">
+									<td colspan={hasBifurcation ? 9 : 7} class="px-6 py-4 bg-gray-50 dark:bg-gray-800">
 										<div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 											<div>
-												<h4 class="font-medium text-gray-900 mb-2">
+												<h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">
 													Critical Path Changes
 												</h4>
 												{#if w.cp_activities_joined.length > 0}
@@ -483,17 +483,17 @@
 													</p>
 												{/if}
 												{#if w.cp_activities_joined.length === 0 && w.cp_activities_left.length === 0}
-													<p class="text-gray-500">
+													<p class="text-gray-500 dark:text-gray-400">
 														No critical path changes
 													</p>
 												{/if}
 											</div>
 											<div>
-												<h4 class="font-medium text-gray-900 mb-2">
+												<h4 class="font-medium text-gray-900 dark:text-gray-100 mb-2">
 													Comparison Summary
 												</h4>
 												{#if w.comparison_summary}
-													<div class="space-y-1 text-gray-600">
+													<div class="space-y-1 text-gray-600 dark:text-gray-400">
 														{#if w.comparison_summary.activities_added !== undefined}
 															<p>
 																Added: {w.comparison_summary.activities_added}
@@ -516,7 +516,7 @@
 														{/if}
 													</div>
 												{:else}
-													<p class="text-gray-500">No comparison data</p>
+													<p class="text-gray-500 dark:text-gray-400">No comparison data</p>
 												{/if}
 											</div>
 										</div>

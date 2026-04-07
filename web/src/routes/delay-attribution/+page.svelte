@@ -110,15 +110,15 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Delay Attribution Summary</h1>
-		<p class="text-gray-500 mt-1">Aggregate delay by responsible party (AACE RP 29R-03, SCL Protocol)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Delay Attribution Summary</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Aggregate delay by responsible party (AACE RP 29R-03, SCL Protocol)</p>
 	</div>
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4 flex-wrap">
 			<div class="flex-1 min-w-48">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')} (Update)</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')} (Update)</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -126,8 +126,8 @@
 				</select>
 			</div>
 			<div class="flex-1 min-w-48">
-				<label for="baseline" class="block text-sm font-medium text-gray-700 mb-1">Baseline (optional)</label>
-				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline (optional)</label>
+				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">None — use heuristics</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -147,7 +147,7 @@
 	{#if loading}
 		<AnalysisSkeleton cards={5} />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
@@ -155,32 +155,32 @@
 	{#if result}
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900">{result.total_delay_days}d</p>
-				<p class="text-xs text-gray-500 uppercase">Total Delay</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.total_delay_days}d</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Total Delay</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{result.excusable_days}d</p>
-				<p class="text-xs text-gray-500 uppercase">Excusable</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Excusable</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{result.non_excusable_days}d</p>
-				<p class="text-xs text-gray-500 uppercase">Non-Excusable</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Non-Excusable</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{result.concurrent_days}d</p>
-				<p class="text-xs text-gray-500 uppercase">Concurrent</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Concurrent</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-600 capitalize">{result.data_source}</p>
-				<p class="text-xs text-gray-500 uppercase">Data Source</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-600 dark:text-gray-400 capitalize">{result.data_source}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Data Source</p>
 			</div>
 		</div>
 
 		<!-- Excusable vs Non-excusable bar -->
 		{#if result.total_delay_days > 0}
-			<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-				<p class="text-sm font-semibold text-gray-700 mb-3">Excusable vs Non-Excusable</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Excusable vs Non-Excusable</p>
 				<div class="h-8 rounded-lg overflow-hidden flex">
 					{#if result.excusable_days > 0}
 						<div
@@ -207,7 +207,7 @@
 						</div>
 					{/if}
 				</div>
-				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
 					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500"></span> Excusable</div>
 					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-500"></span> Non-Excusable</div>
 					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500"></span> Concurrent</div>
@@ -229,24 +229,24 @@
 		{#if result.parties.length > 0}
 			<div class="space-y-4">
 				{#each result.parties as party}
-					<div class="bg-white rounded-lg border border-gray-200 p-5">
+					<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
 						<div class="flex items-center justify-between mb-3">
 							<div class="flex items-center gap-3">
 								<span class="w-4 h-4 rounded-full" style="background-color: {partyColor[party.party] || '#94a3b8'}"></span>
-								<h3 class="text-lg font-semibold text-gray-900">{party.party}</h3>
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{party.party}</h3>
 							</div>
 							<div class="flex items-center gap-4">
-								<span class="text-2xl font-bold text-gray-900">{party.delay_days}d</span>
-								<span class="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">{party.pct_of_total}%</span>
+								<span class="text-2xl font-bold text-gray-900 dark:text-gray-100">{party.delay_days}d</span>
+								<span class="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">{party.pct_of_total}%</span>
 							</div>
 						</div>
 						{#if party.activity_count > 0}
-							<p class="text-sm text-gray-500 mb-2">{party.activity_count} driving activities</p>
+							<p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{party.activity_count} driving activities</p>
 						{/if}
 						{#if party.top_activities.length > 0}
 							<div class="flex flex-wrap gap-1">
 								{#each party.top_activities as act}
-									<span class="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{act}</span>
+									<span class="px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{act}</span>
 								{/each}
 							</div>
 						{/if}
@@ -254,7 +254,7 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="bg-green-50 border border-green-200 rounded-lg p-4">
+			<div class="bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg p-4">
 				<p class="text-green-700 text-sm font-medium">No delay detected. Schedule is on track.</p>
 			</div>
 		{/if}

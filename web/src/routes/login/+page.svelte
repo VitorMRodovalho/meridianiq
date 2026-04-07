@@ -42,18 +42,18 @@
 	<title>Sign In — MeridianIQ</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-800 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
 	<div class="sm:mx-auto sm:w-full sm:max-w-md">
-		<h1 class="text-center text-3xl font-bold tracking-tight text-gray-900">MeridianIQ</h1>
-		<p class="mt-2 text-center text-sm text-gray-500">Schedule Intelligence Platform</p>
+		<h1 class="text-center text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">MeridianIQ</h1>
+		<p class="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">Schedule Intelligence Platform</p>
 	</div>
 
 	<div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-		<div class="bg-white py-8 px-4 shadow rounded-lg sm:px-10 space-y-4">
+		<div class="bg-white dark:bg-gray-900 py-8 px-4 shadow rounded-lg sm:px-10 space-y-4">
 			<h2 class="text-xl font-semibold text-gray-800 text-center">Sign in to your account</h2>
 
 			{#if error}
-				<div class="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+				<div class="rounded-md bg-red-50 dark:bg-red-950 p-3 text-sm text-red-700 border border-red-200">
 					{error}
 				</div>
 			{/if}
@@ -62,7 +62,7 @@
 			<button
 				onclick={handleGoogle}
 				disabled={loading}
-				class="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+				class="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 			>
 				<!-- Google icon -->
 				<svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -78,7 +78,7 @@
 			<button
 				onclick={handleMicrosoft}
 				disabled={loading}
-				class="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+				class="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 			>
 				<!-- Microsoft icon -->
 				<svg class="w-5 h-5" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
@@ -94,7 +94,7 @@
 			<button
 				onclick={handleLinkedIn}
 				disabled={loading}
-				class="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+				class="w-full flex items-center justify-center gap-3 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 			>
 				<!-- LinkedIn icon -->
 				<svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

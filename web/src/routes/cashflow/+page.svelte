@@ -101,15 +101,15 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Cash Flow Analysis</h1>
-		<p class="text-gray-500 mt-1">Cost distribution S-Curve (AACE RP 10S-90)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cash Flow Analysis</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Cost distribution S-Curve (AACE RP 10S-90)</p>
 	</div>
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -129,38 +129,38 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
 
 	{#if result}
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900">{formatCost(result.total_planned_cost)}</p>
-				<p class="text-xs text-gray-500 uppercase">Planned</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCost(result.total_planned_cost)}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Planned</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{formatCost(result.total_actual_cost)}</p>
-				<p class="text-xs text-gray-500 uppercase">Actual</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Actual</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{formatCost(result.total_remaining_cost)}</p>
-				<p class="text-xs text-gray-500 uppercase">Remaining</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Remaining</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold {result.budget_variance >= 0 ? 'text-green-600' : 'text-red-600'}">{formatCost(Math.abs(result.budget_variance))}</p>
-				<p class="text-xs text-gray-500 uppercase">{result.budget_variance >= 0 ? 'Under' : 'Over'} Budget</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{result.budget_variance >= 0 ? 'Under' : 'Over'} Budget</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold {result.cost_performance_index >= 1 ? 'text-green-600' : 'text-red-600'}">{result.cost_performance_index.toFixed(2)}</p>
-				<p class="text-xs text-gray-500 uppercase">CPI</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">CPI</p>
 			</div>
 		</div>
 
 		<!-- S-Curve -->
-		<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-			<p class="text-sm font-semibold text-gray-700 mb-3">Cumulative Cost S-Curve</p>
+		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+			<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Cumulative Cost S-Curve</p>
 			<svg viewBox="0 0 {W} {H}" class="w-full">
 				<!-- Grid -->
 				{#each [0, 0.25, 0.5, 0.75, 1] as pct}
@@ -193,7 +193,7 @@
 				<text x={W / 2} y={H - 5} text-anchor="middle" class="text-[9px] fill-gray-400">Project Duration (days)</text>
 			</svg>
 
-			<div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+			<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
 				<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-blue-500 rounded"></span> Planned (BCWS)</div>
 				<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-green-500 rounded"></span> Actual (ACWP)</div>
 				<div class="ml-auto text-gray-400">{result.methodology}</div>

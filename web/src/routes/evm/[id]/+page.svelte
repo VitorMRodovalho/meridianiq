@@ -38,9 +38,9 @@
 	}
 
 	function healthBgColor(status: string): string {
-		if (status === 'good') return 'bg-green-50 border-green-200';
-		if (status === 'watch') return 'bg-yellow-50 border-yellow-200';
-		return 'bg-red-50 border-red-200';
+		if (status === 'good') return 'bg-green-50 dark:bg-green-950 border-green-200';
+		if (status === 'watch') return 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200';
+		return 'bg-red-50 dark:bg-red-950 border-red-200';
 	}
 
 	function fmt(n: number): string {
@@ -79,7 +79,7 @@
 </script>
 
 {#if loading}
-	<div class="p-8 text-center text-gray-500">Loading analysis...</div>
+	<div class="p-8 text-center text-gray-500 dark:text-gray-400">Loading analysis...</div>
 {:else if error}
 	<div class="p-8 text-center text-red-600">{error}</div>
 {:else if analysis}
@@ -87,8 +87,8 @@
 		<!-- Header -->
 		<div class="mb-6 flex items-center justify-between">
 			<div>
-				<h1 class="text-2xl font-bold text-gray-900">EVM Analysis: {analysis.project_name || analysis.analysis_id}</h1>
-				<p class="text-sm text-gray-500 mt-1">
+				<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">EVM Analysis: {analysis.project_name || analysis.analysis_id}</h1>
+				<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
 					{analysis.analysis_id} | Data Date: {analysis.data_date || 'N/A'}
 				</p>
 			</div>
@@ -97,49 +97,49 @@
 
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-			<div class="bg-white rounded-lg shadow p-4">
-				<p class="text-xs font-medium text-gray-500 uppercase">BAC</p>
-				<p class="text-xl font-bold text-gray-900 mt-1">${fmt(analysis.metrics.bac)}</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+				<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">BAC</p>
+				<p class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">${fmt(analysis.metrics.bac)}</p>
 			</div>
-			<div class="bg-white rounded-lg shadow p-4">
-				<p class="text-xs font-medium text-gray-500 uppercase">Earned Value (EV)</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+				<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Earned Value (EV)</p>
 				<p class="text-xl font-bold text-green-700 mt-1">${fmt(analysis.metrics.ev)}</p>
 			</div>
-			<div class="bg-white rounded-lg shadow p-4">
-				<p class="text-xs font-medium text-gray-500 uppercase">Actual Cost (AC)</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+				<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actual Cost (AC)</p>
 				<p class="text-xl font-bold text-red-700 mt-1">${fmt(analysis.metrics.ac)}</p>
 			</div>
-			<div class="bg-white rounded-lg shadow p-4">
-				<p class="text-xs font-medium text-gray-500 uppercase">Planned Value (PV)</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+				<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Planned Value (PV)</p>
 				<p class="text-xl font-bold text-blue-700 mt-1">${fmt(analysis.metrics.pv)}</p>
 			</div>
 		</div>
 
 		<!-- SPI / CPI Gauges -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-			<div class="bg-white rounded-lg shadow p-5 border {healthBgColor(analysis.schedule_health.status)}">
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-5 border {healthBgColor(analysis.schedule_health.status)}">
 				<div class="flex items-center gap-3">
 					<span class="w-4 h-4 rounded-full {healthColor(analysis.schedule_health.status)}"></span>
 					<div>
-						<p class="text-sm font-medium text-gray-700">Schedule Health (SPI)</p>
+						<p class="text-sm font-medium text-gray-700 dark:text-gray-300">Schedule Health (SPI)</p>
 						<p class="text-2xl font-bold {healthTextColor(analysis.schedule_health.status)}">
 							{analysis.metrics.spi?.toFixed(3)}
 						</p>
-						<p class="text-xs text-gray-500 mt-0.5">
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
 							SV: ${fmt(analysis.metrics.sv)} | {analysis.schedule_health.label}
 						</p>
 					</div>
 				</div>
 			</div>
-			<div class="bg-white rounded-lg shadow p-5 border {healthBgColor(analysis.cost_health.status)}">
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-5 border {healthBgColor(analysis.cost_health.status)}">
 				<div class="flex items-center gap-3">
 					<span class="w-4 h-4 rounded-full {healthColor(analysis.cost_health.status)}"></span>
 					<div>
-						<p class="text-sm font-medium text-gray-700">Cost Health (CPI)</p>
+						<p class="text-sm font-medium text-gray-700 dark:text-gray-300">Cost Health (CPI)</p>
 						<p class="text-2xl font-bold {healthTextColor(analysis.cost_health.status)}">
 							{analysis.metrics.cpi?.toFixed(3)}
 						</p>
-						<p class="text-xs text-gray-500 mt-0.5">
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
 							CV: ${fmt(analysis.metrics.cv)} | {analysis.cost_health.label}
 						</p>
 					</div>
@@ -179,7 +179,7 @@
 
 		<!-- S-Curve Chart -->
 		{#if analysis.s_curve && analysis.s_curve.length > 1}
-			<div class="bg-white rounded-lg shadow p-6 mb-6">
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-6 mb-6">
 				<h2 class="text-lg font-semibold text-gray-800 mb-4">S-Curve</h2>
 				<svg viewBox="0 0 {svgW} {svgH}" class="w-full h-auto">
 					<!-- Grid lines -->
@@ -228,47 +228,47 @@
 		{/if}
 
 		<!-- Forecast Table -->
-		<div class="bg-white rounded-lg shadow p-6 mb-6">
+		<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-6 mb-6">
 			<h2 class="text-lg font-semibold text-gray-800 mb-4">Forecast Scenarios</h2>
 			<div class="overflow-x-auto">
 				<table class="w-full text-sm">
-					<thead class="bg-gray-50">
+					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="px-4 py-3 text-left font-medium text-gray-500">Metric</th>
-							<th class="px-4 py-3 text-right font-medium text-gray-500">Value</th>
-							<th class="px-4 py-3 text-left font-medium text-gray-500">Description</th>
+							<th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Metric</th>
+							<th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Value</th>
+							<th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Description</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200">
 						<tr>
 							<td class="px-4 py-3 font-medium">EAC (CPI)</td>
 							<td class="px-4 py-3 text-right font-mono">${fmt(analysis.forecast.eac_cpi)}</td>
-							<td class="px-4 py-3 text-gray-500">BAC / CPI -- assumes current cost efficiency continues</td>
+							<td class="px-4 py-3 text-gray-500 dark:text-gray-400">BAC / CPI -- assumes current cost efficiency continues</td>
 						</tr>
 						<tr>
 							<td class="px-4 py-3 font-medium">EAC (Combined)</td>
 							<td class="px-4 py-3 text-right font-mono">${fmt(analysis.forecast.eac_combined)}</td>
-							<td class="px-4 py-3 text-gray-500">AC + (BAC - EV) / (CPI * SPI) -- combined index</td>
+							<td class="px-4 py-3 text-gray-500 dark:text-gray-400">AC + (BAC - EV) / (CPI * SPI) -- combined index</td>
 						</tr>
 						<tr>
 							<td class="px-4 py-3 font-medium">EAC (New ETC)</td>
 							<td class="px-4 py-3 text-right font-mono">${fmt(analysis.forecast.eac_etc_new)}</td>
-							<td class="px-4 py-3 text-gray-500">AC + (BAC - EV) -- remaining at budgeted rates</td>
+							<td class="px-4 py-3 text-gray-500 dark:text-gray-400">AC + (BAC - EV) -- remaining at budgeted rates</td>
 						</tr>
 						<tr>
 							<td class="px-4 py-3 font-medium">ETC</td>
 							<td class="px-4 py-3 text-right font-mono">${fmt(analysis.forecast.etc)}</td>
-							<td class="px-4 py-3 text-gray-500">Estimate to Complete at current CPI</td>
+							<td class="px-4 py-3 text-gray-500 dark:text-gray-400">Estimate to Complete at current CPI</td>
 						</tr>
 						<tr>
 							<td class="px-4 py-3 font-medium">VAC</td>
 							<td class="px-4 py-3 text-right font-mono">${fmt(analysis.forecast.vac)}</td>
-							<td class="px-4 py-3 text-gray-500">Variance at Completion (BAC - EAC)</td>
+							<td class="px-4 py-3 text-gray-500 dark:text-gray-400">Variance at Completion (BAC - EAC)</td>
 						</tr>
 						<tr>
 							<td class="px-4 py-3 font-medium">TCPI</td>
 							<td class="px-4 py-3 text-right font-mono">{analysis.forecast.tcpi?.toFixed(3)}</td>
-							<td class="px-4 py-3 text-gray-500">To-Complete Performance Index required to meet BAC</td>
+							<td class="px-4 py-3 text-gray-500 dark:text-gray-400">To-Complete Performance Index required to meet BAC</td>
 						</tr>
 					</tbody>
 				</table>
@@ -277,23 +277,23 @@
 
 		<!-- WBS Drill-Down -->
 		{#if analysis.wbs_breakdown && analysis.wbs_breakdown.length > 0}
-			<div class="bg-white rounded-lg shadow p-6">
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
 				<h2 class="text-lg font-semibold text-gray-800 mb-4">WBS Drill-Down</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
-						<thead class="bg-gray-50">
+						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-3 text-left font-medium text-gray-500">WBS Name</th>
-								<th class="px-4 py-3 text-right font-medium text-gray-500">Budget</th>
-								<th class="px-4 py-3 text-right font-medium text-gray-500">EV</th>
-								<th class="px-4 py-3 text-right font-medium text-gray-500">AC</th>
-								<th class="px-4 py-3 text-center font-medium text-gray-500">SPI</th>
-								<th class="px-4 py-3 text-center font-medium text-gray-500">CPI</th>
+								<th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">WBS Name</th>
+								<th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Budget</th>
+								<th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">EV</th>
+								<th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">AC</th>
+								<th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400">SPI</th>
+								<th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400">CPI</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each analysis.wbs_breakdown as w}
-								<tr class="hover:bg-gray-50">
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
 									<td class="px-4 py-3 font-medium">{w.wbs_name}</td>
 									<td class="px-4 py-3 text-right font-mono">${fmt(w.metrics.bac)}</td>
 									<td class="px-4 py-3 text-right font-mono">${fmt(w.metrics.ev)}</td>

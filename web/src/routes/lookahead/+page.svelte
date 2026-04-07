@@ -117,15 +117,15 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">{$t('page.lookahead')}</h1>
-		<p class="text-gray-500 mt-1">Short-term activity window for field coordination (Lean Construction LPS)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.lookahead')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Short-term activity window for field coordination (Lean Construction LPS)</p>
 	</div>
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -133,8 +133,8 @@
 				</select>
 			</div>
 			<div>
-				<label for="weeks" class="block text-sm font-medium text-gray-700 mb-1">Window</label>
-				<select id="weeks" bind:value={weeks} class="rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="weeks" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Window</label>
+				<select id="weeks" bind:value={weeks} class="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value={1}>1 week</option>
 					<option value={2}>2 weeks</option>
 					<option value={3}>3 weeks</option>
@@ -148,7 +148,7 @@
 			</button>
 			{#if result}
 				<button onclick={exportCSV}
-					class="px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200">
+					class="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium hover:bg-gray-200">
 					Export CSV
 				</button>
 			{/if}
@@ -158,7 +158,7 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
@@ -166,29 +166,29 @@
 	{#if result}
 		<!-- KPI cards -->
 		<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-2xl font-bold text-gray-900">{result.total_in_window}</p>
-				<p class="text-xs text-gray-500 uppercase">In Window</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.total_in_window}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">In Window</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-blue-600">{result.active_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Active</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Active</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-green-600">{result.starting_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Starting</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Starting</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-amber-600">{result.finishing_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Finishing</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Finishing</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-red-600">{result.critical_count}</p>
-				<p class="text-xs text-gray-500 uppercase">Critical</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Critical</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-green-600">{completionRate}%</p>
-				<p class="text-xs text-gray-500 uppercase">Complete</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Complete</p>
 			</div>
 		</div>
 
@@ -205,12 +205,12 @@
 
 		<!-- Activity table with inline progress bars -->
 		{#if result.activities.length > 0}
-			<div class="bg-white rounded-lg border border-gray-200 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 mb-3">Activities ({result.total_in_window})</h2>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Activities ({result.total_in_window})</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
-							<tr class="border-b border-gray-200">
+							<tr class="border-b border-gray-200 dark:border-gray-700">
 								<th class="text-left py-2 px-3">Code</th>
 								<th class="text-left py-2 px-3">Name</th>
 								<th class="text-left py-2 px-3">Status</th>
@@ -223,11 +223,11 @@
 						</thead>
 						<tbody>
 							{#each result.activities as act}
-								<tr class="border-b border-gray-100 hover:bg-gray-50 {act.is_critical ? 'bg-red-50' : ''}">
+								<tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 {act.is_critical ? 'bg-red-50 dark:bg-red-950' : ''}">
 									<td class="py-2 px-3 font-mono text-xs">{act.task_code}</td>
 									<td class="py-2 px-3">{act.task_name}</td>
 									<td class="py-2 px-3">
-										<span class="px-1.5 py-0.5 rounded text-xs {act.status === 'TK_Active' ? 'bg-blue-100 text-blue-700' : act.status === 'TK_Complete' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+										<span class="px-1.5 py-0.5 rounded text-xs {act.status === 'TK_Active' ? 'bg-blue-100 text-blue-700' : act.status === 'TK_Complete' ? 'bg-green-100 text-green-700' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}">
 											{act.status.replace('TK_', '')}
 										</span>
 									</td>
@@ -236,10 +236,10 @@
 									<td class="py-2 px-3 text-right {act.total_float_days <= 0 ? 'text-red-600 font-semibold' : ''}">{act.total_float_days}d</td>
 									<td class="py-2 px-3">
 										<div class="flex items-center gap-2">
-											<div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+											<div class="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
 												<div class="h-full rounded-full {act.is_critical ? 'bg-red-500' : 'bg-blue-500'}" style="width: {act.progress_pct}%"></div>
 											</div>
-											<span class="text-xs text-gray-500 w-8 text-right">{act.progress_pct.toFixed(0)}%</span>
+											<span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{act.progress_pct.toFixed(0)}%</span>
 										</div>
 									</td>
 									<td class="py-2 px-3 text-center">{act.is_critical ? '●' : ''}</td>

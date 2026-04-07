@@ -128,40 +128,40 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Benchmark Comparison</h1>
-		<p class="text-gray-500 mt-1">Anonymized cross-project percentile ranking</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Benchmark Comparison</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Anonymized cross-project percentile ranking</p>
 	</div>
 
 	{#if summary}
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900">{summary.total_projects}</p>
-				<p class="text-xs text-gray-500 uppercase">Projects in DB</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{summary.total_projects}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Projects in DB</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{Math.round(summary.avg_activity_count)}</p>
-				<p class="text-xs text-gray-500 uppercase">Avg Activities</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg Activities</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-700">{Math.round(summary.avg_duration_days)}d</p>
-				<p class="text-xs text-gray-500 uppercase">Avg Duration</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{Math.round(summary.avg_duration_days)}d</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg Duration</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-green-600">{summary.avg_dcma_score?.toFixed(1) ?? 'N/A'}</p>
-				<p class="text-xs text-gray-500 uppercase">Avg DCMA</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg DCMA</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{summary.avg_critical_pct?.toFixed(1) ?? 'N/A'}%</p>
-				<p class="text-xs text-gray-500 uppercase">Avg Critical</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg Critical</p>
 			</div>
 		</div>
 	{/if}
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -185,7 +185,7 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
@@ -193,11 +193,11 @@
 	{#if compareResult}
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 			<BarChart data={rankingItems} title="Percentile Rankings" />
-			<div class="bg-white rounded-lg border border-gray-200 p-6">
-				<p class="text-sm font-semibold text-gray-700 mb-3">Sample: {compareResult.sample_size} projects</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Sample: {compareResult.sample_size} projects</p>
 				{#each compareResult.rankings as r}
 					<div class="flex items-center justify-between py-2 border-b border-gray-100">
-						<span class="text-sm text-gray-600">{r.metric_name}</span>
+						<span class="text-sm text-gray-600 dark:text-gray-400">{r.metric_name}</span>
 						<div class="flex items-center gap-3">
 							<span class="text-xs text-gray-400">Yours: {r.project_value.toFixed(1)}</span>
 							<span class="text-xs text-gray-400">Median: {r.benchmark_median.toFixed(1)}</span>
@@ -208,12 +208,12 @@
 			</div>
 		</div>
 
-		<div class="bg-white rounded-lg border border-gray-200 p-6">
-			<h2 class="text-lg font-semibold text-gray-900 mb-3">Detailed Rankings</h2>
+		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Detailed Rankings</h2>
 			<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
-						<tr class="border-b border-gray-200">
+						<tr class="border-b border-gray-200 dark:border-gray-700">
 							<th class="text-left py-2 px-3">Metric</th>
 							<th class="text-right py-2 px-3">Your Value</th>
 							<th class="text-right py-2 px-3">Mean</th>
@@ -224,13 +224,13 @@
 					</thead>
 					<tbody>
 						{#each compareResult.rankings as r}
-							<tr class="border-b border-gray-100 hover:bg-gray-50">
+							<tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 								<td class="py-2 px-3 font-medium">{r.metric_name}</td>
 								<td class="py-2 px-3 text-right font-mono">{r.project_value.toFixed(2)}</td>
-								<td class="py-2 px-3 text-right text-gray-500">{r.benchmark_mean.toFixed(2)}</td>
-								<td class="py-2 px-3 text-right text-gray-500">{r.benchmark_median.toFixed(2)}</td>
+								<td class="py-2 px-3 text-right text-gray-500 dark:text-gray-400">{r.benchmark_mean.toFixed(2)}</td>
+								<td class="py-2 px-3 text-right text-gray-500 dark:text-gray-400">{r.benchmark_median.toFixed(2)}</td>
 								<td class="py-2 px-3 text-right font-bold {percentileColor(r.percentile)}">P{Math.round(r.percentile)}</td>
-								<td class="py-2 px-3 text-xs text-gray-600">{r.interpretation}</td>
+								<td class="py-2 px-3 text-xs text-gray-600 dark:text-gray-400">{r.interpretation}</td>
 							</tr>
 						{/each}
 					</tbody>

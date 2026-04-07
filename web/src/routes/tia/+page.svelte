@@ -119,8 +119,8 @@
 <div class="p-8 max-w-7xl mx-auto">
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900">Time Impact Analysis</h1>
-			<p class="text-sm text-gray-500 mt-1">
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Time Impact Analysis</h1>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
 				Prospective delay analysis per AACE RP 52R-06
 			</p>
 		</div>
@@ -140,32 +140,32 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-6">
 			{error}
 		</div>
 	{/if}
 
 	{#if showCreate}
-		<div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-900 mb-4">Create TIA Analysis</h2>
-			<p class="text-sm text-gray-500 mb-4">
+		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Create TIA Analysis</h2>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
 				Select a base schedule and define delay fragments. Each fragment represents a
 				discrete delay event that will be inserted into the schedule network.
 			</p>
 
 			<!-- Project Selection -->
 			<div class="mb-4">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1"
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
 					>Base Schedule</label
 				>
 				{#if projectsLoading}
-					<p class="text-gray-500 text-sm">Loading projects...</p>
+					<p class="text-gray-500 dark:text-gray-400 text-sm">Loading projects...</p>
 				{:else}
 					<select
 						id="project"
 						bind:value={selectedProjectId}
 						onchange={onProjectChange}
-						class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+						class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 					>
 						<option value="">{$t('common.choose_project')}</option>
 						{#each projects as p}
@@ -178,7 +178,7 @@
 			<!-- Fragments -->
 			<div class="mb-4">
 				<div class="flex items-center justify-between mb-2">
-					<span class="block text-sm font-medium text-gray-700">Delay Fragments</span>
+					<span class="block text-sm font-medium text-gray-700 dark:text-gray-300">Delay Fragments</span>
 					<button
 						onclick={addFragment}
 						class="text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -194,7 +194,7 @@
 				{/if}
 
 				{#each fragments as frag, fi}
-					<div class="border border-gray-200 rounded-md p-4 mb-3 bg-gray-50">
+					<div class="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-3 bg-gray-50 dark:bg-gray-800">
 						<div class="flex items-center justify-between mb-3">
 							<span class="text-sm font-medium text-gray-800"
 								>Fragment {fi + 1}: {frag.fragment_id}</span
@@ -208,19 +208,19 @@
 						</div>
 						<div class="grid grid-cols-2 gap-3 mb-3">
 							<label class="block">
-								<span class="block text-xs text-gray-500 mb-1">Name</span>
+								<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Name</span>
 								<input
 									type="text"
 									bind:value={frag.name}
 									placeholder="e.g., Permit Delay"
-									class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+									class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 								/>
 							</label>
 							<label class="block">
-								<span class="block text-xs text-gray-500 mb-1">Responsible Party</span>
+								<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Responsible Party</span>
 								<select
 									bind:value={frag.responsible_party}
-									class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+									class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 								>
 									{#each responsibleParties as rp}
 										<option value={rp.value}>{rp.label}</option>
@@ -229,43 +229,43 @@
 							</label>
 						</div>
 						<label class="block mb-3">
-							<span class="block text-xs text-gray-500 mb-1">Description</span>
+							<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Description</span>
 							<input
 								type="text"
 								bind:value={frag.description}
 								placeholder="Description of the delay event"
-								class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+								class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 							/>
 						</label>
 
 						<!-- Activities within fragment -->
 						{#each frag.activities as act, ai}
-							<div class="bg-white border border-gray-200 rounded p-3 mb-2">
-								<div class="text-xs font-medium text-gray-600 mb-2">
+							<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-3 mb-2">
+								<div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
 									Activity: {act.fragment_activity_id}
 								</div>
 								<div class="grid grid-cols-3 gap-2 mb-2">
 									<label class="block">
-										<span class="block text-xs text-gray-500 mb-1">Activity Name</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Activity Name</span>
 										<input
 											type="text"
 											bind:value={act.name}
-											class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+											class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 										/>
 									</label>
 									<label class="block">
-										<span class="block text-xs text-gray-500 mb-1">Duration (hours)</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Duration (hours)</span>
 										<input
 											type="number"
 											bind:value={act.duration_hours}
-											class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+											class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 										/>
 									</label>
 									<div></div>
 								</div>
 								<div class="grid grid-cols-2 gap-2">
 									<div>
-										<span class="block text-xs text-gray-500 mb-1">Predecessor Activity Code</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Predecessor Activity Code</span>
 										{#if selectedProjectId}
 											<ActivityPicker
 												projectId={selectedProjectId}
@@ -284,13 +284,13 @@
 													type="text"
 													bind:value={act.predecessors[0].activity_code}
 													placeholder="e.g., A3050"
-													class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+													class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 												/>
 											</label>
 										{/if}
 									</div>
 									<div>
-										<span class="block text-xs text-gray-500 mb-1">Successor Activity Code</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Successor Activity Code</span>
 										{#if selectedProjectId}
 											<ActivityPicker
 												projectId={selectedProjectId}
@@ -309,7 +309,7 @@
 													type="text"
 													bind:value={act.successors[0].activity_code}
 													placeholder="e.g., A4010"
-													class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+													class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 												/>
 											</label>
 										{/if}
@@ -335,30 +335,30 @@
 
 	<!-- Existing Analyses -->
 	{#if analyses.length > 0}
-		<div class="bg-white border border-gray-200 rounded-lg">
-			<div class="px-6 py-4 border-b border-gray-200">
-				<h2 class="text-lg font-semibold text-gray-900">TIA Analyses</h2>
+		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
+			<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">TIA Analyses</h2>
 			</div>
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200 text-sm">
-					<thead class="bg-gray-50">
+					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Analysis</th
 							>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Project</th
 							>
-							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Fragments</th
 							>
-							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Owner Delay</th
 							>
-							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Contractor Delay</th
 							>
-							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
 								>Net Delay</th
 							>
 							<th class="px-4 py-3"></th>
@@ -366,10 +366,10 @@
 					</thead>
 					<tbody class="divide-y divide-gray-200">
 						{#each analyses as a}
-							<tr class="hover:bg-gray-50">
-								<td class="px-4 py-3 font-mono text-gray-900">{a.analysis_id}</td>
-								<td class="px-4 py-3 text-gray-700">{a.project_name}</td>
-								<td class="px-4 py-3 text-right text-gray-500"
+							<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+								<td class="px-4 py-3 font-mono text-gray-900 dark:text-gray-100">{a.analysis_id}</td>
+								<td class="px-4 py-3 text-gray-700 dark:text-gray-300">{a.project_name}</td>
+								<td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400"
 									>{a.fragment_count}</td
 								>
 								<td class="px-4 py-3 text-right text-blue-600"
@@ -381,7 +381,7 @@
 								<td
 									class="px-4 py-3 text-right font-medium {a.net_delay > 0
 										? 'text-red-600'
-										: 'text-gray-500'}"
+										: 'text-gray-500 dark:text-gray-400'}"
 								>
 									{a.net_delay > 0 ? '+' : ''}{a.net_delay.toFixed(1)}d
 								</td>
@@ -400,7 +400,7 @@
 			</div>
 		</div>
 	{:else if !projectsLoading && !showCreate}
-		<div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
+		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
 			<svg
 				class="mx-auto h-12 w-12 text-gray-400"
 				fill="none"
@@ -414,8 +414,8 @@
 					d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-2 text-sm font-medium text-gray-900">No TIA analyses yet</h3>
-			<p class="mt-1 text-sm text-gray-500">
+			<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No TIA analyses yet</h3>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
 				Click "New Analysis" to create your first Time Impact Analysis.
 			</p>
 		</div>

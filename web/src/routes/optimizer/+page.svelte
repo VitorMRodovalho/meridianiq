@@ -105,15 +105,15 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Schedule Optimizer</h1>
-		<p class="text-gray-500 mt-1">Evolution Strategies for RCPSP optimization (Loncar 2023, Beyer & Schwefel 2002)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Optimizer</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Evolution Strategies for RCPSP optimization (Loncar 2023, Beyer & Schwefel 2002)</p>
 	</div>
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4 flex-wrap">
 			<div class="flex-1 min-w-48">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -121,12 +121,12 @@
 				</select>
 			</div>
 			<div class="w-32">
-				<label for="gens" class="block text-sm font-medium text-gray-700 mb-1">Generations</label>
-				<input id="gens" type="number" min="10" max="500" bind:value={generations} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+				<label for="gens" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Generations</label>
+				<input id="gens" type="number" min="10" max="500" bind:value={generations} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 			<div class="w-32">
-				<label for="pop" class="block text-sm font-medium text-gray-700 mb-1">Population</label>
-				<input id="pop" type="number" min="10" max="200" bind:value={populationSize} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+				<label for="pop" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Population</label>
+				<input id="pop" type="number" min="10" max="200" bind:value={populationSize} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 			<button onclick={optimize} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
@@ -141,39 +141,39 @@
 	{#if loading}
 		<AnalysisSkeleton />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
 
 	{#if result}
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900">{result.original_makespan}d</p>
-				<p class="text-xs text-gray-500 uppercase">Original</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.original_makespan}d</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Original</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-green-600">{result.optimized_makespan}d</p>
-				<p class="text-xs text-gray-500 uppercase">Optimized</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Optimized</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{result.improvement_pct.toFixed(1)}%</p>
-				<p class="text-xs text-gray-500 uppercase">Improvement</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Improvement</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-700">{result.generations}</p>
-				<p class="text-xs text-gray-500 uppercase">Generations</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{result.generations}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Generations</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-sm font-bold text-gray-700 capitalize">{result.best_priority_rule}</p>
-				<p class="text-xs text-gray-500 uppercase">Best Rule</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-sm font-bold text-gray-700 dark:text-gray-300 capitalize">{result.best_priority_rule}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Best Rule</p>
 			</div>
 		</div>
 
 		<!-- Convergence chart -->
 		{#if result.convergence.length > 1}
-			<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-				<p class="text-sm font-semibold text-gray-700 mb-3">Convergence Curve</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Convergence Curve</p>
 				<svg viewBox="0 0 {W} {H}" class="w-full">
 					{#each [0, 0.25, 0.5, 0.75, 1] as pct}
 						<line x1={PAD.left} y1={PAD.top + pct * chartH} x2={W - PAD.right} y2={PAD.top + pct * chartH} stroke="#f3f4f6" stroke-width="1" />
@@ -194,7 +194,7 @@
 					<line x1={PAD.left} y1={PAD.top + chartH} x2={W - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
 					<text x={W / 2} y={H - 5} text-anchor="middle" class="text-[9px] fill-gray-400">Generation</text>
 				</svg>
-				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
 					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-green-500 rounded"></span> Best Fitness</div>
 					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-amber-500 rounded border-dashed"></span> Mean Fitness</div>
 				</div>
@@ -205,12 +205,12 @@
 		{#if result.shifted_activities.length > 0}
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 				<BarChart data={shiftItems} title="Activity Shifts (days)" />
-				<div class="bg-white rounded-lg border border-gray-200 p-6">
-					<h2 class="text-sm font-semibold text-gray-700 mb-3">Shifted Activities ({result.shifted_activities.length})</h2>
+				<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+					<h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Shifted Activities ({result.shifted_activities.length})</h2>
 					<div class="overflow-y-auto max-h-64 space-y-1">
 						{#each result.shifted_activities as a}
 							<div class="flex items-center justify-between py-1.5 border-b border-gray-100">
-								<span class="text-xs text-gray-600 truncate">{a.activity_name || a.activity_id}</span>
+								<span class="text-xs text-gray-600 dark:text-gray-400 truncate">{a.activity_name || a.activity_id}</span>
 								<span class="text-xs font-mono font-bold {a.shift_days > 0 ? 'text-amber-600' : 'text-green-600'}">
 									{a.shift_days > 0 ? '+' : ''}{a.shift_days}d
 								</span>

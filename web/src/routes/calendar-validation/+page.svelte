@@ -86,11 +86,11 @@
 	$effect(() => { loadProjects(); });
 
 	const gradeColor = (grade: string) => {
-		if (grade === 'A') return 'text-green-600 bg-green-50 border-green-200';
-		if (grade === 'B') return 'text-blue-600 bg-blue-50 border-blue-200';
-		if (grade === 'C') return 'text-amber-600 bg-amber-50 border-amber-200';
+		if (grade === 'A') return 'text-green-600 bg-green-50 dark:bg-green-950 border-green-200';
+		if (grade === 'B') return 'text-blue-600 bg-blue-50 dark:bg-blue-950 border-blue-200';
+		if (grade === 'C') return 'text-amber-600 bg-amber-50 dark:bg-amber-950 border-amber-200';
 		if (grade === 'D') return 'text-orange-600 bg-orange-50 border-orange-200';
-		return 'text-red-600 bg-red-50 border-red-200';
+		return 'text-red-600 bg-red-50 dark:bg-red-950 border-red-200';
 	};
 
 	const severityBadge = (sev: string) => {
@@ -129,15 +129,15 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">{$t('page.calendar')}</h1>
-		<p class="text-gray-500 mt-1">Work calendar integrity and compliance (DCMA Check #13, AACE RP 49R-06)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.calendar')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">Work calendar integrity and compliance (DCMA Check #13, AACE RP 49R-06)</p>
 	</div>
 
-	<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 mb-1">{$t('common.project')}</label>
-				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')}</label>
+				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
@@ -157,7 +157,7 @@
 	{#if loading}
 		<AnalysisSkeleton cards={6} />
 	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-4 mb-6">
 			<p class="text-red-700 text-sm">{error}</p>
 		</div>
 	{/if}
@@ -165,35 +165,35 @@
 	{#if result}
 		<!-- Grade + Summary Cards -->
 		<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-			<div class="bg-white rounded-lg border-2 p-4 text-center {gradeColor(result.grade)}">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border-2 p-4 text-center {gradeColor(result.grade)}">
 				<p class="text-4xl font-bold">{result.grade}</p>
 				<p class="text-xs uppercase mt-1">Grade</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900">{result.score.toFixed(0)}</p>
-				<p class="text-xs text-gray-500 uppercase">Score</p>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.score.toFixed(0)}</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Score</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{result.total_calendars}</p>
-				<p class="text-xs text-gray-500 uppercase">Calendars</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Calendars</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold {coveragePct >= 95 ? 'text-green-600' : coveragePct >= 80 ? 'text-amber-600' : 'text-red-600'}">{coveragePct}%</p>
-				<p class="text-xs text-gray-500 uppercase">Coverage</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Coverage</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{criticalCount}</p>
-				<p class="text-xs text-gray-500 uppercase">Critical</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Critical</p>
 			</div>
-			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{warningCount}</p>
-				<p class="text-xs text-gray-500 uppercase">Warnings</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Warnings</p>
 			</div>
 		</div>
 
 		<!-- Charts -->
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-			<div class="bg-white rounded-lg border border-gray-200 p-6">
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
 				<GaugeChart value={result.score} max={100} label="Calendar Health" />
 			</div>
 			{#if calDistribution.length > 0}
@@ -206,18 +206,18 @@
 
 		<!-- Issues -->
 		{#if result.issues.length > 0}
-			<div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-				<h2 class="text-lg font-semibold text-gray-900 mb-4">Findings ({result.issues.length})</h2>
+			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Findings ({result.issues.length})</h2>
 				<div class="space-y-3">
 					{#each result.issues as issue}
-						<div class="flex items-start gap-3 p-3 rounded-lg {issue.severity === 'critical' ? 'bg-red-50' : issue.severity === 'warning' ? 'bg-amber-50' : 'bg-blue-50'}">
+						<div class="flex items-start gap-3 p-3 rounded-lg {issue.severity === 'critical' ? 'bg-red-50 dark:bg-red-950' : issue.severity === 'warning' ? 'bg-amber-50 dark:bg-amber-950' : 'bg-blue-50 dark:bg-blue-950'}">
 							<span class="px-2 py-0.5 rounded text-xs font-bold uppercase shrink-0 mt-0.5 {severityBadge(issue.severity)}">
 								{issue.severity}
 							</span>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm text-gray-900">{issue.description}</p>
+								<p class="text-sm text-gray-900 dark:text-gray-100">{issue.description}</p>
 								{#if issue.affected_tasks > 0}
-									<p class="text-xs text-gray-500 mt-1">{issue.affected_tasks} task{issue.affected_tasks !== 1 ? 's' : ''} affected</p>
+									<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{issue.affected_tasks} task{issue.affected_tasks !== 1 ? 's' : ''} affected</p>
 								{/if}
 							</div>
 						</div>
@@ -225,18 +225,18 @@
 				</div>
 			</div>
 		{:else}
-			<div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+			<div class="bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg p-4 mb-6">
 				<p class="text-green-700 text-sm font-medium">No issues found. All calendar definitions are valid and consistent.</p>
 			</div>
 		{/if}
 
 		<!-- Calendar Detail Table -->
-		<div class="bg-white rounded-lg border border-gray-200 p-6">
-			<h2 class="text-lg font-semibold text-gray-900 mb-3">Calendar Details ({result.calendars.length})</h2>
+		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Calendar Details ({result.calendars.length})</h2>
 			<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
-						<tr class="border-b border-gray-200">
+						<tr class="border-b border-gray-200 dark:border-gray-700">
 							<th class="text-left py-2 px-3">Calendar</th>
 							<th class="text-center py-2 px-3">Default</th>
 							<th class="text-right py-2 px-3">Hrs/Day</th>
@@ -249,9 +249,9 @@
 					</thead>
 					<tbody>
 						{#each result.calendars as cal}
-							<tr class="border-b border-gray-100 hover:bg-gray-50">
+							<tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 								<td class="py-2 px-3">
-									<p class="font-medium text-gray-900">{cal.name}</p>
+									<p class="font-medium text-gray-900 dark:text-gray-100">{cal.name}</p>
 									<p class="text-xs text-gray-400 font-mono">{cal.calendar_id}</p>
 								</td>
 								<td class="py-2 px-3 text-center">
@@ -267,10 +267,10 @@
 								<td class="py-2 px-3 text-right font-bold">{cal.task_count}</td>
 								<td class="py-2 px-3 text-right">
 									<div class="flex items-center justify-end gap-2">
-										<div class="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+										<div class="w-16 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
 											<div class="h-full rounded-full bg-blue-500" style="width: {cal.pct_of_tasks}%"></div>
 										</div>
-										<span class="text-xs text-gray-500 w-10 text-right">{cal.pct_of_tasks}%</span>
+										<span class="text-xs text-gray-500 dark:text-gray-400 w-10 text-right">{cal.pct_of_tasks}%</span>
 									</div>
 								</td>
 								<td class="py-2 px-3">
@@ -289,7 +289,7 @@
 			</div>
 
 			{#if result.tasks_without_calendar > 0}
-				<div class="mt-4 p-3 bg-red-50 rounded-lg">
+				<div class="mt-4 p-3 bg-red-50 dark:bg-red-950 rounded-lg">
 					<p class="text-sm text-red-700">
 						<strong>{result.tasks_without_calendar}</strong> of {result.total_tasks} tasks have no valid calendar assignment.
 						Float and duration calculations for these tasks are unreliable.
