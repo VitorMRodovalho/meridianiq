@@ -48,6 +48,10 @@
 			if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
 				e.preventDefault();
 				toggleTheme();
+			} else if (e.key === '/' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) {
+				e.preventDefault();
+				const searchInput = document.querySelector('aside input[type="text"]') as HTMLInputElement;
+				if (searchInput) searchInput.focus();
 			} else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement) && !(e.target instanceof HTMLSelectElement)) {
 				showShortcuts = !showShortcuts;
 			} else if (e.key === 'Escape' && showShortcuts) {
@@ -363,6 +367,7 @@
 				<div class="space-y-3 text-sm">
 					<p class="text-xs text-gray-500 uppercase font-semibold">Global</p>
 					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Toggle dark mode</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">Ctrl+D</kbd></div>
+					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Search sidebar</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">/</kbd></div>
 					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Show shortcuts</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">?</kbd></div>
 					<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Close modal</span><kbd class="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">Esc</kbd></div>
 					<div class="border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
