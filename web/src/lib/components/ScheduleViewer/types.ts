@@ -26,6 +26,7 @@ export interface ActivityView {
 	baseline_start: string | null;
 	baseline_finish: string | null;
 	duration_days: number;
+	remaining_days: number;
 	total_float_days: number;
 	free_float_days: number;
 	progress_pct: number;

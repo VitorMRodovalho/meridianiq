@@ -226,7 +226,7 @@
 			<span class="font-semibold text-gray-900 dark:text-gray-100">{hoveredActivity.task_code}</span>
 			<span class="text-gray-600 dark:text-gray-400 truncate max-w-xs">{hoveredActivity.task_name}</span>
 			<span class="text-gray-500">{formatDateShort(hoveredActivity.early_start)} — {formatDateShort(hoveredActivity.early_finish)}</span>
-			<span class="text-gray-500">{hoveredActivity.duration_days}d</span>
+			<span class="text-gray-500">{hoveredActivity.duration_days}d (rem: {hoveredActivity.remaining_days}d)</span>
 			<span class="{hoveredActivity.total_float_days < 0 ? 'text-red-600 font-bold' : hoveredActivity.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">
 				TF: {hoveredActivity.total_float_days}d
 			</span>

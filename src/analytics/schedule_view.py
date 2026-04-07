@@ -60,6 +60,7 @@ class ActivityView:
     baseline_start: str | None = None
     baseline_finish: str | None = None
     duration_days: float = 0.0
+    remaining_days: float = 0.0
     total_float_days: float = 0.0
     free_float_days: float = 0.0
     progress_pct: float = 0.0
@@ -306,6 +307,7 @@ def build_schedule_view(
             baseline_start=bl_start if bl_start else None,
             baseline_finish=bl_finish if bl_finish else None,
             duration_days=round(dur_days, 1),
+            remaining_days=round(t.remain_drtn_hr_cnt / day_hours, 1),
             total_float_days=round(tf_days, 1),
             free_float_days=round(ff_days, 1),
             progress_pct=round(t.phys_complete_pct, 1),
