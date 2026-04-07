@@ -64,6 +64,8 @@ class ProjectListItem(BaseModel):
     name: str = ""
     activity_count: int = 0
     relationship_count: int = 0
+    data_date: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class ProjectListResponse(BaseModel):

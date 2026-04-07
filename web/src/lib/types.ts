@@ -20,6 +20,8 @@ export interface ProjectListItem {
 	name: string;
 	activity_count: number;
 	relationship_count: number;
+	data_date?: string | null;
+	tags?: string[];
 }
 
 export interface ProjectListResponse {

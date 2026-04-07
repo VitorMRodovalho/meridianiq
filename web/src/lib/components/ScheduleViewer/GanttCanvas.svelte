@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ActivityView, RelationshipView, WBSNode } from './types';
-	import { daysBetween, getBarColor, formatDateShort } from './utils';
+	import { daysBetween, parseDate, getBarColor, formatDateShort } from './utils';
 	import TimeScale from './TimeScale.svelte';
 
 	interface Props {
@@ -18,6 +18,7 @@
 		hoveredId: string;
 		showFloat?: boolean;
 		showBaseline?: boolean;
+		showWeekends?: boolean;
 		onHover: (id: string) => void;
 		onClick?: (id: string) => void;
 	}
@@ -37,6 +38,7 @@
 		hoveredId,
 		showFloat = true,
 		showBaseline = true,
+		showWeekends = true,
 		onHover,
 		onClick,
 	}: Props = $props();
@@ -116,6 +118,24 @@
 		return idx;
 	});
 
+	// Weekend day positions (Sat/Sun) for shading
+	const weekendRects = $derived.by(() => {
+		if (!showWeekends || totalDays > 1500) return []; // skip for very long schedules
+		const rects: { x: number; w: number }[] = [];
+		const start = parseDate(startDate);
+		const dayW = WIDTH / totalDays;
+		// Find first Saturday
+		const dow = start.getDay(); // 0=Sun, 6=Sat
+		let firstSat = dow <= 6 ? (6 - dow) % 7 : 0;
+		for (let d = firstSat; d < totalDays; d += 7) {
+			// Saturday + Sunday = 2 days
+			const x = d * dayW;
+			const w = Math.min(2, totalDays - d) * dayW;
+			rects.push({ x, w });
+		}
+		return rects;
+	});
+
 	// Build activity date lookup for dependency endpoints
 	const activityDates = $derived.by(() => {
 		const m = new Map<string, { start: string; finish: string }>();
@@ -147,6 +167,11 @@
 		{#if d % (zoomLevel === 'day' ? 1 : zoomLevel === 'week' ? 7 : 30) === 0}
 			<line x1={x} y1={HEADER_H} x2={x} y2={svgHeight} stroke="#f3f4f6" stroke-width="0.5" class="dark:stroke-gray-800" />
 		{/if}
+	{/each}
+
+	<!-- Weekend shading -->
+	{#each weekendRects as wr}
+		<rect x={wr.x} y={HEADER_H} width={wr.w} height={svgHeight - HEADER_H} fill="#f1f5f9" opacity="0.4" class="dark:fill-gray-800" />
 	{/each}
 
 	<!-- SVG pattern for LOE activities -->

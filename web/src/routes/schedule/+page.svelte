@@ -9,7 +9,7 @@
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 
-	let projects: { project_id: string; name: string }[] = $state([]);
+	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
 	let selectedProject: string = $state('');
 	let baselineProject: string = $state('');
 	let data = $state<ScheduleViewData | null>(null);
@@ -262,7 +262,7 @@
 				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
-						<option value={p.project_id}>{p.name || p.project_id}</option>
+						<option value={p.project_id}>{p.name || p.project_id}{p.tags?.length ? ` [${p.tags.slice(0, 3).join(', ')}]` : ''}</option>
 					{/each}
 				</select>
 			</div>
@@ -271,7 +271,7 @@
 				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
 					<option value="">None</option>
 					{#each projects as p}
-						<option value={p.project_id}>{p.name || p.project_id}</option>
+						<option value={p.project_id}>{p.name || p.project_id}{p.tags?.length ? ` [${p.tags.slice(0, 3).join(', ')}]` : ''}</option>
 					{/each}
 				</select>
 			</div>

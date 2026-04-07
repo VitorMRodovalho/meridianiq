@@ -126,6 +126,36 @@
 		hoveredId = id;
 	}
 
+	// Drag-to-pan on Gantt canvas
+	let isDragging = $state(false);
+	let dragStartX = $state(0);
+	let dragStartY = $state(0);
+	let dragScrollLeft = $state(0);
+	let dragScrollTop = $state(0);
+
+	function handleMouseDown(e: MouseEvent) {
+		if (!scrollContainer || e.button !== 0) return;
+		isDragging = true;
+		dragStartX = e.clientX;
+		dragStartY = e.clientY;
+		dragScrollLeft = scrollContainer.scrollLeft;
+		dragScrollTop = scrollContainer.scrollTop;
+		scrollContainer.style.cursor = 'grabbing';
+		e.preventDefault();
+	}
+
+	function handleMouseMove(e: MouseEvent) {
+		if (!isDragging || !scrollContainer) return;
+		scrollContainer.scrollLeft = dragScrollLeft - (e.clientX - dragStartX);
+		scrollContainer.scrollTop = dragScrollTop - (e.clientY - dragStartY);
+	}
+
+	function handleMouseUp() {
+		if (!scrollContainer) return;
+		isDragging = false;
+		scrollContainer.style.cursor = 'grab';
+	}
+
 	// Keyboard shortcuts
 	onMount(() => {
 		function handleKey(e: KeyboardEvent) {
@@ -265,11 +295,16 @@ ${svgClone.outerHTML}
 			onToggleWbs={toggleWbs}
 		/>
 
-		<!-- Gantt Canvas (scrollable) -->
+		<!-- Gantt Canvas (scrollable, drag-to-pan) -->
 		<div
 			bind:this={scrollContainer}
 			onscroll={handleScroll}
+			onmousedown={handleMouseDown}
+			onmousemove={handleMouseMove}
+			onmouseup={handleMouseUp}
+			onmouseleave={handleMouseUp}
 			class="flex-1 overflow-auto"
+			style="cursor: grab;"
 		>
 			<GanttCanvas
 				activities={searchFilteredData.activities}

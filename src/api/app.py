@@ -539,7 +539,18 @@ def list_projects(
     all_projects = store.list_all(user_id=user_id)
     if not include_sandbox:
         all_projects = [p for p in all_projects if p["project_id"] not in _sandbox_projects]
-    items = [ProjectListItem(**p) for p in all_projects]
+
+    from src.analytics.schedule_metadata import extract_metadata
+
+    items = []
+    for p in all_projects:
+        meta = extract_metadata(filename="", project_name=p.get("name", ""))
+        items.append(
+            ProjectListItem(
+                **p,
+                tags=meta.tags,
+            )
+        )
     return ProjectListResponse(projects=items)
 
 
