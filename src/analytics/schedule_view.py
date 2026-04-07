@@ -69,6 +69,8 @@ class ActivityView:
     calendar_id: str = ""
     constraint_type: str = ""
     constraint_date: str | None = None
+    start_variance_days: float | None = None
+    finish_variance_days: float | None = None
     alerts: list[str] = field(default_factory=list)
 
 
@@ -275,6 +277,26 @@ def build_schedule_view(
         elif t.task_id in baseline_dates:
             bl_start, bl_finish = baseline_dates[t.task_id]
 
+        # Variance calculations (vs baseline)
+        start_var: float | None = None
+        finish_var: float | None = None
+        if bl_start and es:
+            try:
+                from datetime import datetime as _dt
+
+                bs = _dt.fromisoformat(bl_start)
+                start_var = round((es - bs).days, 1)
+            except (ValueError, TypeError):
+                pass
+        if bl_finish and ef:
+            try:
+                from datetime import datetime as _dt
+
+                bf = _dt.fromisoformat(bl_finish)
+                finish_var = round((ef - bf).days, 1)
+            except (ValueError, TypeError):
+                pass
+
         # Alerts
         alerts: list[str] = []
         if tf_days < 0:
@@ -316,6 +338,8 @@ def build_schedule_view(
             calendar_id=t.clndr_id,
             constraint_type=t.cstr_type,
             constraint_date=_fmt_date(t.cstr_date) if t.cstr_date else None,
+            start_variance_days=start_var,
+            finish_variance_days=finish_var,
             alerts=alerts,
         )
         result.activities.append(av)

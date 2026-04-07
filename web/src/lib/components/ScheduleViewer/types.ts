@@ -35,6 +35,8 @@ export interface ActivityView {
 	calendar_id: string;
 	constraint_type: string;
 	constraint_date: string | null;
+	start_variance_days: number | null;
+	finish_variance_days: number | null;
 	alerts: string[];
 }
 

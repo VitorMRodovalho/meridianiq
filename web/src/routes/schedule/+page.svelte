@@ -432,6 +432,18 @@
 							<p class="font-semibold text-gray-500">{a.baseline_finish}</p>
 						</div>
 					{/if}
+					{#if a.start_variance_days !== null && a.start_variance_days !== undefined}
+						<div>
+							<p class="text-gray-500">Start Variance</p>
+							<p class="font-semibold {a.start_variance_days > 0 ? 'text-red-600' : a.start_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{a.start_variance_days > 0 ? '+' : ''}{a.start_variance_days}d</p>
+						</div>
+					{/if}
+					{#if a.finish_variance_days !== null && a.finish_variance_days !== undefined}
+						<div>
+							<p class="text-gray-500">Finish Variance</p>
+							<p class="font-semibold {a.finish_variance_days > 0 ? 'text-red-600' : a.finish_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{a.finish_variance_days > 0 ? '+' : ''}{a.finish_variance_days}d {a.finish_variance_days > 0 ? '(late)' : a.finish_variance_days < 0 ? '(early)' : ''}</p>
+						</div>
+					{/if}
 					{#if a.constraint_type && a.constraint_type !== 'CS_MEO'}
 						<div>
 							<p class="text-gray-500">Constraint</p>
