@@ -15,6 +15,8 @@
 	let error: string = $state('');
 	let showFloat: boolean = $state(true);
 	let showBaseline: boolean = $state(true);
+	let showDependencies: boolean = $state(false);
+	let criticalOnly: boolean = $state(false);
 
 	async function loadProjects() {
 		try {
@@ -97,6 +99,14 @@
 					<input type="checkbox" bind:checked={showFloat} class="w-3.5 h-3.5 rounded" />
 					Show Float
 				</label>
+				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+					<input type="checkbox" bind:checked={showDependencies} class="w-3.5 h-3.5 rounded" />
+					Dependencies
+				</label>
+				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+					<input type="checkbox" bind:checked={criticalOnly} class="w-3.5 h-3.5 rounded" />
+					Critical Path Only
+				</label>
 			</div>
 		{/if}
 	</div>
@@ -135,6 +145,6 @@
 		</div>
 
 		<!-- Schedule Viewer -->
-		<ScheduleViewer {data} {showFloat} {showBaseline} />
+		<ScheduleViewer {data} {showFloat} {showBaseline} {showDependencies} {criticalOnly} />
 	{/if}
 </main>

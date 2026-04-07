@@ -1,11 +1,12 @@
 <script lang="ts">
-	import type { ActivityView, WBSNode } from './types';
+	import type { ActivityView, RelationshipView, WBSNode } from './types';
 	import { daysBetween, getBarColor, formatDateShort } from './utils';
 	import TimeScale from './TimeScale.svelte';
 
 	interface Props {
 		activities: ActivityView[];
 		wbsTree: WBSNode[];
+		relationships?: RelationshipView[];
 		collapsedWbs: Set<string>;
 		startDate: string;
 		endDate: string;
@@ -22,6 +23,7 @@
 	let {
 		activities,
 		wbsTree,
+		relationships = [],
 		collapsedWbs,
 		startDate,
 		endDate,
@@ -75,6 +77,26 @@
 	});
 
 	const svgHeight = $derived(HEADER_H + visibleRows.length * rowHeight + 20);
+
+	// Build row index for dependency line routing
+	const activityRowIndex = $derived.by(() => {
+		const idx = new Map<string, number>();
+		visibleRows.forEach((row, i) => {
+			if (row.type === 'activity' && row.activity) {
+				idx.set(row.activity.task_id, i);
+			}
+		});
+		return idx;
+	});
+
+	// Build activity date lookup for dependency endpoints
+	const activityDates = $derived.by(() => {
+		const m = new Map<string, { start: string; finish: string }>();
+		for (const a of activities) {
+			m.set(a.task_id, { start: a.early_start, finish: a.early_finish });
+		}
+		return m;
+	});
 </script>
 
 <svg
@@ -230,4 +252,36 @@
 			{/if}
 		{/if}
 	{/each}
+
+	<!-- Dependency lines -->
+	{#if relationships.length > 0}
+		{#each relationships as rel}
+			{@const fromRow = activityRowIndex.get(rel.from_id)}
+			{@const toRow = activityRowIndex.get(rel.to_id)}
+			{@const fromDates = activityDates.get(rel.from_id)}
+			{@const toDates = activityDates.get(rel.to_id)}
+			{#if fromRow !== undefined && toRow !== undefined && fromDates && toDates}
+				{@const fromY = HEADER_H + fromRow * rowHeight + rowHeight / 2}
+				{@const toY = HEADER_H + toRow * rowHeight + rowHeight / 2}
+				{@const fromX = rel.type === 'FS' || rel.type === 'FF' ? xPos(fromDates.finish) : xPos(fromDates.start)}
+				{@const toX = rel.type === 'FS' || rel.type === 'SS' ? xPos(toDates.start) : xPos(toDates.finish)}
+				{@const midX = fromX + (toX - fromX) * 0.5}
+				<path
+					d="M{fromX},{fromY} C{midX},{fromY} {midX},{toY} {toX},{toY}"
+					fill="none"
+					stroke="#94a3b8"
+					stroke-width="1"
+					opacity="0.5"
+					class="dark:stroke-gray-500"
+				/>
+				<!-- Arrow head -->
+				<polygon
+					points="{toX},{toY} {toX - 4},{toY - 2.5} {toX - 4},{toY + 2.5}"
+					fill="#94a3b8"
+					opacity="0.6"
+					class="dark:fill-gray-500"
+				/>
+			{/if}
+		{/each}
+	{/if}
 </svg>

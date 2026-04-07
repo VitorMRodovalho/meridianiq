@@ -8,9 +8,30 @@
 		data: ScheduleViewData;
 		showFloat?: boolean;
 		showBaseline?: boolean;
+		showDependencies?: boolean;
+		criticalOnly?: boolean;
 	}
 
-	let { data, showFloat = true, showBaseline = true }: Props = $props();
+	let {
+		data,
+		showFloat = true,
+		showBaseline = true,
+		showDependencies = false,
+		criticalOnly = false,
+	}: Props = $props();
+
+	// Filter activities if criticalOnly
+	const filteredData = $derived.by(() => {
+		if (!criticalOnly) return data;
+		return {
+			...data,
+			activities: data.activities.filter(a => a.is_critical || a.status === 'complete'),
+			relationships: data.relationships.filter(r => {
+				const critIds = new Set(data.activities.filter(a => a.is_critical).map(a => a.task_id));
+				return critIds.has(r.from_id) && critIds.has(r.to_id);
+			}),
+		};
+	});
 
 	const ROW_HEIGHT = 24;
 
@@ -100,8 +121,8 @@
 	<div class="flex" style="height: 500px;">
 		<!-- WBS Tree -->
 		<WBSTree
-			activities={data.activities}
-			wbsTree={data.wbs_tree}
+			activities={filteredData.activities}
+			wbsTree={filteredData.wbs_tree}
 			{collapsedWbs}
 			rowHeight={ROW_HEIGHT}
 			{scrollTop}
@@ -115,12 +136,13 @@
 			class="flex-1 overflow-auto"
 		>
 			<GanttCanvas
-				activities={data.activities}
-				wbsTree={data.wbs_tree}
+				activities={filteredData.activities}
+				wbsTree={filteredData.wbs_tree}
+				relationships={showDependencies ? filteredData.relationships : []}
 				{collapsedWbs}
-				startDate={data.project_start}
-				endDate={data.project_finish}
-				dataDate={data.data_date}
+				startDate={filteredData.project_start}
+				endDate={filteredData.project_finish}
+				dataDate={filteredData.data_date}
 				{zoomLevel}
 				rowHeight={ROW_HEIGHT}
 				{scrollTop}
