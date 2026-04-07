@@ -5,6 +5,22 @@ export interface HealthResponse {
 	version: string;
 }
 
+export interface ScheduleMetadata {
+	update_number?: number | null;
+	revision_number?: number | null;
+	is_draft?: boolean;
+	is_final?: boolean;
+	is_baseline?: boolean;
+	schedule_type?: string;
+	schedule_prefix?: string;
+	has_baseline_dates?: boolean;
+	baseline_coverage_pct?: number;
+	retained_logic?: boolean;
+	progress_override?: boolean;
+	multiple_float_paths?: boolean;
+	tags?: string[];
+}
+
 export interface ProjectSummary {
 	project_id: string;
 	name: string;
@@ -13,6 +29,7 @@ export interface ProjectSummary {
 	calendar_count: number;
 	wbs_count: number;
 	data_date: string | null;
+	metadata?: ScheduleMetadata | null;
 }
 
 export interface ProjectListItem {

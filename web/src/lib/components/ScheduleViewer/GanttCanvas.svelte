@@ -299,7 +299,7 @@
 					<!-- Native SVG tooltip -->
 					<title>{act.task_code} — {act.task_name}
 Duration: {act.duration_days}d | Remaining: {act.remaining_days}d | TF: {act.total_float_days}d | FF: {act.free_float_days}d | Progress: {act.progress_pct}%
-ES: {act.early_start} → EF: {act.early_finish}{act.actual_start ? ` | AS: ${act.actual_start}` : ''}{act.actual_finish ? ` | AF: ${act.actual_finish}` : ''}{act.is_critical ? ' | CRITICAL' : ''}</title>
+ES: {act.early_start} → EF: {act.early_finish}{act.actual_start ? ` | AS: ${act.actual_start}` : ''}{act.actual_finish ? ` | AF: ${act.actual_finish}` : ''}{act.is_critical ? ' | CRITICAL' : ''}{act.finish_variance_days ? ` | Variance: ${act.finish_variance_days > 0 ? '+' : ''}${act.finish_variance_days}d` : ''}</title>
 
 					<!-- Bar border -->
 					<rect
@@ -371,6 +371,18 @@ ES: {act.early_start} → EF: {act.early_finish}{act.actual_start ? ` | AS: ${ac
 							cx={x + w + 5} cy={y + rowHeight / 2}
 							r="3" fill="#ef4444"
 						/>
+					{/if}
+
+					<!-- Baseline variance badge -->
+					{#if showBaseline && act.finish_variance_days != null && act.finish_variance_days !== 0 && act.status !== 'complete'}
+						{@const vd = act.finish_variance_days}
+						{@const vColor = vd > 0 ? '#ef4444' : '#10b981'}
+						{@const vx = x + w + (act.alerts.length > 0 ? 12 : 5)}
+						<text
+							x={vx} y={y + rowHeight / 2 + 3}
+							class="text-[6px] font-bold select-none"
+							fill={vColor}
+						>{vd > 0 ? '+' : ''}{vd}d</text>
 					{/if}
 				</g>
 			{/if}

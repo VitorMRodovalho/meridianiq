@@ -126,30 +126,64 @@
 
 			<dl class="grid grid-cols-2 gap-4 text-sm">
 				<div>
-					<dt class="text-gray-500">Project Name</dt>
-					<dd class="font-medium text-gray-900">{result.name || 'Unnamed'}</dd>
+					<dt class="text-gray-500 dark:text-gray-400">Project Name</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">{result.name || 'Unnamed'}</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Data Date</dt>
-					<dd class="font-medium text-gray-900">{result.data_date || 'N/A'}</dd>
+					<dt class="text-gray-500 dark:text-gray-400">Data Date</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">{result.data_date?.slice(0, 10) || 'N/A'}</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Activities</dt>
-					<dd class="font-medium text-gray-900">{result.activity_count}</dd>
+					<dt class="text-gray-500 dark:text-gray-400">Activities</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">{result.activity_count?.toLocaleString()}</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Relationships</dt>
-					<dd class="font-medium text-gray-900">{result.relationship_count}</dd>
+					<dt class="text-gray-500 dark:text-gray-400">Relationships</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">{result.relationship_count?.toLocaleString()}</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">Calendars</dt>
-					<dd class="font-medium text-gray-900">{result.calendar_count}</dd>
+					<dt class="text-gray-500 dark:text-gray-400">Calendars</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">{result.calendar_count}</dd>
 				</div>
 				<div>
-					<dt class="text-gray-500">WBS Elements</dt>
-					<dd class="font-medium text-gray-900">{result.wbs_count}</dd>
+					<dt class="text-gray-500 dark:text-gray-400">WBS Elements</dt>
+					<dd class="font-medium text-gray-900 dark:text-gray-100">{result.wbs_count?.toLocaleString()}</dd>
 				</div>
 			</dl>
+
+			<!-- Metadata tags -->
+			{#if result.metadata?.tags?.length}
+				<div class="mt-3 flex flex-wrap gap-1.5">
+					{#each result.metadata.tags as tag}
+						<span class="px-2 py-0.5 rounded-full text-[10px] font-medium
+							{tag === 'FINAL' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+							tag === 'DRAFT' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
+							tag === 'BASELINE' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' :
+							tag.startsWith('UP#') ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+							'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}">{tag}</span>
+					{/each}
+				</div>
+			{/if}
+
+			<!-- Quick quality indicators -->
+			{#if result.metadata}
+				<div class="mt-3 flex items-center gap-3 text-[10px]">
+					{#if result.metadata.has_baseline_dates}
+						<span class="text-green-600 dark:text-green-400 flex items-center gap-1">
+							<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+							Baseline dates ({result.metadata.baseline_coverage_pct?.toFixed(0)}%)
+						</span>
+					{:else}
+						<span class="text-amber-600 dark:text-amber-400">No baseline dates</span>
+					{/if}
+					{#if result.metadata.retained_logic}
+						<span class="text-green-600 dark:text-green-400">Retained Logic</span>
+					{/if}
+					{#if result.metadata.progress_override}
+						<span class="text-red-600 dark:text-red-400 font-bold">Progress Override</span>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="flex items-center gap-3 mt-6">
 				<a

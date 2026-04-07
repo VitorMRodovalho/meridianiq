@@ -345,7 +345,11 @@ ${svgClone.outerHTML}
 			{/if}
 			{#if hoveredActivity.baseline_start && hoveredActivity.baseline_finish}
 				<span class="text-gray-400">BL: {formatDateShort(hoveredActivity.baseline_start)}—{formatDateShort(hoveredActivity.baseline_finish)}</span>
-				{#if hoveredActivity.early_finish > hoveredActivity.baseline_finish}
+				{#if hoveredActivity.finish_variance_days}
+					<span class="{hoveredActivity.finish_variance_days > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}">
+						{hoveredActivity.finish_variance_days > 0 ? '+' : ''}{hoveredActivity.finish_variance_days}d var
+					</span>
+				{:else if hoveredActivity.early_finish > hoveredActivity.baseline_finish}
 					<span class="text-amber-600 font-bold">SLIDING RIGHT</span>
 				{/if}
 			{/if}

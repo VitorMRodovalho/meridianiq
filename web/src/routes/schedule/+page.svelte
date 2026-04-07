@@ -149,6 +149,8 @@
 		{ id: 'bf', label: 'BL Finish', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_finish || '' },
 		{ id: 'cp', label: 'CP', sortKey: '', align: 'text-center', visible: true, render: a => a.is_critical ? '●' : '' },
 		{ id: 'constraint', label: 'Constr.', sortKey: '', align: 'text-left', visible: false, render: a => a.constraint_type && a.constraint_type !== 'CS_MEO' ? a.constraint_type : '' },
+		{ id: 'sv', label: 'Start Var', sortKey: '', align: 'text-right', visible: false, render: a => a.start_variance_days != null && a.start_variance_days !== 0 ? `${a.start_variance_days > 0 ? '+' : ''}${a.start_variance_days}d` : '' },
+		{ id: 'fv', label: 'Finish Var', sortKey: '', align: 'text-right', visible: false, render: a => a.finish_variance_days != null && a.finish_variance_days !== 0 ? `${a.finish_variance_days > 0 ? '+' : ''}${a.finish_variance_days}d` : '' },
 		{ id: 'alerts', label: 'Alerts', sortKey: '', align: 'text-left', visible: true, render: _ => '' },
 	]);
 
