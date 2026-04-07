@@ -305,6 +305,38 @@
 				</div>
 			{/if}
 
+			<!-- Projects at a Glance (top 5 by health score, lowest first) -->
+			{#if projects.length > 0 && Object.keys(healthScores).length > 0}
+				<div class="bg-white border border-gray-200 rounded-lg p-5 mb-10">
+					<h2 class="text-sm font-semibold text-gray-900 mb-3">Projects at a Glance</h2>
+					<div class="space-y-2">
+						{#each projects
+							.filter(p => healthScores[p.project_id])
+							.sort((a, b) => (healthScores[a.project_id]?.overall || 0) - (healthScores[b.project_id]?.overall || 0))
+							.slice(0, 6) as project}
+							{@const hs = healthScores[project.project_id]}
+							<a href="/projects/{project.project_id}" class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
+								<div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 {hs.overall >= 85 ? 'border-green-300 bg-green-50 text-green-700' : hs.overall >= 70 ? 'border-blue-300 bg-blue-50 text-blue-700' : hs.overall >= 50 ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-red-300 bg-red-50 text-red-700'}">
+									{hs.overall.toFixed(0)}
+								</div>
+								<div class="flex-1 min-w-0">
+									<p class="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700">{project.name || project.project_id}</p>
+									<div class="flex items-center gap-2 text-xs text-gray-500">
+										<span>{project.activity_count} activities</span>
+										<span class="capitalize">{hs.rating} {hs.trend_arrow}</span>
+									</div>
+								</div>
+								<div class="w-20">
+									<div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+										<div class="h-full rounded-full {hs.overall >= 85 ? 'bg-green-500' : hs.overall >= 70 ? 'bg-blue-500' : hs.overall >= 50 ? 'bg-amber-500' : 'bg-red-500'}" style="width: {hs.overall}%"></div>
+									</div>
+								</div>
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
 			<!-- Quick Actions -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
 				{#each [

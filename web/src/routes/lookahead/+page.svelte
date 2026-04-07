@@ -73,26 +73,51 @@
 
 	const ganttItems = $derived(
 		result
-			? result.activities.slice(0, 40).map((a) => ({
+			? result.activities.slice(0, 60).map((a) => ({
 					id: a.task_id,
 					label: a.task_code || a.task_name.slice(0, 15),
 					start: a.start_day,
 					duration: a.duration_days,
 					isCritical: a.is_critical,
 					progress: a.progress_pct,
-					color: a.is_critical ? '#ef4444' : a.status === 'TK_Active' ? '#3b82f6' : '#9ca3af',
+					color: a.is_critical ? '#ef4444' : a.status === 'TK_Active' ? '#3b82f6' : a.status === 'TK_Complete' ? '#10b981' : '#9ca3af',
 				}))
 			: []
 	);
+
+	// Completion rate
+	const completionRate = $derived(
+		result && result.total_in_window > 0
+			? Math.round(result.activities.filter(a => a.status === 'TK_Complete').length / result.total_in_window * 100)
+			: 0
+	);
+
+	function exportCSV() {
+		if (!result) return;
+		const headers = ['Code', 'Name', 'Status', 'Start Day', 'Duration', 'Float', 'Progress', 'Critical'];
+		const rows = result.activities.map(a => [
+			a.task_code, a.task_name, a.status.replace('TK_', ''),
+			a.start_day, a.duration_days, a.total_float_days, a.progress_pct,
+			a.is_critical ? 'Yes' : 'No',
+		]);
+		const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+		const blob = new Blob([csv], { type: 'text/csv' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `lookahead-${weeks}wk-${selectedProject}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <svelte:head>
-	<title>Look-Ahead Schedule - MeridianIQ</title>
+	<title>{$t('page.lookahead')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900">Look-Ahead Schedule</h1>
+		<h1 class="text-2xl font-bold text-gray-900">{$t('page.lookahead')}</h1>
 		<p class="text-gray-500 mt-1">Short-term activity window for field coordination (Lean Construction LPS)</p>
 	</div>
 
@@ -121,6 +146,12 @@
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
 				{loading ? 'Loading...' : 'Generate'}
 			</button>
+			{#if result}
+				<button onclick={exportCSV}
+					class="px-3 py-2 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200">
+					Export CSV
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -133,7 +164,8 @@
 	{/if}
 
 	{#if result}
-		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+		<!-- KPI cards -->
+		<div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
 			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
 				<p class="text-2xl font-bold text-gray-900">{result.total_in_window}</p>
 				<p class="text-xs text-gray-500 uppercase">In Window</p>
@@ -154,18 +186,24 @@
 				<p class="text-2xl font-bold text-red-600">{result.critical_count}</p>
 				<p class="text-xs text-gray-500 uppercase">Critical</p>
 			</div>
+			<div class="bg-white rounded-lg border border-gray-200 p-3 text-center">
+				<p class="text-2xl font-bold text-green-600">{completionRate}%</p>
+				<p class="text-xs text-gray-500 uppercase">Complete</p>
+			</div>
 		</div>
 
+		<!-- Gantt chart -->
 		{#if ganttItems.length > 0}
 			<div class="mb-6">
 				<GanttChart
 					items={ganttItems}
-					title="{weeks}-Week Look-Ahead"
+					title="{weeks}-Week Look-Ahead ({ganttItems.length} activities)"
 					totalDuration={result.window_days}
 				/>
 			</div>
 		{/if}
 
+		<!-- Activity table with inline progress bars -->
 		{#if result.activities.length > 0}
 			<div class="bg-white rounded-lg border border-gray-200 p-6">
 				<h2 class="text-lg font-semibold text-gray-900 mb-3">Activities ({result.total_in_window})</h2>
@@ -179,7 +217,7 @@
 								<th class="text-right py-2 px-3">Start</th>
 								<th class="text-right py-2 px-3">Dur</th>
 								<th class="text-right py-2 px-3">Float</th>
-								<th class="text-right py-2 px-3">Prog</th>
+								<th class="text-right py-2 px-3 w-24">Progress</th>
 								<th class="text-center py-2 px-3">CP</th>
 							</tr>
 						</thead>
@@ -189,14 +227,21 @@
 									<td class="py-2 px-3 font-mono text-xs">{act.task_code}</td>
 									<td class="py-2 px-3">{act.task_name}</td>
 									<td class="py-2 px-3">
-										<span class="px-1.5 py-0.5 rounded text-xs {act.status === 'TK_Active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">
+										<span class="px-1.5 py-0.5 rounded text-xs {act.status === 'TK_Active' ? 'bg-blue-100 text-blue-700' : act.status === 'TK_Complete' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
 											{act.status.replace('TK_', '')}
 										</span>
 									</td>
 									<td class="py-2 px-3 text-right">D{act.start_day}</td>
 									<td class="py-2 px-3 text-right">{act.duration_days}d</td>
 									<td class="py-2 px-3 text-right {act.total_float_days <= 0 ? 'text-red-600 font-semibold' : ''}">{act.total_float_days}d</td>
-									<td class="py-2 px-3 text-right">{act.progress_pct.toFixed(0)}%</td>
+									<td class="py-2 px-3">
+										<div class="flex items-center gap-2">
+											<div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+												<div class="h-full rounded-full {act.is_critical ? 'bg-red-500' : 'bg-blue-500'}" style="width: {act.progress_pct}%"></div>
+											</div>
+											<span class="text-xs text-gray-500 w-8 text-right">{act.progress_pct.toFixed(0)}%</span>
+										</div>
+									</td>
 									<td class="py-2 px-3 text-center">{act.is_critical ? '●' : ''}</td>
 								</tr>
 							{/each}
