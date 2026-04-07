@@ -29,8 +29,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - `/schedule` frontend page with project + baseline selectors
 - 13 backend tests for schedule view engine
 
+### Polish (v3.2.0 continued)
+- Cross-page "View Schedule" links on 7 analysis pages
+- Schedule page auto-load from URL params (?project=&baseline=)
+- Contextual quick links in Schedule toolbar (Project Detail, Scorecard, Anomalies)
+- Enhanced lookahead: CSV export, completion rate KPI, inline progress bars
+- Dashboard "Projects at a Glance" section (top 6 by health, sorted worst-first)
+- Custom 404/error page with Go Back button, dark mode aware
+- SEO meta tags (og:title, og:description, twitter:card)
+- Keyboard shortcuts modal (press ?) — documents Ctrl+D, +/-, E, C, Esc
+- Skip-to-content accessible link for screen readers
+- robots.txt with API disallow and sitemap reference
+- Sidebar version bumped to v3.2.0
+- Landing page stats updated (33/80/761+)
+
 ### Stats
-- **33 analysis engines + 1 export module**, 21 MCP tools, **761+ tests**, 42 pages
+- **33 analysis engines + 1 export module**, 22 MCP tools, **761+ tests**, 42 pages, 60 commits
 
 ### References
 - AACE RP 49R-06 — Identifying Critical Activities

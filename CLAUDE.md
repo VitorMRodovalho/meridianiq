@@ -41,7 +41,7 @@ mypy src/ --strict              # type check
 
 - **33 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
 - **API**: FastAPI with 80 endpoints under `/api/v1/`
-- **Frontend**: SvelteKit + Tailwind v4, 42 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es)
+- **Frontend**: SvelteKit + Tailwind v4, 42 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es), keyboard shortcuts (?)
 - **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
