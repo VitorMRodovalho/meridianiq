@@ -80,6 +80,14 @@ class KahuaAdapter:
         """Identifier for this adapter."""
         return "kahua"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Domains supported by Kahua: cost, reporting.
+
+        Note: Kahua has no public schedule API.
+        """
+        return ["cost", "reporting"]
+
     def test_connection(self) -> bool:
         """Verify connectivity to the Kahua Open API.
 
@@ -169,3 +177,65 @@ class KahuaAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError("Kahua last-sync tracking not yet implemented.")
+
+    # ------------------------------------------------------------------ #
+    # Reporting domain (ReportingAdapter protocol)                       #
+    # ------------------------------------------------------------------ #
+
+    def sync_daily_logs(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch daily log entries from the Kahua data pool.
+
+        Will query the Kahua form-based API to retrieve daily field
+        reports including weather, crew counts, and work descriptions.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            start_date: Start of the reporting period.
+            end_date: End of the reporting period.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+
+        Reference:
+            AGC ConsensusDocs, AIA A201 (General Conditions).
+        """
+        raise NotImplementedError(
+            "Kahua daily log sync not yet implemented. See Kahua form-based API — daily log forms."
+        )
+
+    def sync_rfis(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch RFIs from the Kahua data pool.
+
+        Will query the Kahua form-based API to retrieve RFI records
+        with status, dates, responsible parties, and impact data.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Kahua RFI sync not yet implemented. See Kahua form-based API — RFI forms."
+        )
+
+    def sync_submittals(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch submittals from the Kahua data pool.
+
+        Will query the Kahua form-based API to retrieve submittal
+        records with spec sections, status, and lead time data.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Kahua submittal sync not yet implemented. See Kahua form-based API — submittal forms."
+        )

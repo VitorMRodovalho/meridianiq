@@ -87,6 +87,11 @@ class SAPPSAdapter:
         """Identifier for this adapter."""
         return "sap_ps"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Domains supported by SAP PS: cost, schedule, resource."""
+        return ["cost", "schedule", "resource"]
+
     def test_connection(self) -> bool:
         """Verify connectivity to the SAP oData service or RFC destination.
 
@@ -176,3 +181,129 @@ class SAPPSAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError("SAP PS last-sync tracking not yet implemented.")
+
+    # ------------------------------------------------------------------ #
+    # Schedule domain (ScheduleAdapter protocol)                         #
+    # ------------------------------------------------------------------ #
+
+    def sync_activities(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch network activities from SAP PS.
+
+        Will call oData service ``API_PROJECT_V2`` or BAPI
+        ``BAPI_NETWORK_GETINFO`` to retrieve network activities
+        (AFVC) with dates, durations, and work quantities.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+
+        Reference:
+            AACE RP 49R-06 (Scheduling).
+        """
+        raise NotImplementedError(
+            "SAP PS activity sync not yet implemented. "
+            "See API_PROJECT_V2 oData service — NetworkActivity entity set."
+        )
+
+    def sync_relationships(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch network activity relationships from SAP PS.
+
+        Will call ``API_PROJECT_V2`` to retrieve predecessor
+        relationships (FS/FF/SS/SF) between network activities.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "SAP PS relationship sync not yet implemented. "
+            "See API_PROJECT_V2 oData service — NetworkActivityRelationship."
+        )
+
+    def sync_milestones(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch WBS milestones from SAP PS.
+
+        Will query WBS elements flagged as milestones (PRPS-MPTS)
+        via ``API_PROJECT_V2`` or ``BAPI_BUS2054_GETDATA``.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "SAP PS milestone sync not yet implemented. "
+            "See API_PROJECT_V2 oData service — WBSElement (milestone flag)."
+        )
+
+    def sync_progress(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
+        """Fetch progress confirmations from SAP PS.
+
+        Will query network activity confirmations (AFRU) to retrieve
+        actual dates, percent complete, and remaining work.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            as_of: Progress data date.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "SAP PS progress sync not yet implemented. "
+            "See API_PROJECT_V2 oData service — confirmation records (AFRU)."
+        )
+
+    # ------------------------------------------------------------------ #
+    # Resource domain (ResourceAdapter protocol)                         #
+    # ------------------------------------------------------------------ #
+
+    def sync_resources(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch resource catalog from SAP PS / HR.
+
+        Will query work center master data (CRHD) and HR mini-master
+        via oData or BAPI to retrieve labor and equipment resources.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+
+        Reference:
+            AACE RP 22R-01 (Resource Planning).
+        """
+        raise NotImplementedError(
+            "SAP PS resource sync not yet implemented. "
+            "See work center (CRHD) and HR mini-master APIs."
+        )
+
+    def sync_timesheets(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch timesheet data from SAP CATS.
+
+        Will query CATS (Cross Application TimeSheet) via oData service
+        ``API_MANAGE_WORKFORCE_TIMESHEET`` to retrieve hours, cost,
+        and overtime per resource and network activity.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            start_date: Start of the reporting period.
+            end_date: End of the reporting period.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "SAP PS timesheet sync not yet implemented. "
+            "See CATS — API_MANAGE_WORKFORCE_TIMESHEET oData service."
+        )

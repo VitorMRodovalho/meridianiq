@@ -111,6 +111,11 @@ class ProcoreAdapter:
     def source_system(self) -> str:
         return "procore"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Procore supports all five domains — most complete PMIS API."""
+        return ["cost", "schedule", "risk", "reporting", "resource"]
+
     def test_connection(self) -> bool:
         """Test OAuth 2.0 connection to Procore.
 
@@ -193,3 +198,150 @@ class ProcoreAdapter:
 
     def get_last_sync_time(self, project_id: str) -> datetime | None:
         raise NotImplementedError("Procore sync tracking not yet implemented.")
+
+    # -- Schedule domain --------------------------------------------------
+
+    def sync_activities(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch schedule tasks from Procore.
+
+        Endpoint: GET /rest/v1.0/schedule/tasks?project_id={project_id}
+        Returns simplified task list — Procore is a schedule viewer,
+        not a CPM engine.  Master schedules should remain in P6.
+        """
+        raise NotImplementedError(
+            "Procore schedule sync not yet implemented. Endpoint: GET /rest/v1.0/schedule/tasks"
+        )
+
+    def sync_relationships(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch predecessor relationships from Procore schedule.
+
+        Endpoint: GET /rest/v1.0/schedule/tasks?project_id={project_id}
+        Relationships are embedded in the task response as predecessors array.
+        """
+        raise NotImplementedError(
+            "Procore relationship sync not yet implemented. "
+            "Endpoint: GET /rest/v1.0/schedule/tasks (predecessors array)"
+        )
+
+    def sync_milestones(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch milestones from Procore schedule tasks.
+
+        Endpoint: GET /rest/v1.0/schedule/tasks?project_id={project_id}
+        Filter tasks where task_type is milestone (duration=0).
+        """
+        raise NotImplementedError(
+            "Procore milestone sync not yet implemented. "
+            "Endpoint: GET /rest/v1.0/schedule/tasks (filtered by milestone type)"
+        )
+
+    def sync_progress(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
+        """Fetch schedule progress updates from Procore.
+
+        Endpoint: POST /rest/v1.0/schedule_integration
+        Procore schedule integration endpoint provides progress data
+        synced from P6/MSP.
+        """
+        raise NotImplementedError(
+            "Procore progress sync not yet implemented. "
+            "Endpoint: POST /rest/v1.0/schedule_integration"
+        )
+
+    # -- Risk domain ------------------------------------------------------
+
+    def sync_risk_register(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch risk register entries from Procore incidents and observations.
+
+        Endpoints:
+        - GET /rest/v1.0/incidents?project_id={project_id}
+        - GET /rest/v1.0/observations?project_id={project_id}
+        Maps Procore safety incidents and quality observations to
+        the MeridianIQ risk register schema.
+        """
+        raise NotImplementedError(
+            "Procore risk register sync not yet implemented. "
+            "Endpoints: GET /rest/v1.0/incidents, GET /rest/v1.0/observations"
+        )
+
+    def sync_risk_events(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch realized risk events from Procore incidents.
+
+        Endpoint: GET /rest/v1.0/incidents?project_id={project_id}
+        Filters for incidents with status=closed to capture materialized
+        risk events with actual cost and schedule impact.
+        """
+        raise NotImplementedError(
+            "Procore risk events sync not yet implemented. "
+            "Endpoint: GET /rest/v1.0/incidents (closed incidents)"
+        )
+
+    # -- Reporting domain -------------------------------------------------
+
+    def sync_daily_logs(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch daily log entries from Procore.
+
+        Endpoint: GET /rest/v1.0/daily_logs?project_id={project_id}
+        Returns weather, manpower, work performed, and delay notes.
+        Supports date range filtering via log_date parameter.
+        """
+        raise NotImplementedError(
+            "Procore daily logs sync not yet implemented. Endpoint: GET /rest/v1.0/daily_logs"
+        )
+
+    def sync_rfis(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch RFIs from Procore.
+
+        Endpoint: GET /rest/v1.0/rfis?project_id={project_id}
+        Returns RFI number, subject, status, dates, responsible party,
+        and cost/schedule impact fields.
+        """
+        raise NotImplementedError(
+            "Procore RFI sync not yet implemented. Endpoint: GET /rest/v1.0/rfis"
+        )
+
+    def sync_submittals(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch submittals from Procore.
+
+        Endpoint: GET /rest/v1.0/submittals?project_id={project_id}
+        Returns submittal number, title, spec section, status, dates,
+        and lead time information.
+        """
+        raise NotImplementedError(
+            "Procore submittal sync not yet implemented. Endpoint: GET /rest/v1.0/submittals"
+        )
+
+    # -- Resource domain --------------------------------------------------
+
+    def sync_resources(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch resource catalog from Procore project users and vendors.
+
+        Endpoints:
+        - GET /rest/v1.0/project_users?project_id={project_id}
+        - GET /rest/v1.0/vendors?project_id={project_id}
+        Maps Procore users (labor) and vendors (subcontractors) to the
+        MeridianIQ resource schema.
+        """
+        raise NotImplementedError(
+            "Procore resource sync not yet implemented. "
+            "Endpoints: GET /rest/v1.0/project_users, GET /rest/v1.0/vendors"
+        )
+
+    def sync_timesheets(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch timesheet data from Procore.
+
+        Endpoint: GET /rest/v1.0/timesheets?project_id={project_id}
+        Returns daily hours by worker, trade, and cost code.
+        Supports date range filtering.
+        """
+        raise NotImplementedError(
+            "Procore timesheet sync not yet implemented. Endpoint: GET /rest/v1.0/timesheets"
+        )

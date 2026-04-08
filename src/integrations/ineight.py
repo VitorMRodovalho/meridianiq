@@ -96,6 +96,11 @@ class InEightAdapter:
         """Identifier for this adapter."""
         return "ineight"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Domains supported by InEight: cost, schedule, resource."""
+        return ["cost", "schedule", "resource"]
+
     def test_connection(self) -> bool:
         """Verify connectivity to the InEight APIM gateway.
 
@@ -183,3 +188,126 @@ class InEightAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError("InEight last-sync tracking not yet implemented.")
+
+    # ------------------------------------------------------------------ #
+    # Schedule domain (ScheduleAdapter protocol)                         #
+    # ------------------------------------------------------------------ #
+
+    def sync_activities(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch activities from InEight Plan (Schedule) module.
+
+        Will call the ``SelfService_Schedule_Activities`` OData endpoint
+        to retrieve CPM activities with dates, durations, and progress.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+
+        Reference:
+            AACE RP 49R-06 (Scheduling).
+        """
+        raise NotImplementedError(
+            "InEight schedule sync not yet implemented. "
+            "See SelfService_Schedule_Activities OData endpoint."
+        )
+
+    def sync_relationships(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch predecessor relationships from InEight Plan module.
+
+        Will call the ``SelfService_Schedule_Relationships`` OData
+        endpoint to retrieve FS/FF/SS/SF logic ties with lag values.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "InEight relationship sync not yet implemented. "
+            "See SelfService_Schedule_Relationships OData endpoint."
+        )
+
+    def sync_milestones(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch milestones from InEight Plan module.
+
+        Will call the ``SelfService_Schedule_Milestones`` OData endpoint
+        to retrieve key dates, weights, and criticality flags.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "InEight milestone sync not yet implemented. "
+            "See SelfService_Schedule_Milestones OData endpoint."
+        )
+
+    def sync_progress(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
+        """Fetch progress updates from InEight Plan module.
+
+        Will call the ``SelfService_Schedule_Progress`` OData endpoint
+        to retrieve percent complete, remaining duration, and status.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            as_of: Progress data date.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "InEight progress sync not yet implemented. "
+            "See SelfService_Schedule_Progress OData endpoint."
+        )
+
+    # ------------------------------------------------------------------ #
+    # Resource domain (ResourceAdapter protocol)                         #
+    # ------------------------------------------------------------------ #
+
+    def sync_resources(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch resource catalog from InEight Platform.
+
+        Will call the employee and equipment management APIs to
+        retrieve labor, equipment, and material resource definitions.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+
+        Reference:
+            AACE RP 22R-01 (Resource Planning).
+        """
+        raise NotImplementedError(
+            "InEight resource sync not yet implemented. "
+            "See InEight employee/equipment management APIs."
+        )
+
+    def sync_timesheets(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch timesheet data from InEight Field module.
+
+        Will call the timecard management APIs to retrieve daily
+        hours, cost, and overtime data per resource and task.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            start_date: Start of the reporting period.
+            end_date: End of the reporting period.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "InEight timesheet sync not yet implemented. See InEight timecard management APIs."
+        )

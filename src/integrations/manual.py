@@ -35,6 +35,11 @@ class ManualAdapter:
     def source_system(self) -> str:
         return "manual"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Manual adapter supports cost data only (Excel/CSV uploads)."""
+        return ["cost"]
+
     def test_connection(self) -> bool:
         """Manual imports are always 'connected'."""
         return True

@@ -79,6 +79,11 @@ class PrimaveraUnifierAdapter:
         """Identifier for this adapter."""
         return "primavera_unifier"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Unifier supports cost, risk, and reporting via Business Processes."""
+        return ["cost", "risk", "reporting"]
+
     def test_connection(self) -> bool:
         """Verify connectivity to the Unifier REST API.
 
@@ -167,3 +172,110 @@ class PrimaveraUnifierAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError("Primavera Unifier last-sync tracking not yet implemented.")
+
+    # -- Risk domain ------------------------------------------------------
+
+    def sync_risk_register(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch risk register entries from Unifier Risk Business Process.
+
+        Endpoint: POST /ws/rest/service/v2/bp/<risk_bp_name>/records
+        The Risk BP name is configurable per Unifier deployment (e.g.
+        'Risk Register', 'uuu_risk_bp').  Uses the Business Process
+        Record API to query risk items with probability, impact, status,
+        and response strategy fields.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Primavera Unifier risk register sync not yet implemented. "
+            "Endpoint: POST /ws/rest/service/v2/bp/<risk_bp_name>/records"
+        )
+
+    def sync_risk_events(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch realized risk events from Unifier Risk BP.
+
+        Endpoint: POST /ws/rest/service/v2/bp/<risk_bp_name>/records
+        Filters for risk records with status=closed/realized to capture
+        materialized risk events with actual cost and schedule impact.
+        The BP name is configurable per deployment.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Primavera Unifier risk events sync not yet implemented. "
+            "Endpoint: POST /ws/rest/service/v2/bp/<risk_bp_name>/records"
+        )
+
+    # -- Reporting domain -------------------------------------------------
+
+    def sync_daily_logs(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch daily log entries from Unifier Daily Report Business Process.
+
+        Endpoint: POST /ws/rest/service/v2/bp/<daily_report_bp_name>/records
+        The Daily Report BP name is configurable per deployment (e.g.
+        'Daily Report', 'Daily Field Report').  Returns weather, crew
+        count, work description, and delay notes.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            start_date: Start of the reporting period.
+            end_date: End of the reporting period.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Primavera Unifier daily logs sync not yet implemented. "
+            "Endpoint: POST /ws/rest/service/v2/bp/<daily_report_bp_name>/records"
+        )
+
+    def sync_rfis(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch RFIs from Unifier RFI Business Process.
+
+        Endpoint: POST /ws/rest/service/v2/bp/<rfi_bp_name>/records
+        The RFI BP name is configurable per deployment (e.g. 'RFI',
+        'Request for Information').  Returns RFI number, subject, status,
+        dates, responsible party, and impact fields.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Primavera Unifier RFI sync not yet implemented. "
+            "Endpoint: POST /ws/rest/service/v2/bp/<rfi_bp_name>/records"
+        )
+
+    def sync_submittals(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch submittals from Unifier Submittal Business Process.
+
+        Endpoint: POST /ws/rest/service/v2/bp/<submittal_bp_name>/records
+        The Submittal BP name is configurable per deployment (e.g.
+        'Submittal', 'Material Submittal').  Returns submittal number,
+        title, spec section, status, dates, and lead time.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "Primavera Unifier submittal sync not yet implemented. "
+            "Endpoint: POST /ws/rest/service/v2/bp/<submittal_bp_name>/records"
+        )

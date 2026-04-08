@@ -92,6 +92,11 @@ class EBuilderAdapter:
         """Identifier for this adapter."""
         return "ebuilder"
 
+    @property
+    def supported_domains(self) -> list[str]:
+        """Domains supported by e-Builder: cost, reporting."""
+        return ["cost", "reporting"]
+
     def test_connection(self) -> bool:
         """Verify connectivity to the e-Builder REST API.
 
@@ -179,3 +184,68 @@ class EBuilderAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError("e-Builder last-sync tracking not yet implemented.")
+
+    # ------------------------------------------------------------------ #
+    # Reporting domain (ReportingAdapter protocol)                       #
+    # ------------------------------------------------------------------ #
+
+    def sync_daily_logs(
+        self,
+        project_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch daily log entries from e-Builder process engine.
+
+        Will call ``/processes`` API filtered by daily log process
+        type to retrieve field reports with weather and crew data.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+            start_date: Start of the reporting period.
+            end_date: End of the reporting period.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+
+        Reference:
+            AGC ConsensusDocs, AIA A201 (General Conditions).
+        """
+        raise NotImplementedError(
+            "e-Builder daily log sync not yet implemented. "
+            "See /processes API — daily log process type."
+        )
+
+    def sync_rfis(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch RFIs from e-Builder process engine.
+
+        Will call ``/processes`` API filtered by RFI process type
+        to retrieve RFI records with status, dates, and impacts.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "e-Builder RFI sync not yet implemented. See /processes API — RFI process type."
+        )
+
+    def sync_submittals(self, project_id: str) -> list[dict[str, Any]]:
+        """Fetch submittals from e-Builder process engine.
+
+        Will call ``/processes`` API filtered by submittal process
+        type to retrieve submittal records with spec sections and
+        approval status.
+
+        Args:
+            project_id: MeridianIQ project UUID.
+
+        Raises:
+            NotImplementedError: Adapter not yet implemented.
+        """
+        raise NotImplementedError(
+            "e-Builder submittal sync not yet implemented. "
+            "See /processes API — submittal process type."
+        )
