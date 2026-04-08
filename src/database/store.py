@@ -17,6 +17,7 @@ import json
 import logging
 import tempfile
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -412,10 +413,20 @@ class SupabaseStore:
 
     # -- helpers ---------------------------------------------------------
 
+    BATCH_SIZE = 500  # Max rows per insert to avoid payload limits
+
     def _insert(self, table: str, data: dict[str, Any]) -> dict[str, Any]:
         """Insert a row and return the inserted data."""
         result = self._client.table(table).insert(data).execute()
         return result.data[0] if result.data else {}
+
+    def _batch_insert(self, table: str, rows: list[dict[str, Any]]) -> None:
+        """Insert rows in chunks of BATCH_SIZE."""
+        if not rows:
+            return
+        for i in range(0, len(rows), self.BATCH_SIZE):
+            chunk = rows[i : i + self.BATCH_SIZE]
+            self._client.table(table).insert(chunk).execute()
 
     def _select(
         self,
@@ -430,6 +441,36 @@ class SupabaseStore:
                 query = query.eq(col, val)
         result = query.execute()
         return result.data or []
+
+    def _select_all(
+        self,
+        table: str,
+        project_id: str,
+        columns: str = "*",
+    ) -> list[dict[str, Any]]:
+        """Select all rows for a project, paginating past Supabase 1000-row default."""
+        all_rows: list[dict[str, Any]] = []
+        offset = 0
+        page_size = 1000
+        while True:
+            result = (
+                self._client.table(table)
+                .select(columns)
+                .eq("project_id", project_id)
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            batch = result.data or []
+            all_rows.extend(batch)
+            if len(batch) < page_size:
+                break
+            offset += page_size
+        return all_rows
+
+    @staticmethod
+    def _dt_iso(dt: datetime | None) -> str | None:
+        """Convert datetime to ISO string for Supabase, or None."""
+        return dt.isoformat() if dt else None
 
     # -- upload / project ------------------------------------------------
 
@@ -512,10 +553,291 @@ class SupabaseStore:
         if revision_number is not None:
             data["revision_number"] = revision_number
         row = self._insert("projects", data)
-        return str(row["id"])
+        project_uuid = str(row["id"])
+
+        # Persist full schedule data to relational tables
+        self._persist_schedule_data(project_uuid, schedule)
+
+        return project_uuid
+
+    def _persist_schedule_data(
+        self, project_id: str, schedule: ParsedSchedule
+    ) -> None:
+        """Batch-insert all parsed schedule entities into relational tables.
+
+        Called from save_project() after metadata insert.  If any insert
+        fails the XER binary in the Storage bucket serves as fallback —
+        the upload is never blocked by a persistence failure.
+        """
+        try:
+            # WBS elements
+            self._batch_insert(
+                "wbs_elements",
+                [
+                    {
+                        "project_id": project_id,
+                        "wbs_id": w.wbs_id,
+                        "parent_wbs_id": w.parent_wbs_id or None,
+                        "wbs_short_name": w.wbs_short_name,
+                        "wbs_name": w.wbs_name,
+                        "seq_num": w.seq_num,
+                        "proj_node_flag": w.proj_node_flag,
+                    }
+                    for w in schedule.wbs_nodes
+                ],
+            )
+
+            # Activities — overflow fields go into extra_data JSONB
+            self._batch_insert(
+                "activities",
+                [
+                    {
+                        "project_id": project_id,
+                        "task_id": t.task_id,
+                        "task_code": t.task_code,
+                        "task_name": t.task_name,
+                        "task_type": t.task_type,
+                        "status_code": t.status_code,
+                        "wbs_id": t.wbs_id,
+                        "clndr_id": t.clndr_id,
+                        "total_float_hr_cnt": t.total_float_hr_cnt,
+                        "free_float_hr_cnt": t.free_float_hr_cnt,
+                        "remain_drtn_hr_cnt": t.remain_drtn_hr_cnt,
+                        "target_drtn_hr_cnt": t.target_drtn_hr_cnt,
+                        "act_start_date": self._dt_iso(t.act_start_date),
+                        "act_end_date": self._dt_iso(t.act_end_date),
+                        "early_start_date": self._dt_iso(t.early_start_date),
+                        "early_end_date": self._dt_iso(t.early_end_date),
+                        "late_start_date": self._dt_iso(t.late_start_date),
+                        "late_end_date": self._dt_iso(t.late_end_date),
+                        "target_start_date": self._dt_iso(t.target_start_date),
+                        "target_end_date": self._dt_iso(t.target_end_date),
+                        "phys_complete_pct": t.phys_complete_pct,
+                        "extra_data": {
+                            "restart_date": self._dt_iso(t.restart_date),
+                            "reend_date": self._dt_iso(t.reend_date),
+                            "complete_pct_type": t.complete_pct_type,
+                            "duration_type": t.duration_type,
+                            "cstr_date": self._dt_iso(t.cstr_date),
+                            "cstr_type": t.cstr_type,
+                            "cstr_date2": self._dt_iso(t.cstr_date2),
+                            "cstr_type2": t.cstr_type2,
+                            "float_path": t.float_path,
+                            "float_path_order": t.float_path_order,
+                            "driving_path_flag": t.driving_path_flag,
+                            "priority_type": t.priority_type,
+                            "act_work_qty": t.act_work_qty,
+                            "remain_work_qty": t.remain_work_qty,
+                            "target_work_qty": t.target_work_qty,
+                            "act_equip_qty": t.act_equip_qty,
+                            "remain_equip_qty": t.remain_equip_qty,
+                            "target_equip_qty": t.target_equip_qty,
+                            "task_id_key": t.task_id_key,
+                            "proj_id": t.proj_id,
+                        },
+                    }
+                    for t in schedule.activities
+                ],
+            )
+
+            # Predecessors (relationships)
+            self._batch_insert(
+                "predecessors",
+                [
+                    {
+                        "project_id": project_id,
+                        "task_pred_id": r.task_pred_id,
+                        "task_id": r.task_id,
+                        "pred_task_id": r.pred_task_id,
+                        "pred_type": r.pred_type,
+                        "lag_hr_cnt": r.lag_hr_cnt,
+                    }
+                    for r in schedule.relationships
+                ],
+            )
+
+            # Calendars
+            self._batch_insert(
+                "calendars",
+                [
+                    {
+                        "project_id": project_id,
+                        "clndr_id": c.clndr_id,
+                        "clndr_name": c.clndr_name,
+                        "day_hr_cnt": c.day_hr_cnt,
+                        "week_hr_cnt": c.week_hr_cnt,
+                        "clndr_type": c.clndr_type,
+                        "default_flag": c.default_flag,
+                        "clndr_data": c.clndr_data,
+                    }
+                    for c in schedule.calendars
+                ],
+            )
+
+            # Resources
+            self._batch_insert(
+                "resources",
+                [
+                    {
+                        "project_id": project_id,
+                        "rsrc_id": r.rsrc_id,
+                        "rsrc_name": r.rsrc_name,
+                        "rsrc_type": r.rsrc_type,
+                    }
+                    for r in schedule.resources
+                ],
+            )
+
+            # Resource assignments
+            self._batch_insert(
+                "resource_assignments",
+                [
+                    {
+                        "project_id": project_id,
+                        "taskrsrc_id": tr.taskrsrc_id,
+                        "task_id": tr.task_id,
+                        "rsrc_id": tr.rsrc_id,
+                        "proj_id": tr.proj_id,
+                        "target_qty": tr.target_qty,
+                        "act_reg_qty": tr.act_reg_qty,
+                        "remain_qty": tr.remain_qty,
+                        "target_cost": tr.target_cost,
+                        "act_reg_cost": tr.act_reg_cost,
+                        "remain_cost": tr.remain_cost,
+                    }
+                    for tr in schedule.task_resources
+                ],
+            )
+
+            # Activity code types
+            self._batch_insert(
+                "activity_code_types",
+                [
+                    {
+                        "project_id": project_id,
+                        "actv_code_type_id": act.actv_code_type_id,
+                        "actv_code_type": act.actv_code_type,
+                    }
+                    for act in schedule.activity_code_types
+                ],
+            )
+
+            # Activity codes
+            self._batch_insert(
+                "activity_codes",
+                [
+                    {
+                        "project_id": project_id,
+                        "actv_code_id": ac.actv_code_id,
+                        "actv_code_type_id": ac.actv_code_type_id,
+                        "actv_code_name": ac.actv_code_name,
+                        "short_name": ac.short_name,
+                    }
+                    for ac in schedule.activity_codes
+                ],
+            )
+
+            # Task activity codes
+            self._batch_insert(
+                "task_activity_codes",
+                [
+                    {
+                        "project_id": project_id,
+                        "task_id": tac.task_id,
+                        "actv_code_id": tac.actv_code_id,
+                    }
+                    for tac in schedule.task_activity_codes
+                ],
+            )
+
+            # UDF types
+            self._batch_insert(
+                "udf_types",
+                [
+                    {
+                        "project_id": project_id,
+                        "udf_type_id": ut.udf_type_id,
+                        "table_name": ut.table_name,
+                        "udf_type_label": ut.udf_type_label,
+                    }
+                    for ut in schedule.udf_types
+                ],
+            )
+
+            # UDF values
+            self._batch_insert(
+                "udf_values",
+                [
+                    {
+                        "project_id": project_id,
+                        "udf_type_id": uv.udf_type_id,
+                        "fk_id": uv.fk_id,
+                        "udf_text": uv.udf_text,
+                        "udf_number": uv.udf_number,
+                        "udf_date": self._dt_iso(uv.udf_date),
+                    }
+                    for uv in schedule.udf_values
+                ],
+            )
+
+            # Financial periods
+            self._batch_insert(
+                "financial_periods",
+                [
+                    {
+                        "project_id": project_id,
+                        "fin_dates_id": fp.fin_dates_id,
+                        "fin_dates_name": fp.fin_dates_name,
+                        "start_date": self._dt_iso(fp.start_date),
+                        "end_date": self._dt_iso(fp.end_date),
+                    }
+                    for fp in schedule.financial_periods
+                ],
+            )
+
+            # Task financials
+            self._batch_insert(
+                "task_financials",
+                [
+                    {
+                        "project_id": project_id,
+                        "task_id": tf.task_id,
+                        "fin_dates_id": tf.fin_dates_id,
+                        "target_cost": tf.target_cost,
+                        "act_cost": tf.act_cost,
+                    }
+                    for tf in schedule.task_financials
+                ],
+            )
+
+            logger.info(
+                "Persisted schedule data for project %s: "
+                "%d activities, %d WBS, %d relationships",
+                project_id,
+                len(schedule.activities),
+                len(schedule.wbs_nodes),
+                len(schedule.relationships),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Schedule data persistence failed for %s (XER fallback available): %s",
+                project_id,
+                exc,
+            )
 
     def get_parsed_schedule(self, project_id: str) -> ParsedSchedule | None:
-        """Download XER from bucket, re-parse, and return ParsedSchedule."""
+        """Reconstruct ParsedSchedule from DB, falling back to XER re-parse."""
+        # Try DB reconstruction first (fast path — no bucket download)
+        schedule = self._reconstruct_from_db(project_id)
+        if schedule and schedule.activities:
+            return schedule
+
+        # Fallback: download XER from bucket and re-parse
+        # (for projects uploaded before migration 018)
+        return self._download_and_reparse(project_id)
+
+    def _download_and_reparse(self, project_id: str) -> ParsedSchedule | None:
+        """Download XER from Storage bucket, re-parse, return ParsedSchedule."""
         rows = self._select(
             "projects",
             {"id": project_id},
@@ -531,7 +853,6 @@ class SupabaseStore:
             logger.error("Failed to download XER from bucket: %s", exc)
             return None
 
-        # Parse from bytes via temp file (XERReader requires a file path)
         tmp_path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".xer", delete=False) as tmp:
@@ -547,6 +868,269 @@ class SupabaseStore:
         finally:
             if tmp_path:
                 tmp_path.unlink(missing_ok=True)
+
+    def _reconstruct_from_db(self, project_id: str) -> ParsedSchedule | None:
+        """Rebuild a ParsedSchedule from the relational tables.
+
+        Returns None if the project has no persisted schedule data (pre-018).
+        """
+        from src.parser.models import (
+            ActivityCode,
+            ActivityCodeType,
+            Calendar,
+            FinancialPeriod,
+            Project as P6Project,
+            Relationship,
+            Resource,
+            Task,
+            TaskActivityCode,
+            TaskFinancial,
+            TaskResource,
+            UDFType,
+            UDFValue,
+            WBS,
+            XERHeader,
+        )
+
+        try:
+            # Check if activities exist (fast existence check)
+            probe = (
+                self._client.table("activities")
+                .select("id")
+                .eq("project_id", project_id)
+                .limit(1)
+                .execute()
+            )
+            if not probe.data:
+                return None
+
+            # Get project metadata
+            proj_rows = self._select("projects", {"id": project_id})
+            if not proj_rows:
+                return None
+            proj_meta = proj_rows[0]
+
+            # Build the P6 Project model from metadata
+            p6_project = P6Project(
+                proj_id=project_id,
+                proj_short_name=proj_meta.get("project_name", ""),
+                last_recalc_date=_parse_dt(proj_meta.get("data_date")),
+                sum_data_date=_parse_dt(proj_meta.get("data_date")),
+            )
+
+            # Query all entity tables
+            wbs_rows = self._select_all("wbs_elements", project_id)
+            act_rows = self._select_all("activities", project_id)
+            rel_rows = self._select_all("predecessors", project_id)
+            cal_rows = self._select_all("calendars", project_id)
+            rsrc_rows = self._select_all("resources", project_id)
+            ra_rows = self._select_all("resource_assignments", project_id)
+            act_type_rows = self._select_all("activity_code_types", project_id)
+            ac_rows = self._select_all("activity_codes", project_id)
+            tac_rows = self._select_all("task_activity_codes", project_id)
+            udf_t_rows = self._select_all("udf_types", project_id)
+            udf_v_rows = self._select_all("udf_values", project_id)
+            fp_rows = self._select_all("financial_periods", project_id)
+            tf_rows = self._select_all("task_financials", project_id)
+
+            # Map rows → Pydantic models
+            wbs_nodes = [
+                WBS(
+                    wbs_id=r["wbs_id"],
+                    proj_id=project_id,
+                    parent_wbs_id=r.get("parent_wbs_id") or "",
+                    wbs_short_name=r.get("wbs_short_name") or "",
+                    wbs_name=r.get("wbs_name") or "",
+                    seq_num=r.get("seq_num") or 0,
+                    proj_node_flag=r.get("proj_node_flag") or "N",
+                )
+                for r in wbs_rows
+            ]
+
+            activities = []
+            for r in act_rows:
+                extra = r.get("extra_data") or {}
+                activities.append(
+                    Task(
+                        task_id=r["task_id"],
+                        proj_id=extra.get("proj_id") or "",
+                        wbs_id=r.get("wbs_id") or "",
+                        clndr_id=r.get("clndr_id") or "",
+                        task_code=r.get("task_code") or "",
+                        task_name=r.get("task_name") or "",
+                        task_type=r.get("task_type") or "",
+                        status_code=r.get("status_code") or "",
+                        total_float_hr_cnt=r.get("total_float_hr_cnt"),
+                        free_float_hr_cnt=r.get("free_float_hr_cnt"),
+                        remain_drtn_hr_cnt=r.get("remain_drtn_hr_cnt") or 0.0,
+                        target_drtn_hr_cnt=r.get("target_drtn_hr_cnt") or 0.0,
+                        act_start_date=_parse_dt(r.get("act_start_date")),
+                        act_end_date=_parse_dt(r.get("act_end_date")),
+                        early_start_date=_parse_dt(r.get("early_start_date")),
+                        early_end_date=_parse_dt(r.get("early_end_date")),
+                        late_start_date=_parse_dt(r.get("late_start_date")),
+                        late_end_date=_parse_dt(r.get("late_end_date")),
+                        target_start_date=_parse_dt(r.get("target_start_date")),
+                        target_end_date=_parse_dt(r.get("target_end_date")),
+                        restart_date=_parse_dt(extra.get("restart_date")),
+                        reend_date=_parse_dt(extra.get("reend_date")),
+                        phys_complete_pct=r.get("phys_complete_pct") or 0.0,
+                        complete_pct_type=extra.get("complete_pct_type") or "",
+                        duration_type=extra.get("duration_type") or "",
+                        cstr_date=_parse_dt(extra.get("cstr_date")),
+                        cstr_type=extra.get("cstr_type") or "",
+                        cstr_date2=_parse_dt(extra.get("cstr_date2")),
+                        cstr_type2=extra.get("cstr_type2") or "",
+                        float_path=extra.get("float_path"),
+                        float_path_order=extra.get("float_path_order"),
+                        driving_path_flag=extra.get("driving_path_flag") or "",
+                        priority_type=extra.get("priority_type") or "",
+                        act_work_qty=extra.get("act_work_qty") or 0.0,
+                        remain_work_qty=extra.get("remain_work_qty") or 0.0,
+                        target_work_qty=extra.get("target_work_qty") or 0.0,
+                        act_equip_qty=extra.get("act_equip_qty") or 0.0,
+                        remain_equip_qty=extra.get("remain_equip_qty") or 0.0,
+                        target_equip_qty=extra.get("target_equip_qty") or 0.0,
+                        task_id_key=extra.get("task_id_key") or "",
+                    )
+                )
+
+            relationships = [
+                Relationship(
+                    task_pred_id=r.get("task_pred_id") or "",
+                    task_id=r["task_id"],
+                    pred_task_id=r["pred_task_id"],
+                    pred_type=r.get("pred_type") or "PR_FS",
+                    lag_hr_cnt=r.get("lag_hr_cnt") or 0.0,
+                )
+                for r in rel_rows
+            ]
+
+            calendars = [
+                Calendar(
+                    clndr_id=r["clndr_id"],
+                    clndr_name=r.get("clndr_name") or "",
+                    day_hr_cnt=r.get("day_hr_cnt") or 8.0,
+                    week_hr_cnt=r.get("week_hr_cnt") or 40.0,
+                    clndr_type=r.get("clndr_type") or "",
+                    default_flag=r.get("default_flag") or "N",
+                    clndr_data=r.get("clndr_data") or "",
+                )
+                for r in cal_rows
+            ]
+
+            resources = [
+                Resource(
+                    rsrc_id=r["rsrc_id"],
+                    rsrc_name=r.get("rsrc_name") or "",
+                    rsrc_type=r.get("rsrc_type") or "",
+                )
+                for r in rsrc_rows
+            ]
+
+            task_resources = [
+                TaskResource(
+                    taskrsrc_id=r.get("taskrsrc_id") or "",
+                    task_id=r["task_id"],
+                    rsrc_id=r.get("rsrc_id") or "",
+                    proj_id=r.get("proj_id") or "",
+                    target_qty=r.get("target_qty") or 0.0,
+                    act_reg_qty=r.get("act_reg_qty") or 0.0,
+                    remain_qty=r.get("remain_qty") or 0.0,
+                    target_cost=r.get("target_cost") or 0.0,
+                    act_reg_cost=r.get("act_reg_cost") or 0.0,
+                    remain_cost=r.get("remain_cost") or 0.0,
+                )
+                for r in ra_rows
+            ]
+
+            activity_code_types = [
+                ActivityCodeType(
+                    actv_code_type_id=r["actv_code_type_id"],
+                    actv_code_type=r.get("actv_code_type") or "",
+                )
+                for r in act_type_rows
+            ]
+
+            activity_codes = [
+                ActivityCode(
+                    actv_code_id=r["actv_code_id"],
+                    actv_code_type_id=r.get("actv_code_type_id") or "",
+                    actv_code_name=r.get("actv_code_name") or "",
+                    short_name=r.get("short_name") or "",
+                )
+                for r in ac_rows
+            ]
+
+            task_activity_codes = [
+                TaskActivityCode(
+                    task_id=r["task_id"],
+                    actv_code_id=r["actv_code_id"],
+                )
+                for r in tac_rows
+            ]
+
+            udf_types = [
+                UDFType(
+                    udf_type_id=r["udf_type_id"],
+                    table_name=r.get("table_name") or "",
+                    udf_type_label=r.get("udf_type_label") or "",
+                )
+                for r in udf_t_rows
+            ]
+
+            udf_values = [
+                UDFValue(
+                    udf_type_id=r["udf_type_id"],
+                    fk_id=r.get("fk_id") or "",
+                    udf_text=r.get("udf_text"),
+                    udf_number=r.get("udf_number"),
+                    udf_date=_parse_dt(r.get("udf_date")),
+                )
+                for r in udf_v_rows
+            ]
+
+            financial_periods = [
+                FinancialPeriod(
+                    fin_dates_id=r["fin_dates_id"],
+                    fin_dates_name=r.get("fin_dates_name") or "",
+                    start_date=_parse_dt(r.get("start_date")),
+                    end_date=_parse_dt(r.get("end_date")),
+                )
+                for r in fp_rows
+            ]
+
+            task_financials = [
+                TaskFinancial(
+                    task_id=r["task_id"],
+                    fin_dates_id=r.get("fin_dates_id") or "",
+                    target_cost=r.get("target_cost") or 0.0,
+                    act_cost=r.get("act_cost") or 0.0,
+                )
+                for r in tf_rows
+            ]
+
+            return ParsedSchedule(
+                header=XERHeader(),
+                projects=[p6_project],
+                calendars=calendars,
+                wbs_nodes=wbs_nodes,
+                activities=activities,
+                relationships=relationships,
+                resources=resources,
+                task_resources=task_resources,
+                activity_codes=activity_codes,
+                activity_code_types=activity_code_types,
+                task_activity_codes=task_activity_codes,
+                udf_types=udf_types,
+                udf_values=udf_values,
+                financial_periods=financial_periods,
+                task_financials=task_financials,
+            )
+
+        except Exception as exc:
+            logger.warning("DB reconstruction failed for %s: %s", project_id, exc)
+            return None
 
     def get_projects(self, user_id: str | None = None) -> list[dict[str, Any]]:
         """List all projects — metadata only (no re-parse)."""
@@ -1035,6 +1619,23 @@ class SupabaseStore:
             ]
         except Exception:
             return []
+
+
+# ------------------------------------------------------------------ #
+# Helpers                                                            #
+# ------------------------------------------------------------------ #
+
+
+def _parse_dt(value: str | datetime | None) -> datetime | None:
+    """Parse an ISO-8601 string or passthrough a datetime. Returns None on failure."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        return None
 
 
 # ------------------------------------------------------------------ #

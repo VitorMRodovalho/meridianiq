@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.app import app, _store, _tia_store
+from src.api.app import app
+import src.api.deps as _deps
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SAMPLE_XER = FIXTURES / "sample.xer"
@@ -18,8 +19,8 @@ SAMPLE_XER = FIXTURES / "sample.xer"
 @pytest.fixture(autouse=True)
 def clear_stores() -> None:
     """Clear all in-memory stores before each test."""
-    _store.clear()
-    _tia_store.clear()
+    _deps._store.clear()
+    _deps._tia_store.clear()
 
 
 @pytest.fixture

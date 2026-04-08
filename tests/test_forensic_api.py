@@ -24,8 +24,8 @@ def _reset_stores(monkeypatch):
     """Reset global stores before each test."""
     store = ProjectStore()
     tl_store = TimelineStore()
-    monkeypatch.setattr("src.api.app._store", store)
-    monkeypatch.setattr("src.api.app._timeline_store", tl_store)
+    monkeypatch.setattr("src.api.deps._store", store)
+    monkeypatch.setattr("src.api.deps._timeline_store", tl_store)
     yield
 
 

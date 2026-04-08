@@ -22,21 +22,21 @@ from tests.fixtures.sample_xer_generator import generate_sample_xer
 @pytest.fixture()
 def client():
     """Create a test client with fresh stores."""
-    import src.api.app as app_module
+    import src.api.deps as deps_module
 
     test_store = ProjectStore()
     test_evm_store = EVMStore()
 
-    original_store = app_module._store
-    original_evm_store = app_module._evm_store
+    original_store = deps_module._store
+    original_evm_store = deps_module._evm_store
 
-    app_module._store = test_store
-    app_module._evm_store = test_evm_store
+    deps_module._store = test_store
+    deps_module._evm_store = test_evm_store
 
     yield TestClient(app)
 
-    app_module._store = original_store
-    app_module._evm_store = original_evm_store
+    deps_module._store = original_store
+    deps_module._evm_store = original_evm_store
 
 
 @pytest.fixture()

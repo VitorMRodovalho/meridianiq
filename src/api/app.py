@@ -50,19 +50,12 @@ from src.analytics.float_trends import (
 )
 from src.analytics.health_score import HealthScoreCalculator
 from src.analytics.forensics import ForensicAnalyzer
-from src.analytics.half_step import analyze_half_step
 from src.analytics.risk import (
     DistributionType,
     DurationRisk,
     MonteCarloSimulator,
     RiskEvent,
     SimulationConfig,
-)
-from src.analytics.tia import (
-    DelayFragment,
-    FragmentActivity,
-    ResponsibleParty,
-    TimeImpactAnalyzer,
 )
 from src.parser.models import ParsedSchedule
 from src.parser.xer_reader import XERReader
@@ -79,12 +72,8 @@ from .schemas import (
     ContractCheckResponse,
     ContractProvisionSchema,
     ContractProvisionsResponse,
-    CreateTimelineRequest,
     CriticalPathActivity,
     CriticalPathResponse,
-    DelayFragmentSchema,
-    DelayTrendPoint,
-    DelayTrendResponse,
     EVMAnalysisSchema,
     EVMAnalysisSummarySchema,
     EVMListResponse,
@@ -93,7 +82,6 @@ from .schemas import (
     FloatBucket,
     FloatChangeSchema,
     FloatDistributionResponse,
-    FragmentActivitySchema,
     HealthClassificationSchema,
     HealthResponse,
     ManipulationFlagSchema,
@@ -110,21 +98,11 @@ from .schemas import (
     RelationshipTypeSummary,
     SCurvePointSchema,
     SCurveResponse,
-    TIAAnalysisSchema,
-    TIAAnalysisSummarySchema,
-    TIAAnalyzeRequest,
-    TIAListResponse,
-    TIAResultSchema,
-    TIASummaryResponse,
-    TimelineDetailSchema,
-    TimelineListResponse,
-    TimelineSummarySchema,
     ValidationResponse,
     WBSDrillResponse,
     WBSLevelCount,
     WBSMetricsSchema,
     WBSStats,
-    WindowSchema,
     # Risk schemas
     CriticalityEntrySchema,
     CriticalityResponse,
@@ -147,8 +125,6 @@ from .schemas import (
     FloatTrendResponse,
     GenerateReportRequest,
     GenerateReportResponse,
-    HalfStepRequest,
-    HalfStepResponse,
     ActivityRiskSchema,
     BenchmarkCompareResponse,
     BenchmarkSummaryResponse,
@@ -241,8 +217,16 @@ async def add_security_headers(request: Request, call_next):
 
 
 from .organizations import router as org_router  # noqa: E402
+from .routers.programs import router as programs_router  # noqa: E402
+from .routers.comparison import router as comparison_router  # noqa: E402
+from .routers.forensics import router as forensics_router  # noqa: E402
+from .routers.tia import router as tia_router  # noqa: E402
 
 app.include_router(org_router)
+app.include_router(programs_router)
+app.include_router(comparison_router)
+app.include_router(forensics_router)
+app.include_router(tia_router)
 
 
 @app.exception_handler(Exception)
@@ -259,62 +243,50 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     return JSONResponse(status_code=500, content={"detail": detail})
 
 
-# Global stores (singletons for the app lifetime)
-# _store uses the database factory: SupabaseStore in production, InMemoryStore in dev
-_store = _get_db_store()
-_timeline_store = TimelineStore()
-_tia_store = TIAStore()
-_evm_store = EVMStore()
-_risk_store = RiskStore()
-_report_store = ReportStore()
+# Global stores now live in deps.py — all access goes through functions
+# that read deps module attributes at call time.
+import src.api.deps as _deps  # noqa: E402
+
+# Backward-compat module-level aliases for tests that do:
+#   from src.api.app import _store  →  _store.clear()
+# These point to the same objects as deps.  For monkeypatching, target
+# src.api.deps._store (not src.api.app._store).
+_store = _deps._store
+_timeline_store = _deps._timeline_store
+_tia_store = _deps._tia_store
+_evm_store = _deps._evm_store
+_risk_store = _deps._risk_store
+_report_store = _deps._report_store
 
 
-def get_store():
-    """Return the global project store.
-
-    Exposed as a function so tests can replace it via monkeypatching.
-    """
-    return _store
+def get_store():  # type: ignore[no-redef]
+    """Return the global project store (delegates to deps._store)."""
+    return _deps._store
 
 
 def get_timeline_store() -> TimelineStore:
-    """Return the global timeline store.
-
-    Exposed as a function so tests can replace it via monkeypatching.
-    """
-    return _timeline_store
+    """Return the global timeline store."""
+    return _deps._timeline_store
 
 
 def get_tia_store() -> TIAStore:
-    """Return the global TIA store.
-
-    Exposed as a function so tests can replace it via monkeypatching.
-    """
-    return _tia_store
+    """Return the global TIA store."""
+    return _deps._tia_store
 
 
 def get_evm_store() -> EVMStore:
-    """Return the global EVM store.
-
-    Exposed as a function so tests can replace it via monkeypatching.
-    """
-    return _evm_store
+    """Return the global EVM store."""
+    return _deps._evm_store
 
 
 def get_risk_store() -> RiskStore:
-    """Return the global risk simulation store.
-
-    Exposed as a function so tests can replace it via monkeypatching.
-    """
-    return _risk_store
+    """Return the global risk simulation store."""
+    return _deps._risk_store
 
 
 def get_report_store() -> ReportStore:
-    """Return the global report store.
-
-    Exposed as a function so tests can replace it via monkeypatching.
-    """
-    return _report_store
+    """Return the global report store."""
+    return _deps._report_store
 
 
 # ------------------------------------------------------------------
@@ -594,107 +566,6 @@ def toggle_sandbox(
         is_sandbox = True
 
     return {"project_id": project_id, "is_sandbox": is_sandbox}
-
-
-# ------------------------------------------------------------------
-# Programs (group uploads under programs with revision tracking)
-# ------------------------------------------------------------------
-
-
-@app.get("/api/v1/programs")
-def list_programs(_user: object = Depends(optional_auth)):
-    """Return all programs with latest revision info."""
-    store = get_store()
-    user_id = _user["id"] if _user else None
-    programs = store.get_programs(user_id=user_id)
-    return {"programs": programs}
-
-
-@app.get("/api/v1/programs/{program_id}")
-def get_program_detail(program_id: str, _user: object = Depends(optional_auth)):
-    """Return a program with all its revisions."""
-    store = get_store()
-    user_id = _user["id"] if _user else None
-    revisions = store.get_program_revisions(program_id, user_id=user_id)
-    # Also get the program metadata
-    programs = store.get_programs(user_id=user_id)
-    program = None
-    for p in programs:
-        if p["id"] == program_id:
-            program = p
-            break
-    if program is None:
-        raise HTTPException(status_code=404, detail="Program not found")
-    return {"program": program, "revisions": revisions}
-
-
-@app.put("/api/v1/programs/{program_id}")
-def update_program(program_id: str, body: dict, _user: object = Depends(optional_auth)):
-    """Rename or update a program."""
-    store = get_store()
-    user_id = _user["id"] if _user else None
-    updated = store.update_program(program_id, body, user_id=user_id)
-    if updated is None:
-        raise HTTPException(status_code=404, detail="Program not found")
-    return {"program": updated}
-
-
-@app.get("/api/v1/programs/{program_id}/trends")
-def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
-    """Trend data across all revisions for charting."""
-    store = get_store()
-    user_id = _user["id"] if _user else None
-    revisions = (
-        store.get_program_revisions(program_id, user_id)
-        if hasattr(store, "get_program_revisions")
-        else []
-    )
-    if not revisions:
-        raise HTTPException(status_code=404, detail="Program not found or no revisions")
-
-    # Sort ascending by revision_number
-    revisions.sort(key=lambda r: r.get("revision_number", 0))
-
-    trends: dict = {
-        "revision_count": len(revisions),
-        "labels": [],
-        "health_scores": [],
-        "dcma_scores": [],
-        "alert_counts": [],
-        "activity_counts": [],
-        "revisions": [],
-    }
-
-    for rev in revisions:
-        results = rev.get("analysis_results") or {}
-        health = results.get("health", {})
-        dcma = results.get("dcma", {})
-        alerts = results.get("alerts", {})
-
-        label = rev.get("data_date") or f"Rev {rev.get('revision_number', '?')}"
-        trends["labels"].append(str(label))
-        trends["health_scores"].append(health.get("score") if health else None)
-        dcma_score = dcma.get("score") if dcma else None
-        if dcma_score is None and dcma:
-            dcma_score = dcma.get("pass_rate")
-        trends["dcma_scores"].append(dcma_score)
-        if alerts and isinstance(alerts.get("alerts"), list):
-            trends["alert_counts"].append(len(alerts["alerts"]))
-        elif alerts:
-            trends["alert_counts"].append(alerts.get("count", 0))
-        else:
-            trends["alert_counts"].append(None)
-        trends["activity_counts"].append(rev.get("activity_count"))
-        trends["revisions"].append(
-            {
-                "id": rev.get("id"),
-                "revision_number": rev.get("revision_number"),
-                "data_date": rev.get("data_date"),
-                "filename": rev.get("filename"),
-            }
-        )
-
-    return trends
 
 
 # ------------------------------------------------------------------
@@ -1075,503 +946,9 @@ def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> M
 
 
 # ------------------------------------------------------------------
-# Compare
+# Forensic Analysis → moved to routers/forensics.py
+# TIA (Time Impact Analysis) → moved to routers/tia.py
 # ------------------------------------------------------------------
-
-
-@app.post("/api/v1/compare", response_model=CompareResponse)
-@limiter.limit("20/minute")
-def compare_schedules(
-    request: CompareRequest, _user: object = Depends(optional_auth)
-) -> CompareResponse:
-    """Compare two uploaded projects (baseline vs update).
-
-    Args:
-        request: Contains baseline_id and update_id.
-
-    Raises:
-        HTTPException: If either project is not found.
-    """
-    store = get_store()
-
-    baseline = store.get(request.baseline_id)
-    if baseline is None:
-        raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
-        )
-
-    update = store.get(request.update_id)
-    if update is None:
-        raise HTTPException(
-            status_code=404, detail=f"Update project not found: {request.update_id}"
-        )
-
-    comparison = ScheduleComparison(baseline, update)
-    result = comparison.compare()
-
-    return CompareResponse(
-        activities_added=[ActivityChangeSchema(**asdict(c)) for c in result.activities_added],
-        activities_deleted=[ActivityChangeSchema(**asdict(c)) for c in result.activities_deleted],
-        activity_modifications=[
-            ActivityChangeSchema(**asdict(c)) for c in result.activity_modifications
-        ],
-        duration_changes=[ActivityChangeSchema(**asdict(c)) for c in result.duration_changes],
-        relationships_added=[
-            RelationshipChangeSchema(**asdict(c)) for c in result.relationships_added
-        ],
-        relationships_deleted=[
-            RelationshipChangeSchema(**asdict(c)) for c in result.relationships_deleted
-        ],
-        relationships_modified=[
-            RelationshipChangeSchema(**asdict(c)) for c in result.relationships_modified
-        ],
-        significant_float_changes=[
-            FloatChangeSchema(**asdict(c)) for c in result.significant_float_changes
-        ],
-        constraint_changes=[ActivityChangeSchema(**asdict(c)) for c in result.constraint_changes],
-        manipulation_flags=[ManipulationFlagSchema(**asdict(c)) for c in result.manipulation_flags],
-        code_restructuring=[
-            CodeRestructuringSchema(**asdict(c)) for c in result.code_restructuring
-        ],
-        match_stats=MatchStatsSchema(**asdict(result.match_stats)),
-        changed_percentage=result.changed_percentage,
-        critical_path_changed=result.critical_path_changed,
-        activities_joined_cp=result.activities_joined_cp,
-        activities_left_cp=result.activities_left_cp,
-        summary=result.summary,
-    )
-
-
-# ------------------------------------------------------------------
-# Forensic Analysis (CPA / Window Analysis)
-# ------------------------------------------------------------------
-
-
-def _window_to_schema(wr: Any) -> WindowSchema:
-    """Convert a WindowResult dataclass to a WindowSchema.
-
-    Args:
-        wr: A ``WindowResult`` instance.
-
-    Returns:
-        A ``WindowSchema`` suitable for JSON serialisation.
-    """
-    return WindowSchema(
-        window_number=wr.window.window_number,
-        window_id=wr.window.window_id,
-        baseline_project_id=wr.window.baseline_project_id,
-        update_project_id=wr.window.update_project_id,
-        start_date=wr.window.start_date.isoformat() if wr.window.start_date else None,
-        end_date=wr.window.end_date.isoformat() if wr.window.end_date else None,
-        completion_date_start=(
-            wr.completion_date_start.isoformat() if wr.completion_date_start else None
-        ),
-        completion_date_end=(
-            wr.completion_date_end.isoformat() if wr.completion_date_end else None
-        ),
-        delay_days=wr.delay_days,
-        cumulative_delay=wr.cumulative_delay,
-        critical_path_start=wr.critical_path_start,
-        critical_path_end=wr.critical_path_end,
-        cp_activities_joined=wr.cp_activities_joined,
-        cp_activities_left=wr.cp_activities_left,
-        driving_activity=wr.driving_activity,
-        comparison_summary=wr.comparison.summary if wr.comparison else {},
-        progress_delay_days=wr.progress_delay_days,
-        revision_delay_days=wr.revision_delay_days,
-        half_step_summary=wr.half_step_result.summary if wr.half_step_result else None,
-    )
-
-
-@app.post(
-    "/api/v1/forensic/create-timeline",
-    response_model=TimelineDetailSchema,
-)
-def create_timeline(
-    request: CreateTimelineRequest,
-    bifurcated: bool = False,
-    _user: object = Depends(optional_auth),
-) -> TimelineDetailSchema:
-    """Create a forensic CPA timeline from multiple schedule updates.
-
-    Fetches each referenced project from the store, sorts by data date,
-    runs the ``ForensicAnalyzer``, stores the result, and returns the
-    full timeline.
-
-    Args:
-        request: Contains a list of project_ids (minimum 2).
-        bifurcated: If True, run MIP 3.4 half-step analysis per window.
-
-    Raises:
-        HTTPException: If any project is not found or analysis fails.
-    """
-    store = get_store()
-    tl_store = get_timeline_store()
-
-    schedules: list[ParsedSchedule] = []
-    for pid in request.project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
-        schedules.append(schedule)
-
-    try:
-        analyzer = ForensicAnalyzer(schedules, list(request.project_ids), bifurcated=bifurcated)
-        timeline = analyzer.analyze()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Forensic analysis failed: {exc}")
-
-    tid = tl_store.add(timeline)
-
-    return TimelineDetailSchema(
-        timeline_id=tid,
-        project_name=timeline.project_name,
-        schedule_count=timeline.schedule_count,
-        total_delay_days=timeline.total_delay_days,
-        contract_completion=(
-            timeline.contract_completion.isoformat() if timeline.contract_completion else None
-        ),
-        current_completion=(
-            timeline.current_completion.isoformat() if timeline.current_completion else None
-        ),
-        windows=[_window_to_schema(w) for w in timeline.windows],
-        summary=timeline.summary,
-    )
-
-
-@app.get(
-    "/api/v1/forensic/timelines",
-    response_model=TimelineListResponse,
-)
-def list_timelines(_user: object = Depends(optional_auth)) -> TimelineListResponse:
-    """List all forensic timelines."""
-    tl_store = get_timeline_store()
-    items = [TimelineSummarySchema(**t) for t in tl_store.list_all()]
-    return TimelineListResponse(timelines=items)
-
-
-@app.get(
-    "/api/v1/forensic/timelines/{timeline_id}",
-    response_model=TimelineDetailSchema,
-)
-def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> TimelineDetailSchema:
-    """Get full forensic timeline with all window results.
-
-    Args:
-        timeline_id: The stored timeline identifier.
-
-    Raises:
-        HTTPException: If the timeline is not found.
-    """
-    tl_store = get_timeline_store()
-    timeline = tl_store.get(timeline_id)
-    if timeline is None:
-        raise HTTPException(status_code=404, detail="Timeline not found")
-
-    return TimelineDetailSchema(
-        timeline_id=timeline.timeline_id,
-        project_name=timeline.project_name,
-        schedule_count=timeline.schedule_count,
-        total_delay_days=timeline.total_delay_days,
-        contract_completion=(
-            timeline.contract_completion.isoformat() if timeline.contract_completion else None
-        ),
-        current_completion=(
-            timeline.current_completion.isoformat() if timeline.current_completion else None
-        ),
-        windows=[_window_to_schema(w) for w in timeline.windows],
-        summary=timeline.summary,
-    )
-
-
-@app.post(
-    "/api/v1/forensic/half-step",
-    response_model=HalfStepResponse,
-)
-def run_half_step(
-    request: HalfStepRequest, _user: object = Depends(optional_auth)
-) -> HalfStepResponse:
-    """Run a half-step (bifurcation) analysis between two schedule updates.
-
-    Per AACE RP 29R-03 MIP 3.4, separates delay into progress effect
-    (actual work performance) and revision effect (logic/plan changes).
-
-    Args:
-        request: Contains baseline_id and update_id.
-
-    Raises:
-        HTTPException: If either project is not found or analysis fails.
-    """
-    store = get_store()
-
-    baseline = store.get(request.baseline_id)
-    if baseline is None:
-        raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
-        )
-
-    update = store.get(request.update_id)
-    if update is None:
-        raise HTTPException(
-            status_code=404, detail=f"Update project not found: {request.update_id}"
-        )
-
-    try:
-        result = analyze_half_step(baseline, update)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Half-step analysis failed: {exc}")
-
-    return HalfStepResponse(
-        completion_a_days=result.completion_a,
-        completion_half_step_days=result.completion_half_step,
-        completion_b_days=result.completion_b,
-        progress_effect_days=result.progress_effect,
-        revision_effect_days=result.revision_effect,
-        total_delay_days=result.total_delay,
-        progress_direction=result.summary.get("progress_direction", ""),
-        revision_direction=result.summary.get("revision_direction", ""),
-        invariant_holds=result.invariant_check,
-        activities_updated=result.activities_updated,
-        critical_path_a=result.critical_path_a,
-        critical_path_half_step=result.critical_path_half_step,
-        critical_path_b=result.critical_path_b,
-        classification_summary=result.classification.summary if result.classification else {},
-        summary=result.summary,
-    )
-
-
-@app.get(
-    "/api/v1/forensic/timelines/{timeline_id}/delay-trend",
-    response_model=DelayTrendResponse,
-)
-def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) -> DelayTrendResponse:
-    """Return delay trend data for charting.
-
-    Each point represents one analysis window's data date and the
-    forecasted completion date at that point.
-
-    Args:
-        timeline_id: The stored timeline identifier.
-
-    Raises:
-        HTTPException: If the timeline is not found.
-    """
-    tl_store = get_timeline_store()
-    timeline = tl_store.get(timeline_id)
-    if timeline is None:
-        raise HTTPException(status_code=404, detail="Timeline not found")
-
-    points: list[DelayTrendPoint] = []
-    for wr in timeline.windows:
-        points.append(
-            DelayTrendPoint(
-                window_id=wr.window.window_id,
-                window_number=wr.window.window_number,
-                data_date=(wr.window.end_date.isoformat() if wr.window.end_date else None),
-                completion_date=(
-                    wr.completion_date_end.isoformat() if wr.completion_date_end else None
-                ),
-                delay_days=wr.delay_days,
-                cumulative_delay=wr.cumulative_delay,
-            )
-        )
-
-    return DelayTrendResponse(
-        timeline_id=timeline.timeline_id,
-        contract_completion=(
-            timeline.contract_completion.isoformat() if timeline.contract_completion else None
-        ),
-        points=points,
-    )
-
-
-# ------------------------------------------------------------------
-# TIA (Time Impact Analysis)
-# ------------------------------------------------------------------
-
-
-def _fragment_schema_to_model(schema: DelayFragmentSchema) -> DelayFragment:
-    """Convert a DelayFragmentSchema to a DelayFragment dataclass.
-
-    Args:
-        schema: The Pydantic schema from the request body.
-
-    Returns:
-        A ``DelayFragment`` dataclass instance.
-    """
-    activities = [
-        FragmentActivity(
-            fragment_activity_id=a.fragment_activity_id,
-            name=a.name,
-            duration_hours=a.duration_hours,
-            predecessors=a.predecessors,
-            successors=a.successors,
-        )
-        for a in schema.activities
-    ]
-
-    return DelayFragment(
-        fragment_id=schema.fragment_id,
-        name=schema.name,
-        description=schema.description,
-        responsible_party=ResponsibleParty(schema.responsible_party),
-        activities=activities,
-    )
-
-
-def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
-    """Convert a TIAAnalysis dataclass to its Pydantic schema.
-
-    Args:
-        analysis: A ``TIAAnalysis`` instance.
-
-    Returns:
-        A ``TIAAnalysisSchema`` for JSON serialisation.
-    """
-    fragment_schemas = [
-        DelayFragmentSchema(
-            fragment_id=f.fragment_id,
-            name=f.name,
-            description=f.description,
-            responsible_party=f.responsible_party.value,
-            activities=[
-                FragmentActivitySchema(
-                    fragment_activity_id=a.fragment_activity_id,
-                    name=a.name,
-                    duration_hours=a.duration_hours,
-                    predecessors=a.predecessors,
-                    successors=a.successors,
-                )
-                for a in f.activities
-            ],
-        )
-        for f in analysis.fragments
-    ]
-
-    result_schemas = [
-        TIAResultSchema(
-            fragment_id=r.fragment.fragment_id,
-            fragment_name=r.fragment.name,
-            responsible_party=r.fragment.responsible_party.value,
-            unimpacted_completion_days=r.unimpacted_completion_days,
-            impacted_completion_days=r.impacted_completion_days,
-            delay_days=r.delay_days,
-            critical_path_affected=r.critical_path_affected,
-            float_consumed_hours=r.float_consumed_hours,
-            delay_type=r.delay_type.value,
-            concurrent_with=r.concurrent_with,
-            impacted_driving_path=r.impacted_driving_path,
-        )
-        for r in analysis.results
-    ]
-
-    return TIAAnalysisSchema(
-        analysis_id=analysis.analysis_id,
-        project_name=analysis.project_name,
-        base_project_id=analysis.base_project_id,
-        fragments=fragment_schemas,
-        results=result_schemas,
-        total_owner_delay=analysis.total_owner_delay,
-        total_contractor_delay=analysis.total_contractor_delay,
-        total_shared_delay=analysis.total_shared_delay,
-        net_delay=analysis.net_delay,
-        summary=analysis.summary,
-    )
-
-
-@app.post("/api/v1/tia/analyze", response_model=TIAAnalysisSchema)
-@limiter.limit("10/minute")
-def tia_analyze(
-    request: TIAAnalyzeRequest, _user: object = Depends(optional_auth)
-) -> TIAAnalysisSchema:
-    """Run Time Impact Analysis on a project with delay fragments.
-
-    Per AACE RP 52R-06, inserts each fragment into the schedule network,
-    runs CPM, and measures the impact on the project completion date.
-
-    Args:
-        request: Contains project_id and fragment definitions.
-
-    Raises:
-        HTTPException: If the project is not found or analysis fails.
-    """
-    store = get_store()
-    tia_store = get_tia_store()
-
-    schedule = store.get(request.project_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {request.project_id}")
-
-    # Convert schemas to domain models
-    fragments = [_fragment_schema_to_model(f) for f in request.fragments]
-
-    try:
-        analyzer = TimeImpactAnalyzer(schedule)
-        analysis = analyzer.analyze_all(fragments)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"TIA analysis failed: {exc}")
-
-    tia_store.add(analysis)
-    return _analysis_to_schema(analysis)
-
-
-@app.get("/api/v1/tia/analyses", response_model=TIAListResponse)
-def list_tia_analyses(_user: object = Depends(optional_auth)) -> TIAListResponse:
-    """List all TIA analyses."""
-    tia_store = get_tia_store()
-    items = [TIAAnalysisSummarySchema(**a) for a in tia_store.list_all()]
-    return TIAListResponse(analyses=items)
-
-
-@app.get(
-    "/api/v1/tia/analyses/{analysis_id}",
-    response_model=TIAAnalysisSchema,
-)
-def get_tia_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> TIAAnalysisSchema:
-    """Get full TIA analysis with all fragment results.
-
-    Args:
-        analysis_id: The stored analysis identifier.
-
-    Raises:
-        HTTPException: If the analysis is not found.
-    """
-    tia_store = get_tia_store()
-    analysis = tia_store.get(analysis_id)
-    if analysis is None:
-        raise HTTPException(status_code=404, detail="TIA analysis not found")
-
-    return _analysis_to_schema(analysis)
-
-
-@app.get(
-    "/api/v1/tia/analyses/{analysis_id}/summary",
-    response_model=TIASummaryResponse,
-)
-def get_tia_summary(analysis_id: str, _user: object = Depends(optional_auth)) -> TIASummaryResponse:
-    """Get delay-by-responsibility summary for a TIA analysis.
-
-    Args:
-        analysis_id: The stored analysis identifier.
-
-    Raises:
-        HTTPException: If the analysis is not found.
-    """
-    tia_store = get_tia_store()
-    analysis = tia_store.get(analysis_id)
-    if analysis is None:
-        raise HTTPException(status_code=404, detail="TIA analysis not found")
-
-    return TIASummaryResponse(
-        analysis_id=analysis.analysis_id,
-        total_owner_delay=analysis.total_owner_delay,
-        total_contractor_delay=analysis.total_contractor_delay,
-        total_shared_delay=analysis.total_shared_delay,
-        net_delay=analysis.net_delay,
-        summary=analysis.summary,
-    )
 
 
 # ------------------------------------------------------------------
