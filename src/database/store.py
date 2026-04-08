@@ -560,9 +560,7 @@ class SupabaseStore:
 
         return project_uuid
 
-    def _persist_schedule_data(
-        self, project_id: str, schedule: ParsedSchedule
-    ) -> None:
+    def _persist_schedule_data(self, project_id: str, schedule: ParsedSchedule) -> None:
         """Batch-insert all parsed schedule entities into relational tables.
 
         Called from save_project() after metadata insert.  If any insert
@@ -811,8 +809,7 @@ class SupabaseStore:
             )
 
             logger.info(
-                "Persisted schedule data for project %s: "
-                "%d activities, %d WBS, %d relationships",
+                "Persisted schedule data for project %s: %d activities, %d WBS, %d relationships",
                 project_id,
                 len(schedule.activities),
                 len(schedule.wbs_nodes),

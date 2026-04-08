@@ -105,13 +105,9 @@ class PrimaveraUnifierAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Primavera Unifier CBS sync not yet implemented."
-        )
+        raise NotImplementedError("Primavera Unifier CBS sync not yet implemented.")
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch cost snapshot from Unifier cost sheet as of a date.
 
         Will query cost sheet columns for budget, committed, actual,
@@ -124,9 +120,7 @@ class PrimaveraUnifierAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Primavera Unifier cost snapshot sync not yet implemented."
-        )
+        raise NotImplementedError("Primavera Unifier cost snapshot sync not yet implemented.")
 
     def sync_change_orders(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch change orders from Unifier business process forms.
@@ -140,9 +134,7 @@ class PrimaveraUnifierAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Primavera Unifier change order sync not yet implemented."
-        )
+        raise NotImplementedError("Primavera Unifier change order sync not yet implemented.")
 
     def sync_time_phased(
         self,
@@ -163,9 +155,7 @@ class PrimaveraUnifierAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Primavera Unifier time-phased sync not yet implemented."
-        )
+        raise NotImplementedError("Primavera Unifier time-phased sync not yet implemented.")
 
     def get_last_sync_time(self, project_id: str) -> datetime | None:
         """Return the timestamp of the last successful Unifier sync.
@@ -176,6 +166,4 @@ class PrimaveraUnifierAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Primavera Unifier last-sync tracking not yet implemented."
-        )
+        raise NotImplementedError("Primavera Unifier last-sync tracking not yet implemented.")

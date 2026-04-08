@@ -146,9 +146,7 @@ def _make_rich_schedule() -> ParsedSchedule:
                 lag_hr_cnt=0.0,
             )
         ],
-        resources=[
-            Resource(rsrc_id="R1", rsrc_name="Engineer", rsrc_type="RT_Labor")
-        ],
+        resources=[Resource(rsrc_id="R1", rsrc_name="Engineer", rsrc_type="RT_Labor")],
         task_resources=[
             TaskResource(
                 taskrsrc_id="TR1",
@@ -178,9 +176,7 @@ def _make_rich_schedule() -> ParsedSchedule:
                 short_name="DES",
             )
         ],
-        task_activity_codes=[
-            TaskActivityCode(task_id="T1", actv_code_id="AC1")
-        ],
+        task_activity_codes=[TaskActivityCode(task_id="T1", actv_code_id="AC1")],
         udf_types=[
             UDFType(
                 udf_type_id="UDF1",
@@ -349,9 +345,7 @@ class TestPersistScheduleData:
 
         for table_name, rows in store._tables.items():
             for row in rows:
-                assert row.get("project_id") == "proj-xyz", (
-                    f"Missing project_id in {table_name}"
-                )
+                assert row.get("project_id") == "proj-xyz", f"Missing project_id in {table_name}"
 
     def test_empty_schedule_inserts_nothing(self) -> None:
         store = MockSupabaseStore()

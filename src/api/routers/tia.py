@@ -168,9 +168,7 @@ def list_tia_analyses(_user: object = Depends(optional_auth)) -> TIAListResponse
     "/api/v1/tia/analyses/{analysis_id}",
     response_model=TIAAnalysisSchema,
 )
-def get_tia_analysis(
-    analysis_id: str, _user: object = Depends(optional_auth)
-) -> TIAAnalysisSchema:
+def get_tia_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> TIAAnalysisSchema:
     """Get full TIA analysis with all fragment results.
 
     Args:
@@ -191,9 +189,7 @@ def get_tia_analysis(
     "/api/v1/tia/analyses/{analysis_id}/summary",
     response_model=TIASummaryResponse,
 )
-def get_tia_summary(
-    analysis_id: str, _user: object = Depends(optional_auth)
-) -> TIASummaryResponse:
+def get_tia_summary(analysis_id: str, _user: object = Depends(optional_auth)) -> TIASummaryResponse:
     """Get delay-by-responsibility summary for a TIA analysis.
 
     Args:

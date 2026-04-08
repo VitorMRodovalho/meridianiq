@@ -138,9 +138,7 @@ def list_timelines(_user: object = Depends(optional_auth)) -> TimelineListRespon
     "/api/v1/forensic/timelines/{timeline_id}",
     response_model=TimelineDetailSchema,
 )
-def get_timeline(
-    timeline_id: str, _user: object = Depends(optional_auth)
-) -> TimelineDetailSchema:
+def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> TimelineDetailSchema:
     """Get full forensic timeline with all window results.
 
     Args:
@@ -230,9 +228,7 @@ def run_half_step(
     "/api/v1/forensic/timelines/{timeline_id}/delay-trend",
     response_model=DelayTrendResponse,
 )
-def get_delay_trend(
-    timeline_id: str, _user: object = Depends(optional_auth)
-) -> DelayTrendResponse:
+def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) -> DelayTrendResponse:
     """Return delay trend data for charting.
 
     Each point represents one analysis window's data date and the

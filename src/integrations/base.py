@@ -47,9 +47,7 @@ class ERPAdapter(Protocol):
         """
         ...
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch cost snapshot data as of a specific date.
 
         Returns dicts with keys matching ``cost_snapshots`` table columns:

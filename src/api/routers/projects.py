@@ -82,9 +82,7 @@ def toggle_sandbox(
 
 
 @router.get("/api/v1/projects/{project_id}", response_model=ProjectDetailResponse)
-def get_project(
-    project_id: str, _user: object = Depends(optional_auth)
-) -> ProjectDetailResponse:
+def get_project(project_id: str, _user: object = Depends(optional_auth)) -> ProjectDetailResponse:
     """Get full project data for a given project_id.
 
     Args:
@@ -195,11 +193,7 @@ def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
             child_ids.add(w.wbs_id)
 
     # Calculate depth for each WBS node via BFS from roots
-    roots = [
-        w
-        for w in wbs_nodes
-        if w.wbs_id not in child_ids or w.proj_node_flag.upper() == "Y"
-    ]
+    roots = [w for w in wbs_nodes if w.wbs_id not in child_ids or w.proj_node_flag.upper() == "Y"]
     levels: dict[str, int] = {}
     queue = [(r.wbs_id, 1) for r in roots]
     for wbs_id, level in queue:
@@ -222,9 +216,7 @@ def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
     level_counts: dict[int, int] = {}
     for lvl in levels.values():
         level_counts[lvl] = level_counts.get(lvl, 0) + 1
-    by_level = [
-        WBSLevelCount(level=lvl, count=cnt) for lvl, cnt in sorted(level_counts.items())
-    ]
+    by_level = [WBSLevelCount(level=lvl, count=cnt) for lvl, cnt in sorted(level_counts.items())]
 
     # Activities per WBS node
     act_per_wbs: dict[str, int] = {w.wbs_id: 0 for w in wbs_nodes}

@@ -157,9 +157,7 @@ def list_evm_analyses(_user: object = Depends(optional_auth)) -> EVMListResponse
 
 
 @router.get("/api/v1/evm/analyses/{analysis_id}", response_model=EVMAnalysisSchema)
-def get_evm_analysis(
-    analysis_id: str, _user: object = Depends(optional_auth)
-) -> EVMAnalysisSchema:
+def get_evm_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
     """Get full EVM analysis with all metrics.
 
     Args:
@@ -176,12 +174,8 @@ def get_evm_analysis(
     return _evm_result_to_schema(result, result.project_id)
 
 
-@router.get(
-    "/api/v1/evm/analyses/{analysis_id}/s-curve", response_model=SCurveResponse
-)
-def get_evm_s_curve(
-    analysis_id: str, _user: object = Depends(optional_auth)
-) -> SCurveResponse:
+@router.get("/api/v1/evm/analyses/{analysis_id}/s-curve", response_model=SCurveResponse)
+def get_evm_s_curve(analysis_id: str, _user: object = Depends(optional_auth)) -> SCurveResponse:
     """Get S-curve data for an EVM analysis.
 
     Returns time-phased cumulative PV, EV, and AC data points
@@ -215,9 +209,7 @@ def get_evm_s_curve(
     "/api/v1/evm/analyses/{analysis_id}/wbs-drill",
     response_model=WBSDrillResponse,
 )
-def get_evm_wbs_drill(
-    analysis_id: str, _user: object = Depends(optional_auth)
-) -> WBSDrillResponse:
+def get_evm_wbs_drill(analysis_id: str, _user: object = Depends(optional_auth)) -> WBSDrillResponse:
     """Get WBS-level EVM breakdown for an analysis.
 
     Args:
@@ -248,9 +240,7 @@ def get_evm_wbs_drill(
     "/api/v1/evm/analyses/{analysis_id}/forecast",
     response_model=ForecastResponse,
 )
-def get_evm_forecast(
-    analysis_id: str, _user: object = Depends(optional_auth)
-) -> ForecastResponse:
+def get_evm_forecast(analysis_id: str, _user: object = Depends(optional_auth)) -> ForecastResponse:
     """Get EAC scenario forecasts for an analysis.
 
     Returns multiple Estimate at Completion scenarios:

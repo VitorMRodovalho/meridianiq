@@ -43,9 +43,7 @@ class ManualAdapter:
         """Not applicable for manual — use ``parse_excel_to_cbs`` instead."""
         return []
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Not applicable for manual — use ``parse_excel_to_snapshots`` instead."""
         return []
 
@@ -65,9 +63,7 @@ class ManualAdapter:
 
     # -- Excel-specific methods -------------------------------------------
 
-    def parse_excel_to_cbs(
-        self, file_path: str
-    ) -> list[dict[str, Any]]:
+    def parse_excel_to_cbs(self, file_path: str) -> list[dict[str, Any]]:
         """Parse CBS hierarchy from Excel into cbs_elements-compatible dicts.
 
         Args:
@@ -95,9 +91,7 @@ class ManualAdapter:
         snap_date = snapshot_date or date.today()
         return self._result_to_snapshots(result, snap_date)
 
-    def parse_excel_to_mappings(
-        self, file_path: str
-    ) -> list[dict[str, Any]]:
+    def parse_excel_to_mappings(self, file_path: str) -> list[dict[str, Any]]:
         """Parse CBS-WBS mapping from Excel into cbs_wbs_mappings-compatible dicts.
 
         Args:

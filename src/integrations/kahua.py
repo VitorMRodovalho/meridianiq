@@ -107,13 +107,9 @@ class KahuaAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Kahua CBS sync not yet implemented."
-        )
+        raise NotImplementedError("Kahua CBS sync not yet implemented.")
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch cost snapshot from the Kahua cost app.
 
         Will query budget, committed, and actual values from the
@@ -126,9 +122,7 @@ class KahuaAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Kahua cost snapshot sync not yet implemented."
-        )
+        raise NotImplementedError("Kahua cost snapshot sync not yet implemented.")
 
     def sync_change_orders(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch change orders from the Kahua change management app.
@@ -142,9 +136,7 @@ class KahuaAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Kahua change order sync not yet implemented."
-        )
+        raise NotImplementedError("Kahua change order sync not yet implemented.")
 
     def sync_time_phased(
         self,
@@ -165,9 +157,7 @@ class KahuaAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Kahua time-phased sync not yet implemented."
-        )
+        raise NotImplementedError("Kahua time-phased sync not yet implemented.")
 
     def get_last_sync_time(self, project_id: str) -> datetime | None:
         """Return the timestamp of the last successful Kahua sync.
@@ -178,6 +168,4 @@ class KahuaAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "Kahua last-sync tracking not yet implemented."
-        )
+        raise NotImplementedError("Kahua last-sync tracking not yet implemented.")

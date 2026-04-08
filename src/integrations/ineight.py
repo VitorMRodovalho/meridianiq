@@ -106,8 +106,7 @@ class InEightAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError(
-            "InEight adapter is a placeholder. "
-            "See https://developer.ineight.com/getting-started"
+            "InEight adapter is a placeholder. See https://developer.ineight.com/getting-started"
         )
 
     def sync_cbs(self, project_id: str) -> list[dict[str, Any]]:
@@ -122,13 +121,9 @@ class InEightAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "InEight CBS sync not yet implemented."
-        )
+        raise NotImplementedError("InEight CBS sync not yet implemented.")
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch cost snapshot from InEight Control module.
 
         Will query budget, committed, actual, and EVM values from
@@ -141,9 +136,7 @@ class InEightAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "InEight cost snapshot sync not yet implemented."
-        )
+        raise NotImplementedError("InEight cost snapshot sync not yet implemented.")
 
     def sync_change_orders(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch change orders from InEight Control module.
@@ -157,9 +150,7 @@ class InEightAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "InEight change order sync not yet implemented."
-        )
+        raise NotImplementedError("InEight change order sync not yet implemented.")
 
     def sync_time_phased(
         self,
@@ -180,9 +171,7 @@ class InEightAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "InEight time-phased sync not yet implemented."
-        )
+        raise NotImplementedError("InEight time-phased sync not yet implemented.")
 
     def get_last_sync_time(self, project_id: str) -> datetime | None:
         """Return the timestamp of the last successful InEight sync.
@@ -193,6 +182,4 @@ class InEightAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "InEight last-sync tracking not yet implemented."
-        )
+        raise NotImplementedError("InEight last-sync tracking not yet implemented.")

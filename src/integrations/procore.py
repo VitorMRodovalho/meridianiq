@@ -132,13 +132,10 @@ class ProcoreAdapter:
         Pagination: per_page=100 max, Link header for next page.
         """
         raise NotImplementedError(
-            "Procore cost code sync not yet implemented. "
-            "Endpoint: GET /rest/v1.0/cost_codes"
+            "Procore cost code sync not yet implemented. Endpoint: GET /rest/v1.0/cost_codes"
         )
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch budget data from Procore budget views.
 
         Endpoints:

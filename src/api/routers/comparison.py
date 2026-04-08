@@ -58,9 +58,7 @@ def compare_schedules(
 
     return CompareResponse(
         activities_added=[ActivityChangeSchema(**asdict(c)) for c in result.activities_added],
-        activities_deleted=[
-            ActivityChangeSchema(**asdict(c)) for c in result.activities_deleted
-        ],
+        activities_deleted=[ActivityChangeSchema(**asdict(c)) for c in result.activities_deleted],
         activity_modifications=[
             ActivityChangeSchema(**asdict(c)) for c in result.activity_modifications
         ],
@@ -77,12 +75,8 @@ def compare_schedules(
         significant_float_changes=[
             FloatChangeSchema(**asdict(c)) for c in result.significant_float_changes
         ],
-        constraint_changes=[
-            ActivityChangeSchema(**asdict(c)) for c in result.constraint_changes
-        ],
-        manipulation_flags=[
-            ManipulationFlagSchema(**asdict(c)) for c in result.manipulation_flags
-        ],
+        constraint_changes=[ActivityChangeSchema(**asdict(c)) for c in result.constraint_changes],
+        manipulation_flags=[ManipulationFlagSchema(**asdict(c)) for c in result.manipulation_flags],
         code_restructuring=[
             CodeRestructuringSchema(**asdict(c)) for c in result.code_restructuring
         ],

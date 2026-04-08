@@ -114,13 +114,9 @@ class SAPPSAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "SAP PS CBS sync not yet implemented."
-        )
+        raise NotImplementedError("SAP PS CBS sync not yet implemented.")
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch cost snapshot from SAP PS controlling tables.
 
         Will query COSP/COSS (plan/actual by cost element) and BPJA
@@ -133,9 +129,7 @@ class SAPPSAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "SAP PS cost snapshot sync not yet implemented."
-        )
+        raise NotImplementedError("SAP PS cost snapshot sync not yet implemented.")
 
     def sync_change_orders(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch budget supplements and change documents from SAP PS.
@@ -149,9 +143,7 @@ class SAPPSAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "SAP PS change order sync not yet implemented."
-        )
+        raise NotImplementedError("SAP PS change order sync not yet implemented.")
 
     def sync_time_phased(
         self,
@@ -172,9 +164,7 @@ class SAPPSAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "SAP PS time-phased sync not yet implemented."
-        )
+        raise NotImplementedError("SAP PS time-phased sync not yet implemented.")
 
     def get_last_sync_time(self, project_id: str) -> datetime | None:
         """Return the timestamp of the last successful SAP PS sync.
@@ -185,6 +175,4 @@ class SAPPSAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "SAP PS last-sync tracking not yet implemented."
-        )
+        raise NotImplementedError("SAP PS last-sync tracking not yet implemented.")

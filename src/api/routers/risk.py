@@ -262,9 +262,7 @@ def get_risk_histogram(
     "/api/v1/risk/simulations/{simulation_id}/tornado",
     response_model=TornadoResponse,
 )
-def get_risk_tornado(
-    simulation_id: str, _user: object = Depends(optional_auth)
-) -> TornadoResponse:
+def get_risk_tornado(simulation_id: str, _user: object = Depends(optional_auth)) -> TornadoResponse:
     """Get sensitivity / tornado data for a risk simulation.
 
     Returns Spearman rank correlations between each activity's

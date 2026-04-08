@@ -102,8 +102,7 @@ class EBuilderAdapter:
             NotImplementedError: Adapter not yet implemented.
         """
         raise NotImplementedError(
-            "e-Builder adapter is a placeholder. "
-            "See https://developer.e-builder.net/"
+            "e-Builder adapter is a placeholder. See https://developer.e-builder.net/"
         )
 
     def sync_cbs(self, project_id: str) -> list[dict[str, Any]]:
@@ -118,13 +117,9 @@ class EBuilderAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "e-Builder CBS sync not yet implemented."
-        )
+        raise NotImplementedError("e-Builder CBS sync not yet implemented.")
 
-    def sync_cost_snapshots(
-        self, project_id: str, as_of: date
-    ) -> list[dict[str, Any]]:
+    def sync_cost_snapshots(self, project_id: str, as_of: date) -> list[dict[str, Any]]:
         """Fetch cost snapshot from e-Builder budget/expenditure data.
 
         Will query budget line items, encumbrances, and expenditures
@@ -137,9 +132,7 @@ class EBuilderAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "e-Builder cost snapshot sync not yet implemented."
-        )
+        raise NotImplementedError("e-Builder cost snapshot sync not yet implemented.")
 
     def sync_change_orders(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch change orders from e-Builder.
@@ -153,9 +146,7 @@ class EBuilderAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "e-Builder change order sync not yet implemented."
-        )
+        raise NotImplementedError("e-Builder change order sync not yet implemented.")
 
     def sync_time_phased(
         self,
@@ -176,9 +167,7 @@ class EBuilderAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "e-Builder time-phased sync not yet implemented."
-        )
+        raise NotImplementedError("e-Builder time-phased sync not yet implemented.")
 
     def get_last_sync_time(self, project_id: str) -> datetime | None:
         """Return the timestamp of the last successful e-Builder sync.
@@ -189,6 +178,4 @@ class EBuilderAdapter:
         Raises:
             NotImplementedError: Adapter not yet implemented.
         """
-        raise NotImplementedError(
-            "e-Builder last-sync tracking not yet implemented."
-        )
+        raise NotImplementedError("e-Builder last-sync tracking not yet implemented.")
