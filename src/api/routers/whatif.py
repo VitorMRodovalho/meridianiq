@@ -350,7 +350,6 @@ def optimize_schedule_endpoint(
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    from dataclasses import asdict
 
     from src.analytics.evolution_optimizer import EvolutionConfig, optimize_schedule
     from src.analytics.resource_leveling import ResourceLimit
@@ -391,7 +390,6 @@ def get_visualization(
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    from dataclasses import asdict
 
     from src.analytics.visualization import build_visualization
 
