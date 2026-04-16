@@ -20,7 +20,7 @@ Thank you for your interest in contributing to MeridianIQ. This document outline
 
 ### Code Standards
 
-- Python 3.12+ type hints on all public functions
+- Python 3.14+ type hints on all public functions
 - Docstrings on all public classes and functions (Google style)
 - MIT license header on all source files
 - No client names, proprietary data, or credentials in code
@@ -47,4 +47,8 @@ Thank you for your interest in contributing to MeridianIQ. This document outline
 
 ## Code of Conduct
 
-Be respectful, constructive, and professional. We are building tools for the construction and engineering industry -- a field that values precision, integrity, and collaboration. Those same values apply to our community.
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Contributor Covenant v2.1 plus domain-specific expectations for the construction and engineering scheduling community (synthetic fixtures only, cite published standards when debating methodology, treat schedules as evidence).
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for responsible disclosure. Do not open public issues for suspected vulnerabilities.
