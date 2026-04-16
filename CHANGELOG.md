@@ -13,7 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 ### New Pages
 - `/health` — schedule Health Score dashboard
 - `/ask` — NLP Query page (conversational schedule intelligence)
-- `/early-warning` — Early Warning indicators + rule explanations
+- `/alerts` — Early Warning indicators (GAO 12-rule engine) with severity-sorted cards + impact chart
 
 ### Schedule Viewer — Stability
 - Gantt stability refactor — eliminated re-render flicker, consolidated event wiring
