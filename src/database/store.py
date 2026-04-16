@@ -1232,8 +1232,7 @@ class SupabaseStore:
                 latest = (
                     self._client.table("projects")
                     .select(
-                        "id, project_name, data_date, created_at,"
-                        " revision_number, activity_count"
+                        "id, project_name, data_date, created_at, revision_number, activity_count"
                     )
                     .eq("program_id", prog["id"])
                     .order("revision_number", desc=True)
@@ -1266,10 +1265,7 @@ class SupabaseStore:
             return []
         return (
             self._client.table("projects")
-            .select(
-                "id, project_name, data_date, created_at,"
-                " revision_number, activity_count"
-            )
+            .select("id, project_name, data_date, created_at, revision_number, activity_count")
             .eq("program_id", program_id)
             .order("revision_number", desc=True)
             .execute()
