@@ -3,7 +3,7 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.6.0-dev] — 2026-04-16 — Gantt Stability + Intelligence Pages
+## [3.6.0] — 2026-04-16 — Gantt Stability + Intelligence Pages
 
 ### New Engines
 - **health_score** (38th) — composite schedule health rating across DCMA/CPM/float/EVM dimensions
@@ -46,7 +46,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Stats
 - **40 engines + 1 export**, **98 endpoints**, **887 tests**, **52 pages**, 22 MCP tools, **20 migrations**, 11 chart components
-- Version bump: pyproject.toml `3.0.0 → 3.6.0-dev`, web/package.json `1.0.0-dev → 3.6.0-dev`
+- Version bump: pyproject.toml `3.0.0 → 3.6.0`, web/package.json `1.0.0-dev → 3.6.0`
 
 ## [3.5.0] — 2026-04-07 — Cost-Schedule Intelligence
 
