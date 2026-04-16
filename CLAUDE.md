@@ -41,8 +41,8 @@ mypy src/ --strict              # type check
 
 - **37 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
 - **API**: FastAPI with 85 endpoints under `/api/v1/`, rate-limited critical endpoints
-- **Frontend**: SvelteKit + Tailwind v4, 49 pages, Svelte 5 runes ($state, $derived, $effect), dark mode (45/46 pages), i18n (en/pt-BR/es), keyboard shortcuts (?)
-- **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
+- **Frontend**: SvelteKit + Tailwind v4, 52 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es), keyboard shortcuts (?)
+- **Database**: Supabase PostgreSQL with RLS, 20 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
 - **Deploy**: Fly.io (backend, port 8080) + Cloudflare Pages (frontend)
@@ -63,7 +63,7 @@ mypy src/ --strict              # type check
 - Store: `src/database/store.py` — Supabase client abstraction
 - Auth: `src/api/auth.py` — JWT verification via JWKS, `optional_auth` decorator
 - Frontend auth: `web/src/lib/stores/auth.ts` — lazy init to avoid circular deps
-- Charts: `web/src/lib/components/charts/` — 10 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart, ResourceChart, HeatMapChart, ParetoChart, GanttChart)
+- Charts: `web/src/lib/components/charts/` — 11 reusable SVG components (BarChart, PieChart, GaugeChart, ScatterChart, WaterfallChart, TimelineChart, ResourceChart, HeatMapChart, ParetoChart, GanttChart, EVMSCurveChart)
 - ScheduleViewer: `web/src/lib/components/ScheduleViewer/` — Interactive Gantt with WBS tree, baseline bars, float, dependencies
 - UI: Breadcrumb, Skeleton, AnalysisSkeleton, ToastContainer, ThemeToggle components
 - Theme: `web/src/lib/stores/theme.ts` — dark mode with localStorage + system preference
@@ -90,6 +90,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/archive/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.5.0 — "Cost-Schedule Intelligence" (37 engines, 22 MCP tools, 870+ tests)
+- Version: v3.6.0-dev — "Gantt Stability + Intelligence Pages" (37 engines, 22 MCP tools, 867 tests, 11 chart components)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
