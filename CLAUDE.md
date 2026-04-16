@@ -40,7 +40,7 @@ mypy src/ --strict              # type check
 ## Architecture
 
 - **40 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 96 endpoints under `/api/v1/`, rate-limited critical endpoints
+- **API**: FastAPI with 98 endpoints under `/api/v1/`, rate-limited critical endpoints
 - **Frontend**: SvelteKit + Tailwind v4, 52 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es), keyboard shortcuts (?)
 - **Database**: Supabase PostgreSQL with RLS, 20 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
@@ -90,6 +90,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/archive/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.6.0-dev — "Gantt Stability + Intelligence Pages" (40 engines, 22 MCP tools, 870 tests, 11 chart components). New in v3.6: Health Score page, NLP Query page, Early Warning page, EVM S-Curve chart, Gantt stability refactor, schedule-view cache, dashboard quick actions + dark mode for authenticated section.
+- Version: v3.6.0-dev — "Gantt Stability + Intelligence Pages" (40 engines, 22 MCP tools, 887 tests, 11 chart components, 98 endpoints). New in v3.6: Health Score page, NLP Query page, Early Warning page, EVM S-Curve chart, Gantt stability refactor, schedule-view cache, dashboard quick actions + dark mode for authenticated section, NLP /ask hardening (Pydantic+rate limit+Sonnet 4.6), CBS upload persistence + snapshots list, Narrative PDF report type, Resource Histogram panel below Gantt.
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)

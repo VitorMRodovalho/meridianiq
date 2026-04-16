@@ -19,23 +19,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - Gantt stability refactor — eliminated re-render flicker, consolidated event wiring
 - `schedule_view` cache — projects + baselines memoized per session, reduces refetches
 - EVM S-Curve chart (11th chart component) — schedule + cost S-curve overlay with forecasts
+- **Resource Histograms** (Wave 7) — collapsible panel below Gantt, as-scheduled demand curves per resource
 
 ### Architecture
 - Multi-domain adapter protocols — cost, schedule, risk, reporting, resource interfaces (`src/integrations/`)
 - API modularization complete — `app.py` 4870 → 166 lines across 18 routers
 - 7 adapters + ERP-ready cost tables (3 new migrations, total 20)
 
+### API hardening & persistence (P1 completion)
+- **NLP /ask** — NLPQueryRequest/Response schemas, `@limiter.limit("5/minute")`, generic error in production, Claude Sonnet 4.6.
+- **CBS upload persistence** — `save_cost_upload` / `list_cost_snapshots` / `get_cost_snapshot` on both InMemoryStore and SupabaseStore (writes to `erp_sources`, `cbs_elements`, `cost_snapshots`).
+- **GET /api/v1/projects/{id}/cost/snapshots** — list prior CBS uploads with totals.
+- **Narrative PDF report** — new report type: `generate_narrative_report` + WeasyPrint styling with severity badges.
+- **GET /api/v1/projects/{id}/schedule-view/resources** — as-scheduled resource profiles for histogram rendering.
+
 ### Frontend Polish
 - Dashboard quick actions (upload, view schedule, scorecard, trends, narrative)
 - Dark mode extended to authenticated section (46/46 pages complete)
+- New `ResourceHistogramPanel.svelte` in ScheduleViewer/ folder — lazy-fetch, per-resource ResourceChart.
 
 ### Testing & Tooling
 - E2E tests use regex for version and engine count — no more hardcoded values
 - npm deps bumped: svelte 5.55.2, @sveltejs/kit 2.57.0, vite 8.0.7
 - Ruff format + lint cleanup across 17 files
+- +17 tests across NLP (5), cost persistence (6), narrative PDF (3), resource profiles (7)
 
 ### Stats
-- **40 engines + 1 export**, **96 endpoints**, **870 tests**, **52 pages**, 22 MCP tools, **20 migrations**, 11 chart components
+- **40 engines + 1 export**, **98 endpoints**, **887 tests**, **52 pages**, 22 MCP tools, **20 migrations**, 11 chart components
 - Version bump: pyproject.toml `3.0.0 → 3.6.0-dev`, web/package.json `1.0.0-dev → 3.6.0-dev`
 
 ## [3.5.0] — 2026-04-07 — Cost-Schedule Intelligence

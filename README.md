@@ -40,7 +40,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 870+ backend + 70+ E2E |
 | Frontend pages | 52 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, …) |
-| API endpoints | 96 |
+| API endpoints | 98 |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | 21 (v0.1.0 → v3.6.0-dev) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (40)<br/>96 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (40)<br/>98 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -319,7 +319,7 @@ meridianiq/
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
 │       ├── app.py        # FastAPI entry point
-│       ├── routers/      # 96 endpoints across modular routers
+│       ├── routers/      # 98 endpoints across modular routers
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind (52 pages)
 ├── tests/                # 870+ backend tests
