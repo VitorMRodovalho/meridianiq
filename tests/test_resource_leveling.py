@@ -13,6 +13,7 @@ from src.analytics.resource_leveling import (
     LevelingConfig,
     LevelingResult,
     ResourceLimit,
+    compute_resource_profiles,
     level_resources,
 )
 from src.parser.models import (
@@ -364,3 +365,93 @@ class TestEdgeCases:
         result = level_resources(s, config)
         # No resources assigned = no conflict = no extension
         assert result.extension_days == 0
+
+
+class TestAsScheduledResourceProfiles:
+    """Tests for compute_resource_profiles (as-scheduled, no leveling)."""
+
+    def test_returns_profiles_for_assigned_resources(
+        self, resource_schedule: ParsedSchedule
+    ) -> None:
+        profiles = compute_resource_profiles(resource_schedule)
+        assert len(profiles) >= 1
+        # Rsrc IDs should all be non-empty
+        for p in profiles:
+            assert p.rsrc_id
+            assert len(p.demand_by_day) > 0
+            assert p.peak_demand > 0
+
+    def test_sorted_by_peak_demand_desc(self, resource_schedule: ParsedSchedule) -> None:
+        profiles = compute_resource_profiles(resource_schedule)
+        peaks = [p.peak_demand for p in profiles]
+        assert peaks == sorted(peaks, reverse=True)
+
+    def test_empty_schedule_returns_empty(self) -> None:
+        s = ParsedSchedule(projects=[_make_project()])
+        profiles = compute_resource_profiles(s)
+        assert profiles == []
+
+    def test_schedule_without_resources_returns_empty(self) -> None:
+        """Schedule with activities but no TaskResource entries."""
+        s = ParsedSchedule(
+            projects=[_make_project()],
+            activities=[
+                Task(
+                    task_id="1",
+                    task_code="A",
+                    task_name="Solo",
+                    status_code="TK_NotStart",
+                    remain_drtn_hr_cnt=80.0,
+                    target_drtn_hr_cnt=80.0,
+                    clndr_id="CAL1",
+                )
+            ],
+        )
+        profiles = compute_resource_profiles(s)
+        assert profiles == []
+
+    def test_resource_name_resolved(self, resource_schedule: ParsedSchedule) -> None:
+        profiles = compute_resource_profiles(resource_schedule)
+        by_id = {p.rsrc_id: p for p in profiles}
+        if "R1" in by_id:
+            assert by_id["R1"].rsrc_name == "Crane"
+
+
+class TestScheduleResourcesEndpoint:
+    """Integration test for GET /api/v1/projects/{id}/schedule-view/resources."""
+
+    def test_endpoint_404_for_unknown(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from src.api.app import app, get_store
+
+        get_store().clear()
+        client = TestClient(app)
+        resp = client.get("/api/v1/projects/nonexistent/schedule-view/resources")
+        assert resp.status_code == 404
+
+    def test_endpoint_returns_shape(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from src.api.app import app, get_store
+
+        get_store().clear()
+        client = TestClient(app)
+
+        with open(FIXTURES / "sample.xer", "rb") as f:
+            resp = client.post("/api/v1/upload", files={"file": ("s.xer", f)})
+        pid = resp.json()["project_id"]
+
+        resp = client.get(f"/api/v1/projects/{pid}/schedule-view/resources")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["project_id"] == pid
+        assert "total_days" in data
+        assert "resource_count" in data
+        assert isinstance(data["resources"], list)
+        for r in data["resources"]:
+            assert "rsrc_id" in r
+            assert "rsrc_name" in r
+            assert "peak_demand" in r
+            assert "demand_by_day" in r
+            assert isinstance(r["demand_by_day"], list)

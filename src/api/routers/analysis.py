@@ -387,6 +387,52 @@ def get_schedule_view(
     return result_dict
 
 
+@router.get("/api/v1/projects/{project_id}/schedule-view/resources")
+def get_schedule_resources(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Per-resource daily demand for histogram rendering below the Gantt.
+
+    Returns ``as-scheduled`` demand curves (no leveling). Each profile is
+    a flat array of daily unit counts aligned to the schedule's day 0.
+
+    Args:
+        project_id: The schedule identifier.
+
+    Returns:
+        Object with ``project_id``, ``total_days``, and ``resources`` list
+        (each with ``rsrc_id``, ``rsrc_name``, ``peak_demand``,
+        ``demand_by_day``).
+
+    References:
+        PMI Practice Standard for Scheduling — Resource Loading.
+    """
+    from src.analytics.resource_leveling import compute_resource_profiles
+
+    store = get_store()
+    schedule = store.get(project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    profiles = compute_resource_profiles(schedule)
+    total_days = max((len(p.demand_by_day) for p in profiles), default=0)
+    return {
+        "project_id": project_id,
+        "total_days": total_days,
+        "resource_count": len(profiles),
+        "resources": [
+            {
+                "rsrc_id": p.rsrc_id,
+                "rsrc_name": p.rsrc_name,
+                "peak_demand": round(p.peak_demand, 2),
+                "demand_by_day": [round(v, 2) for v in p.demand_by_day],
+            }
+            for p in profiles
+        ],
+    }
+
+
 # ------------------------------------------------------------------
 # Delay Attribution
 # ------------------------------------------------------------------

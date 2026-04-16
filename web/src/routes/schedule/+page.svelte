@@ -7,6 +7,7 @@
 	import { supabase } from '$lib/supabase';
 	import { page } from '$app/stores';
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
+	import ResourceHistogramPanel from '$lib/components/ScheduleViewer/ResourceHistogramPanel.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 
 	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
@@ -443,6 +444,11 @@
 			data={displayData || data} {showFloat} {showBaseline} {showDependencies} {criticalOnly}
 			onActivityClick={(taskId) => { selectedActivity = data?.activities.find(a => a.task_id === taskId) || null; }}
 		/>
+
+		<!-- Resource Histograms (Wave 7 — as-scheduled demand curves) -->
+		{#if selectedProject}
+			<ResourceHistogramPanel projectId={selectedProject} />
+		{/if}
 
 		<!-- Activity detail panel (click on bar) -->
 		{#if selectedActivity}

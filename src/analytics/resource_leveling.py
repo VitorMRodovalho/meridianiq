@@ -401,3 +401,82 @@ def level_resources(
     }
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# As-scheduled resource profiles (no leveling)
+# ---------------------------------------------------------------------------
+
+
+def compute_resource_profiles(schedule: ParsedSchedule) -> list[ResourceProfile]:
+    """Compute per-resource daily demand using CPM early dates.
+
+    Distributes each activity's resource requirement uniformly across its
+    duration, starting at the activity's early start day. Returns one
+    ``ResourceProfile`` per resource with ``demand_by_day`` populated.
+
+    No leveling is performed; this is the "as-scheduled" demand curve —
+    useful for drawing histograms below a Gantt or detecting overloads
+    before committing to a leveling pass.
+
+    References:
+        PMI Practice Standard for Scheduling — Resource Loading.
+        AACE RP 46R-11 — Scheduling Professional Skills.
+    """
+    # Aggregate per-activity resource demand
+    per_activity = _build_resource_demand(schedule)
+    if not per_activity:
+        return []
+
+    # Resource name lookup
+    name_lookup: dict[str, str] = {}
+    for r in getattr(schedule, "resources", []) or []:
+        rid = getattr(r, "rsrc_id", "")
+        if rid:
+            name_lookup[rid] = (
+                getattr(r, "rsrc_name", "") or getattr(r, "rsrc_short_name", "") or rid
+            )
+
+    # CPM to get early_start per activity
+    cpm = CPMCalculator(schedule).calculate()
+    total_days = int(cpm.project_duration) + 1 if cpm.project_duration else 1
+
+    # demand_by_resource_day[rsrc_id][day] = units
+    demand: dict[str, list[float]] = {}
+    for task in schedule.activities:
+        rsrcs = per_activity.get(task.task_id, {})
+        if not rsrcs:
+            continue
+        ar = cpm.activity_results.get(task.task_id)
+        if ar is None:
+            continue
+        start_day = int(max(0, ar.early_start))
+        duration_days = max(
+            1,
+            int(round((task.remain_drtn_hr_cnt or task.target_drtn_hr_cnt or 0) / _HOURS_PER_DAY)),
+        )
+        end_day = min(total_days, start_day + duration_days)
+        for rsrc_id, qty in rsrcs.items():
+            per_day_units = qty / duration_days if duration_days else qty
+            profile = demand.setdefault(rsrc_id, [0.0] * total_days)
+            if len(profile) < end_day:
+                profile.extend([0.0] * (end_day - len(profile)))
+            for d in range(start_day, end_day):
+                profile[d] += per_day_units
+
+    profiles: list[ResourceProfile] = []
+    for rsrc_id, by_day in demand.items():
+        peak = max(by_day) if by_day else 0.0
+        profiles.append(
+            ResourceProfile(
+                rsrc_id=rsrc_id,
+                rsrc_name=name_lookup.get(rsrc_id, rsrc_id),
+                max_units=peak,  # As-scheduled: treat peak as capacity baseline
+                peak_demand=peak,
+                demand_by_day=by_day,
+            )
+        )
+
+    # Sort by peak demand desc (most-loaded resources first)
+    profiles.sort(key=lambda p: p.peak_demand, reverse=True)
+    return profiles
