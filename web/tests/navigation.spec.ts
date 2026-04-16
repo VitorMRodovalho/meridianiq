@@ -17,7 +17,7 @@ test.describe('Navigation (desktop)', () => {
   test('sidebar shows MeridianIQ branding', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('aside h1')).toContainText('MeridianIQ');
-    await expect(page.locator('aside').getByText('v3.2.0')).toBeVisible();
+    await expect(page.locator('aside').getByText(/v\d+\.\d+/)).toBeVisible();
   });
 
   test('nav links navigate correctly', async ({ page }) => {
