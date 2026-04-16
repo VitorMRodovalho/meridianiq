@@ -340,6 +340,7 @@ def list_contract_provisions(
 def get_schedule_view(
     project_id: str,
     baseline_id: str | None = None,
+    force: bool = False,
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Get pre-computed layout data for the interactive Gantt viewer.
@@ -348,9 +349,13 @@ def get_schedule_view(
     indent levels, relationships, and summary metrics — all optimized
     for the frontend ScheduleViewer component.
 
+    Results are cached after first computation (CPM is expensive).
+    Pass ``force=true`` to recompute.
+
     Args:
         project_id: The schedule identifier.
         baseline_id: Optional baseline schedule for comparison bars.
+        force: Force recomputation (bypass cache).
 
     Returns:
         ScheduleViewResult with WBS tree, activities, relationships, summary.
@@ -360,13 +365,26 @@ def get_schedule_view(
         GAO Schedule Assessment Guide.
     """
     store = get_store()
+    cache_key = f"schedule_view:{baseline_id or 'none'}"
+
+    # Check cache first (skip if force=True)
+    if not force:
+        cached = store.get_analysis(project_id, cache_key)
+        if cached:
+            return cached
+
     schedule = store.get(project_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
     baseline = store.get(baseline_id) if baseline_id else None
     result = build_schedule_view(schedule, baseline=baseline)
-    return asdict(result)
+    result_dict = asdict(result)
+
+    # Cache for future requests
+    store.save_analysis(project_id, cache_key, result_dict)
+
+    return result_dict
 
 
 # ------------------------------------------------------------------

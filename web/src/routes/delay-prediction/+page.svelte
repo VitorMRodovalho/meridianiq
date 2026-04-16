@@ -8,21 +8,30 @@
 	import HeatMapChart from '$lib/components/charts/HeatMapChart.svelte';
 
 	interface ActivityPrediction {
-		activity_id: string;
-		activity_name: string;
+		task_id: string;
+		task_code: string;
+		task_name: string;
 		risk_score: number;
 		risk_level: string;
-		top_factors: { factor: string; weight: number }[];
 		predicted_delay_days: number;
+		confidence: number;
+		top_risk_factors: { name: string; contribution: number; description: string; value: string }[];
+		is_critical_path: boolean;
+		wbs_id: string;
 	}
 
 	interface DelayPredictionResult {
-		total_activities: number;
-		at_risk_count: number;
+		activity_risks: ActivityPrediction[];
+		project_risk_score: number;
+		project_risk_level: string;
+		predicted_completion_delay: number;
 		high_risk_count: number;
-		predictions: ActivityPrediction[];
-		model_type: string;
+		critical_risk_count: number;
+		risk_distribution: Record<string, number>;
 		methodology: string;
+		features_used: number;
+		has_baseline: boolean;
+		summary: Record<string, unknown>;
 	}
 
 	let projects: { project_id: string; name: string }[] = $state([]);
@@ -72,19 +81,22 @@
 		return 'bg-green-100 text-green-800';
 	};
 
+	const totalActivities = $derived(result ? result.activity_risks.length : 0);
+	const atRiskCount = $derived(result ? result.activity_risks.filter(a => a.risk_level !== 'low').length : 0);
+
 	const scatterPoints = $derived(
-		result ? result.predictions.map(p => ({
+		result ? result.activity_risks.map(p => ({
 			x: p.predicted_delay_days,
 			y: p.risk_score,
-			label: p.activity_name || p.activity_id,
+			label: p.task_name || p.task_code,
 		})) : []
 	);
 
 	const heatItems = $derived(
-		result ? result.predictions.filter(p => p.risk_level !== 'low').map(p => ({
+		result ? result.activity_risks.filter(p => p.risk_level !== 'low').map(p => ({
 			x: p.predicted_delay_days,
 			y: p.risk_score,
-			label: p.activity_name || p.activity_id,
+			label: p.task_name || p.task_code,
 		})) : []
 	);
 </script>
@@ -138,11 +150,11 @@
 	{#if result}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.total_activities}</p>
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{totalActivities}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Activities</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-amber-600">{result.at_risk_count}</p>
+				<p class="text-lg font-bold text-amber-600">{atRiskCount}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">At Risk</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
@@ -150,7 +162,7 @@
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">High Risk</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-blue-600 capitalize">{result.model_type}</p>
+				<p class="text-lg font-bold text-blue-600 capitalize">{modelType}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Model</p>
 			</div>
 		</div>
@@ -168,9 +180,9 @@
 			/>
 		</div>
 
-		{#if result.predictions.length > 0}
+		{#if result.activity_risks.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Predictions ({result.predictions.length})</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Predictions ({result.activity_risks.length})</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
@@ -183,25 +195,25 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each result.predictions.slice(0, 50) as p}
+							{#each result.activity_risks.slice(0, 50) as p}
 								<tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-									<td class="py-2 px-3 font-mono text-xs">{p.activity_name || p.activity_id}</td>
+									<td class="py-2 px-3 font-mono text-xs">{p.task_name || p.task_code}</td>
 									<td class="py-2 px-3">
 										<span class="px-2 py-0.5 rounded text-xs font-medium {riskColor(p.risk_level)}">{p.risk_level}</span>
 									</td>
 									<td class="py-2 px-3 text-right font-mono">{p.risk_score.toFixed(2)}</td>
 									<td class="py-2 px-3 text-right font-mono">{p.predicted_delay_days.toFixed(1)}d</td>
 									<td class="py-2 px-3 text-xs text-gray-600 dark:text-gray-400">
-										{#if p.top_factors}
-											{p.top_factors.slice(0, 3).map(f => f.factor).join(', ')}
+										{#if p.top_risk_factors}
+											{p.top_risk_factors.slice(0, 3).map(f => f.name).join(', ')}
 										{/if}
 									</td>
 								</tr>
 							{/each}
 						</tbody>
 					</table>
-					{#if result.predictions.length > 50}
-						<p class="text-xs text-gray-400 mt-2">Showing top 50 of {result.predictions.length}</p>
+					{#if result.activity_risks.length > 50}
+						<p class="text-xs text-gray-400 mt-2">Showing top 50 of {result.activity_risks.length}</p>
 					{/if}
 				</div>
 				<p class="text-xs text-gray-400 mt-3">{result.methodology}</p>

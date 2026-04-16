@@ -4,14 +4,14 @@
 
 **The intelligence standard for project schedules**
 
-Open-source schedule intelligence platform — from validation to prediction to generation.
+Open-source schedule intelligence platform — from validation to prediction to cost-schedule integration.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.56-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/Tests-710%2B%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-870%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -23,7 +23,7 @@ Open-source schedule intelligence platform — from validation to prediction to 
 
 ## Overview
 
-**MeridianIQ** is an open-source platform for project schedule analysis in construction and engineering. It provides the tools that schedulers, project controls professionals, and forensic delay analysts need — transparent, auditable, and free.
+**MeridianIQ** is an open-source platform for project schedule and cost intelligence in construction and engineering. It provides the tools that schedulers, project controls professionals, and forensic delay analysts need — transparent, auditable, and free.
 
 Every methodology is traceable to published standards: AACE Recommended Practices, DCMA 14-Point Assessment, SCL Delay and Disruption Protocol, and GAO Schedule Assessment Guide.
 
@@ -38,11 +38,11 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 37 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 810+ backend + 70+ E2E |
+| Tests passing | 870+ backend + 70+ E2E |
 | Frontend pages | 49 (including Interactive Schedule Viewer + Cost Integration) |
-| API endpoints | 80 |
+| API endpoints | 85 |
 | SVG chart components | 10 + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | 22 (v0.1.0 → v3.2.0) |
+| Released versions | 20 (v0.1.0 → v3.5.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -104,6 +104,10 @@ The flagship feature — a production-grade Gantt chart built entirely with SVG 
 | **Calendar Validation** — 9 checks with scoring per DCMA #13 | DCMA EVMS, AACE RP 49R-06 | v3.1 |
 | **Delay Attribution** — Party breakdown (Owner/Contractor/Shared) | AACE RP 29R-03, SCL Protocol | v3.1 |
 | **Interactive Schedule Viewer** — WBS tree, Gantt bars, baseline, float, dependencies | AACE RP 49R-06, GAO Guide | v3.2 |
+| **Schedule Metadata** — Auto-detect update#, revision, type from filename + XER data | — | v3.5 |
+| **Schedule Trends** — Period-over-period evolution tracking with auto-insights | AACE RP 29R-03 | v3.5 |
+| **Cost Integration** — CBS/WBS correlation from budget files | AACE RP 10S-90 | v3.5 |
+| **Narrative Reports** — Structured text generation for claims and status reports | AACE RP 29R-03 | v3.5 |
 
 ---
 
@@ -116,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (37)<br/>84 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (37)<br/>85 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -202,8 +206,11 @@ flowchart LR
 | v2.2 | **Scenarios** | What-If Simulator · Scorecard · Duration ML · Pareto | ✅ Released |
 | v2.3 | **Optimization** | Resource Leveling RCPSP · Schedule Generation · Builder | ✅ Released |
 | v3.0 | **Full Lifecycle** | XER Export · ES Optimizer · Benchmark Priors · 4D Viz | ✅ Released |
+| v3.1 | **UX Polish** | Calendar Validation · Delay Attribution · Dark Mode · Skeletons | ✅ Released |
+| v3.2 | **Schedule Viewer** | Interactive Gantt · WBS Tree · Baseline · Float · Dependencies | ✅ Released |
+| v3.5 | **Cost-Schedule Intelligence** | Cost Integration · Trends · Narrative Reports · Programs | ✅ Released |
 
-See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_v20.md).
+See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP_v06_to_v20.md).
 
 ---
 
@@ -211,7 +218,7 @@ See [full roadmap with architecture decisions](docs/v06-planning/ROADMAP_v06_to_
 
 ### Prerequisites
 
-- Python 3.12+ (CI tests on 3.14)
+- Python 3.14+
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier) with URL and anon/service keys
 
@@ -253,7 +260,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | Python 3.12+ · FastAPI · Pydantic v2 |
+| **Backend** | Python 3.14+ · FastAPI · Pydantic v2 |
 | **CPM Engine** | NetworkX (BSD) |
 | **Monte Carlo** | NumPy (BSD) |
 | **PDF Generation** | WeasyPrint |
@@ -264,7 +271,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (440+ passing) · Playwright E2E (25 passing) |
+| **Testing** | pytest (870+ passing) · Playwright E2E (70+ passing) |
 
 ---
 
@@ -297,26 +304,26 @@ meridianiq/
 │   │   ├── models.py     # 17+ Pydantic models
 │   │   └── validator.py  # Constraint validation
 │   ├── analytics/
-│   │   ├── cpm.py        # NetworkX CPM engine
-│   │   ├── dcma14.py     # DCMA 14-Point Assessment
-│   │   ├── comparison.py # Multi-layer matching
-│   │   ├── forensics.py  # CPA per AACE RP 29R-03
-│   │   ├── tia.py        # TIA per AACE RP 52R-06
-│   │   ├── contract.py   # Contract compliance
-│   │   ├── evm.py        # EVM per ANSI/EIA-748
-│   │   ├── risk.py       # Monte Carlo per AACE RP 57R-09
-│   │   ├── float_trends.py     # Float trend tracking
-│   │   ├── early_warning.py    # 12-rule early warning engine
-│   │   ├── health_score.py     # Composite schedule health metric
-│   │   └── report_generator.py # WeasyPrint PDF reports
+│   │   ├── cpm.py              # NetworkX CPM engine
+│   │   ├── dcma14.py           # DCMA 14-Point Assessment
+│   │   ├── comparison.py       # Multi-layer matching
+│   │   ├── forensics.py        # CPA per AACE RP 29R-03
+│   │   ├── tia.py              # TIA per AACE RP 52R-06
+│   │   ├── evm.py              # EVM per ANSI/EIA-748
+│   │   ├── risk.py             # Monte Carlo per AACE RP 57R-09
+│   │   ├── cost_integration.py # CBS/WBS cost correlation
+│   │   ├── schedule_trends.py  # Period-over-period evolution
+│   │   ├── narrative_report.py # Structured claim narratives
+│   │   └── ...                 # 37 engines total + 1 export
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
-│       ├── app.py        # FastAPI (45 endpoints)
+│       ├── app.py        # FastAPI entry point
+│       ├── routers/      # 85 endpoints across modular routers
 │       └── schemas.py    # Request/response models
-├── web/                  # SvelteKit + Tailwind
-├── tests/                # 440+ backend tests
+├── web/                  # SvelteKit + Tailwind (49 pages)
+├── tests/                # 870+ backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations (6 files)
+│   └── migrations/       # PostgreSQL schema migrations (16 files)
 ├── .github/
 │   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents
@@ -339,7 +346,7 @@ meridianiq/
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Areas where help is needed:**
-- Additional schedule formats (Microsoft Project XML, Asta Powerproject)
+- Additional schedule formats (Asta Powerproject, Phoenix, Tilos)
 - Methodology validation against real-world experience
 - International contract compliance (FIDIC, NEC, JCT)
 - Performance optimization for 50,000+ activity schedules
@@ -355,7 +362,7 @@ MeridianIQ is designed to support academic research in project controls and fore
 @software{meridianiq,
   author = {Rodovalho, Vitor Maia},
   title = {MeridianIQ: Open-Source Schedule Intelligence Platform},
-  year = {2025},
+  year = {2025--2026},
   url = {https://github.com/VitorMRodovalho/meridianiq},
   note = {Implements AACE RP 29R-03, 52R-06, 57R-09; DCMA 14-Point; ANSI/EIA-748}
 }
@@ -373,7 +380,7 @@ See [ATTRIBUTION.md](ATTRIBUTION.md) for upstream credits and [ACKNOWLEDGMENTS.m
 
 <div align="center">
 
-**MeridianIQ** · MIT License · © 2025 Vitor Maia Rodovalho
+**MeridianIQ** · MIT License · © 2025–2026 Vitor Maia Rodovalho
 
 *Built with academic rigor. Every methodology traceable to published standards.*
 

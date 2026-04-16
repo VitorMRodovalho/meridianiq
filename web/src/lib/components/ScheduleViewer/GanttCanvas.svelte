@@ -1,13 +1,12 @@
 <script lang="ts">
-	import type { ActivityView, RelationshipView, WBSNode } from './types';
+	import type { ActivityView, RelationshipView, WBSAggregate, FlatRow } from './types';
 	import { daysBetween, parseDate, getBarColor, formatDateShort } from './utils';
 	import TimeScale from './TimeScale.svelte';
 
 	interface Props {
+		flatRows: FlatRow[];
 		activities: ActivityView[];
-		wbsTree: WBSNode[];
 		relationships?: RelationshipView[];
-		collapsedWbs: Set<string>;
 		startDate: string;
 		endDate: string;
 		dataDate: string;
@@ -17,6 +16,7 @@
 		containerHeight: number;
 		hoveredId: string;
 		holidays?: string[];
+		wbsAggregates?: Map<string, WBSAggregate>;
 		showFloat?: boolean;
 		showBaseline?: boolean;
 		showWeekends?: boolean;
@@ -25,10 +25,9 @@
 	}
 
 	let {
+		flatRows,
 		activities,
-		wbsTree,
 		relationships = [],
-		collapsedWbs,
 		startDate,
 		endDate,
 		dataDate,
@@ -38,6 +37,7 @@
 		containerHeight,
 		hoveredId,
 		holidays = [],
+		wbsAggregates,
 		showFloat = true,
 		showBaseline = true,
 		showWeekends = true,
@@ -63,56 +63,17 @@
 		return Math.max(2, xPos(end) - xPos(start));
 	}
 
-	// Build ALL rows matching WBSTree order (not filtered by viewport)
-	interface VisRow {
-		type: 'wbs' | 'activity';
-		activity?: ActivityView;
-		wbsNode?: WBSNode;
-	}
-
-	const allRows = $derived.by(() => {
-		const rows: VisRow[] = [];
-		function addNode(node: WBSNode) {
-			rows.push({ type: 'wbs', wbsNode: node });
-			if (!collapsedWbs.has(node.wbs_id)) {
-				for (const act of activities) {
-					if (act.wbs_id === node.wbs_id) rows.push({ type: 'activity', activity: act });
-				}
-				for (const child of node.children) addNode(child);
-			}
-		}
-		for (const root of wbsTree) addNode(root);
-		return rows;
-	});
-
 	// Virtual scrolling: only render rows in the visible viewport + buffer
 	const virtualStart = $derived(Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS));
-	const virtualEnd = $derived(Math.min(allRows.length, Math.ceil((scrollTop + containerHeight) / rowHeight) + BUFFER_ROWS));
-	const renderedRows = $derived(allRows.slice(virtualStart, virtualEnd));
+	const virtualEnd = $derived(Math.min(flatRows.length, Math.ceil((scrollTop + containerHeight) / rowHeight) + BUFFER_ROWS));
+	const renderedRows = $derived(flatRows.slice(virtualStart, virtualEnd));
 
-	const svgHeight = $derived(HEADER_H + allRows.length * rowHeight + 20);
+	const svgHeight = $derived(HEADER_H + flatRows.length * rowHeight + 20);
 
-	// WBS summary spans (earliest start → latest finish per WBS node)
-	const wbsSpans = $derived.by(() => {
-		const spans = new Map<string, { start: string; finish: string; count: number }>();
-		for (const act of activities) {
-			if (!act.early_start || !act.early_finish) continue;
-			const existing = spans.get(act.wbs_id);
-			if (!existing) {
-				spans.set(act.wbs_id, { start: act.early_start, finish: act.early_finish, count: 1 });
-			} else {
-				if (act.early_start < existing.start) existing.start = act.early_start;
-				if (act.early_finish > existing.finish) existing.finish = act.early_finish;
-				existing.count++;
-			}
-		}
-		return spans;
-	});
-
-	// Build row index for dependency line routing — uses ABSOLUTE indices from allRows
+	// Build row index for dependency line routing — uses ABSOLUTE indices from flatRows
 	const activityRowIndex = $derived.by(() => {
 		const idx = new Map<string, number>();
-		allRows.forEach((row, i) => {
+		flatRows.forEach((row, i) => {
 			if (row.type === 'activity' && row.activity) {
 				idx.set(row.activity.task_id, i);
 			}
@@ -149,9 +110,9 @@
 </script>
 
 <svg
-	viewBox="0 0 {WIDTH} {svgHeight}"
-	class="w-full"
-	style="min-width: 600px;"
+	width={WIDTH}
+	height={svgHeight}
+	style="min-width: {WIDTH}px;"
 >
 	<!-- Time scale header -->
 	<TimeScale
@@ -200,21 +161,42 @@
 		{#if row.type === 'wbs' && row.wbsNode}
 			<!-- WBS summary row background -->
 			<rect x="0" {y} width={WIDTH} height={rowHeight} fill="#f9fafb" opacity="0.5" class="dark:fill-gray-800" />
-			<!-- WBS summary bar (span of all child activities) -->
-			{@const span = wbsSpans.get(row.wbsNode.wbs_id)}
-			{#if span}
-				{@const sx = xPos(span.start)}
-				{@const sw = Math.max(4, xPos(span.finish) - sx)}
+			<!-- WBS summary bar with progress fill -->
+			{@const agg = wbsAggregates?.get(row.wbsNode.wbs_id)}
+			{#if agg}
+				{@const sx = xPos(agg.start)}
+				{@const sw = Math.max(4, xPos(agg.finish) - sx)}
+				{@const progressPct = agg.total_weight > 0 ? Math.min(100, agg.weighted_progress / agg.total_weight) : 0}
 				<g>
-					<title>{row.wbsNode.name} — {span.count} activities | {span.start} → {span.finish}</title>
+					<title>{row.wbsNode.name} — {agg.count} activities | {agg.start} → {agg.finish} | {Math.round(progressPct)}% | TF: {agg.min_float}d{agg.critical_count > 0 ? ` | ${agg.critical_count} critical` : ''}</title>
+					<!-- Background bar -->
 					<rect
-						x={sx} y={y + rowHeight / 2 - 2}
-						width={sw} height={4}
-						rx="2" fill="#6b7280" opacity="0.3"
+						x={sx} y={y + rowHeight / 2 - 3}
+						width={sw} height={6}
+						rx="2" fill="#6b7280" opacity="0.15"
 					/>
+					<!-- Progress fill -->
+					{#if progressPct > 0}
+						<rect
+							x={sx} y={y + rowHeight / 2 - 3}
+							width={sw * progressPct / 100} height={6}
+							rx="2" fill={agg.critical_count > 0 ? '#ef4444' : '#6b7280'} opacity="0.4"
+						/>
+					{/if}
 				</g>
-				<polygon points="{sx},{y + rowHeight / 2 - 4} {sx},{y + rowHeight / 2 + 4} {sx - 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
-				<polygon points="{sx + sw},{y + rowHeight / 2 - 4} {sx + sw},{y + rowHeight / 2 + 4} {sx + sw + 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
+				<polygon points="{sx},{y + rowHeight / 2 - 5} {sx},{y + rowHeight / 2 + 5} {sx - 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
+				<polygon points="{sx + sw},{y + rowHeight / 2 - 5} {sx + sw},{y + rowHeight / 2 + 5} {sx + sw + 3},{y + rowHeight / 2}" fill="#6b7280" opacity="0.4" />
+				<!-- WBS baseline bar (when collapsed and baseline data exists) -->
+				{#if showBaseline && agg.baseline_start && agg.baseline_finish}
+					{@const bsx = xPos(agg.baseline_start)}
+					{@const bsw = Math.max(4, xPos(agg.baseline_finish) - bsx)}
+					<rect
+						x={bsx} y={y + rowHeight / 2 + 4}
+						width={bsw} height={3}
+						rx="1" fill="#9ca3af" opacity="0.35"
+						stroke="#9ca3af" stroke-width="0.5" stroke-dasharray="3 2"
+					/>
+				{/if}
 			{/if}
 		{:else if row.type === 'activity' && row.activity}
 			{@const act = row.activity}

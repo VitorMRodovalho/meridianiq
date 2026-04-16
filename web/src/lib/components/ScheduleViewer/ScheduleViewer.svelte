@@ -2,8 +2,9 @@
 	import type { ScheduleViewData } from './types';
 	import WBSTree from './WBSTree.svelte';
 	import GanttCanvas from './GanttCanvas.svelte';
+	import ActivityTooltip from './ActivityTooltip.svelte';
 	import { onMount } from 'svelte';
-	import { formatDateShort } from './utils';
+	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, getWbsIdsBeyondDepth } from './utils';
 
 	interface Props {
 		data: ScheduleViewData;
@@ -35,8 +36,6 @@
 			}),
 		};
 	});
-
-	import { daysBetween } from './utils';
 
 	const ROW_HEIGHT = 24;
 	let viewerHeight = $state(500);
@@ -73,6 +72,8 @@
 	let hoveredId = $state('');
 	let searchQuery = $state('');
 	let scrollContainer: HTMLDivElement | null = $state(null);
+	let mouseX = $state(0);
+	let mouseY = $state(0);
 
 	// Search filter
 	const searchFilteredData = $derived.by(() => {
@@ -86,6 +87,35 @@
 		);
 		return { ...base, activities: matchedActivities };
 	});
+
+	// WBS aggregates (computed once, shared by WBSTree and GanttCanvas)
+	const wbsAggregates = $derived(computeWBSAggregates(searchFilteredData.activities, searchFilteredData.wbs_tree));
+
+	// WBS depth filter (0 = all levels) — sets collapsedWbs directly as a preset
+	let wbsDepthFilter = $state(0);
+	const maxWbsDepth = $derived(getMaxWBSDepth(data.wbs_tree));
+
+	// When depth filter changes, SET collapsedWbs directly. User can then manually toggle on top.
+	let prevDepthFilter = $state(0);
+	$effect(() => {
+		if (wbsDepthFilter !== prevDepthFilter) {
+			prevDepthFilter = wbsDepthFilter;
+			if (wbsDepthFilter === 0) {
+				collapsedWbs = new Set();
+			} else {
+				collapsedWbs = getWbsIdsBeyondDepth(data.wbs_tree, wbsDepthFilter);
+			}
+		}
+	});
+
+	// Single source of truth: flat row list shared by WBSTree and GanttCanvas
+	const isFiltered = $derived(criticalOnly || searchQuery.trim() !== '');
+	const flatRows = $derived(buildFlatRows(
+		searchFilteredData.wbs_tree,
+		searchFilteredData.activities,
+		collapsedWbs,
+		isFiltered,
+	));
 
 	function toggleWbs(wbsId: string) {
 		const next = new Set(collapsedWbs);
@@ -212,7 +242,11 @@ ${svgClone.outerHTML}
 	);
 </script>
 
-<div class="schedule-viewer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="schedule-viewer bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+	onmousemove={(e) => { mouseX = e.clientX; mouseY = e.clientY; }}
+>
 	<!-- Toolbar -->
 	<div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
 		<div class="flex items-center gap-3">
@@ -272,6 +306,19 @@ ${svgClone.outerHTML}
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M15 15h4.5M15 15v4.5m0-4.5l5.5 5.5" />
 				</svg>
 			</button>
+			<!-- WBS Depth filter -->
+			{#if maxWbsDepth > 1}
+				<select
+					bind:value={wbsDepthFilter}
+					class="text-[10px] rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-1 py-0.5"
+					title="WBS depth filter"
+				>
+					<option value={0}>All Levels</option>
+					{#each Array(maxWbsDepth) as _, i}
+						<option value={i + 1}>Level {i + 1}</option>
+					{/each}
+				</select>
+			{/if}
 			<span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
 			<!-- Export PDF (print) -->
 			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Export PDF (Print)">
@@ -286,13 +333,14 @@ ${svgClone.outerHTML}
 	<div class="flex" style="height: {viewerHeight}px;">
 		<!-- WBS Tree -->
 		<WBSTree
-			activities={searchFilteredData.activities}
-			wbsTree={searchFilteredData.wbs_tree}
+			{flatRows}
 			{collapsedWbs}
 			rowHeight={ROW_HEIGHT}
 			{scrollTop}
 			{containerHeight}
+			{wbsAggregates}
 			onToggleWbs={toggleWbs}
+			onHover={handleHover}
 		/>
 
 		<!-- Gantt Canvas (scrollable, drag-to-pan) -->
@@ -307,14 +355,14 @@ ${svgClone.outerHTML}
 			style="cursor: grab;"
 		>
 			<GanttCanvas
+				{flatRows}
 				activities={searchFilteredData.activities}
-				wbsTree={searchFilteredData.wbs_tree}
 				relationships={showDependencies ? searchFilteredData.relationships : []}
-				{collapsedWbs}
 				startDate={searchFilteredData.project_start}
 				endDate={searchFilteredData.project_finish}
 				dataDate={searchFilteredData.data_date}
 				holidays={data.holidays || []}
+				{wbsAggregates}
 				{zoomLevel}
 				rowHeight={ROW_HEIGHT}
 				{scrollTop}
@@ -328,36 +376,23 @@ ${svgClone.outerHTML}
 		</div>
 	</div>
 
-	<!-- Tooltip -->
+	<!-- Status bar (compact) -->
 	{#if hoveredActivity}
-		<div class="border-t border-gray-200 dark:border-gray-700 px-3 py-2 bg-gray-50 dark:bg-gray-800 flex items-center gap-4 text-[10px]">
+		<div class="border-t border-gray-200 dark:border-gray-700 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 flex items-center gap-3 text-[10px]">
 			<span class="font-semibold text-gray-900 dark:text-gray-100">{hoveredActivity.task_code}</span>
 			<span class="text-gray-600 dark:text-gray-400 truncate max-w-xs">{hoveredActivity.task_name}</span>
 			<span class="text-gray-500">{formatDateShort(hoveredActivity.early_start)} — {formatDateShort(hoveredActivity.early_finish)}</span>
-			<span class="text-gray-500">{hoveredActivity.duration_days}d (rem: {hoveredActivity.remaining_days}d)</span>
-			<span class="{hoveredActivity.total_float_days < 0 ? 'text-red-600 font-bold' : hoveredActivity.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">
-				TF: {hoveredActivity.total_float_days}d
-			</span>
-			<span class="{hoveredActivity.is_critical ? 'text-red-600 font-bold' : 'text-gray-400'}">
-				{hoveredActivity.is_critical ? 'CRITICAL' : ''}
-			</span>
+			<span class="text-gray-500">{hoveredActivity.duration_days}d</span>
+			<span class="{hoveredActivity.total_float_days < 0 ? 'text-red-600 font-bold' : hoveredActivity.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">TF:{hoveredActivity.total_float_days}d</span>
 			{#if hoveredActivity.progress_pct > 0}
 				<span class="text-blue-600">{hoveredActivity.progress_pct}%</span>
 			{/if}
-			{#if hoveredActivity.baseline_start && hoveredActivity.baseline_finish}
-				<span class="text-gray-400">BL: {formatDateShort(hoveredActivity.baseline_start)}—{formatDateShort(hoveredActivity.baseline_finish)}</span>
-				{#if hoveredActivity.finish_variance_days}
-					<span class="{hoveredActivity.finish_variance_days > 0 ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}">
-						{hoveredActivity.finish_variance_days > 0 ? '+' : ''}{hoveredActivity.finish_variance_days}d var
-					</span>
-				{:else if hoveredActivity.early_finish > hoveredActivity.baseline_finish}
-					<span class="text-amber-600 font-bold">SLIDING RIGHT</span>
-				{/if}
-			{/if}
-			{#each hoveredActivity.alerts as alert}
-				<span class="px-1 py-0.5 bg-red-100 text-red-700 rounded text-[8px] font-bold">{alert.replace('_', ' ')}</span>
-			{/each}
 		</div>
+	{/if}
+
+	<!-- Floating Magic Box tooltip -->
+	{#if hoveredActivity}
+		<ActivityTooltip activity={hoveredActivity} x={mouseX} y={mouseY} />
 	{/if}
 
 	<!-- Legend -->

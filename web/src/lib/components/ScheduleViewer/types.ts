@@ -48,6 +48,28 @@ export interface RelationshipView {
 	is_driving: boolean;
 }
 
+export interface WBSAggregate {
+	start: string;
+	finish: string;
+	count: number;
+	total_duration: number;
+	min_float: number;
+	weighted_progress: number;
+	total_weight: number;
+	critical_count: number;
+	baseline_start: string | null;
+	baseline_finish: string | null;
+}
+
+/** Shared flat row — single source of truth for WBSTree + GanttCanvas alignment. */
+export interface FlatRow {
+	type: 'wbs' | 'activity';
+	activity?: ActivityView;
+	wbsNode?: WBSNode;
+	indent: number;
+	wbsPath?: string;
+}
+
 export interface ScheduleViewData {
 	project_name: string;
 	data_date: string;

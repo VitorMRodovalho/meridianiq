@@ -7,20 +7,17 @@
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 
-	interface FeatureImportance {
-		feature: string;
-		importance: number;
-	}
-
 	interface DurationResult {
 		predicted_duration_days: number;
 		confidence_low: number;
 		confidence_high: number;
 		actual_duration_days: number;
-		accuracy_pct: number;
-		feature_importances: FeatureImportance[];
-		model_type: string;
+		delta_days: number;
+		model_r_squared: number;
+		training_samples: number;
+		feature_importances: Record<string, number>;
 		methodology: string;
+		summary: Record<string, unknown>;
 	}
 
 	let projects: { project_id: string; name: string }[] = $state([]);
@@ -65,14 +62,25 @@
 
 	const featureItems = $derived(
 		result?.feature_importances
-			? result.feature_importances.slice(0, 10).map(f => ({
-				label: f.feature,
-				value: Math.round(f.importance * 100),
-			}))
+			? Object.entries(result.feature_importances)
+				.map(([feature, importance]) => ({
+					label: feature,
+					value: Math.round(importance * 100),
+				}))
+				.sort((a, b) => b.value - a.value)
+				.slice(0, 10)
 			: []
 	);
 
-	const gaugeValue = $derived(result ? Math.min(result.accuracy_pct || 0, 100) : 0);
+	const gaugeValue = $derived(
+		result
+			? result.model_r_squared > 0
+				? Math.round(result.model_r_squared * 100)
+				: result.actual_duration_days > 0
+					? Math.round(Math.max(0, 100 - (Math.abs(result.delta_days) / result.actual_duration_days) * 100))
+					: 0
+			: 0
+	);
 
 	const rangeTotal = $derived(result ? (result.confidence_high * 1.2) || 1 : 1);
 	const rangeLowPct = $derived(result ? (result.confidence_low / rangeTotal) * 100 : 0);
@@ -135,14 +143,14 @@
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">95% Confidence</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold capitalize text-gray-700 dark:text-gray-300">{result.model_type}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Model</p>
+				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{result.delta_days > 0 ? '+' : ''}{result.delta_days.toFixed(0)}d</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Delta</p>
 			</div>
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<GaugeChart value={gaugeValue} max={100} label="Accuracy" />
+				<GaugeChart value={gaugeValue} max={100} label="Model R²" />
 			</div>
 			{#if featureItems.length > 0}
 				<BarChart data={featureItems} title="Top Feature Importances (%)" />

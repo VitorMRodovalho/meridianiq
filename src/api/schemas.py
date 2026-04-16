@@ -683,6 +683,10 @@ class EVMAnalysisSummarySchema(BaseModel):
     project_name: str = ""
     project_id: str = ""
     bac: float = 0.0
+    pv: float = 0.0
+    ev: float = 0.0
+    ac: float = 0.0
+    eac: float = 0.0
     spi: float = 0.0
     cpi: float = 0.0
     schedule_health: str = ""

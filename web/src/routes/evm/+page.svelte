@@ -4,6 +4,7 @@
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import EVMSCurveChart from '$lib/components/charts/EVMSCurveChart.svelte';
 
 	let analyses: any[] = $state([]);
 	let projects: any[] = $state([]);
@@ -148,39 +149,37 @@
 			</div>
 		</div>
 
-		<!-- Mini S-Curve visualization -->
-		{#if latest.pv_cumulative || latest.ev_cumulative || latest.ac_cumulative}
-			{@const W = 600}
-			{@const H = 180}
-			{@const pad = { top: 20, right: 20, bottom: 30, left: 60 }}
-			{@const cw = W - pad.left - pad.right}
-			{@const ch = H - pad.top - pad.bottom}
-			{@const maxVal = Math.max(latest.bac || 1, latest.eac || 1) * 1.1}
+		<!-- S-Curve Chart -->
+		{#if latest.s_curve && latest.s_curve.length >= 2}
+			<div class="mb-6">
+				<EVMSCurveChart
+					data={latest.s_curve}
+					dataDate={latest.data_date || ''}
+					bac={latest.bac || 0}
+					eac={latest.eac || 0}
+					spi={latest.spi || 0}
+					cpi={latest.cpi || 0}
+					sv={(latest.ev || 0) - (latest.pv || 0)}
+					cv={(latest.ev || 0) - (latest.ac || 0)}
+				/>
+			</div>
+		{:else if latest.ev > 0 || latest.ac > 0}
+			<!-- Fallback: simple PV/EV/AC summary when no S-Curve data -->
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Earned Value S-Curve</p>
-				<svg viewBox="0 0 {W} {H}" class="w-full">
-					<!-- Grid -->
-					{#each [0, 0.25, 0.5, 0.75, 1] as pct}
-						<line x1={pad.left} y1={pad.top + pct * ch} x2={W - pad.right} y2={pad.top + pct * ch} stroke="#f3f4f6" stroke-width="1" />
-						<text x={pad.left - 5} y={pad.top + pct * ch + 3} text-anchor="end" class="text-[8px] fill-gray-400">
-							{formatCost(maxVal * (1 - pct))}
-						</text>
-					{/each}
-					<!-- PV line (blue dashed) -->
-					<line x1={pad.left} y1={pad.top + ch - (((latest.pv || latest.bac || 0) / maxVal) * ch)} x2={pad.left + cw} y2={pad.top} stroke="#3b82f6" stroke-width="2" stroke-dasharray="6 3" opacity="0.6" />
-					<!-- EV line (green) -->
-					<line x1={pad.left} y1={pad.top + ch} x2={pad.left + cw * 0.6} y2={pad.top + ch - ((latest.ev || 0) / maxVal) * ch} stroke="#10b981" stroke-width="2.5" />
-					<!-- AC line (red) -->
-					<line x1={pad.left} y1={pad.top + ch} x2={pad.left + cw * 0.6} y2={pad.top + ch - ((latest.ac || 0) / maxVal) * ch} stroke="#ef4444" stroke-width="2" />
-					<!-- Axes -->
-					<line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + ch} stroke="#d1d5db" stroke-width="1" />
-					<line x1={pad.left} y1={pad.top + ch} x2={W - pad.right} y2={pad.top + ch} stroke="#d1d5db" stroke-width="1" />
-					<text x={W / 2} y={H - 5} text-anchor="middle" class="text-[9px] fill-gray-400">Time</text>
-				</svg>
-				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-blue-500 rounded" style="border-bottom: 2px dashed #3b82f6"></span> PV (Planned)</div>
-					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-green-500 rounded"></span> EV (Earned)</div>
-					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-red-500 rounded"></span> AC (Actual Cost)</div>
+				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Earned Value Summary</p>
+				<div class="grid grid-cols-3 gap-4 text-center">
+					<div>
+						<p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">PV (Planned)</p>
+						<p class="text-lg font-bold text-blue-600">{formatCost(latest.pv || 0)}</p>
+					</div>
+					<div>
+						<p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">EV (Earned)</p>
+						<p class="text-lg font-bold text-green-600">{formatCost(latest.ev || 0)}</p>
+					</div>
+					<div>
+						<p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">AC (Actual Cost)</p>
+						<p class="text-lg font-bold text-red-600">{formatCost(latest.ac || 0)}</p>
+					</div>
 				</div>
 			</div>
 		{/if}

@@ -26,6 +26,10 @@
 		{ id: 'optimizer', title: 'Schedule Optimizer' },
 		{ id: 'reports', title: 'Reports Hub' },
 		{ id: 'export', title: 'XER Export' },
+		{ id: 'metadata', title: 'Schedule Metadata' },
+		{ id: 'trends', title: 'Schedule Trends' },
+		{ id: 'cost', title: 'Cost Integration' },
+		{ id: 'narrative', title: 'Narrative Reports' },
 		{ id: 'mcp', title: 'MCP & AI Integration' },
 		{ id: 'api', title: 'API Reference' },
 	];
@@ -385,9 +389,61 @@
 			</ul>
 			<p class="text-gray-600 dark:text-gray-400 mt-4">Also available: Excel (.xlsx), CSV, and JSON export formats.</p>
 
+		{:else if activeSection === 'metadata'}
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Schedule Metadata Intelligence</h1>
+			<p class="text-gray-600 dark:text-gray-400 mb-4">Automatically extracts and classifies schedule metadata from XER files and filenames, providing structured context for downstream analysis.</p>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Extracted Fields</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 text-sm">
+				<li><strong>Update Number</strong> — Sequential revision number detected from filename patterns or XER data</li>
+				<li><strong>Schedule Type</strong> — Classification: MPS (Master), IMS (Integrated), CMAR, Baseline, Recovery</li>
+				<li><strong>Revision Indicator</strong> — Identifies initial submission vs. revision vs. resubmission</li>
+				<li><strong>Scheduling Options</strong> — Extracted P6 scheduling settings (retained logic, progress override, etc.)</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Use Cases</h2>
+			<p class="text-gray-600 dark:text-gray-400 text-sm">Metadata powers trend analysis, submission tracking, and automated classification in multi-project portfolios. Essential for forensic timelines where update sequencing determines analysis windows.</p>
+
+		{:else if activeSection === 'trends'}
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Schedule Trends</h1>
+			<p class="text-gray-600 dark:text-gray-400 mb-4">Period-over-period evolution tracking with automated insight generation per AACE RP 29R-03. Measures how key schedule indicators change across consecutive updates.</p>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Tracked Indicators</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 text-sm">
+				<li><strong>Completion Date Drift</strong> — How the projected finish date moves between updates</li>
+				<li><strong>Critical Path Length</strong> — Changes in critical path duration and composition</li>
+				<li><strong>Float Distribution</strong> — Evolution of total float across the network</li>
+				<li><strong>Activity Status Mix</strong> — Progression through Not Started → In Progress → Complete</li>
+				<li><strong>DCMA Pass Rate</strong> — Health indicator trends across the 14-point checks</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Auto-Insights</h2>
+			<p class="text-gray-600 dark:text-gray-400 text-sm">The engine automatically flags significant changes: schedule acceleration, slippage patterns, float erosion, and critical path shifts. Insights are generated in natural language for direct inclusion in status reports.</p>
+
+		{:else if activeSection === 'cost'}
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Cost Integration</h1>
+			<p class="text-gray-600 dark:text-gray-400 mb-4">CBS/WBS cost correlation per AACE RP 10S-90. Links cost breakdown structures from budget files to the schedule's work breakdown structure for integrated cost-schedule analysis.</p>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Capabilities</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 text-sm">
+				<li><strong>CBS-WBS Mapping</strong> — Correlate cost accounts to schedule WBS elements</li>
+				<li><strong>Budget Loading</strong> — Import budget data from Excel files</li>
+				<li><strong>Variance Analysis</strong> — Cost variance at the WBS level correlated with schedule performance</li>
+				<li><strong>EVM Enhancement</strong> — Enriches earned value analysis with actual cost data</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Standards</h2>
+			<p class="text-gray-600 dark:text-gray-400 text-sm">Implements cost engineering terminology and integration patterns from AACE RP 10S-90 (Cost Engineering Terminology) and AACE RP 57R-09 (Integrated Cost and Schedule Risk Analysis).</p>
+
+		{:else if activeSection === 'narrative'}
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Narrative Reports</h1>
+			<p class="text-gray-600 dark:text-gray-400 mb-4">Structured text generation for claims narratives and status reports per AACE RP 29R-03. Transforms quantitative analysis data into professional prose suitable for submissions and dispute resolution.</p>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Report Types</h2>
+			<ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 text-sm">
+				<li><strong>Delay Narrative</strong> — Period-by-period delay explanation with causal chains</li>
+				<li><strong>Status Narrative</strong> — Monthly progress summary with key indicators</li>
+				<li><strong>Claims Narrative</strong> — Structured argument for time extension or acceleration claims</li>
+			</ul>
+			<h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-2">Output</h2>
+			<p class="text-gray-600 dark:text-gray-400 text-sm">Generates structured text that can be exported or included in PDF reports. Each narrative references the underlying data and methodology used, maintaining the auditability standard across the platform.</p>
+
 		{:else if activeSection === 'mcp'}
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">MCP & AI Integration</h1>
-			<p class="text-gray-600 dark:text-gray-400 mb-4">MeridianIQ exposes 19 tools via the Model Context Protocol (MCP) for AI assistant integration.</p>
+			<p class="text-gray-600 dark:text-gray-400 mb-4">MeridianIQ exposes 22 tools via the Model Context Protocol (MCP) for AI assistant integration.</p>
 			<p class="text-gray-600 dark:text-gray-400 text-sm mb-4">Configure in Claude Code settings:</p>
 			<pre class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 text-xs overflow-x-auto mb-4">{`{
   "mcpServers": {
@@ -401,7 +457,7 @@
 
 		{:else if activeSection === 'api'}
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">API Reference</h1>
-			<p class="text-gray-600 dark:text-gray-400 mb-4">MeridianIQ exposes 77 REST endpoints under <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm">/api/v1/</code>.</p>
+			<p class="text-gray-600 dark:text-gray-400 mb-4">MeridianIQ exposes 85 REST endpoints under <code class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm">/api/v1/</code>.</p>
 			<h2 class="text-lg font-semibold text-gray-800 mt-6 mb-2">Interactive Documentation</h2>
 			<p class="text-gray-600 dark:text-gray-400 mb-4">
 				The FastAPI backend auto-generates OpenAPI documentation:

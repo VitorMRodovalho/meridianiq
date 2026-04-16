@@ -40,21 +40,6 @@
 			projects = projRes.projects;
 			dashboard = dashRes;
 			programs = progRes.programs;
-
-			for (const p of projects) {
-				if (!p.activity_count) continue;
-				try {
-					const health = await getProjectHealth(p.project_id);
-					healthScores[p.project_id] = {
-						overall: health.overall,
-						rating: health.rating,
-						trend_arrow: health.trend_arrow
-					};
-					healthScores = { ...healthScores };
-				} catch {
-					// Skip projects where health calc fails
-				}
-			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to connect to backend';
 		} finally {
@@ -184,15 +169,15 @@
 			<!-- Key numbers -->
 			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
 				<div>
-					<p class="text-3xl font-bold text-gray-900">35</p>
+					<p class="text-3xl font-bold text-gray-900">37</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">82</p>
+					<p class="text-3xl font-bold text-gray-900">85</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">792+</p>
+					<p class="text-3xl font-bold text-gray-900">870+</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.tests')}</p>
 				</div>
 				<div>

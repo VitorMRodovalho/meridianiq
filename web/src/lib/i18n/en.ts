@@ -22,7 +22,7 @@ export default {
 	'landing.stats.endpoints': 'API Endpoints',
 	'landing.stats.tests': 'Tests Passing',
 	'landing.stats.cost': 'Monthly Cost',
-	'landing.capabilities.title': '33 Analysis Engines',
+	'landing.capabilities.title': '37 Analysis Engines',
 	'landing.standards.title': 'Built on published standards',
 	'landing.standards.subtitle': 'Every methodology is traceable to its source. No black boxes.',
 

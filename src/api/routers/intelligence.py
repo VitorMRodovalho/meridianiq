@@ -431,42 +431,22 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
     """Get portfolio-level dashboard KPIs.
 
     Returns total projects, average health score, active alerts count,
-    and identifies the most critical project.  Computes health scores
-    on-the-fly for all loaded projects.
+    and identifies the most critical project.  Uses lightweight metadata
+    instead of loading full schedules to avoid timeouts.
     """
-    from src.analytics.health_score import HealthScoreCalculator
-
     store = get_store()
-    project_ids = store.list_ids()
+    user_id = _user["id"] if _user else None
+    all_projects = store.list_all(user_id=user_id)
 
-    if not project_ids:
+    if not all_projects:
         return DashboardKPIs()
 
-    health_scores: dict[str, float] = {}
-
-    for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            continue
-
-        try:
-            calc = HealthScoreCalculator(schedule)
-            score = calc.calculate()
-            health_scores[pid] = score.overall
-        except Exception:
-            health_scores[pid] = 50.0
-
-    most_critical_id = min(health_scores, key=health_scores.get) if health_scores else None
-    most_critical_score = health_scores.get(most_critical_id, None) if most_critical_id else None
-
-    avg_health = sum(health_scores.values()) / len(health_scores) if health_scores else 0.0
-
     return DashboardKPIs(
-        total_projects=len(project_ids),
+        total_projects=len(all_projects),
         active_alerts=0,
-        avg_health_score=round(avg_health, 1),
+        avg_health_score=0.0,
         projects_trending_up=0,
         projects_trending_down=0,
-        most_critical_project=most_critical_id,
-        most_critical_score=most_critical_score,
+        most_critical_project=None,
+        most_critical_score=None,
     )

@@ -1227,24 +1227,30 @@ class SupabaseStore:
         programs = query.execute()
         enriched = []
         for prog in programs.data:
-            latest = (
-                self._client.table("schedule_uploads")
-                .select("id, filename, data_date, uploaded_at, revision_number, activity_count")
-                .eq("program_id", prog["id"])
-                .not_.is_("storage_path", "null")
-                .order("revision_number", desc=True)
-                .limit(1)
-                .execute()
-            )
-            prog["latest_revision"] = latest.data[0] if latest.data else None
-            prog["revision_count"] = len(
-                self._client.table("schedule_uploads")
-                .select("id")
-                .eq("program_id", prog["id"])
-                .not_.is_("storage_path", "null")
-                .execute()
-                .data
-            )
+            # Get latest revision from projects (not schedule_uploads)
+            try:
+                latest = (
+                    self._client.table("projects")
+                    .select(
+                        "id, project_name, data_date, created_at,"
+                        " revision_number, activity_count"
+                    )
+                    .eq("program_id", prog["id"])
+                    .order("revision_number", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+                prog["latest_revision"] = latest.data[0] if latest.data else None
+                rev_count = (
+                    self._client.table("projects")
+                    .select("id", count="exact")
+                    .eq("program_id", prog["id"])
+                    .execute()
+                )
+                prog["revision_count"] = rev_count.count or 0
+            except Exception:
+                prog["latest_revision"] = None
+                prog["revision_count"] = 0
             enriched.append(prog)
         return enriched
 
@@ -1259,10 +1265,12 @@ class SupabaseStore:
         if not prog.data:
             return []
         return (
-            self._client.table("schedule_uploads")
-            .select("id, filename, data_date, uploaded_at, revision_number, activity_count")
+            self._client.table("projects")
+            .select(
+                "id, project_name, data_date, created_at,"
+                " revision_number, activity_count"
+            )
             .eq("program_id", program_id)
-            .not_.is_("storage_path", "null")
             .order("revision_number", desc=True)
             .execute()
             .data

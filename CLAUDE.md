@@ -19,7 +19,7 @@ docker compose up meridianiq-api
 ## Test
 
 ```bash
-# Backend (710+ tests)
+# Backend (870+ tests)
 python -m pytest tests/ -q
 
 # Frontend type check
@@ -40,7 +40,7 @@ mypy src/ --strict              # type check
 ## Architecture
 
 - **37 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 84 endpoints under `/api/v1/`, rate-limited critical endpoints
+- **API**: FastAPI with 85 endpoints under `/api/v1/`, rate-limited critical endpoints
 - **Frontend**: SvelteKit + Tailwind v4, 49 pages, Svelte 5 runes ($state, $derived, $effect), dark mode (45/46 pages), i18n (en/pt-BR/es), keyboard shortcuts (?)
 - **Database**: Supabase PostgreSQL with RLS, 16 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
@@ -67,7 +67,7 @@ mypy src/ --strict              # type check
 - ScheduleViewer: `web/src/lib/components/ScheduleViewer/` — Interactive Gantt with WBS tree, baseline bars, float, dependencies
 - UI: Breadcrumb, Skeleton, AnalysisSkeleton, ToastContainer, ThemeToggle components
 - Theme: `web/src/lib/stores/theme.ts` — dark mode with localStorage + system preference
-- MCP Server: `src/mcp_server.py` — 19 tools for Claude integration via FastMCP
+- MCP Server: `src/mcp_server.py` — 22 tools for Claude integration via FastMCP
 - NLP: `src/analytics/nlp_query.py` — Claude API integration, sends summary not raw data
 - Root Cause: `src/analytics/root_cause.py` — backwards network trace via NetworkX
 
@@ -89,7 +89,7 @@ Required in `.env`:
 
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
-- See `docs/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.5.0 — "Cost-Schedule Intelligence" (37 engines, 22 MCP tools, 810+ tests)
+- See `docs/archive/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
+- Version: v3.5.0 — "Cost-Schedule Intelligence" (37 engines, 22 MCP tools, 870+ tests)
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
