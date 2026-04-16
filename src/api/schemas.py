@@ -979,6 +979,25 @@ class HealthRequest(BaseModel):
     baseline_id: Optional[str] = None
 
 
+# ── NLP Schedule Query (v2.0) ───────────────────────────
+
+
+class NLPQueryRequest(BaseModel):
+    """Request body for POST /api/v1/projects/{id}/ask."""
+
+    question: str = Field(..., min_length=1, max_length=1000)
+    api_key: Optional[str] = None
+
+
+class NLPQueryResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/ask."""
+
+    question: str
+    answer: str
+    model: str
+    tokens_used: int = 0
+
+
 # ── Delay Prediction ─────────────────────────────────────
 
 

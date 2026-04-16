@@ -154,14 +154,13 @@ class TestNLPQueryAPI:
     def client(self):
         return TestClient(app)
 
-    def test_missing_question(self, client):
+    def test_missing_question_field(self, client):
         with open(SAMPLE_XER, "rb") as f:
             resp = client.post("/api/v1/upload", files={"file": ("s.xer", f)})
         pid = resp.json()["project_id"]
 
         resp = client.post(f"/api/v1/projects/{pid}/ask", json={})
-        assert resp.status_code == 400
-        assert "question" in resp.json()["detail"]
+        assert resp.status_code == 422
 
     def test_missing_api_key(self, client):
         import os
@@ -185,6 +184,59 @@ class TestNLPQueryAPI:
     def test_project_not_found(self, client):
         resp = client.post(
             "/api/v1/projects/nonexistent/ask",
-            json={"question": "test"},
+            json={"question": "test", "api_key": "sk-test"},
         )
         assert resp.status_code == 404
+
+    def test_happy_path_mocked(self, client, monkeypatch):
+        """End-to-end happy path with mocked query_schedule."""
+        import src.api.routers.intelligence as intelligence_mod
+        from src.analytics.nlp_query import NLPQueryResult
+
+        async def fake_query_schedule(schedule, question, api_key=None, model=None):
+            return NLPQueryResult(
+                question=question,
+                answer="The schedule has 100 activities with 5 critical.",
+                data_context={"total_activities": 100},
+                model="claude-sonnet-4-6",
+                tokens_used=123,
+            )
+
+        monkeypatch.setattr("src.analytics.nlp_query.query_schedule", fake_query_schedule)
+        # Also patch the lazy re-import inside the endpoint
+        monkeypatch.setattr(intelligence_mod, "optional_auth", lambda: None, raising=False)
+
+        with open(SAMPLE_XER, "rb") as f:
+            resp = client.post("/api/v1/upload", files={"file": ("s.xer", f)})
+        pid = resp.json()["project_id"]
+
+        resp = client.post(
+            f"/api/v1/projects/{pid}/ask",
+            json={"question": "How many activities?", "api_key": "sk-test"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["question"] == "How many activities?"
+        assert "100 activities" in data["answer"]
+        assert data["model"] == "claude-sonnet-4-6"
+        assert data["tokens_used"] == 123
+
+    def test_response_schema_shape(self, client, monkeypatch):
+        """Response strictly matches NLPQueryResponse schema."""
+        from src.analytics.nlp_query import NLPQueryResult
+
+        async def fake(schedule, question, api_key=None, model=None):
+            return NLPQueryResult(question=question, answer="ok", model="m", tokens_used=1)
+
+        monkeypatch.setattr("src.analytics.nlp_query.query_schedule", fake)
+
+        with open(SAMPLE_XER, "rb") as f:
+            resp = client.post("/api/v1/upload", files={"file": ("s.xer", f)})
+        pid = resp.json()["project_id"]
+
+        resp = client.post(
+            f"/api/v1/projects/{pid}/ask",
+            json={"question": "test", "api_key": "sk"},
+        )
+        assert resp.status_code == 200
+        assert set(resp.json().keys()) == {"question", "answer", "model", "tokens_used"}

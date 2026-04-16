@@ -7,10 +7,10 @@ from __future__ import annotations
 import os
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store
+from ..deps import get_store, limiter
 from ..schemas import (
     ActivityFloatTrendSchema,
     ActivityRiskSchema,
@@ -19,6 +19,8 @@ from ..schemas import (
     DashboardKPIs,
     DelayPredictionResponse,
     FloatTrendResponse,
+    NLPQueryRequest,
+    NLPQueryResponse,
     RiskFactorSchema,
     ScheduleHealthResponse,
 )
@@ -191,12 +193,17 @@ def get_root_cause(
     return asdict(result)
 
 
-@router.post("/api/v1/projects/{project_id}/ask")
+@router.post(
+    "/api/v1/projects/{project_id}/ask",
+    response_model=NLPQueryResponse,
+)
+@limiter.limit("5/minute")
 async def ask_schedule(
+    request: Request,
     project_id: str,
-    body: dict,
+    body: NLPQueryRequest,
     _user: object = Depends(optional_auth),
-) -> dict:
+) -> NLPQueryResponse:
     """Ask a natural language question about a schedule.
 
     Uses Claude API to interpret the question and generate an answer
@@ -205,24 +212,24 @@ async def ask_schedule(
 
     Args:
         project_id: The stored project identifier.
-        body: JSON with ``question`` (required) and optional ``api_key``.
+        body: ``question`` (required) and optional ``api_key``.
 
     Returns:
-        Dict with ``answer``, ``question``, ``tokens_used``, ``model``.
+        NLPQueryResponse with ``answer``, ``question``, ``tokens_used``, ``model``.
 
     Raises:
-        HTTPException: If project not found or API key missing.
+        HTTPException: If project not found, API key missing, or upstream call fails.
     """
     store = get_store()
     schedule = store.get(project_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    question = body.get("question", "").strip()
+    question = body.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="question is required")
 
-    api_key = body.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
+    api_key = body.api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=400,
@@ -234,14 +241,16 @@ async def ask_schedule(
     try:
         result = await query_schedule(schedule, question, api_key=api_key)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        is_dev = os.getenv("ENVIRONMENT", "development") == "development"
+        detail = f"NLP query failed: {exc}" if is_dev else "NLP query failed"
+        raise HTTPException(status_code=502, detail=detail) from exc
 
-    return {
-        "question": result.question,
-        "answer": result.answer,
-        "model": result.model,
-        "tokens_used": result.tokens_used,
-    }
+    return NLPQueryResponse(
+        question=result.question,
+        answer=result.answer,
+        model=result.model,
+        tokens_used=result.tokens_used,
+    )
 
 
 @router.get("/api/v1/projects/{project_id}/anomalies")

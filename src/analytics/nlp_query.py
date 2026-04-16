@@ -189,7 +189,7 @@ async def query_schedule(
     schedule: ParsedSchedule,
     question: str,
     api_key: str | None = None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-sonnet-4-6",
 ) -> NLPQueryResult:
     """Ask a natural language question about a schedule.
 
