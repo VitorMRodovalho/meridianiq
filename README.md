@@ -15,7 +15,7 @@ Open-source schedule intelligence platform — from validation to prediction to 
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
-[**Documentation**](docs/) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](BUGS.md)
+[**Documentation**](docs/) · [**API Reference**](docs/api-reference.md) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](CHANGELOG.md)
 
 </div>
 
