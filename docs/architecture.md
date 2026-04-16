@@ -1,73 +1,47 @@
-<!-- Last updated: 2026-03-26 -->
+<!-- Last updated: 2026-04-16 (v3.6.0) -->
 # MeridianIQ — System Architecture
 
 ## System Overview
 
-MeridianIQ follows a **modular monolith** pattern: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology. The frontend is a SvelteKit SPA communicating via REST API.
+MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
+
+As of **v3.6.0**: 40 analysis engines, 98 API endpoints across 18 routers, 52 SvelteKit pages, 11 hand-crafted SVG chart components, 20 Supabase migrations, 22 MCP tools, 887 tests.
 
 ```mermaid
 graph TB
-    subgraph "Frontend — SvelteKit + Tailwind"
-        UI[Browser Client]
-        UI --> Dashboard[Dashboard]
-        UI --> Upload[Upload]
-        UI --> Projects[Projects + 5 Tabs]
-        UI --> Compare[Compare]
-        UI --> Forensic[Forensic / CPA]
-        UI --> TIA[TIA]
-        UI --> EVM[EVM]
-        UI --> Risk[Risk / QSRA]
+    subgraph "Edge — Cloudflare Pages"
+        UI[SvelteKit Frontend<br/>52 pages · Svelte 5 runes<br/>Tailwind v4 · dark mode · i18n]
     end
 
-    subgraph "API Layer — FastAPI"
-        API[REST API Gateway<br/>45 endpoints]
+    subgraph "Compute — Fly.io"
+        API[FastAPI application<br/>98 endpoints · 18 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
+        ENGINES[40 analysis engines<br/>+ 1 export module<br/>src/analytics/ + src/export/]
+        MCP[MCP server<br/>22 tools<br/>src/mcp_server.py]
+        API --> ENGINES
+        MCP --> ENGINES
     end
 
-    subgraph "Analysis Engines"
-        direction LR
-        P[XER Parser<br/>xer_reader.py]
-        CPM[CPM Engine<br/>cpm.py · NetworkX]
-        DCMA[DCMA 14-Point<br/>dcma14.py]
-        COMP[Comparison<br/>comparison.py]
-        FOR[Forensics / CPA<br/>forensics.py]
-        TIA_E[TIA Engine<br/>tia.py]
-        CON[Contract<br/>contract.py]
-        EVM_E[EVM Engine<br/>evm.py]
-        RISK[Monte Carlo<br/>risk.py · NumPy]
-        FT[Float Trends<br/>float_trends.py]
-        EW[Early Warning<br/>early_warning.py]
-        HS[Health Score<br/>health_score.py]
+    subgraph "Platform — Supabase"
+        AUTH["Supabase Auth<br/>Google · LinkedIn · Microsoft<br/>ES256 JWT via JWKS"]
+        DB[("PostgreSQL<br/>20 migrations · RLS enforced<br/>projects · activities · WBS<br/>erp_sources · cbs_elements<br/>cost_snapshots · cbs_wbs_mappings<br/>api_keys · audit")]
+        STORAGE["Supabase Storage<br/>xer-files bucket · RLS"]
     end
 
-    subgraph "Data Layer — Supabase"
-        DB[("PostgreSQL<br/>16+ entities<br/>RLS enforced")]
-        AUTH["Auth<br/>Google · LinkedIn · MS<br/>JWT + RLS"]
-        STORAGE["Storage<br/>XER files · PDFs<br/>RLS buckets"]
+    subgraph "AI clients"
+        CLAUDE[Claude Code / Desktop<br/>via MCP stdio]
     end
 
-    Dashboard & Upload & Projects & Compare & Forensic & TIA & EVM & Risk <-->|HTTP| API
-    API --> P
-    API --> CPM
-    API --> DCMA
-    API --> COMP
-    API --> FOR
-    API --> TIA_E
-    API --> CON
-    API --> EVM_E
-    API --> RISK
-    API --> FT
-    API --> EW
-    API --> HS
-    P --> DB
-    CPM --> DB
-    COMP --> DB
-    API -->|"Verify JWT"| AUTH
-    API -->|"Store/Read"| STORAGE
+    UI <-->|REST + JWT| API
+    CLAUDE <-->|stdio| MCP
+    API <-->|SQL| DB
+    API -->|Store / Read| STORAGE
+    API -->|JWT verify| AUTH
+    UI -->|OAuth flow| AUTH
 
-    style UI fill:#FF3E00,color:#fff
+    style UI fill:#F38020,color:#fff
     style API fill:#009688,color:#fff
-    style CPM fill:#4C9A2A,color:#fff
-    style RISK fill:#013243,color:#fff
+    style ENGINES fill:#4C9A2A,color:#fff
+    style MCP fill:#D97757,color:#fff
     style DB fill:#3FCF8E,color:#fff
     style AUTH fill:#3FCF8E,color:#fff
     style STORAGE fill:#3FCF8E,color:#fff
@@ -75,68 +49,116 @@ graph TB
 
 ---
 
-## Data Flow
+## Repository layout
 
-### XER Upload → Analysis
+```
+src/
+  parser/            XER / MS Project XML readers, Pydantic models (17+ tables)
+  analytics/         40 analysis engines (see docs/methodologies.md)
+  export/            XER round-trip writer
+  database/          InMemoryStore + SupabaseStore abstraction, Supabase client
+  api/
+    app.py           FastAPI shell (166 lines — all domain logic in routers/)
+    routers/         18 modular routers (see docs/api-reference.md)
+    schemas.py       Pydantic v2 request/response models
+    auth.py          JWT + optional_auth / require_auth dependencies
+    deps.py          Shared store + limiter singletons
+  integrations/      ERP adapter protocols (cost, schedule, risk, reporting, resource)
+                     + concrete adapters for Unifier, SAP PS, Kahua, eBuilder,
+                       InEight, Procore, manual Excel
+  mcp_server.py      22 MCP tools (see docs/mcp-tools.md)
+web/
+  src/
+    routes/          52 SvelteKit pages (file-based routing)
+    lib/
+      components/
+        charts/      11 hand-crafted SVG chart components
+        ScheduleViewer/  Interactive Gantt (WBS tree, baseline, float,
+                         dependencies, resource histogram panel)
+      stores/        auth (lazy init), theme, i18n
+      api.ts         API client
+supabase/
+  migrations/        20 .sql files (RLS enforced on user-owned tables)
+scripts/
+  generate_api_reference.py       → docs/api-reference.md
+  generate_mcp_catalog.py         → docs/mcp-tools.md
+  generate_methodology_catalog.py → docs/methodologies.md
+```
+
+---
+
+## Deployment
+
+| Layer | Service | Notes |
+|---|---|---|
+| Frontend | **Cloudflare Pages** (adapter-static, SSR off) | Global edge delivery. Auto-deploys on push to `main`. |
+| Backend | **Fly.io** (Docker, Python 3.13 base) | Cold start ~10s — first request may 502 (BUG-007, documented). |
+| Auth | **Supabase Auth** | Google + LinkedIn + Microsoft OAuth. Backend verifies ES256 JWT via JWKS auto-detect. |
+| Database | **Supabase PostgreSQL** | Pooler on port 6543 (not 5432). RLS enforced on all user-owned tables. |
+| Storage | **Supabase Storage** | `xer-files` bucket with RLS policies mirroring project ownership. |
+| Observability | **Sentry** | Optional via `SENTRY_DSN` env var. |
+
+---
+
+## Data flow — XER upload → analysis
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
     participant A as FastAPI
     participant P as XER Parser
-    participant S as Supabase PostgreSQL
-    participant E as Analysis Engines
+    participant S as Supabase (DB + Storage)
+    participant E as Analysis Engine
 
-    B->>A: POST /api/v1/upload (XER file)
-    A->>P: Parse XER (streaming, encoding detection)
-    P->>P: Detect encoding (UTF-8, Windows-1252, Latin-1)
-    P->>P: Parse %T/%F/%R tables (TASK, PROJWBS, TASKPRED, etc.)
-    P->>P: Build Pydantic models (17+ tables)
-    P->>P: Generate composite keys (proj_id.task_id)
-    P->>S: Store parsed project data
-    A-->>B: 200 OK {project_id}
+    B->>A: POST /api/v1/upload (XER + JWT)
+    A->>A: Rate limit (10/min) + auth check
+    A->>P: Parse (streaming, encoding-aware)
+    P->>P: Read %T/%F/%R tables, build 17+ Pydantic models, composite keys
+    A->>S: Store XER bytes (Storage) + metadata (DB)
+    A-->>B: 200 {project_id, activity_count, ...}
 
     B->>A: GET /api/v1/projects/{id}/validation
-    A->>E: Run DCMA 14-Point
-    E->>S: Read project data
-    E-->>A: 14 check results + score
-    A-->>B: DCMA results
+    A->>S: Reload ParsedSchedule
+    A->>E: DCMA14Analyzer.analyze()
+    E-->>A: 14 check results + composite score
+    A-->>B: ValidationResponse
 
     B->>A: GET /api/v1/projects/{id}/critical-path
-    A->>E: Run CPM (NetworkX forward/backward pass)
-    E->>S: Read activities + relationships
-    E-->>A: Critical path + float values
-    A-->>B: Critical path activities
+    A->>S: Cache lookup (analysis_results)
+    alt cache hit
+        S-->>A: Cached CPM result
+    else cache miss
+        A->>E: CPMCalculator.calculate() (NetworkX forward/backward pass)
+        E->>S: Persist result to cache
+    end
+    A-->>B: CriticalPathResponse
 ```
 
-### Schedule Comparison — Multi-Layer Matching
+---
+
+## Schedule comparison — multi-layer matching
 
 ```mermaid
 flowchart TD
-    A[Baseline XER] --> C[Comparison Engine]
+    A[Baseline XER] --> C[Comparison engine]
     B[Update XER] --> C
 
     C --> D{Match by task_id<br/>Tier 1}
-    D -->|Matched| E[Detect Modifications]
+    D -->|Matched| E[Modification detection]
     D -->|Unmatched| F{Match by task_code<br/>Tier 2}
     F -->|Matched| E
-    F -->|Unmatched| G[Truly Added / Deleted]
+    F -->|Unmatched| G[Truly added / deleted]
 
     E --> H{task_code changed?}
-    H -->|Yes| I[Code Restructuring Alert]
-    H -->|No| J[Normal Modification]
+    H -->|Yes| I[Code restructuring alert]
+    H -->|No| J[Normal modification]
 
-    E --> K[Duration Changes]
-    E --> L[Date Changes]
-    E --> M[Float Changes]
-    E --> N[Relationship Changes]
-    E --> O[Constraint Changes]
-
-    K & L & M & N & O --> P[Manipulation Detection]
-    P --> Q[retroactive_date]
-    P --> R[oos_progress]
-    P --> S[constraint_masking]
-    P --> T[duration_manipulation]
+    E --> K[Duration · Date · Float · Relationship · Constraint deltas]
+    K --> P[Manipulation detection]
+    P --> Q[Retroactive date]
+    P --> R[Out-of-sequence progress]
+    P --> S[Constraint masking]
+    P --> T[Duration inflation]
 
     style D fill:#009688,color:#fff
     style F fill:#FFA726,color:#fff
@@ -144,175 +166,94 @@ flowchart TD
     style P fill:#D97757,color:#fff
 ```
 
-### Forensic CPA — Window Analysis
+---
+
+## Forensic CPA — window analysis
 
 ```mermaid
 flowchart LR
-    subgraph "Schedule Updates"
-        UP1[UP 01<br/>Jan 2025]
-        UP2[UP 02<br/>Feb 2025]
-        UP3[UP 03<br/>Mar 2025]
-        UP4[UP 04<br/>Apr 2025]
+    subgraph "Schedule updates"
+        UP1[UP 01]
+        UP2[UP 02]
+        UP3[UP 03]
+        UP4[UP 04]
     end
 
-    subgraph "Analysis Windows"
+    subgraph "Analysis windows"
         W1[Window 1<br/>UP01→UP02]
         W2[Window 2<br/>UP02→UP03]
         W3[Window 3<br/>UP03→UP04]
     end
 
-    subgraph "Per Window"
-        COMP2[Compare<br/>Consecutive Pair]
-        DELAY[Delay<br/>Δ Completion Date]
-        CP2[CP Evolution]
-    end
+    UP1 & UP2 --> W1
+    UP2 & UP3 --> W2
+    UP3 & UP4 --> W3
 
-    UP1 --> W1
-    UP2 --> W1
-    UP2 --> W2
-    UP3 --> W2
-    UP3 --> W3
-    UP4 --> W3
-
-    W1 & W2 & W3 --> COMP2
-    COMP2 --> DELAY
-    COMP2 --> CP2
-
-    DELAY --> WF[Delay Waterfall<br/>Cumulative Chart]
+    W1 & W2 & W3 --> COMP[Consecutive-pair compare<br/>+ delay calc<br/>+ CP evolution]
+    COMP --> WF[Delay waterfall<br/>cumulative chart]
 
     style WF fill:#D97757,color:#fff
 ```
 
-### TIA — Time Impact Analysis
+Per AACE RP 29R-03 §5.3 (Forensic Schedule Analysis) — see `src/analytics/forensics.py`.
+
+---
+
+## TIA — time impact analysis
 
 ```mermaid
 flowchart TD
-    BASE[Base Schedule<br/>Unimpacted] --> CPM1[Run CPM<br/>Baseline Completion]
-
-    FRAG[Delay Fragment<br/>Activities + Relationships] --> INSERT[Insert into<br/>Network Copy]
+    BASE[Base schedule] --> CPM1[CPM → unimpacted completion]
+    FRAG[Delay fragment<br/>activities + relationships] --> INSERT[Insert into network copy]
     BASE --> INSERT
-
-    INSERT --> CPM2[Run CPM<br/>Impacted Completion]
-
-    CPM1 --> DELTA[Δ = Impacted - Unimpacted]
-    CPM2 --> DELTA
+    INSERT --> CPM2[CPM → impacted completion]
+    CPM1 & CPM2 --> DELTA[Δ = impacted − unimpacted]
 
     DELTA --> CLASS{Classify}
-    CLASS -->|Owner caused| EC[Excusable Compensable]
-    CLASS -->|Force majeure| ENC[Excusable Non-Compensable]
-    CLASS -->|Contractor caused| NE[Non-Excusable]
+    CLASS -->|Owner caused| EC[Excusable compensable]
+    CLASS -->|Force majeure| ENC[Excusable non-compensable]
+    CLASS -->|Contractor caused| NE[Non-excusable]
     CLASS -->|Multiple causes| CON[Concurrent]
 
-    EC & ENC & NE & CON --> RESP[Responsibility<br/>Waterfall]
+    EC & ENC & NE & CON --> RESP[Responsibility waterfall]
 
     style FRAG fill:#EF5350,color:#fff
     style RESP fill:#D97757,color:#fff
 ```
 
-### Monte Carlo QSRA
+Per AACE RP 52R-06 — see `src/analytics/tia.py`.
+
+---
+
+## Monte Carlo QSRA
 
 ```mermaid
 flowchart TD
-    SCHED[Parsed Schedule<br/>Activities + Relationships] --> ASSIGN[Assign Uncertainty<br/>min / likely / max]
-
-    ASSIGN --> LOOP[For each iteration<br/>N = 1,000]
-
-    LOOP --> SAMPLE[Sample durations<br/>PERT-Beta distribution]
+    SCHED[Parsed schedule] --> ASSIGN[Assign uncertainty<br/>min / likely / max<br/>or benchmark priors]
+    ASSIGN --> LOOP[Iterate N = 1000]
+    LOOP --> SAMPLE[Sample durations<br/>PERT-Beta]
     SAMPLE --> CPM3[Run CPM]
-    CPM3 --> RECORD[Record completion date<br/>+ critical path]
+    CPM3 --> RECORD[Record completion + CP]
+    RECORD -->|Next| LOOP
 
-    RECORD -->|Next iteration| LOOP
-
-    RECORD --> AGG[Aggregate Results]
-    AGG --> HIST[Histogram<br/>Completion Distribution]
-    AGG --> PVAL[P-Values<br/>P10 · P50 · P80 · P90]
-    AGG --> TORNADO[Tornado Diagram<br/>Spearman Sensitivity]
-    AGG --> CRIT[Criticality Index<br/>% on CP per activity]
-    AGG --> SCURVE[S-Curve<br/>Cumulative Probability]
+    RECORD --> AGG[Aggregate]
+    AGG --> HIST[Histogram]
+    AGG --> PVAL[P10 · P50 · P80 · P90]
+    AGG --> TORNADO[Tornado<br/>Spearman sensitivity]
+    AGG --> CRIT[Criticality index]
+    AGG --> SCURVE[Completion S-curve]
 
     style LOOP fill:#013243,color:#fff
     style HIST fill:#1565C0,color:#fff
 ```
 
----
-
-## Analysis Engines
-
-| Engine | File | Lines | Standard | Key Dependencies |
-|--------|------|-------|----------|-----------------|
-| **XER Parser** | `src/parser/xer_reader.py` | 403 | — | Pydantic v2 |
-| **CPM** | `src/analytics/cpm.py` | 405 | Kelly & Walker (1959) | NetworkX |
-| **DCMA 14-Point** | `src/analytics/dcma14.py` | 651 | DCMA EVMS | — |
-| **Comparison** | `src/analytics/comparison.py` | 916 | — | — |
-| **Forensics (CPA)** | `src/analytics/forensics.py` | 435 | AACE RP 29R-03 | — |
-| **TIA** | `src/analytics/tia.py` | 746 | AACE RP 52R-06 | NetworkX |
-| **Contract** | `src/analytics/contract.py` | 671 | AIA A201, SCL Protocol | — |
-| **EVM** | `src/analytics/evm.py` | 685 | ANSI/EIA-748 | — |
-| **Monte Carlo** | `src/analytics/risk.py` | 723 | AACE RP 57R-09 | NumPy |
-| **Float Trends** | `src/analytics/float_trends.py` | — | AACE RP 49R-06 | — |
-| **Early Warning** | `src/analytics/early_warning.py` | — | DCMA EVMS | — |
-| **Health Score** | `src/analytics/health_score.py` | — | — | — |
+Per AACE RP 57R-09 — see `src/analytics/risk.py`. Benchmark-derived priors available via `benchmark_priors.py`.
 
 ---
 
-## API Endpoints
+## Data model
 
-### Core (v0.1)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/upload` | Upload and parse XER file |
-| GET | `/api/v1/projects` | List all parsed projects |
-| GET | `/api/v1/projects/{id}` | Project detail with WBS stats |
-| GET | `/api/v1/projects/{id}/validation` | DCMA 14-Point results |
-| GET | `/api/v1/projects/{id}/critical-path` | Critical path activities |
-| GET | `/api/v1/projects/{id}/float-distribution` | Float buckets |
-| GET | `/api/v1/projects/{id}/milestones` | Milestone variance |
-| POST | `/api/v1/compare` | Compare two schedules |
-
-### Forensics (v0.2)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/forensic/create-timeline` | Create CPA timeline |
-| GET | `/api/v1/forensic/timelines` | List timelines |
-| GET | `/api/v1/forensic/timelines/{id}` | Timeline detail |
-| GET | `/api/v1/forensic/timelines/{id}/delay-trend` | Delay waterfall data |
-
-### Claims (v0.3)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/tia/analyze` | Run TIA with fragments |
-| GET | `/api/v1/tia/analyses` | List TIA analyses |
-| GET | `/api/v1/tia/analyses/{id}` | TIA detail |
-| GET | `/api/v1/tia/analyses/{id}/summary` | Delay by responsibility |
-| POST | `/api/v1/contract/check` | Run compliance checks |
-| GET | `/api/v1/contract/provisions` | List provisions |
-
-### Controls (v0.4)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/evm/analyze/{project_id}` | Run EVM analysis |
-| GET | `/api/v1/evm/analyses` | List EVM analyses |
-| GET | `/api/v1/evm/analyses/{id}` | EVM metrics detail |
-| GET | `/api/v1/evm/analyses/{id}/s-curve` | S-curve data |
-| GET | `/api/v1/evm/analyses/{id}/wbs-drill` | WBS cost breakdown |
-| GET | `/api/v1/evm/analyses/{id}/forecast` | EAC scenarios |
-
-### Risk (v0.5)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/risk/simulate/{project_id}` | Run Monte Carlo |
-| GET | `/api/v1/risk/simulations` | List simulations |
-| GET | `/api/v1/risk/simulations/{id}` | Simulation results |
-| GET | `/api/v1/risk/simulations/{id}/histogram` | Completion histogram |
-| GET | `/api/v1/risk/simulations/{id}/tornado` | Sensitivity data |
-| GET | `/api/v1/risk/simulations/{id}/criticality` | Criticality index |
-| GET | `/api/v1/risk/simulations/{id}/s-curve` | Cumulative probability |
-
----
-
-## Data Model
-
-### XER Tables Parsed
+### Scheduling entities (from XER)
 
 ```mermaid
 erDiagram
@@ -323,87 +264,68 @@ erDiagram
     TASK ||--o{ TASKRSRC : "resource assignment"
     TASK }o--|| CALENDAR : "uses"
     TASKRSRC }o--|| RSRC : "references"
-
-    PROJECT {
-        string proj_id PK
-        string proj_short_name
-        datetime last_recalc_date
-    }
-
-    PROJWBS {
-        string wbs_id PK
-        string parent_wbs_id FK
-        string wbs_short_name
-        string wbs_name
-    }
-
-    TASK {
-        string task_id PK
-        string task_code
-        string task_name
-        string task_type
-        string status_code
-        float total_float_hr_cnt
-        float remain_drtn_hr_cnt
-        datetime target_start_date
-        datetime target_end_date
-    }
-
-    TASKPRED {
-        string task_pred_id PK
-        string task_id FK
-        string pred_task_id FK
-        string pred_type
-        float lag_hr_cnt
-    }
 ```
 
-### Data Layer — Supabase PostgreSQL
+### ERP-ready cost tables (migration 019)
 
-All data is persisted in Supabase PostgreSQL with Row Level Security (RLS) enforced. XER files and generated PDFs are stored in Supabase Storage RLS buckets. Authentication uses Supabase Auth (Google, LinkedIn, Microsoft OAuth) with ES256 JWT verification.
+```mermaid
+erDiagram
+    PROJECTS ||--o{ ERP_SOURCES : "origin of"
+    ERP_SOURCES ||--o{ CBS_ELEMENTS : "registers"
+    CBS_ELEMENTS ||--o{ COST_SNAPSHOTS : "point-in-time"
+    CBS_ELEMENTS ||--o{ CBS_WBS_MAPPINGS : "maps to"
+    WBS_ELEMENTS ||--o{ CBS_WBS_MAPPINGS : "funded by"
+    CBS_ELEMENTS ||--o{ COST_TIME_PHASED : "period buckets"
+    CBS_ELEMENTS ||--o{ CHANGE_ORDERS : "affected by"
+    OBS_ELEMENTS ||--o{ OBS_CBS_ASSIGNMENTS : "responsible for"
+    CBS_ELEMENTS ||--o{ OBS_CBS_ASSIGNMENTS : "owned by"
+```
 
----
-
-## Frontend Pages
-
-| Route | Description | API Dependency |
-|-------|-------------|----------------|
-| `/` | Dashboard — upload, project list | `GET /projects` |
-| `/upload` | XER file upload | `POST /upload` |
-| `/projects` | Project listing | `GET /projects` |
-| `/projects/{id}` | 5-tab detail (Overview, DCMA, CP, Float, Milestones) | Multiple endpoints |
-| `/compare` | Schedule comparison | `POST /compare` |
-| `/forensic` | CPA timeline list + creation | Forensic endpoints |
-| `/forensic/{id}` | Delay waterfall + window detail | Timeline endpoints |
-| `/tia` | TIA analysis + fragment editor | TIA endpoints |
-| `/tia/{id}` | TIA results + responsibility waterfall | TIA endpoints |
-| `/evm` | EVM dashboard + S-curve | EVM endpoints |
-| `/evm/{id}` | EVM detail + WBS drill-down | EVM endpoints |
-| `/risk` | Monte Carlo setup + results | Risk endpoints |
-| `/risk/{id}` | Histogram, tornado, criticality, S-curve | Risk endpoints |
+Supports universal ERP fields per AACE RP 10S-90, ANSI/EIA-748, ISO 21511, with NUMERIC(18,2) precision for all monetary values.
 
 ---
 
-## Design Principles
+## Catalogs & references
 
-1. **Modular Engines** — Each analysis engine is a standalone Python module with no cross-dependencies. Engines communicate only through the data layer.
-2. **Standards-First** — Every methodology traceable to a published standard. Code comments cite the relevant AACE RP, DCMA guideline, or academic reference.
-3. **Cloud-Native** — Supabase PostgreSQL with RLS, Supabase Storage for files, Supabase Auth for identity. Deployed on Fly.io (backend) and Cloudflare Pages (frontend).
-4. **Custom Parser** — MIT-licensed XER parser (cannot use GPL alternatives). Streaming, encoding-aware, handles real production files (8,000+ activities).
-5. **Zero Cost** — No paid dependencies. All libraries are MIT/BSD compatible.
+- [API Reference](api-reference.md) — auto-generated from FastAPI app (98 endpoints × 18 routers)
+- [Methodologies](methodologies.md) — auto-generated from engine docstrings (40 engines + citations)
+- [MCP Tools](mcp-tools.md) — auto-generated from `@mcp.tool()` decorators (22 tools)
+- [Deploy Checklist](DEPLOY_CHECKLIST.md) — 5-phase procedure
+- [Schedule Submission Standards](SCHEDULE_SUBMISSION_STANDARDS.md)
+- [Schedule Viewer Roadmap](SCHEDULE_VIEWER_ROADMAP.md)
+- [XER Format Reference](xer-format-reference.md)
+
+Regenerate catalogs whenever the underlying code changes:
+
+```bash
+python3 scripts/generate_api_reference.py
+python3 scripts/generate_methodology_catalog.py
+python3 scripts/generate_mcp_catalog.py
+```
 
 ---
 
-## Legacy v1 Architecture
+## Design principles
 
-The original v1 toolkit used Power Query (M Language) and DAX in Power BI for XER parsing and analysis. This approach is preserved in the `v1-reader/`, `v1-compare/`, and `v1-program-schedule/` directories.
+1. **Modular engines** — Each engine in `src/analytics/` is a standalone module with no cross-dependencies. Engines receive parsed data and return results; orchestration lives in routers.
+2. **Standards-first** — Every methodology traceable to a published standard (AACE RP, DCMA, ANSI/EIA, SCL Protocol, GAO, PMI). Docstring References sections are the source of truth for `docs/methodologies.md`.
+3. **Cloud-native, zero-cost** — Supabase (free tier) + Fly.io (free shared VM) + Cloudflare Pages (free). No paid dependencies; all libraries MIT/BSD/Apache.
+4. **Custom parser** — MIT-licensed XER reader (GPL alternatives excluded). Streaming, encoding-aware, composite keys.
+5. **Defence in depth** — RLS on every user-owned table, CORS whitelist with credentials, `@limiter.limit()` on expensive/paid endpoints, generic error detail in production, audit trail on security-relevant writes.
+6. **Self-describing** — The three generator scripts are the contract: if you add an endpoint / engine / MCP tool, regenerating is how the doc lands.
 
-For the legacy architecture documentation, see [`v1-architecture.md`](v1-architecture.md).
+---
+
+## Legacy v1 architecture
+
+The original v1 toolkit used Power Query (M) + DAX in Power BI for XER parsing and analysis. Preserved at [`../archive/v1-power-bi-models/`](../archive/v1-power-bi-models/). Not maintained — kept for attribution and DAX measures reference.
+
+See [`archive/v1-architecture.md`](archive/v1-architecture.md).
 
 ---
 
 <div align="center">
 
-**MeridianIQ** · MIT License · © 2025 Vitor Maia Rodovalho
+**MeridianIQ** · MIT License · © 2025–2026 Vitor Maia Rodovalho
 
 </div>
