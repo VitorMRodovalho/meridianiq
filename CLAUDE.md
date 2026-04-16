@@ -90,6 +90,6 @@ Required in `.env`:
 - Run relevant tests after changes, not always the full suite
 - Reference `BUGS.md` for known issues before investigating errors
 - See `docs/archive/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
-- Version: v3.6.0 — "Gantt Stability + Intelligence Pages" (40 engines, 22 MCP tools, 887 tests, 11 chart components, 98 endpoints). v3.6.0 features: Health Score page, NLP Query page, Early Warning page, EVM S-Curve chart, Gantt stability refactor, schedule-view cache, dashboard quick actions + dark mode for authenticated section, NLP /ask hardening (Pydantic+rate limit+Sonnet 4.6), CBS upload persistence + snapshots list, Narrative PDF report type, Resource Histogram panel below Gantt.
+- Version: v3.7.0-dev (v3.6.0 released 2026-04-16) — "Gantt Stability + Intelligence Pages" (40 engines, 22 MCP tools, 887 tests, 11 chart components, 98 endpoints). v3.6.0 features: Health Score page, NLP Query page, Early Warning page, EVM S-Curve chart, Gantt stability refactor, schedule-view cache, dashboard quick actions + dark mode for authenticated section, NLP /ask hardening (Pydantic+rate limit+Sonnet 4.6), CBS upload persistence + snapshots list, Narrative PDF report type, Resource Histogram panel below Gantt.
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
 - Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
