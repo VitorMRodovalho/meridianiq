@@ -1,4 +1,4 @@
-# Known Issues & Backlog — v3.2.0
+# Known Issues & Backlog — v3.6.0-dev
 
 Bug tracking and feature backlog for MeridianIQ.
 
@@ -6,13 +6,7 @@ Bug tracking and feature backlog for MeridianIQ.
 
 ## Active Bugs
 
-| ID | Description | Severity | Found |
-|----|-------------|----------|-------|
-| BUG-020 | ~~Schedule Viewer: WBS tree not showing level names/path~~ — fixed: full path in tooltip, numeric-only codes filtered | ~~Medium~~ | v3.3.0 |
-| BUG-021 | ~~Schedule Viewer: date axis labels overlap on day zoom~~ — fixed: min 48px spacing, adaptive label format | ~~Medium~~ | v3.3.0 |
-| BUG-022 | ~~Schedule Viewer: dependency lines to hidden rows~~ — fixed by virtual scrolling (collapsed rows not in index) | ~~Low~~ | v3.3.0 |
-| BUG-023 | ~~`/programs` missing from sidebar~~ — fixed: added to Enterprise section + index page | ~~Low~~ | v3.3.0 |
-| BUG-024 | `/demo` already in sidebar (Getting Started section) — was false report | N/A | v3.2.0 |
+_No open bugs at v3.6.0-dev. Report new issues via GitHub Issues._
 
 ---
 
@@ -20,6 +14,11 @@ Bug tracking and feature backlog for MeridianIQ.
 
 | ID | Description | Fixed In |
 |----|-------------|---------|
+| BUG-024 | `/demo` already in sidebar (Getting Started section) — was false report | v3.2.0 |
+| BUG-023 | `/programs` missing from sidebar — added to Enterprise section + index page | v3.3.0 |
+| BUG-022 | Schedule Viewer: dependency lines to hidden rows — fixed by virtual scrolling | v3.3.0 |
+| BUG-021 | Schedule Viewer: date axis labels overlap on day zoom — min 48px spacing, adaptive format | v3.3.0 |
+| BUG-020 | Schedule Viewer: WBS tree not showing level names/path — full path tooltip, numeric-only codes filtered | v3.3.0 |
 | BUG-001 | Milestones not detected — case-sensitive task_type matching | 2026-03-25 |
 | BUG-002 | Case sensitivity in task_type/status_code across DCMA + API | 2026-03-25 |
 | OBS-001 | WBS display showed count only — added WBSStats hierarchy | 2026-03-25 |

@@ -3,6 +3,41 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.6.0-dev] — 2026-04-16 — Gantt Stability + Intelligence Pages
+
+### New Engines
+- **health_score** (38th) — composite schedule health rating across DCMA/CPM/float/EVM dimensions
+- **early_warning** (39th) — anomaly detection and proactive alerting across schedule updates
+- **nlp_query** (40th) — natural-language query routing via Claude API (summary-based, no raw data egress)
+
+### New Pages
+- `/health` — schedule Health Score dashboard
+- `/ask` — NLP Query page (conversational schedule intelligence)
+- `/early-warning` — Early Warning indicators + rule explanations
+
+### Schedule Viewer — Stability
+- Gantt stability refactor — eliminated re-render flicker, consolidated event wiring
+- `schedule_view` cache — projects + baselines memoized per session, reduces refetches
+- EVM S-Curve chart (11th chart component) — schedule + cost S-curve overlay with forecasts
+
+### Architecture
+- Multi-domain adapter protocols — cost, schedule, risk, reporting, resource interfaces (`src/integrations/`)
+- API modularization complete — `app.py` 4870 → 166 lines across 18 routers
+- 7 adapters + ERP-ready cost tables (3 new migrations, total 20)
+
+### Frontend Polish
+- Dashboard quick actions (upload, view schedule, scorecard, trends, narrative)
+- Dark mode extended to authenticated section (46/46 pages complete)
+
+### Testing & Tooling
+- E2E tests use regex for version and engine count — no more hardcoded values
+- npm deps bumped: svelte 5.55.2, @sveltejs/kit 2.57.0, vite 8.0.7
+- Ruff format + lint cleanup across 17 files
+
+### Stats
+- **40 engines + 1 export**, **96 endpoints**, **870 tests**, **52 pages**, 22 MCP tools, **20 migrations**, 11 chart components
+- Version bump: pyproject.toml `3.0.0 → 3.6.0-dev`, web/package.json `1.0.0-dev → 3.6.0-dev`
+
 ## [3.5.0] — 2026-04-07 — Cost-Schedule Intelligence
 
 ### New Engines

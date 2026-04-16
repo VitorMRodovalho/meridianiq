@@ -35,14 +35,14 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 37 + 1 export module |
+| Analysis engines | 40 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 870+ backend + 70+ E2E |
-| Frontend pages | 49 (including Interactive Schedule Viewer + Cost Integration) |
-| API endpoints | 85 |
-| SVG chart components | 10 + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | 20 (v0.1.0 → v3.5.0) |
+| Frontend pages | 52 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, …) |
+| API endpoints | 96 |
+| SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
+| Released versions | 21 (v0.1.0 → v3.6.0-dev) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (37)<br/>85 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (40)<br/>96 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -209,6 +209,7 @@ flowchart LR
 | v3.1 | **UX Polish** | Calendar Validation · Delay Attribution · Dark Mode · Skeletons | ✅ Released |
 | v3.2 | **Schedule Viewer** | Interactive Gantt · WBS Tree · Baseline · Float · Dependencies | ✅ Released |
 | v3.5 | **Cost-Schedule Intelligence** | Cost Integration · Trends · Narrative Reports · Programs | ✅ Released |
+| v3.6 | **Gantt Stability + Intelligence Pages** | Gantt refactor · schedule-view cache · EVM S-Curve · Health Score · NLP Query · Early Warning · Dashboard QA | 🚧 In progress |
 
 See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP_v06_to_v20.md).
 
@@ -314,16 +315,16 @@ meridianiq/
 │   │   ├── cost_integration.py # CBS/WBS cost correlation
 │   │   ├── schedule_trends.py  # Period-over-period evolution
 │   │   ├── narrative_report.py # Structured claim narratives
-│   │   └── ...                 # 37 engines total + 1 export
+│   │   └── ...                 # 40 engines total + 1 export
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
 │       ├── app.py        # FastAPI entry point
-│       ├── routers/      # 85 endpoints across modular routers
+│       ├── routers/      # 96 endpoints across modular routers
 │       └── schemas.py    # Request/response models
-├── web/                  # SvelteKit + Tailwind (49 pages)
+├── web/                  # SvelteKit + Tailwind (52 pages)
 ├── tests/                # 870+ backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations (16 files)
+│   └── migrations/       # PostgreSQL schema migrations (20 files)
 ├── .github/
 │   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents
