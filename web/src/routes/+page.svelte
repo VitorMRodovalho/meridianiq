@@ -192,7 +192,7 @@
 			<h2 class="text-2xl font-bold text-gray-900 text-center mb-8">{$t('landing.capabilities.title')}</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 				{#each capabilities as cap}
-					<div class="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
+					<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
 						<div class="flex items-center gap-2 mb-2">
 							<span class="inline-block w-2 h-2 rounded-full {cap.color}"></span>
 							<span class="text-xs font-medium text-gray-500 uppercase">{cap.tag}</span>
@@ -223,20 +223,20 @@
 	{:else if authenticated}
 		<div class="p-8">
 			<div class="mb-10">
-				<h1 class="text-3xl font-bold text-gray-900">{$t('dashboard.title')}</h1>
-				<p class="mt-2 text-gray-600">{$t('dashboard.subtitle')}</p>
+				<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">{$t('dashboard.title')}</h1>
+				<p class="mt-2 text-gray-600 dark:text-gray-400">{$t('dashboard.subtitle')}</p>
 			</div>
 
 			<!-- Dashboard KPIs -->
 			{#if dashboard}
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-					<div class="bg-white border border-gray-200 rounded-lg p-5">
-						<p class="text-sm text-gray-500">{$t('dashboard.total_projects')}</p>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+						<p class="text-sm text-gray-500 dark:text-gray-400">{$t('dashboard.total_projects')}</p>
 						<p class="text-3xl font-bold text-gray-900">{dashboard.total_projects}</p>
 						<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
 					</div>
-					<div class="bg-white border border-gray-200 rounded-lg p-5">
-						<p class="text-sm text-gray-500">{$t('dashboard.avg_health')}</p>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+						<p class="text-sm text-gray-500 dark:text-gray-400">{$t('dashboard.avg_health')}</p>
 						<div class="flex items-center gap-3 mt-1">
 							<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
 							<div class="flex-1">
@@ -247,8 +247,8 @@
 						</div>
 						<p class="text-xs text-gray-400 mt-1">Portfolio average (0-100)</p>
 					</div>
-					<div class="bg-white border border-gray-200 rounded-lg p-5">
-						<p class="text-sm text-gray-500">{$t('dashboard.active_alerts')}</p>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+						<p class="text-sm text-gray-500 dark:text-gray-400">{$t('dashboard.active_alerts')}</p>
 						<p class="text-3xl font-bold {dashboard.active_alerts > 0 ? 'text-red-600' : 'text-green-600'}">{dashboard.active_alerts}</p>
 						<p class="text-xs text-gray-400 mt-1">{dashboard.active_alerts === 0 ? 'No active warnings' : 'Requires attention'}</p>
 					</div>
@@ -331,12 +331,15 @@
 					{ href: '/compare', title: 'Compare Schedules', desc: 'Detect changes and manipulation between versions', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', bg: 'bg-purple-100', fg: 'text-purple-600' },
 					{ href: '/scorecard', title: 'Schedule Scorecard', desc: 'Quick A-F grade across 5 quality dimensions', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', bg: 'bg-green-100', fg: 'text-green-600' },
 					{ href: '/schedule', title: 'Schedule Viewer', desc: 'Interactive Gantt with WBS, baseline, and dependencies', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', bg: 'bg-teal-100', fg: 'text-teal-600' },
+					{ href: '/health', title: 'Health Score', desc: 'Composite 0-100 score: DCMA, float, logic, trends', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', bg: 'bg-rose-100', fg: 'text-rose-600' },
+					{ href: '/ask', title: 'Ask Your Schedule', desc: 'Natural language questions powered by Claude AI', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', bg: 'bg-violet-100', fg: 'text-violet-600' },
+					{ href: '/alerts', title: 'Early Warning', desc: 'GAO-based 12-rule alert engine for schedule risk', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', bg: 'bg-amber-100', fg: 'text-amber-600' },
 					{ href: '/trends', title: 'Schedule Trends', desc: 'Track evolution across sequential updates', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', bg: 'bg-indigo-100', fg: 'text-indigo-600' },
-					{ href: '/reports', title: 'Reports Hub', desc: 'Generate and download PDF reports', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', bg: 'bg-amber-100', fg: 'text-amber-600' },
+					{ href: '/reports', title: 'Reports Hub', desc: 'Generate and download PDF reports', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', bg: 'bg-cyan-100', fg: 'text-cyan-600' },
 				] as action}
 					<a
 						href={action.href}
-						class="block bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md hover:border-blue-300 transition-all"
+						class="block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md hover:border-blue-300 transition-all"
 					>
 						<div class="flex items-center gap-4">
 							<div class="w-11 h-11 {action.bg} rounded-lg flex items-center justify-center shrink-0">
@@ -345,7 +348,7 @@
 								</svg>
 							</div>
 							<div>
-								<h2 class="text-sm font-semibold text-gray-900">{action.title}</h2>
+								<h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{action.title}</h2>
 								<p class="text-xs text-gray-500">{action.desc}</p>
 							</div>
 						</div>
@@ -355,18 +358,18 @@
 
 			<!-- Programs -->
 			{#if programs.length > 0}
-				<div class="bg-white rounded-lg border border-gray-200 p-6 mb-10">
+				<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-10">
 					<div class="flex items-center justify-between mb-4">
-						<h2 class="text-lg font-semibold text-gray-900">Programs</h2>
+						<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Programs</h2>
 						<span class="text-sm text-gray-400">{programs.length} program{programs.length !== 1 ? 's' : ''}</span>
 					</div>
 					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 						{#each programs as program}
 							<a
 								href="/programs/{program.id}"
-								class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+								class="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
 							>
-								<h3 class="font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">{program.name}</h3>
+								<h3 class="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-700 transition-colors">{program.name}</h3>
 								<div class="mt-2 flex gap-4 text-xs text-gray-500">
 									<span class="flex items-center gap-1">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -402,19 +405,19 @@
 					Could not connect to backend: {error}
 				</div>
 			{:else if projects.length > 0}
-				<div class="bg-white rounded-lg border border-gray-200 p-6">
+				<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
 					<div class="flex items-center justify-between mb-4">
-						<h2 class="text-lg font-semibold text-gray-900">Uploaded Projects</h2>
+						<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Uploaded Projects</h2>
 						<span class="text-sm text-gray-400">{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
 					</div>
 					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 						{#each projects as project}
 							<a
 								href="/projects/{project.project_id}"
-								class="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+								class="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
 							>
 								<div class="flex items-start justify-between">
-									<h3 class="font-medium text-gray-900 truncate flex-1 group-hover:text-blue-700 transition-colors">{project.name || project.project_id}</h3>
+									<h3 class="font-medium text-gray-900 dark:text-gray-100 truncate flex-1 group-hover:text-blue-700 transition-colors">{project.name || project.project_id}</h3>
 									{#if healthScores[project.project_id]}
 										{@const hs = healthScores[project.project_id]}
 										<div class="ml-2 w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold shrink-0 {scoreCircleBg(hs.overall)}">
@@ -469,21 +472,21 @@
 									<span class="text-xl font-bold text-blue-600">1</span>
 								</div>
 								<h3 class="font-semibold text-gray-900 mb-2">Upload</h3>
-								<p class="text-sm text-gray-500">Export your schedule from Primavera P6 as an XER file and upload it here. We parse 17+ table types automatically.</p>
+								<p class="text-sm text-gray-500 dark:text-gray-400">Export your schedule from Primavera P6 as an XER file and upload it here. We parse 17+ table types automatically.</p>
 							</div>
 							<div class="text-center">
 								<div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
 									<span class="text-xl font-bold text-blue-600">2</span>
 								</div>
 								<h3 class="font-semibold text-gray-900 mb-2">Analyze</h3>
-								<p class="text-sm text-gray-500">Instant DCMA 14-Point validation, critical path analysis, float distribution, and health scoring. All automated.</p>
+								<p class="text-sm text-gray-500 dark:text-gray-400">Instant DCMA 14-Point validation, critical path analysis, float distribution, and health scoring. All automated.</p>
 							</div>
 							<div class="text-center">
 								<div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
 									<span class="text-xl font-bold text-blue-600">3</span>
 								</div>
 								<h3 class="font-semibold text-gray-900 mb-2">Compare & Report</h3>
-								<p class="text-sm text-gray-500">Upload a second version to unlock comparison, forensic delay analysis, float trends, and early warning alerts.</p>
+								<p class="text-sm text-gray-500 dark:text-gray-400">Upload a second version to unlock comparison, forensic delay analysis, float trends, and early warning alerts.</p>
 							</div>
 						</div>
 						<div class="mt-8 text-center">
