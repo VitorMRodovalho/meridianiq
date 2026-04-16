@@ -17,7 +17,7 @@ import json
 import logging
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +64,9 @@ class InMemoryStore:
         self._program_counter: int = 0
         self._upload_program: dict[str, str] = {}  # project_id -> program_id
         self._upload_revision: dict[str, int] = {}  # project_id -> revision_number
+        # CBS cost uploads — per-project history of parsed cost data
+        self._cost_uploads: dict[str, list[dict[str, Any]]] = {}
+        self._cost_upload_counter: int = 0
 
     # -- programs --------------------------------------------------------
 
@@ -384,6 +387,72 @@ class InMemoryStore:
     def list_risk_simulations(self) -> list[dict[str, Any]]:
         """List all stored risk simulations."""
         return self._risk.list_all()
+
+    # -- CBS cost uploads ------------------------------------------------
+
+    def save_cost_upload(
+        self,
+        project_id: str,
+        result: Any,
+        user_id: str | None = None,
+        source_name: str = "CBS Upload",
+    ) -> str:
+        """Persist a CBS parse result as a cost snapshot.
+
+        Stores the full ``CostIntegrationResult`` in memory, keyed by
+        project and an auto-incremented snapshot id. Supabase backend
+        persists to ``cbs_elements`` / ``cost_snapshots`` / ``cbs_wbs_mappings``.
+
+        Args:
+            project_id: Target schedule project.
+            result: ``CostIntegrationResult`` from ``parse_cbs_excel``.
+            user_id: Optional owner (for RLS parity with Supabase).
+            source_name: Human-readable source label.
+
+        Returns:
+            The snapshot_id.
+        """
+        self._cost_upload_counter += 1
+        snapshot_id = f"cost-{self._cost_upload_counter:04d}"
+        payload = {
+            "snapshot_id": snapshot_id,
+            "project_id": project_id,
+            "user_id": user_id,
+            "source_name": source_name,
+            "budget_date": getattr(result, "budget_date", "") or "",
+            "total_budget": float(getattr(result, "total_budget", 0.0) or 0.0),
+            "total_contingency": float(getattr(result, "total_contingency", 0.0) or 0.0),
+            "total_escalation": float(getattr(result, "total_escalation", 0.0) or 0.0),
+            "program_total": float(getattr(result, "program_total", 0.0) or 0.0),
+            "cbs_element_count": len(getattr(result, "cbs_elements", [])),
+            "wbs_budget_count": len(getattr(result, "wbs_budgets", [])),
+            "mapping_count": len(getattr(result, "cbs_wbs_mappings", [])),
+            "insights": list(getattr(result, "insights", [])),
+            "created_at": datetime.now(UTC).isoformat(),
+            "_result": result,  # Keep full result for retrieval
+        }
+        self._cost_uploads.setdefault(project_id, []).append(payload)
+        return snapshot_id
+
+    def list_cost_snapshots(
+        self, project_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List cost snapshot summaries for a project, newest first."""
+        uploads = self._cost_uploads.get(project_id, [])
+        if user_id is not None:
+            uploads = [u for u in uploads if u.get("user_id") in (None, user_id)]
+        return [{k: v for k, v in u.items() if not k.startswith("_")} for u in reversed(uploads)]
+
+    def get_cost_snapshot(
+        self, project_id: str, snapshot_id: str, user_id: str | None = None
+    ) -> Any | None:
+        """Retrieve the full ``CostIntegrationResult`` for a snapshot."""
+        for u in self._cost_uploads.get(project_id, []):
+            if u["snapshot_id"] == snapshot_id:
+                if user_id is not None and u.get("user_id") not in (None, user_id):
+                    return None
+                return u.get("_result")
+        return None
 
 
 # ------------------------------------------------------------------ #
@@ -1620,6 +1689,117 @@ class SupabaseStore:
             ]
         except Exception:
             return []
+
+    # -- CBS cost uploads ------------------------------------------------
+
+    def save_cost_upload(
+        self,
+        project_id: str,
+        result: Any,
+        user_id: str | None = None,
+        source_name: str = "CBS Upload",
+    ) -> str:
+        """Persist parsed CBS to erp_sources + cbs_elements + cost_snapshots.
+
+        Each upload creates one ``erp_sources`` row (source_system='manual'),
+        N ``cbs_elements`` rows, and matching ``cost_snapshots`` for the
+        budget date. Returns the erp_source id as the snapshot_id.
+
+        Best-effort: on failure, logs and returns empty string so the
+        caller can still return parsed data to the user.
+        """
+        snapshot_date = getattr(result, "budget_date", "") or datetime.now(UTC).date().isoformat()
+        try:
+            src = self._insert(
+                "erp_sources",
+                {
+                    "project_id": project_id,
+                    "source_system": "manual",
+                    "display_name": source_name,
+                    "sync_status": "success",
+                    "last_sync_at": datetime.now(UTC).isoformat(),
+                },
+            )
+            erp_source_id = src.get("id", "")
+            cbs_element_rows = [
+                {
+                    "project_id": project_id,
+                    "erp_source_id": erp_source_id,
+                    "cbs_code": e.cbs_code,
+                    "cbs_description": e.scope or e.cbs_level2 or e.cbs_level1,
+                    "cbs_level": 2 if e.cbs_level2 else 1,
+                    "coding_system": "custom",
+                    "sort_order": i,
+                }
+                for i, e in enumerate(getattr(result, "cbs_elements", []))
+            ]
+            if cbs_element_rows:
+                self._batch_insert("cbs_elements", cbs_element_rows)
+
+            # After insert, fetch ids to build cost_snapshots
+            inserted = self._select(
+                "cbs_elements",
+                filters={"erp_source_id": erp_source_id},
+                columns="id,cbs_code",
+            )
+            code_to_id = {r["cbs_code"]: r["id"] for r in inserted}
+            snapshot_rows = []
+            for e in getattr(result, "cbs_elements", []):
+                cid = code_to_id.get(e.cbs_code)
+                if not cid:
+                    continue
+                snapshot_rows.append(
+                    {
+                        "project_id": project_id,
+                        "cbs_element_id": cid,
+                        "erp_source_id": erp_source_id,
+                        "snapshot_date": snapshot_date,
+                        "original_budget": float(e.estimate or 0.0),
+                        "current_budget": float(e.budget or 0.0),
+                        "contingency_original": float(e.contingency or 0.0),
+                        "escalation": float(e.escalation or 0.0),
+                    }
+                )
+            if snapshot_rows:
+                self._batch_insert("cost_snapshots", snapshot_rows)
+            return erp_source_id
+        except Exception as exc:
+            logger.warning("save_cost_upload failed (best-effort): %s", exc)
+            return ""
+
+    def list_cost_snapshots(
+        self, project_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List distinct cost upload sources for a project, newest first."""
+        try:
+            rows = self._select(
+                "erp_sources",
+                filters={"project_id": project_id},
+                columns="id,display_name,last_sync_at,created_at",
+            )
+            return sorted(
+                [
+                    {
+                        "snapshot_id": r.get("id", ""),
+                        "source_name": r.get("display_name", ""),
+                        "created_at": r.get("last_sync_at") or r.get("created_at", ""),
+                    }
+                    for r in rows
+                ],
+                key=lambda r: r["created_at"],
+                reverse=True,
+            )
+        except Exception as exc:
+            logger.warning("list_cost_snapshots failed: %s", exc)
+            return []
+
+    def get_cost_snapshot(
+        self, project_id: str, snapshot_id: str, user_id: str | None = None
+    ) -> Any | None:
+        """Supabase variant not yet implemented — returns None."""
+        # Full reconstruction of CostIntegrationResult from DB rows is a
+        # v3.8+ task; current UI renders the fresh parse result directly.
+        return None
 
 
 # ------------------------------------------------------------------ #

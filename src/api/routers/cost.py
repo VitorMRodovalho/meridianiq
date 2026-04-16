@@ -21,11 +21,14 @@ router = APIRouter()
 async def upload_cost_data(
     request: Request,
     file: UploadFile = File(...),
+    project_id: str | None = None,
     _user: object = Depends(optional_auth),
 ) -> dict:
-    """Upload a CBS Excel file and parse cost breakdown structure.
+    """Upload a CBS Excel file, parse, and persist as a cost snapshot.
 
-    Returns CBS hierarchy, WBS budgets, and CBS-WBS mappings.
+    Returns CBS hierarchy, WBS budgets, CBS-WBS mappings, and (when
+    ``project_id`` is provided) a ``snapshot_id`` that can be used to
+    list prior uploads via ``GET /projects/{id}/cost/snapshots``.
 
     Reference: AACE RP 10S-90 — Cost Engineering Terminology.
     """
@@ -48,8 +51,21 @@ async def upload_cost_data(
     finally:
         tmp_path.unlink(missing_ok=True)
 
+    snapshot_id = ""
+    if project_id:
+        store = get_store()
+        user_id = _user["id"] if _user else None  # type: ignore[index]
+        snapshot_id = store.save_cost_upload(
+            project_id=project_id,
+            result=result,
+            user_id=user_id,
+            source_name=file.filename or "CBS Upload",
+        )
+
     return {
         "filename": file.filename,
+        "snapshot_id": snapshot_id,
+        "project_id": project_id,
         "budget_date": result.budget_date,
         "total_budget": result.total_budget,
         "total_contingency": result.total_contingency,
@@ -85,6 +101,23 @@ async def upload_cost_data(
             for m in result.cbs_wbs_mappings
         ],
     }
+
+
+@router.get("/api/v1/projects/{project_id}/cost/snapshots")
+def list_cost_snapshots(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """List all persisted CBS cost snapshots for a project (newest first).
+
+    Each snapshot corresponds to one CBS upload and contains summary
+    totals (budget, contingency, element count). Returns an empty list
+    if no uploads exist or the backend does not support persistence.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+    snapshots = store.list_cost_snapshots(project_id, user_id=user_id)
+    return {"project_id": project_id, "count": len(snapshots), "snapshots": snapshots}
 
 
 @router.post("/api/v1/trends")
