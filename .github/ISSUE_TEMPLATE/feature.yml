@@ -1,0 +1,66 @@
+name: Feature request
+description: Suggest a new analysis engine, endpoint, chart, or workflow
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. The best requests explain *why* first and *what* second — the roadmap is prioritized by impact on real scheduling workflows.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What are you trying to do today that's painful, impossible, or error-prone?
+      placeholder: |
+        "When reviewing a baseline vs. current schedule I can't see which activities lost free float between updates — only total float. Reviewers have to compute it by hand."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to see? A new engine, endpoint, chart, page, MCP tool, etc.
+      placeholder: |
+        "Add a free-float delta column to the comparison response and surface it in the /compare page as a sortable column with color coding (red for erosion > 10 days)."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: standard
+    attributes:
+      label: Standard or methodology (if applicable)
+      description: Which published standard governs the calculation? This helps us cite it correctly.
+      options:
+        - Not applicable
+        - AACE RP 29R-03 (Forensic Schedule Analysis)
+        - AACE RP 52R-06 (Time Impact Analysis)
+        - AACE RP 57R-09 (Cost + Schedule Risk)
+        - AACE RP 49R-06 (Critical Activities)
+        - AACE RP 10S-90 (Cost Engineering Terminology)
+        - ANSI/EIA-748 (EVM)
+        - DCMA 14-Point
+        - SCL Delay and Disruption Protocol
+        - GAO Schedule Assessment Guide
+        - PMI PMBOK / Practice Standard for Scheduling
+        - Other (please specify in Proposal)
+
+  - type: textarea
+    id: persona
+    attributes:
+      label: Who benefits?
+      description: Which user persona does this help — Scheduler, Forensic Analyst, Cost Engineer, Program Director, Owner Rep, Researcher, Other?
+      placeholder: "Forensic analysts preparing AACE RP 29R-03 §5.3 narratives"
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Is there a workaround today? An existing tool you're replacing? A partial solution already in the repo?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots of other tools, references, sample inputs/outputs, links to discussions.

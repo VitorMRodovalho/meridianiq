@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/VitorMRodovalho/meridianiq/security/advisories/new
+    about: Use GitHub's private reporting for suspected security issues. See SECURITY.md.
+  - name: Question or discussion
+    url: https://github.com/VitorMRodovalho/meridianiq/discussions
+    about: For design discussions, methodology questions, or how-to help — not actionable bugs or features.

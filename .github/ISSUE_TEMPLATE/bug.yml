@@ -1,0 +1,90 @@
+name: Bug report
+description: Something isn't working — a crash, wrong result, or unexpected behaviour
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in as much of the template as you can — details help us reproduce and fix faster.
+
+        **Security issues:** do NOT use this form. See [SECURITY.md](../SECURITY.md) for private reporting.
+
+        **Real project data:** do NOT paste real schedules, client names, or cost data. Synthesize a minimal reproducer or redact before sharing.
+
+  - type: input
+    id: version
+    attributes:
+      label: MeridianIQ version
+      description: Output of `git rev-parse HEAD` or the release tag you're on.
+      placeholder: "v3.6.0 or commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the system is affected?
+      options:
+        - Backend — FastAPI endpoint
+        - Backend — analysis engine (src/analytics/)
+        - Backend — XER parser (src/parser/)
+        - Backend — database / Supabase store
+        - Backend — MCP server
+        - Frontend — page / route
+        - Frontend — Schedule Viewer (Gantt)
+        - Frontend — chart component
+        - Deployment — Fly.io / Cloudflare Pages
+        - CI / tooling
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the bug. What did you expect? What did you get?
+      placeholder: |
+        Expected: DCMA 14-point returns a score for a schedule with no milestones.
+        Actual: Endpoint returns 500 with "list index out of range".
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps to trigger the bug. Include input (synthetic XER if possible), command, and observed output.
+      placeholder: |
+        1. Upload the XER attached below.
+        2. POST /api/v1/projects/{id}/validation
+        3. Response is 500.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Python version, OS, browser (for frontend bugs), deployment target.
+      placeholder: |
+        - Python 3.14.4
+        - Ubuntu 24.04
+        - Chrome 128 (for UI bugs)
+        - Running locally / Fly.io / Cloudflare Pages
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / stack trace
+      description: Paste the error output. Redact anything project-specific.
+      render: shell
+
+  - type: textarea
+    id: attachment
+    attributes:
+      label: Synthetic XER or fixture (optional)
+      description: If you can share a minimal synthetic reproducer, paste or link it here.
