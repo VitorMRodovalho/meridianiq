@@ -95,6 +95,9 @@ export default {
 	'page.cashflow': 'Cash Flow Analysis',
 	'page.ips': 'IPS Reconciliation',
 	'page.recovery': 'Recovery Schedule Validation',
+	'page.health': 'Schedule Health Score',
+	'page.ask': 'Ask Your Schedule',
+	'page.alerts': 'Early Warning Alerts',
 
 	// Warm-up
 	'warmup.message': 'Warming up the analysis server... This takes a few seconds on first visit.',

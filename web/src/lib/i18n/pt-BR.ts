@@ -95,6 +95,9 @@ export default {
 	'page.cashflow': 'Analise de Fluxo de Caixa',
 	'page.ips': 'Reconciliacao IPS',
 	'page.recovery': 'Validacao de Recuperacao',
+	'page.health': 'Saude do Cronograma',
+	'page.ask': 'Pergunte ao Cronograma',
+	'page.alerts': 'Alertas Antecipados',
 
 	// Warm-up
 	'warmup.message': 'Iniciando o servidor de analise... Isso leva alguns segundos na primeira visita.',
