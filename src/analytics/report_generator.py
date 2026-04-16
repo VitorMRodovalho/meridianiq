@@ -579,6 +579,75 @@ class ReportGenerator:
         html = self._html_wrapper("Delay Attribution Report", project_name, body)
         return self._html_to_pdf(html)
 
+    def generate_narrative_report(
+        self,
+        schedule: Any,
+        narrative: Any,
+    ) -> bytes:
+        """Generate Narrative Schedule Report PDF.
+
+        Converts a ``NarrativeReport`` (text + severity-tagged sections)
+        into a formatted PDF suitable for claims submission or monthly
+        reporting.
+
+        Args:
+            schedule: ParsedSchedule object (used for project fallback).
+            narrative: NarrativeReport with executive_summary + sections.
+
+        Returns:
+            PDF bytes.
+
+        References:
+            AACE RP 29R-03 §5.3 — Forensic Schedule Report documentation.
+            SCL Delay and Disruption Protocol — Narrative presentation.
+        """
+        project_name = narrative.project_name or ""
+        if not project_name and schedule and getattr(schedule, "projects", None):
+            project_name = schedule.projects[0].proj_short_name or "Project"
+
+        parts: list[str] = []
+
+        # Executive summary
+        if getattr(narrative, "executive_summary", ""):
+            parts.append(f"<h2>Executive Summary</h2><p>{_esc(narrative.executive_summary)}</p>")
+
+        # Data date line
+        data_date = getattr(narrative, "data_date", "") or ""
+        generated_at = getattr(narrative, "generated_at", "") or ""
+        if data_date or generated_at:
+            parts.append(
+                f"<p class='methodology'>Data date: {_esc(data_date or 'N/A')} "
+                f"&middot; Report generated: {_esc(generated_at)}</p>"
+            )
+
+        # Sections, styled by severity
+        for s in getattr(narrative, "sections", []) or []:
+            sev = (getattr(s, "severity", "") or "info").lower()
+            cls = "finding finding-critical" if sev == "critical" else "finding"
+            badge_color = {
+                "critical": "#dc2626",
+                "warning": "#d97706",
+                "info": "#2563eb",
+            }.get(sev, "#4b5563")
+            badge = (
+                f"<span style='display:inline-block;padding:2px 8px;margin-right:8px;"
+                f"background:{badge_color};color:#fff;border-radius:10px;"
+                f"font-size:10px;font-weight:600;text-transform:uppercase;'>{_esc(sev)}</span>"
+            )
+            content_html = _esc(getattr(s, "content", "")).replace("\n", "<br/>")
+            parts.append(f"<h2>{badge}{_esc(s.title)}</h2><div class='{cls}'>{content_html}</div>")
+
+        if not parts:
+            parts.append("<p>No narrative content available for this schedule.</p>")
+
+        body = "\n".join(parts)
+        html = self._html_wrapper(
+            narrative.title or "Schedule Narrative Report",
+            project_name,
+            body,
+        )
+        return self._html_to_pdf(html)
+
     # ------------------------------------------------------------------
     # PDF conversion
     # ------------------------------------------------------------------

@@ -38,6 +38,7 @@ _VALID_REPORT_TYPES = {
     "executive_summary",
     "calendar",
     "attribution",
+    "narrative",
 }
 
 
@@ -106,6 +107,8 @@ def generate_report(
         elif report_type == "attribution":
             result = compute_delay_attribution(schedule)
             pdf_bytes = generator.generate_attribution_report(schedule, result)
+        elif report_type == "narrative":
+            pdf_bytes = _generate_narrative_report(generator, schedule, request, store)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -323,6 +326,16 @@ def get_available_reports(
         }
     )
 
+    # --- narrative: always computable from schedule summary + scorecard ---
+    reports.append(
+        {
+            "type": "narrative",
+            "name": "Schedule Narrative Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
     return {"project_id": project_id, "reports": reports}
 
 
@@ -502,6 +515,56 @@ def _generate_monthly_review_report(
         alerts_result,
         baseline,
     )
+
+
+def _generate_narrative_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate Narrative Schedule Report PDF.
+
+    Combines schedule view summary + scorecard + optional baseline
+    comparison into a severity-tagged narrative, then renders to PDF.
+
+    Reference: AACE RP 29R-03 §5.3 — Forensic Schedule Report.
+    """
+    from src.analytics.comparison import ScheduleComparison
+    from src.analytics.narrative_report import generate_schedule_narrative
+    from src.analytics.schedule_view import build_schedule_view
+    from src.analytics.scorecard import calculate_scorecard
+
+    view = build_schedule_view(schedule)
+
+    scorecard_data = None
+    try:
+        from dataclasses import asdict as _asdict
+
+        sc = calculate_scorecard(schedule)
+        scorecard_data = _asdict(sc)
+    except Exception:
+        pass
+
+    comparison_data = None
+    if request.baseline_id:
+        baseline = store.get(request.baseline_id)
+        if baseline is not None:
+            try:
+                comp = ScheduleComparison(baseline, schedule)
+                comparison_data = comp.compare()
+            except Exception:
+                pass
+
+    narrative = generate_schedule_narrative(
+        project_name=view.project_name,
+        data_date=view.data_date,
+        summary=view.summary,
+        scorecard=scorecard_data,
+        comparison=comparison_data,
+    )
+
+    return generator.generate_narrative_report(schedule, narrative)
 
 
 def _generate_executive_summary(

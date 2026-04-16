@@ -88,6 +88,7 @@ class TestAvailableReports:
             "monthly_review",
             "calendar",
             "attribution",
+            "narrative",
         }
         assert expected == types
 
@@ -113,3 +114,43 @@ class TestAvailableReports:
         # If the two files share the same project name, ready = True
         # (if not, the test at least verifies the field is present)
         assert isinstance(by_type["comparison"]["ready"], bool)
+
+    def test_narrative_report_listed_and_ready(self, client: TestClient) -> None:
+        """Narrative report must appear in available-reports and be ready."""
+        pid = _upload(client, SAMPLE_XER)
+        resp = client.get(f"/api/v1/projects/{pid}/available-reports")
+        assert resp.status_code == 200
+        by_type = {r["type"]: r for r in resp.json()["reports"]}
+        assert "narrative" in by_type
+        assert by_type["narrative"]["ready"] is True
+        assert by_type["narrative"]["name"] == "Schedule Narrative Report"
+
+
+class TestNarrativeGeneration:
+    """Happy-path test for narrative PDF generation + download."""
+
+    def test_narrative_generate_and_download(self, client: TestClient) -> None:
+        pid = _upload(client, SAMPLE_XER)
+
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={"project_id": pid, "report_type": "narrative"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["report_type"] == "narrative"
+        assert data["project_id"] == pid
+        report_id = data["report_id"]
+
+        dl = client.get(f"/api/v1/reports/{report_id}/download")
+        assert dl.status_code == 200
+        assert len(dl.content) > 0
+        # Accept either PDF (when weasyprint is installed) or HTML fallback
+        assert dl.content[:5] == b"%PDF-" or b"<html" in dl.content[:200].lower()
+
+    def test_narrative_invalid_project(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={"project_id": "does-not-exist", "report_type": "narrative"},
+        )
+        assert resp.status_code == 404
