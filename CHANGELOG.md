@@ -3,7 +3,16 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.7.0-dev] — KB + P1 Feature Wave (CBS Compare / Program Rollup / Exec Summary PDF / Risk Linkage / CBS Rehydration / BI Connector)
+## [3.7.0-dev] — KB + P1 Feature Wave (9 waves: CBS, Rollup, Exec PDF, Risk Linkage, CBS Rehydration, BI, SCL+AACE, AIA G703, Gantt Export)
+
+### Added — P1 feature wave follow-up (2026-04-17, Waves 7-9)
+- **SCL Protocol submission PDF** (`scl_protocol`) — 7-section format per SCL Delay and Disruption Protocol (2nd ed., 2017) Appendix B: factual narrative, contractual milestone status, CP evolution, contemporaneous period analysis windows, responsibility attribution, concurrency assessment, records appendix. Opportunistically fetches delay attribution, forensic timeline (when baseline_id supplied), and schedule narrative.
+- **AACE RP 29R-03 §5.3 forensic report PDF** (`aace_29r03`) — 8-section format per AACE RP 29R-03 §5.3 Documentation Requirements. Supports MIP 3.3 (observational) by default and MIP 3.4 (bifurcated half-step) when `options.bifurcated=true`. Fetches scorecard for §5.3.1 executive summary.
+- **AIA G703 Continuation Sheet Excel export** — `GET /api/v1/projects/{id}/export/aia-g703?snapshot_id=X&retainage_pct=0.10&application_number=N&period_to=YYYY-MM-DD`. Maps CBS elements to G703 line items with columns A-J (item no., description, scheduled value, from previous, this period, materials stored, total completed+stored, % complete, balance, retainage). Accepts previous/current completion % overlays keyed by cbs_code (monotonic clamp). Renders openpyxl workbook with AIA-style header block, grand totals, and methodology note.
+- **Gantt SVG/PNG export + enhanced print preview** — Schedule Viewer toolbar gains SVG and PNG export buttons alongside existing PDF/Print. SVG export serializes the live Gantt with inlined CSS and proper `xmlns` so the file renders standalone in Illustrator or browser preview. PNG export rasterizes via canvas at 2× device pixel ratio with white background. Print flow updated with `@media print` rules (`page-break-before: always`, `color-adjust: exact`) so future per-WBS page splits have the CSS ready.
+
+### Tests
+- +18 additional tests across Waves 7-9 (4 SCL+AACE integration, 14 AIA G703 unit + endpoint; Wave 9 is frontend-only, no vitest available — compile-level verification via `svelte-check` + production build). 925 → 943 passing (total session +56).
 
 ### Added — P1 feature wave (2026-04-17)
 - **CBS snapshot compare** — `compare_cost_snapshots(a, b)` computes per-CBS-element budget/estimate/contingency deltas, totals delta, variance %, and status (changed/unchanged/added/removed). Exposed via `GET /api/v1/projects/{id}/cost/compare?a=<id>&b=<id>`. New `/cost/compare` page with project + snapshot pickers, KPI cards, CBS-Lvl1 variance bar chart, and top-movers table. Pydantic schemas: `CBSElementDeltaSchema`, `CostCompareResponse`.

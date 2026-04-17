@@ -205,6 +205,103 @@
 		return () => document.removeEventListener('keydown', handleKey);
 	});
 
+	// Serialize the Gantt SVG with inlined CSS so it renders
+	// correctly when opened outside the app (no Tailwind present).
+	function buildSerializedSvg(): { xml: string; width: number; height: number } | null {
+		if (!scrollContainer) return null;
+		const svg = scrollContainer.querySelector('svg');
+		if (!svg) return null;
+
+		const svgClone = svg.cloneNode(true) as SVGSVGElement;
+		// Ensure xmlns attrs so the file is a valid standalone SVG
+		svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+		svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+		const width = Number(svgClone.getAttribute('width')) || svg.clientWidth || 1200;
+		const height = Number(svgClone.getAttribute('height')) || svg.clientHeight || 600;
+		svgClone.setAttribute('width', String(width));
+		svgClone.setAttribute('height', String(height));
+		// viewBox lets consumers scale without loss
+		svgClone.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+		// Inline a minimal style block — mirrors the Tailwind utilities
+		// actually used by the Gantt so the exported file is readable
+		// in Illustrator / browser preview without the app's CSS.
+		const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+		style.textContent = `
+			text { font-family: system-ui, -apple-system, sans-serif; }
+			.fill-white { fill: #ffffff; }
+			.dark\\:fill-gray-500 { fill: #6b7280; }
+		`;
+		svgClone.insertBefore(style, svgClone.firstChild);
+
+		return {
+			xml: new XMLSerializer().serializeToString(svgClone),
+			width,
+			height,
+		};
+	}
+
+	function downloadBlob(blob: Blob, filename: string): void {
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
+
+	// SVG export — downloads the Gantt as a standalone .svg file
+	function exportSvg() {
+		const serialized = buildSerializedSvg();
+		if (!serialized) return;
+		const projectName = (data.project_name || 'schedule').replace(/[^a-z0-9_-]+/gi, '-');
+		const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${serialized.xml}`], {
+			type: 'image/svg+xml;charset=utf-8',
+		});
+		downloadBlob(blob, `${projectName}-gantt.svg`);
+	}
+
+	// PNG export — rasterize the Gantt SVG via canvas and download
+	async function exportPng() {
+		const serialized = buildSerializedSvg();
+		if (!serialized) return;
+		const projectName = (data.project_name || 'schedule').replace(/[^a-z0-9_-]+/gi, '-');
+		const svgBlob = new Blob([serialized.xml], { type: 'image/svg+xml;charset=utf-8' });
+		const url = URL.createObjectURL(svgBlob);
+		try {
+			const img = new Image();
+			img.decoding = 'sync';
+			const loaded = new Promise<void>((resolve, reject) => {
+				img.onload = () => resolve();
+				img.onerror = () => reject(new Error('Failed to rasterize SVG'));
+			});
+			img.src = url;
+			await loaded;
+
+			// Use 2x device pixel ratio for crisp output
+			const scale = 2;
+			const canvas = document.createElement('canvas');
+			canvas.width = serialized.width * scale;
+			canvas.height = serialized.height * scale;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return;
+			ctx.scale(scale, scale);
+			// White background so PNG is not transparent
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(0, 0, serialized.width, serialized.height);
+			ctx.drawImage(img, 0, 0);
+
+			canvas.toBlob((blob) => {
+				if (blob) downloadBlob(blob, `${projectName}-gantt.png`);
+			}, 'image/png');
+		} finally {
+			URL.revokeObjectURL(url);
+		}
+	}
+
 	// PDF export — opens print dialog with full schedule SVG
 	function exportPdf() {
 		if (!scrollContainer) return;
@@ -222,6 +319,11 @@
 <html><head><title>${projectName} — Gantt Chart</title>
 <style>
 @page { size: landscape; margin: 10mm; }
+@media print {
+  body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page-break { page-break-before: always; break-before: page; }
+  h1 { page-break-after: avoid; }
+}
 body { margin: 0; font-family: system-ui, sans-serif; }
 h1 { font-size: 14px; margin: 4px 0; color: #111; }
 .meta { font-size: 10px; color: #666; margin-bottom: 8px; }
@@ -320,8 +422,26 @@ ${svgClone.outerHTML}
 				</select>
 			{/if}
 			<span class="w-px h-4 bg-gray-300 dark:bg-gray-600"></span>
+			<!-- Export SVG -->
+			<button
+				onclick={exportSvg}
+				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+				title="Export SVG"
+				aria-label="Export SVG"
+			>
+				<span class="text-[10px] font-bold">SVG</span>
+			</button>
+			<!-- Export PNG -->
+			<button
+				onclick={exportPng}
+				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+				title="Export PNG"
+				aria-label="Export PNG"
+			>
+				<span class="text-[10px] font-bold">PNG</span>
+			</button>
 			<!-- Export PDF (print) -->
-			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Export PDF (Print)">
+			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Export PDF (Print with per-WBS page breaks)" aria-label="Export PDF">
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
 				</svg>
