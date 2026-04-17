@@ -100,7 +100,7 @@ def generate_report(
         elif report_type == "monthly_review":
             pdf_bytes = _generate_monthly_review_report(generator, schedule, request, store)
         elif report_type == "executive_summary":
-            pdf_bytes = _generate_executive_summary(generator, schedule)
+            pdf_bytes = _generate_executive_summary(generator, schedule, request.project_id, store)
         elif report_type == "calendar":
             result = validate_calendars(schedule)
             pdf_bytes = generator.generate_calendar_report(schedule, result)
@@ -331,6 +331,17 @@ def get_available_reports(
         {
             "type": "narrative",
             "name": "Schedule Narrative Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
+    # --- executive_summary: always computable (enriched with attribution,
+    # CBS variance, and program rollup when project has siblings / snapshots) ---
+    reports.append(
+        {
+            "type": "executive_summary",
+            "name": "Executive Summary",
             "ready": True,
             "reason": "",
         }
@@ -570,9 +581,13 @@ def _generate_narrative_report(
 def _generate_executive_summary(
     generator: ReportGenerator,
     schedule: ParsedSchedule,
+    project_id: str,
+    store: ProjectStore,
 ) -> bytes:
-    """Generate executive summary PDF combining scorecard + DCMA + health + risk."""
+    """Generate executive summary PDF combining scorecard + DCMA + health + risk,
+    optionally enriched with delay attribution, CBS variance, and program rollup."""
     from src.analytics.dcma14 import DCMA14Analyzer
+    from src.analytics.delay_attribution import compute_delay_attribution
     from src.analytics.delay_prediction import predict_delays
     from src.analytics.health_score import HealthScoreCalculator
     from src.analytics.scorecard import calculate_scorecard
@@ -582,10 +597,66 @@ def _generate_executive_summary(
     health = HealthScoreCalculator(schedule).calculate()
     delay = predict_delays(schedule)
 
+    # Delay attribution — always computable from the schedule itself
+    delay_attribution = None
+    try:
+        delay_attribution = compute_delay_attribution(schedule)
+    except Exception:
+        pass
+
+    # CBS variance — compare the two most recent snapshots if available
+    cost_comparison = None
+    try:
+        snapshots = (
+            store.list_cost_snapshots(project_id) if hasattr(store, "list_cost_snapshots") else []
+        )
+        if len(snapshots) >= 2:
+            # list_cost_snapshots returns newest first; compare prior (a) vs latest (b)
+            latest_id = snapshots[0]["snapshot_id"]
+            prior_id = snapshots[1]["snapshot_id"]
+            snap_b = store.get_cost_snapshot(project_id, latest_id)
+            snap_a = store.get_cost_snapshot(project_id, prior_id)
+            if snap_a is not None and snap_b is not None:
+                from src.analytics.cost_integration import compare_cost_snapshots
+
+                cost_comparison = compare_cost_snapshots(
+                    snap_a, snap_b, snapshot_a_id=prior_id, snapshot_b_id=latest_id
+                )
+    except Exception:
+        pass
+
+    # Program rollup — if this project belongs to a program with ≥2 revisions
+    program_rollup = None
+    try:
+        program_id = None
+        if hasattr(store, "_upload_program"):
+            program_id = store._upload_program.get(project_id)
+        else:
+            programs = store.get_programs() if hasattr(store, "get_programs") else []
+            for prog in programs:
+                revisions = (
+                    store.get_program_revisions(prog["id"])
+                    if hasattr(store, "get_program_revisions")
+                    else []
+                )
+                if any(r.get("id") == project_id for r in revisions):
+                    program_id = prog["id"]
+                    break
+
+        if program_id:
+            from src.api.routers.programs import compute_program_rollup
+
+            program_rollup = compute_program_rollup(program_id)
+    except Exception:
+        program_rollup = None
+
     return generator.generate_executive_summary(
         schedule,
         scorecard=scorecard,
         dcma_result=dcma_result,
         health_score=health,
         delay_prediction=delay,
+        delay_attribution=delay_attribution,
+        cost_comparison=cost_comparison,
+        program_rollup=program_rollup,
     )

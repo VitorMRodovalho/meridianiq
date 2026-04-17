@@ -50,28 +50,14 @@ def update_program(program_id: str, body: dict, _user: object = Depends(optional
     return {"program": updated}
 
 
-@router.get("/api/v1/programs/{program_id}/rollup")
-def get_program_rollup(program_id: str, _user: object = Depends(optional_auth)):
-    """Aggregated KPIs across a program's revisions.
+def _build_rollup(
+    store, program_id: str, revisions: list[dict], user_id: str | None = None
+) -> dict:
+    """Build the program rollup payload from a revisions list.
 
-    Computes CPM + DCMA + health on the latest revision and compares its
-    health score against the previous revision for trend direction. Gives
-    Program Directors a one-call summary (CP length, negative float,
-    DCMA score, health + trend) without drilling into each revision.
-
-    Reference: DCMA 14-Point Assessment; AACE RP 29R-03.
+    Extracted so both the HTTP endpoint and other callers (exec-summary
+    PDF enrichment) can reuse the same computation path.
     """
-    store = get_store()
-    user_id = _user["id"] if _user else None
-
-    revisions = (
-        store.get_program_revisions(program_id, user_id)
-        if hasattr(store, "get_program_revisions")
-        else []
-    )
-    if not revisions:
-        raise HTTPException(status_code=404, detail="Program not found or no revisions")
-
     revisions.sort(key=lambda r: r.get("revision_number", 0), reverse=True)
     latest = revisions[0]
     prev = revisions[1] if len(revisions) > 1 else None
@@ -120,7 +106,6 @@ def get_program_rollup(program_id: str, _user: object = Depends(optional_auth)):
         except Exception:
             pass
 
-    # Trend direction: compare latest health vs previous revision's health
     trend_direction = "stable"
     trend_delta: float | None = None
     if prev and "health_score" in latest_metrics:
@@ -150,6 +135,49 @@ def get_program_rollup(program_id: str, _user: object = Depends(optional_auth)):
         "previous_revision_id": prev["id"] if prev else None,
         "previous_revision_number": prev.get("revision_number") if prev else None,
     }
+
+
+def compute_program_rollup(program_id: str, user_id: str | None = None) -> dict | None:
+    """Return a rollup dict for a program, or None when it has no revisions.
+
+    Plain-callable version of the /rollup endpoint so other reports (e.g.
+    executive summary PDF) can embed rollup context without going through
+    ``Depends(optional_auth)``.
+    """
+    store = get_store()
+    revisions = (
+        store.get_program_revisions(program_id, user_id)
+        if hasattr(store, "get_program_revisions")
+        else []
+    )
+    if not revisions:
+        return None
+    return _build_rollup(store, program_id, revisions, user_id=user_id)
+
+
+@router.get("/api/v1/programs/{program_id}/rollup")
+def get_program_rollup(program_id: str, _user: object = Depends(optional_auth)):
+    """Aggregated KPIs across a program's revisions.
+
+    Computes CPM + DCMA + health on the latest revision and compares its
+    health score against the previous revision for trend direction. Gives
+    Program Directors a one-call summary (CP length, negative float,
+    DCMA score, health + trend) without drilling into each revision.
+
+    Reference: DCMA 14-Point Assessment; AACE RP 29R-03.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+
+    revisions = (
+        store.get_program_revisions(program_id, user_id)
+        if hasattr(store, "get_program_revisions")
+        else []
+    )
+    if not revisions:
+        raise HTTPException(status_code=404, detail="Program not found or no revisions")
+
+    return _build_rollup(store, program_id, revisions, user_id=user_id)
 
 
 @router.get("/api/v1/programs/{program_id}/trends")

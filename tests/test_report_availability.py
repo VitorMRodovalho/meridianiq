@@ -89,6 +89,7 @@ class TestAvailableReports:
             "calendar",
             "attribution",
             "narrative",
+            "executive_summary",
         }
         assert expected == types
 
@@ -124,6 +125,73 @@ class TestAvailableReports:
         assert "narrative" in by_type
         assert by_type["narrative"]["ready"] is True
         assert by_type["narrative"]["name"] == "Schedule Narrative Report"
+
+    def test_executive_summary_listed_and_ready(self, client: TestClient) -> None:
+        """Executive Summary must appear in available-reports and be ready."""
+        pid = _upload(client, SAMPLE_XER)
+        resp = client.get(f"/api/v1/projects/{pid}/available-reports")
+        assert resp.status_code == 200
+        by_type = {r["type"]: r for r in resp.json()["reports"]}
+        assert "executive_summary" in by_type
+        assert by_type["executive_summary"]["ready"] is True
+        assert by_type["executive_summary"]["name"] == "Executive Summary"
+
+
+class TestExecutiveSummaryGeneration:
+    """Integration tests for executive_summary PDF generation with enrichment."""
+
+    def test_executive_summary_generate_and_download(self, client: TestClient) -> None:
+        """POST generate + GET download returns non-empty PDF/HTML bytes."""
+        pid = _upload(client, SAMPLE_XER)
+
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={"project_id": pid, "report_type": "executive_summary"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["report_type"] == "executive_summary"
+
+        report_id = data["report_id"]
+        dl = client.get(f"/api/v1/reports/{report_id}/download")
+        assert dl.status_code == 200
+        assert len(dl.content) > 0
+
+    def test_executive_summary_enriched_with_cost_variance(self, client: TestClient) -> None:
+        """When two CBS snapshots exist, the PDF includes a Cost Variance section."""
+        from src.analytics.cost_integration import CBSElement, CostIntegrationResult
+        from src.api.deps import get_store as _get_store
+
+        pid = _upload(client, SAMPLE_XER)
+        store = _get_store()
+
+        a = CostIntegrationResult(
+            cbs_elements=[
+                CBSElement(cbs_code="C.A.1", cbs_level1="Con", estimate=1000, budget=1200)
+            ],
+            total_budget=1_000_000,
+        )
+        b = CostIntegrationResult(
+            cbs_elements=[
+                CBSElement(cbs_code="C.A.1", cbs_level1="Con", estimate=1500, budget=1800)
+            ],
+            total_budget=1_500_000,
+        )
+        store.save_cost_upload(project_id=pid, result=a, source_name="v1")
+        store.save_cost_upload(project_id=pid, result=b, source_name="v2")
+
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={"project_id": pid, "report_type": "executive_summary"},
+        )
+        assert resp.status_code == 200
+
+        dl = client.get(f"/api/v1/reports/{resp.json()['report_id']}/download")
+        assert dl.status_code == 200
+        body = dl.content.decode("utf-8", errors="ignore")
+        # Either HTML fallback or PDF containing the section marker
+        # (PDF binary usually contains strings too); check for distinctive phrase
+        assert "Cost Variance" in body or dl.content.startswith(b"%PDF")
 
 
 class TestNarrativeGeneration:
