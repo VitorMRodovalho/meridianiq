@@ -344,6 +344,85 @@ export async function generateReport(
 	});
 }
 
+// ── CBS Cost Snapshots ───────────────────────────────────
+
+export interface CostSnapshotSummary {
+	snapshot_id: string;
+	project_id: string;
+	user_id?: string | null;
+	source_name: string;
+	budget_date: string;
+	total_budget: number;
+	total_contingency: number;
+	total_escalation: number;
+	program_total: number;
+	cbs_element_count: number;
+	wbs_budget_count: number;
+	mapping_count: number;
+	insights: string[];
+	created_at: string;
+}
+
+export async function getCostSnapshots(
+	projectId: string
+): Promise<{ project_id: string; count: number; snapshots: CostSnapshotSummary[] }> {
+	return request(`/api/v1/projects/${projectId}/cost/snapshots`);
+}
+
+export interface CBSElementDelta {
+	cbs_code: string;
+	cbs_level1: string;
+	cbs_level2: string;
+	scope: string;
+	budget_a: number;
+	budget_b: number;
+	estimate_a: number;
+	estimate_b: number;
+	contingency_a: number;
+	contingency_b: number;
+	budget_delta: number;
+	estimate_delta: number;
+	contingency_delta: number;
+	variance_pct: number;
+	status: 'changed' | 'unchanged' | 'added' | 'removed';
+}
+
+export interface CostCompareResult {
+	project_id: string;
+	snapshot_a: string;
+	snapshot_b: string;
+	total_budget_a: number;
+	total_budget_b: number;
+	total_budget_delta: number;
+	total_contingency_a: number;
+	total_contingency_b: number;
+	total_contingency_delta: number;
+	total_escalation_a: number;
+	total_escalation_b: number;
+	total_escalation_delta: number;
+	program_total_a: number;
+	program_total_b: number;
+	program_total_delta: number;
+	budget_variance_pct: number;
+	element_deltas: CBSElementDelta[];
+	added_count: number;
+	removed_count: number;
+	changed_count: number;
+	unchanged_count: number;
+	insights: string[];
+}
+
+export async function compareCostSnapshots(
+	projectId: string,
+	a: string,
+	b: string
+): Promise<CostCompareResult> {
+	const params = new URLSearchParams({ a, b });
+	return request<CostCompareResult>(
+		`/api/v1/projects/${projectId}/cost/compare?${params}`
+	);
+}
+
 // ── EVM (Earned Value Management) ─────────────────────────
 export async function getEVMAnalyses(): Promise<{ analyses: any[] }> {
 	return request<{ analyses: any[] }>('/api/v1/evm/analyses');

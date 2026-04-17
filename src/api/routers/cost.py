@@ -120,6 +120,51 @@ def list_cost_snapshots(
     return {"project_id": project_id, "count": len(snapshots), "snapshots": snapshots}
 
 
+@router.get("/api/v1/projects/{project_id}/cost/compare")
+def compare_cost_snapshots_endpoint(
+    project_id: str,
+    a: str,
+    b: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Compare two persisted CBS cost snapshots element-by-element.
+
+    Requires both snapshot ids to resolve via ``get_cost_snapshot``.
+    Returns totals delta, per-CBS variance, and interpretation insights.
+
+    Reference: AACE RP 10S-90 — Cost Engineering Terminology;
+               AACE RP 29R-03 §5.3 — variance documentation.
+    """
+    if a == b:
+        raise HTTPException(status_code=400, detail="Snapshot ids a and b must differ")
+
+    store = get_store()
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+
+    snap_a = store.get_cost_snapshot(project_id, a, user_id=user_id)
+    snap_b = store.get_cost_snapshot(project_id, b, user_id=user_id)
+
+    if snap_a is None or snap_b is None:
+        missing = []
+        if snap_a is None:
+            missing.append(a)
+        if snap_b is None:
+            missing.append(b)
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Snapshot(s) not retrievable: {', '.join(missing)}. "
+                "Supabase backend does not yet reconstruct full snapshots from DB "
+                "(v3.8+ task). Compare only works for in-memory snapshots today."
+            ),
+        )
+
+    from src.analytics.cost_integration import compare_cost_snapshots
+
+    result = compare_cost_snapshots(snap_a, snap_b, snapshot_a_id=a, snapshot_b_id=b)
+    return {"project_id": project_id, **asdict(result)}
+
+
 @router.post("/api/v1/trends")
 def get_schedule_trends(
     body: dict,

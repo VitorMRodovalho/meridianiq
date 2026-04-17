@@ -97,8 +97,18 @@
 </svelte:head>
 
 <main class="max-w-7xl mx-auto px-4 py-8">
-	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Cost-Schedule Integration</h1>
-	<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">CBS/WBS correlation — upload program budget Excel to analyze cost breakdown (AACE RP 10S-90)</p>
+	<div class="flex items-start justify-between mb-6">
+		<div>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Cost-Schedule Integration</h1>
+			<p class="text-sm text-gray-500 dark:text-gray-400">CBS/WBS correlation — upload program budget Excel to analyze cost breakdown (AACE RP 10S-90)</p>
+		</div>
+		<a
+			href="/cost/compare"
+			class="shrink-0 inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+		>
+			Compare Snapshots →
+		</a>
+	</div>
 
 	<!-- Upload -->
 	<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">

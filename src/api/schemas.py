@@ -1290,6 +1290,53 @@ class GDPRDeleteResponse(BaseModel):
     status: str = "complete"
 
 
+class CBSElementDeltaSchema(BaseModel):
+    """Per-CBS-element variance between two snapshots."""
+
+    cbs_code: str
+    cbs_level1: str = ""
+    cbs_level2: str = ""
+    scope: str = ""
+    budget_a: float = 0.0
+    budget_b: float = 0.0
+    estimate_a: float = 0.0
+    estimate_b: float = 0.0
+    contingency_a: float = 0.0
+    contingency_b: float = 0.0
+    budget_delta: float = 0.0
+    estimate_delta: float = 0.0
+    contingency_delta: float = 0.0
+    variance_pct: float = 0.0
+    status: str = "changed"
+
+
+class CostCompareResponse(BaseModel):
+    """Response for GET /api/v1/projects/{project_id}/cost/compare."""
+
+    project_id: str
+    snapshot_a: str
+    snapshot_b: str
+    total_budget_a: float = 0.0
+    total_budget_b: float = 0.0
+    total_budget_delta: float = 0.0
+    total_contingency_a: float = 0.0
+    total_contingency_b: float = 0.0
+    total_contingency_delta: float = 0.0
+    total_escalation_a: float = 0.0
+    total_escalation_b: float = 0.0
+    total_escalation_delta: float = 0.0
+    program_total_a: float = 0.0
+    program_total_b: float = 0.0
+    program_total_delta: float = 0.0
+    budget_variance_pct: float = 0.0
+    element_deltas: list[CBSElementDeltaSchema] = Field(default_factory=list)
+    added_count: int = 0
+    removed_count: int = 0
+    changed_count: int = 0
+    unchanged_count: int = 0
+    insights: list[str] = Field(default_factory=list)
+
+
 class DashboardKPIs(BaseModel):
     """Response for GET /api/v1/dashboard."""
 

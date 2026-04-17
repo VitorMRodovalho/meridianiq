@@ -265,3 +265,209 @@ def _generate_insights(result: CostIntegrationResult) -> None:
         result.insights.append(
             f"CBS-WBS mappings: {len(result.cbs_wbs_mappings)} cost categories mapped"
         )
+
+
+@dataclass
+class CBSElementDelta:
+    """Per-CBS-element variance between two snapshots.
+
+    Positive ``budget_delta`` means the element's budget grew from A to B;
+    ``variance_pct`` is the signed percent change (``(b - a) / a * 100``)
+    with zero-safe handling when A is zero.
+    """
+
+    cbs_code: str
+    cbs_level1: str = ""
+    cbs_level2: str = ""
+    scope: str = ""
+    budget_a: float = 0.0
+    budget_b: float = 0.0
+    estimate_a: float = 0.0
+    estimate_b: float = 0.0
+    contingency_a: float = 0.0
+    contingency_b: float = 0.0
+    budget_delta: float = 0.0
+    estimate_delta: float = 0.0
+    contingency_delta: float = 0.0
+    variance_pct: float = 0.0
+    status: str = "changed"  # 'changed', 'unchanged', 'added', 'removed'
+
+
+@dataclass
+class CostComparisonResult:
+    """Diff between two CBS cost snapshots.
+
+    Compares two ``CostIntegrationResult`` instances by ``cbs_code`` to
+    surface budget variance per element plus program-level totals. Used
+    for trend/variance analysis across forecast revisions.
+
+    Reference: AACE RP 10S-90 — Cost Engineering Terminology;
+               AACE RP 29R-03 §5.3 — variance documentation.
+    """
+
+    snapshot_a: str = ""
+    snapshot_b: str = ""
+    total_budget_a: float = 0.0
+    total_budget_b: float = 0.0
+    total_budget_delta: float = 0.0
+    total_contingency_a: float = 0.0
+    total_contingency_b: float = 0.0
+    total_contingency_delta: float = 0.0
+    total_escalation_a: float = 0.0
+    total_escalation_b: float = 0.0
+    total_escalation_delta: float = 0.0
+    program_total_a: float = 0.0
+    program_total_b: float = 0.0
+    program_total_delta: float = 0.0
+    budget_variance_pct: float = 0.0
+    element_deltas: list[CBSElementDelta] = field(default_factory=list)
+    added_count: int = 0
+    removed_count: int = 0
+    changed_count: int = 0
+    unchanged_count: int = 0
+    insights: list[str] = field(default_factory=list)
+
+
+def compare_cost_snapshots(
+    a: CostIntegrationResult,
+    b: CostIntegrationResult,
+    snapshot_a_id: str = "",
+    snapshot_b_id: str = "",
+) -> CostComparisonResult:
+    """Compute element-level and program-level variance between two snapshots.
+
+    Matches CBS elements by ``cbs_code``. Elements present only in A are
+    flagged ``removed``; only in B are ``added``. Budget deltas are
+    signed (B minus A) so positive values indicate growth.
+
+    Args:
+        a: Earlier snapshot (baseline).
+        b: Later snapshot (current).
+        snapshot_a_id: Optional identifier echoed in the result.
+        snapshot_b_id: Optional identifier echoed in the result.
+
+    Returns:
+        ``CostComparisonResult`` with per-element deltas, totals,
+        counts by status, and interpretation insights.
+
+    Reference: AACE RP 10S-90 (Cost Engineering Terminology);
+               AACE RP 29R-03 §5.3 (Forensic Schedule Documentation).
+    """
+    result = CostComparisonResult(
+        snapshot_a=snapshot_a_id,
+        snapshot_b=snapshot_b_id,
+        total_budget_a=a.total_budget,
+        total_budget_b=b.total_budget,
+        total_budget_delta=b.total_budget - a.total_budget,
+        total_contingency_a=a.total_contingency,
+        total_contingency_b=b.total_contingency,
+        total_contingency_delta=b.total_contingency - a.total_contingency,
+        total_escalation_a=a.total_escalation,
+        total_escalation_b=b.total_escalation,
+        total_escalation_delta=b.total_escalation - a.total_escalation,
+        program_total_a=a.program_total,
+        program_total_b=b.program_total,
+        program_total_delta=b.program_total - a.program_total,
+    )
+
+    if a.total_budget > 0:
+        result.budget_variance_pct = (b.total_budget - a.total_budget) / a.total_budget * 100
+
+    a_by_code = {e.cbs_code: e for e in a.cbs_elements if e.cbs_code}
+    b_by_code = {e.cbs_code: e for e in b.cbs_elements if e.cbs_code}
+
+    for code in sorted(set(a_by_code) | set(b_by_code)):
+        ea = a_by_code.get(code)
+        eb = b_by_code.get(code)
+        if ea is not None and eb is not None:
+            budget_delta = eb.budget - ea.budget
+            variance_pct = (budget_delta / ea.budget * 100) if ea.budget > 0 else 0.0
+            status = "unchanged" if abs(budget_delta) < 0.01 else "changed"
+            delta = CBSElementDelta(
+                cbs_code=code,
+                cbs_level1=eb.cbs_level1 or ea.cbs_level1,
+                cbs_level2=eb.cbs_level2 or ea.cbs_level2,
+                scope=eb.scope or ea.scope,
+                budget_a=ea.budget,
+                budget_b=eb.budget,
+                estimate_a=ea.estimate,
+                estimate_b=eb.estimate,
+                contingency_a=ea.contingency,
+                contingency_b=eb.contingency,
+                budget_delta=budget_delta,
+                estimate_delta=eb.estimate - ea.estimate,
+                contingency_delta=eb.contingency - ea.contingency,
+                variance_pct=variance_pct,
+                status=status,
+            )
+            if status == "changed":
+                result.changed_count += 1
+            else:
+                result.unchanged_count += 1
+        elif eb is not None:
+            delta = CBSElementDelta(
+                cbs_code=code,
+                cbs_level1=eb.cbs_level1,
+                cbs_level2=eb.cbs_level2,
+                scope=eb.scope,
+                budget_b=eb.budget,
+                estimate_b=eb.estimate,
+                contingency_b=eb.contingency,
+                budget_delta=eb.budget,
+                estimate_delta=eb.estimate,
+                contingency_delta=eb.contingency,
+                variance_pct=100.0 if eb.budget > 0 else 0.0,
+                status="added",
+            )
+            result.added_count += 1
+        else:
+            assert ea is not None
+            delta = CBSElementDelta(
+                cbs_code=code,
+                cbs_level1=ea.cbs_level1,
+                cbs_level2=ea.cbs_level2,
+                scope=ea.scope,
+                budget_a=ea.budget,
+                estimate_a=ea.estimate,
+                contingency_a=ea.contingency,
+                budget_delta=-ea.budget,
+                estimate_delta=-ea.estimate,
+                contingency_delta=-ea.contingency,
+                variance_pct=-100.0 if ea.budget > 0 else 0.0,
+                status="removed",
+            )
+            result.removed_count += 1
+        result.element_deltas.append(delta)
+
+    _generate_compare_insights(result)
+    return result
+
+
+def _generate_compare_insights(result: CostComparisonResult) -> None:
+    """Build human-readable interpretation of a cost comparison."""
+    direction = "increase" if result.total_budget_delta > 0 else "decrease"
+    if abs(result.total_budget_delta) >= 1.0:
+        result.insights.append(
+            f"Program budget {direction}: "
+            f"${abs(result.total_budget_delta) / 1e6:.1f}M "
+            f"({result.budget_variance_pct:+.1f}%)"
+        )
+
+    if result.added_count:
+        result.insights.append(f"{result.added_count} new CBS elements added in snapshot B")
+    if result.removed_count:
+        result.insights.append(f"{result.removed_count} CBS elements removed from snapshot A")
+
+    changed = [d for d in result.element_deltas if d.status == "changed"]
+    if changed:
+        top = sorted(changed, key=lambda d: abs(d.budget_delta), reverse=True)[:3]
+        for d in top:
+            result.insights.append(
+                f"{d.cbs_code}: ${d.budget_delta / 1e6:+.1f}M ({d.variance_pct:+.1f}%)"
+            )
+
+    if abs(result.budget_variance_pct) > 10:
+        result.insights.append(
+            "Total variance exceeds 10% — significant scope or cost shift; "
+            "review per AACE RP 29R-03 §5.3."
+        )
