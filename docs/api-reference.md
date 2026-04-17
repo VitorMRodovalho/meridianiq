@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **98 endpoints** across **19 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **107 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -10,22 +10,23 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 
 - [Upload](#upload) — 2 endpoints
 - [Projects](#projects) — 3 endpoints
-- [Programs](#programs) — 4 endpoints
+- [Programs](#programs) — 5 endpoints
 - [Comparison](#comparison) — 1 endpoints
 - [Forensics](#forensics) — 5 endpoints
 - [TIA](#tia) — 4 endpoints
 - [EVM](#evm) — 6 endpoints
-- [Risk](#risk) — 7 endpoints
+- [Risk](#risk) — 8 endpoints
 - [Analysis](#analysis) — 10 endpoints
 - [Intelligence](#intelligence) — 8 endpoints
 - [What-If](#what-if) — 7 endpoints
-- [Schedule Ops](#schedule-ops) — 5 endpoints
-- [Cost](#cost) — 6 endpoints
-- [Exports](#exports) — 5 endpoints
+- [Schedule Ops](#schedule-ops) — 7 endpoints
+- [Cost](#cost) — 7 endpoints
+- [Exports](#exports) — 6 endpoints
 - [Benchmarks](#benchmarks) — 3 endpoints
 - [Reports](#reports) — 3 endpoints
 - [Admin](#admin) — 6 endpoints
 - [Health](#health) — 2 endpoints
+- [Bi](#bi) — 3 endpoints
 - [Organizations](#organizations) — 11 endpoints
 
 ## Upload
@@ -56,6 +57,7 @@ _Multi-revision program rollup_
 | `GET` | `/api/v1/programs` | Return all programs with latest revision info. | `—` | optional |
 | `GET` | `/api/v1/programs/{program_id}` | Return a program with all its revisions. | `—` | optional |
 | `PUT` | `/api/v1/programs/{program_id}` | Rename or update a program. | `—` | optional |
+| `GET` | `/api/v1/programs/{program_id}/rollup` | Aggregated KPIs across a program's revisions. | `—` | optional |
 | `GET` | `/api/v1/programs/{program_id}/trends` | Trend data across all revisions for charting. | `—` | optional |
 
 ## Comparison
@@ -113,6 +115,7 @@ _Monte Carlo QSRA per AACE RP 57R-09_
 | `GET` | `/api/v1/risk/simulations/{simulation_id}` | Get full risk simulation result with all analysis data. | `SimulationResultSchema` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/criticality` | Get criticality index data for a risk simulation. | `CriticalityResponse` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/histogram` | Get histogram data for a risk simulation. | `HistogramResponse` | optional |
+| `GET` | `/api/v1/risk/simulations/{simulation_id}/register-entries` | Return register entries that touch the simulation's most-sensitive activities. | `dict` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/s-curve` | Get cumulative probability S-curve data for a risk simulation. | `RiskSCurveResponse` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/tornado` | Get sensitivity / tornado data for a risk simulation. | `TornadoResponse` | optional |
 
@@ -170,7 +173,9 @@ _Generation, build, cashflow, lookahead, risk register_
 |---|---|---|---|---|
 | `GET` | `/api/v1/projects/{project_id}/cashflow` | Get cash flow analysis with S-Curve data. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/lookahead` | Get look-ahead schedule for the next N weeks. | `dict` | optional |
-| `GET` | `/api/v1/projects/{project_id}/risk-register` | Get risk register summary for a project. | `dict` | optional |
+| `GET` | `/api/v1/projects/{project_id}/risk-register` | List risk register entries plus summary statistics for a project. | `dict` | optional |
+| `POST` | `/api/v1/projects/{project_id}/risk-register` | Create or upsert a risk register entry for a project. | `dict` | optional |
+| `DELETE` | `/api/v1/projects/{project_id}/risk-register/{risk_id}` | Remove a risk register entry. | `dict` | optional |
 | `POST` | `/api/v1/schedule/build` | Build a schedule from natural language description. | `dict` | optional |
 | `POST` | `/api/v1/schedule/generate` | Generate a complete schedule from project parameters. | `dict` | optional |
 
@@ -182,6 +187,7 @@ _CBS upload + persistence, trends, narrative, float entropy_
 |---|---|---|---|---|
 | `POST` | `/api/v1/cost/upload` | Upload a CBS Excel file, parse, and persist as a cost snapshot. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/constraint-accumulation` | Compute constraint accumulation rate between two schedule versions. | `dict` | optional |
+| `GET` | `/api/v1/projects/{project_id}/cost/compare` | Compare two persisted CBS cost snapshots element-by-element. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/cost/snapshots` | List all persisted CBS cost snapshots for a project (newest first). | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/float-entropy` | Compute Shannon entropy of float distribution. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/narrative` | Generate a narrative schedule status report. | `dict` | optional |
@@ -194,6 +200,7 @@ _Excel workbook, XER round-trip_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `GET` | `/api/v1/projects/{project_id}/activities` | Search activities by ID or name.  Used by the TIA activity picker. | `dict` | optional |
+| `GET` | `/api/v1/projects/{project_id}/export/aia-g703` | Export CBS snapshot as an AIA G703 Continuation Sheet workbook. | `—` | optional |
 | `GET` | `/api/v1/projects/{project_id}/export/csv` | Export project data as CSV. | `—` | optional |
 | `GET` | `/api/v1/projects/{project_id}/export/excel` | Export project schedule data as an Excel workbook. | `—` | optional |
 | `GET` | `/api/v1/projects/{project_id}/export/json` | Export project schedule data and analysis results as JSON. | `—` | optional |
@@ -240,6 +247,14 @@ _Readiness and liveness_
 |---|---|---|---|---|
 | `GET` | `/api/v1/health` | Health check endpoint. | `HealthResponse` | none |
 | `GET` | `/health` | — | `—` | none |
+
+## Bi
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `GET` | `/api/v1/bi/activities` | Flat activity list — one row per activity with CPM-derived metrics. | `dict` | optional |
+| `GET` | `/api/v1/bi/dcma-metrics` | One row per (project, DCMA metric) — flat pivot-ready surface. | `dict` | optional |
+| `GET` | `/api/v1/bi/projects` | Flat project list with top-level KPIs — one row per project. | `dict` | optional |
 
 ## Organizations
 

@@ -1,21 +1,21 @@
-<!-- Last updated: 2026-04-16 (v3.6.0) -->
+<!-- Last updated: 2026-04-17 (v3.7.0) -->
 # MeridianIQ — System Architecture
 
 ## System Overview
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v3.6.0**: 40 analysis engines, 98 API endpoints across 18 routers, 52 SvelteKit pages, 11 hand-crafted SVG chart components, 20 Supabase migrations, 22 MCP tools, 887 tests.
+As of **v3.7.0**: 41 analysis engines + 1 export module, 107 API endpoints across 20 routers, 53 SvelteKit pages, 11 hand-crafted SVG chart components, 20 Supabase migrations, 22 MCP tools, 14 PDF report types, 943 tests.
 
 ```mermaid
 graph TB
     subgraph "Edge — Cloudflare Pages"
-        UI[SvelteKit Frontend<br/>52 pages · Svelte 5 runes<br/>Tailwind v4 · dark mode · i18n]
+        UI[SvelteKit Frontend<br/>53 pages · Svelte 5 runes<br/>Tailwind v4 · dark mode · i18n]
     end
 
     subgraph "Compute — Fly.io"
-        API[FastAPI application<br/>98 endpoints · 18 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
-        ENGINES[40 analysis engines<br/>+ 1 export module<br/>src/analytics/ + src/export/]
+        API[FastAPI application<br/>107 endpoints · 20 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
+        ENGINES[41 analysis engines<br/>+ 1 export module<br/>src/analytics/ + src/export/]
         MCP[MCP server<br/>22 tools<br/>src/mcp_server.py]
         API --> ENGINES
         MCP --> ENGINES
@@ -287,8 +287,8 @@ Supports universal ERP fields per AACE RP 10S-90, ANSI/EIA-748, ISO 21511, with 
 
 ## Catalogs & references
 
-- [API Reference](api-reference.md) — auto-generated from FastAPI app (98 endpoints × 18 routers)
-- [Methodologies](methodologies.md) — auto-generated from engine docstrings (40 engines + citations)
+- [API Reference](api-reference.md) — auto-generated from FastAPI app (107 endpoints × 20 routers)
+- [Methodologies](methodologies.md) — auto-generated from engine docstrings (41 engines + citations)
 - [MCP Tools](mcp-tools.md) — auto-generated from `@mcp.tool()` decorators (22 tools)
 - [Deploy Checklist](DEPLOY_CHECKLIST.md) — 5-phase procedure
 - [Schedule Submission Standards](SCHEDULE_SUBMISSION_STANDARDS.md)

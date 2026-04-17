@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **40 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **41 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -8,6 +8,7 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 
 | Engine | Title |
 |---|---|
+| [`aia_g703`](#aia-g703--aia-g703) | AIA G703 Continuation Sheet — build billing line items from CBS snapshots. |
 | [`anomaly_detection`](#anomaly-detection--anomaly-detection) | Anomaly Detection — statistical outlier identification in schedule data. |
 | [`benchmark_priors`](#benchmark-priors--benchmark-priors) | Benchmark-derived priors for Monte Carlo risk simulation. |
 | [`benchmarks`](#benchmarks--benchmarks) | Benchmark analytics — anonymized cross-project comparison. |
@@ -50,6 +51,19 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`whatif`](#whatif--whatif) | What-if schedule simulator — deterministic and probabilistic scenario analysis. |
 
 ## Engines
+
+### `aia_g703` — Aia G703
+
+**AIA G703 Continuation Sheet — build billing line items from CBS snapshots.**
+
+Produces the row data for an AIA G703 "Continuation Sheet" (the schedule of values attached to an AIA G702 Application for Payment). Fields that require contractual data not captured in the CBS (retainage %, change orders, previous period billings) are accepted as caller inputs with sensible defaults so the user can still bootstrap a draft G703 from a parsed CBS workbook.
+
+**Explicit references from docstring:**
+
+- AIA Document G703™-1992 (current edition) — Continuation Sheet for G702.
+- https://www.aiacontracts.org/contract-documents/25131-application-for-payment
+
+---
 
 ### `anomaly_detection` — Anomaly Detection
 
