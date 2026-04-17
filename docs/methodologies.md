@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **41 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **42 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -8,6 +8,7 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 
 | Engine | Title |
 |---|---|
+| [`aia_g702`](#aia-g702--aia-g702) | AIA G702 Application and Certificate for Payment — data model. |
 | [`aia_g703`](#aia-g703--aia-g703) | AIA G703 Continuation Sheet — build billing line items from CBS snapshots. |
 | [`anomaly_detection`](#anomaly-detection--anomaly-detection) | Anomaly Detection — statistical outlier identification in schedule data. |
 | [`benchmark_priors`](#benchmark-priors--benchmark-priors) | Benchmark-derived priors for Monte Carlo risk simulation. |
@@ -51,6 +52,19 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`whatif`](#whatif--whatif) | What-if schedule simulator — deterministic and probabilistic scenario analysis. |
 
 ## Engines
+
+### `aia_g702` — Aia G702
+
+**AIA G702 Application and Certificate for Payment — data model.**
+
+Produces the figures for an AIA G702 cover certificate that pairs with a G703 Continuation Sheet. Lines 1–9 of the G702 form are computed from the G703 totals (Total Completed & Stored, Retainage) combined with caller-supplied contract inputs (original contract sum, change orders, previously-certified payments). No PDF rendering is done here — this module is a pure dataclass builder so the figures can be unit-tested and reused by the HTML/PDF renderer.
+
+**Explicit references from docstring:**
+
+- AIA Document G702™-1992 (current edition) — Application and
+- Certificate for Payment. https://www.aiacontracts.org/contract-documents/25131-application-for-payment
+
+---
 
 ### `aia_g703` — Aia G703
 
