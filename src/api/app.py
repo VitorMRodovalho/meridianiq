@@ -113,6 +113,7 @@ from .routers.exports import router as exports_router  # noqa: E402
 from .routers.benchmarks import router as benchmarks_router  # noqa: E402
 from .routers.reports import router as reports_router  # noqa: E402
 from .routers.admin import router as admin_router  # noqa: E402
+from .routers.bi import router as bi_router  # noqa: E402
 
 app.include_router(org_router)
 app.include_router(health_router)
@@ -133,6 +134,7 @@ app.include_router(exports_router)
 app.include_router(benchmarks_router)
 app.include_router(reports_router)
 app.include_router(admin_router)
+app.include_router(bi_router)
 
 
 @app.exception_handler(Exception)
