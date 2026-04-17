@@ -332,6 +332,88 @@ def get_risk_criticality(
     )
 
 
+@router.get("/api/v1/risk/simulations/{simulation_id}/register-entries")
+def get_simulation_register_entries(
+    simulation_id: str,
+    top_n: int = 15,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Return register entries that touch the simulation's most-sensitive activities.
+
+    Links are **activity-based** (semantic): a register entry is
+    considered linked when any of its ``affected_activities`` appears
+    among the top-N activities by sensitivity correlation OR criticality
+    index in the simulation. No foreign key is stored — the simulation
+    id itself is in-memory and ephemeral.
+
+    Returns the linked entries plus the set of activities that drove
+    the match, so the UI can explain *why* each entry surfaced.
+
+    Args:
+        simulation_id: The stored simulation identifier.
+        top_n: How many top activities to consider for matching (default 15).
+
+    Reference: AACE RP 57R-09 — Schedule Risk Analysis.
+    """
+    risk_store = get_risk_store()
+    store = get_store()
+
+    result = risk_store.get(simulation_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Risk simulation not found")
+
+    if not hasattr(store, "list_risk_entries"):
+        return {
+            "simulation_id": simulation_id,
+            "project_id": result.project_id,
+            "driver_activities": [],
+            "entries": [],
+            "total": 0,
+        }
+
+    top_sensitivity = {s.activity_id for s in result.sensitivity[:top_n] if s.activity_id}
+    top_criticality = {c.activity_id for c in result.criticality[:top_n] if c.activity_id}
+    # Also match by activity_name / task_code since register entries may store
+    # user-facing codes rather than internal task_ids.
+    top_activity_names = {
+        s.activity_name for s in result.sensitivity[:top_n] if s.activity_name
+    } | {c.activity_name for c in result.criticality[:top_n] if c.activity_name}
+
+    driver_ids = top_sensitivity | top_criticality | top_activity_names
+
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+    entries = store.list_risk_entries(result.project_id, user_id=user_id)
+
+    sensitivity_by_id = {s.activity_id: s.correlation for s in result.sensitivity}
+    criticality_by_id = {c.activity_id: c.criticality_pct for c in result.criticality}
+
+    linked = []
+    for e in entries:
+        affected = set(e.get("affected_activities") or [])
+        matched = affected & driver_ids
+        if not matched:
+            continue
+        # Collect metrics for matched activities
+        matched_details = []
+        for act in sorted(matched):
+            matched_details.append(
+                {
+                    "activity": act,
+                    "sensitivity": sensitivity_by_id.get(act),
+                    "criticality_pct": criticality_by_id.get(act),
+                }
+            )
+        linked.append({**e, "matched_activities": matched_details})
+
+    return {
+        "simulation_id": simulation_id,
+        "project_id": result.project_id,
+        "driver_activities": sorted(driver_ids),
+        "entries": linked,
+        "total": len(linked),
+    }
+
+
 @router.get(
     "/api/v1/risk/simulations/{simulation_id}/s-curve",
     response_model=RiskSCurveResponse,

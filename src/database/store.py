@@ -67,6 +67,8 @@ class InMemoryStore:
         # CBS cost uploads — per-project history of parsed cost data
         self._cost_uploads: dict[str, list[dict[str, Any]]] = {}
         self._cost_upload_counter: int = 0
+        # Risk register entries — per-project risk inventory
+        self._risk_entries: dict[str, list[dict[str, Any]]] = {}
 
     # -- programs --------------------------------------------------------
 
@@ -277,6 +279,9 @@ class InMemoryStore:
         self._program_counter = 0
         self._upload_program.clear()
         self._upload_revision.clear()
+        self._cost_uploads.clear()
+        self._cost_upload_counter = 0
+        self._risk_entries.clear()
 
     # -- analysis results ------------------------------------------------
 
@@ -453,6 +458,63 @@ class InMemoryStore:
                     return None
                 return u.get("_result")
         return None
+
+    # -- Risk register --------------------------------------------------
+
+    def save_risk_entry(
+        self,
+        project_id: str,
+        entry: dict[str, Any],
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist a risk register entry for a project.
+
+        Upserts by ``risk_id`` within the project — re-saving the same
+        ``risk_id`` replaces the existing record. Returns the stored
+        entry with owner/timestamps injected.
+
+        Reference: PMI Practice Standard for Risk Management; ISO 31000.
+        """
+        entries = self._risk_entries.setdefault(project_id, [])
+        risk_id = entry.get("risk_id") or ""
+        if not risk_id:
+            risk_id = f"R{len(entries) + 1:03d}"
+            entry = {**entry, "risk_id": risk_id}
+
+        payload = {
+            **entry,
+            "project_id": project_id,
+            "user_id": user_id,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+
+        for i, existing in enumerate(entries):
+            if existing.get("risk_id") == risk_id:
+                entries[i] = payload
+                return payload
+
+        entries.append(payload)
+        return payload
+
+    def list_risk_entries(
+        self, project_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Return all risk register entries for a project."""
+        entries = self._risk_entries.get(project_id, [])
+        if user_id is not None:
+            entries = [e for e in entries if e.get("user_id") in (None, user_id)]
+        return list(entries)
+
+    def delete_risk_entry(self, project_id: str, risk_id: str, user_id: str | None = None) -> bool:
+        """Remove a risk entry by ``risk_id``. Returns True when removed."""
+        entries = self._risk_entries.get(project_id, [])
+        for i, e in enumerate(entries):
+            if e.get("risk_id") == risk_id:
+                if user_id is not None and e.get("user_id") not in (None, user_id):
+                    return False
+                entries.pop(i)
+                return True
+        return False
 
 
 # ------------------------------------------------------------------ #

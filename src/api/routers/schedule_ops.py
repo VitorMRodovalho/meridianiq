@@ -112,18 +112,97 @@ def get_lookahead(
 
 
 @router.get("/api/v1/projects/{project_id}/risk-register")
-def get_risk_register_summary(
+def get_risk_register(
     project_id: str,
     _user: object = Depends(optional_auth),
 ) -> dict:
-    """Get risk register summary for a project.
+    """List risk register entries plus summary statistics for a project.
+
+    Returns both the persisted entries and an aggregated
+    ``RiskRegisterSummary`` (counts, expected values, risk score).
 
     References:
         AACE RP 57R-09, PMI Risk Management, ISO 31000.
     """
     from dataclasses import asdict
 
-    from src.analytics.risk_register import summarize_register
+    from src.analytics.risk_register import RiskEntry, summarize_register
 
-    result = summarize_register([])
-    return asdict(result)
+    store = get_store()
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+
+    raw_entries = (
+        store.list_risk_entries(project_id, user_id=user_id)
+        if hasattr(store, "list_risk_entries")
+        else []
+    )
+
+    register_entries = [
+        RiskEntry(
+            risk_id=e.get("risk_id", ""),
+            name=e.get("name", ""),
+            description=e.get("description", ""),
+            category=e.get("category", "schedule"),
+            probability=float(e.get("probability", 0.0) or 0.0),
+            impact_days=float(e.get("impact_days", 0.0) or 0.0),
+            impact_cost=float(e.get("impact_cost", 0.0) or 0.0),
+            status=e.get("status", "open"),
+            responsible_party=e.get("responsible_party", ""),
+            mitigation=e.get("mitigation", ""),
+            affected_activities=list(e.get("affected_activities") or []),
+        )
+        for e in raw_entries
+    ]
+
+    summary = summarize_register(register_entries)
+    return {
+        "project_id": project_id,
+        "entries": raw_entries,
+        "summary": asdict(summary),
+    }
+
+
+@router.post("/api/v1/projects/{project_id}/risk-register")
+def add_risk_register_entry(
+    project_id: str,
+    body: dict,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Create or upsert a risk register entry for a project.
+
+    If ``risk_id`` is missing it is auto-assigned (``R001``, ``R002``, …).
+    Re-posting an existing ``risk_id`` replaces that record.
+    """
+    store = get_store()
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+
+    if not hasattr(store, "save_risk_entry"):
+        raise HTTPException(
+            status_code=501,
+            detail="Risk register persistence not supported by this backend",
+        )
+
+    stored = store.save_risk_entry(project_id, body, user_id=user_id)
+    return {"project_id": project_id, "entry": stored}
+
+
+@router.delete("/api/v1/projects/{project_id}/risk-register/{risk_id}")
+def delete_risk_register_entry(
+    project_id: str,
+    risk_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Remove a risk register entry."""
+    store = get_store()
+    user_id = _user["id"] if _user else None  # type: ignore[index]
+
+    if not hasattr(store, "delete_risk_entry"):
+        raise HTTPException(
+            status_code=501,
+            detail="Risk register persistence not supported by this backend",
+        )
+
+    ok = store.delete_risk_entry(project_id, risk_id, user_id=user_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Risk {risk_id} not found")
+    return {"project_id": project_id, "risk_id": risk_id, "deleted": True}

@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getRiskSimulation } from '$lib/api';
+	import {
+		getRiskSimulation,
+		getSimulationRegisterEntries,
+		type SimulationRegisterLinkage
+	} from '$lib/api';
 
 	interface PValue { percentile: number; duration_days: number; delta_days: number; }
 	interface HistogramBin { bin_start: number; bin_end: number; count: number; frequency: number; }
@@ -23,6 +27,7 @@
 	let criticality: CriticalityEntry[] = $state([]);
 	let sensitivity: SensitivityEntry[] = $state([]);
 	let sCurve: SCurvePoint[] = $state([]);
+	let linkage = $state<SimulationRegisterLinkage | null>(null);
 
 	async function loadSimulation() {
 		loading = true;
@@ -39,6 +44,12 @@
 			criticality = data.criticality;
 			sensitivity = data.sensitivity;
 			sCurve = data.s_curve;
+
+			try {
+				linkage = await getSimulationRegisterEntries(simulationId);
+			} catch {
+				linkage = null;
+			}
 		} catch (e: any) {
 			error = e.message;
 		} finally {
@@ -332,5 +343,100 @@
 				<text x="15" y={H / 2} text-anchor="middle" fill="#6b7280" font-size="11" transform="rotate(-90 15 {H / 2})">Cumulative Probability</text>
 			</svg>
 		</div>
+	{/if}
+
+	<!-- Linked Risk Register Entries (Wave 4) -->
+	{#if !loading && !error}
+		{#if linkage && linkage.total > 0}
+			<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mt-8">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+					Linked Risk Register Entries ({linkage.total})
+				</h2>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+					Register entries touching any of the simulation's top sensitivity / criticality activities.
+					<a href="/risk-register" class="text-blue-600 hover:underline">Open register →</a>
+				</p>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead class="bg-gray-50 dark:bg-gray-800">
+							<tr>
+								<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">ID</th>
+								<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">Name</th>
+								<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">Status</th>
+								<th class="text-right py-2 px-3 text-gray-500 dark:text-gray-400">Prob</th>
+								<th class="text-right py-2 px-3 text-gray-500 dark:text-gray-400">Impact</th>
+								<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">Driver Activities</th>
+								<th class="text-right py-2 px-3 text-gray-500 dark:text-gray-400">Max Sensitivity</th>
+								<th class="text-right py-2 px-3 text-gray-500 dark:text-gray-400">Max Criticality</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each linkage.entries as e}
+								{@const maxSens = Math.max(
+									0,
+									...e.matched_activities
+										.map((m) => (m.sensitivity ?? 0))
+										.map(Math.abs)
+								)}
+								{@const maxCrit = Math.max(
+									0,
+									...e.matched_activities.map((m) => m.criticality_pct ?? 0)
+								)}
+								<tr class="border-t border-gray-100 dark:border-gray-800">
+									<td class="py-1.5 px-3 font-mono text-blue-600 dark:text-blue-400">
+										{e.risk_id}
+									</td>
+									<td class="py-1.5 px-3 font-medium text-gray-900 dark:text-gray-100">
+										{e.name}
+									</td>
+									<td class="py-1.5 px-3">
+										<span
+											class="inline-block rounded px-2 py-0.5 text-[10px] font-medium uppercase {e.status === 'open'
+												? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+												: e.status === 'occurred'
+													? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+													: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'}"
+										>
+											{e.status}
+										</span>
+									</td>
+									<td class="py-1.5 px-3 text-right text-gray-700 dark:text-gray-300">
+										{(e.probability * 100).toFixed(0)}%
+									</td>
+									<td class="py-1.5 px-3 text-right text-gray-700 dark:text-gray-300">
+										{e.impact_days}d
+									</td>
+									<td class="py-1.5 px-3 text-gray-600 dark:text-gray-400 text-xs">
+										{e.matched_activities.map((m) => m.activity).join(', ')}
+									</td>
+									<td
+										class="py-1.5 px-3 text-right font-mono {maxSens > 0.5
+											? 'text-red-600 dark:text-red-400'
+											: 'text-gray-500'}"
+									>
+										{maxSens > 0 ? maxSens.toFixed(2) : '—'}
+									</td>
+									<td
+										class="py-1.5 px-3 text-right font-mono {maxCrit > 50
+											? 'text-red-600 dark:text-red-400'
+											: 'text-gray-500'}"
+									>
+										{maxCrit > 0 ? maxCrit.toFixed(0) + '%' : '—'}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{:else if linkage && linkage.total === 0}
+			<div
+				class="mt-8 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-xs text-blue-700 dark:text-blue-400"
+			>
+				No risk register entries touch this simulation's top sensitivity / criticality activities.
+				Add entries to the <a href="/risk-register" class="underline">risk register</a> with their
+				affected activities to see linkage here.
+			</div>
+		{/if}
 	{/if}
 </div>

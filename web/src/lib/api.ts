@@ -485,6 +485,70 @@ export async function getRiskSimulation(id: string): Promise<any> {
 	return request<any>(`/api/v1/risk/simulations/${id}`);
 }
 
+export interface RegisterEntryMatched {
+	activity: string;
+	sensitivity: number | null;
+	criticality_pct: number | null;
+}
+
+export interface LinkedRegisterEntry {
+	risk_id: string;
+	name: string;
+	description?: string;
+	category?: string;
+	probability: number;
+	impact_days: number;
+	impact_cost?: number;
+	status: string;
+	responsible_party?: string;
+	mitigation?: string;
+	affected_activities: string[];
+	matched_activities: RegisterEntryMatched[];
+}
+
+export interface SimulationRegisterLinkage {
+	simulation_id: string;
+	project_id: string;
+	driver_activities: string[];
+	entries: LinkedRegisterEntry[];
+	total: number;
+}
+
+export async function getSimulationRegisterEntries(
+	simulationId: string,
+	topN: number = 15
+): Promise<SimulationRegisterLinkage> {
+	return request<SimulationRegisterLinkage>(
+		`/api/v1/risk/simulations/${simulationId}/register-entries?top_n=${topN}`
+	);
+}
+
+export async function getProjectRiskRegister(
+	projectId: string
+): Promise<{ project_id: string; entries: any[]; summary: any }> {
+	return request(`/api/v1/projects/${projectId}/risk-register`);
+}
+
+export async function addRiskRegisterEntry(
+	projectId: string,
+	entry: Record<string, unknown>
+): Promise<{ project_id: string; entry: Record<string, unknown> }> {
+	return request(`/api/v1/projects/${projectId}/risk-register`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(entry)
+	});
+}
+
+export async function deleteRiskRegisterEntry(
+	projectId: string,
+	riskId: string
+): Promise<{ deleted: boolean }> {
+	return request(`/api/v1/projects/${projectId}/risk-register/${riskId}`, {
+		method: 'DELETE'
+	});
+}
+
 // ── P3: Report Availability ──────────────────────────────
 
 export interface ReportAvailabilityEntry {
