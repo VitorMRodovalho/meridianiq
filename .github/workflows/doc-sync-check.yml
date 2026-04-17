@@ -14,7 +14,7 @@ on:
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
       - "CLAUDE.md"
-      - "web/src/routes/**/+page.svelte"
+      - "web/src/routes/**"
   push:
     branches: [main]
     paths:
@@ -28,7 +28,7 @@ on:
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
       - "CLAUDE.md"
-      - "web/src/routes/**/+page.svelte"
+      - "web/src/routes/**"
 
 jobs:
   check:
