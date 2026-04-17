@@ -313,7 +313,7 @@ class TestCostCompareAPI:
             params={"a": "cost-9998", "b": "cost-9999"},
         )
         assert resp.status_code == 404
-        assert "not retrievable" in resp.json()["detail"]
+        assert "not found" in resp.json()["detail"].lower()
 
     def test_compare_roundtrip_in_memory(self) -> None:
         from src.api.deps import get_store as _get_store

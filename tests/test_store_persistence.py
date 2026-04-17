@@ -560,3 +560,133 @@ class TestRoundTripAnalysis:
             assert o.clndr_id == r.clndr_id
             assert o.day_hr_cnt == r.day_hr_cnt
             assert o.clndr_data == r.clndr_data
+
+
+# ------------------------------------------------------------------ #
+# Tests: SupabaseStore.get_cost_snapshot rehydration (Wave 5)        #
+# ------------------------------------------------------------------ #
+
+
+class TestCostSnapshotRehydration:
+    """Verify save_cost_upload + get_cost_snapshot round-trip on Supabase backend."""
+
+    def _snapshot(self) -> Any:
+        from src.analytics.cost_integration import CBSElement, CostIntegrationResult
+
+        return CostIntegrationResult(
+            cbs_elements=[
+                CBSElement(
+                    cbs_code="C.SP.100",
+                    cbs_level1="Construction",
+                    cbs_level2="Structural",
+                    scope="Foundations",
+                    estimate=1_000_000.0,
+                    contingency=250_000.0,
+                    escalation=50_000.0,
+                    budget=1_300_000.0,
+                ),
+                CBSElement(
+                    cbs_code="C.EN.200",
+                    cbs_level1="Engineering",
+                    scope="Design",
+                    estimate=500_000.0,
+                    contingency=125_000.0,
+                    escalation=25_000.0,
+                    budget=650_000.0,
+                ),
+            ],
+            total_budget=1_500_000.0,
+            total_contingency=375_000.0,
+            total_escalation=75_000.0,
+            program_total=1_950_000.0,
+            budget_date="2026-04-01",
+        )
+
+    def test_round_trip_preserves_budgets(self) -> None:
+        store = MockSupabaseStore()
+        original = self._snapshot()
+
+        snapshot_id = store.save_cost_upload(
+            project_id="p-rehydrate", result=original, source_name="Q2 Budget"
+        )
+        assert snapshot_id, "snapshot_id should be non-empty after save"
+
+        recovered = store.get_cost_snapshot("p-rehydrate", snapshot_id)
+        assert recovered is not None, "snapshot should rehydrate"
+
+        assert len(recovered.cbs_elements) == 2
+        codes = {e.cbs_code for e in recovered.cbs_elements}
+        assert codes == {"C.SP.100", "C.EN.200"}
+
+        by_code = {e.cbs_code: e for e in recovered.cbs_elements}
+        assert by_code["C.SP.100"].estimate == 1_000_000.0
+        assert by_code["C.SP.100"].contingency == 250_000.0
+        assert by_code["C.SP.100"].escalation == 50_000.0
+        assert by_code["C.SP.100"].budget == 1_300_000.0
+
+    def test_round_trip_preserves_totals(self) -> None:
+        store = MockSupabaseStore()
+        original = self._snapshot()
+        snapshot_id = store.save_cost_upload(
+            project_id="p-totals", result=original, source_name="v1"
+        )
+
+        recovered = store.get_cost_snapshot("p-totals", snapshot_id)
+        assert recovered is not None
+        assert recovered.total_budget == 1_500_000.0
+        assert recovered.total_contingency == 375_000.0
+        assert recovered.total_escalation == 75_000.0
+        assert recovered.budget_date == "2026-04-01"
+
+    def test_missing_snapshot_returns_none(self) -> None:
+        store = MockSupabaseStore()
+        assert store.get_cost_snapshot("p-any", "nonexistent-snap-id") is None
+
+    def test_wrong_project_id_returns_none(self) -> None:
+        store = MockSupabaseStore()
+        original = self._snapshot()
+        snapshot_id = store.save_cost_upload(
+            project_id="p-owner", result=original, source_name="v1"
+        )
+        assert store.get_cost_snapshot("p-other", snapshot_id) is None
+
+    def test_compare_works_end_to_end_on_supabase(self) -> None:
+        """Wave 1's compare_cost_snapshots should work through rehydration."""
+        from src.analytics.cost_integration import (
+            CBSElement,
+            CostIntegrationResult,
+            compare_cost_snapshots,
+        )
+
+        store = MockSupabaseStore()
+
+        a = CostIntegrationResult(
+            cbs_elements=[
+                CBSElement(cbs_code="C.A.1", cbs_level1="Con", estimate=1000, budget=1200)
+            ],
+            total_budget=1_000_000,
+            total_contingency=0,
+            total_escalation=0,
+        )
+        b = CostIntegrationResult(
+            cbs_elements=[
+                CBSElement(cbs_code="C.A.1", cbs_level1="Con", estimate=1500, budget=1800)
+            ],
+            total_budget=1_500_000,
+            total_contingency=0,
+            total_escalation=0,
+        )
+
+        id_a = store.save_cost_upload(project_id="p-cmp", result=a, source_name="A")
+        id_b = store.save_cost_upload(project_id="p-cmp", result=b, source_name="B")
+
+        reh_a = store.get_cost_snapshot("p-cmp", id_a)
+        reh_b = store.get_cost_snapshot("p-cmp", id_b)
+        assert reh_a is not None and reh_b is not None
+
+        result = compare_cost_snapshots(reh_a, reh_b, snapshot_a_id=id_a, snapshot_b_id=id_b)
+        # Rehydrated totals are the sum of element estimates — not the input
+        # ``total_budget`` (which is not persisted directly). Delta = 1500 - 1000.
+        assert result.total_budget_delta == 500
+        assert result.changed_count == 1
+        assert result.budget_variance_pct == 50.0

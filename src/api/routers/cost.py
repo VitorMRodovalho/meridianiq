@@ -152,11 +152,7 @@ def compare_cost_snapshots_endpoint(
             missing.append(b)
         raise HTTPException(
             status_code=404,
-            detail=(
-                f"Snapshot(s) not retrievable: {', '.join(missing)}. "
-                "Supabase backend does not yet reconstruct full snapshots from DB "
-                "(v3.8+ task). Compare only works for in-memory snapshots today."
-            ),
+            detail=f"Snapshot(s) not found for this project: {', '.join(missing)}",
         )
 
     from src.analytics.cost_integration import compare_cost_snapshots

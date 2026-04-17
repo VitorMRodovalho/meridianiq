@@ -1858,10 +1858,92 @@ class SupabaseStore:
     def get_cost_snapshot(
         self, project_id: str, snapshot_id: str, user_id: str | None = None
     ) -> Any | None:
-        """Supabase variant not yet implemented — returns None."""
-        # Full reconstruction of CostIntegrationResult from DB rows is a
-        # v3.8+ task; current UI renders the fresh parse result directly.
-        return None
+        """Reconstruct a ``CostIntegrationResult`` from persisted DB rows.
+
+        Joins ``cbs_elements`` + ``cost_snapshots`` for the given
+        ``erp_sources.id`` (which is what ``save_cost_upload`` returns
+        as snapshot_id). Fields that are not persisted (``cbs_level1``,
+        ``cbs_level2``, ``design_package``, ``wbs_code``) are best-effort
+        rehydrated from ``cbs_description`` / ``cbs_level``.
+
+        Returns None when the snapshot is not found or the project_id
+        does not match — mirrors the InMemoryStore behaviour.
+        """
+        from src.analytics.cost_integration import CBSElement, CostIntegrationResult
+
+        try:
+            src_rows = self._select(
+                "erp_sources",
+                filters={"id": snapshot_id, "project_id": project_id},
+                columns="id,display_name,last_sync_at",
+            )
+            if not src_rows:
+                return None
+
+            element_rows = self._select(
+                "cbs_elements",
+                filters={"erp_source_id": snapshot_id},
+                columns="id,cbs_code,cbs_description,cbs_level,sort_order",
+            )
+            if not element_rows:
+                return CostIntegrationResult()
+
+            snapshot_rows = self._select(
+                "cost_snapshots",
+                filters={"erp_source_id": snapshot_id},
+                columns=(
+                    "cbs_element_id,snapshot_date,original_budget,current_budget,"
+                    "contingency_original,escalation"
+                ),
+            )
+            budgets_by_element: dict[str, dict[str, Any]] = {
+                r["cbs_element_id"]: r for r in snapshot_rows
+            }
+
+            result = CostIntegrationResult()
+            budget_date = ""
+            for row in sorted(element_rows, key=lambda r: r.get("sort_order") or 0):
+                budget_row = budgets_by_element.get(row["id"], {})
+                estimate = float(budget_row.get("original_budget") or 0.0)
+                contingency = float(budget_row.get("contingency_original") or 0.0)
+                escalation = float(budget_row.get("escalation") or 0.0)
+                budget = float(budget_row.get("current_budget") or 0.0) or (
+                    estimate + contingency + escalation
+                )
+
+                description = row.get("cbs_description") or ""
+                level = int(row.get("cbs_level") or 1)
+                element = CBSElement(
+                    cbs_code=row.get("cbs_code") or "",
+                    cbs_level1=description if level == 1 else "",
+                    cbs_level2=description if level == 2 else "",
+                    scope=description,
+                    estimate=estimate,
+                    contingency=contingency,
+                    escalation=escalation,
+                    budget=budget,
+                )
+                result.cbs_elements.append(element)
+
+                if not budget_date and budget_row.get("snapshot_date"):
+                    budget_date = str(budget_row["snapshot_date"])
+
+                result.total_budget += estimate
+                result.total_contingency += contingency
+                result.total_escalation += escalation
+
+            result.program_total = (
+                result.total_budget + result.total_contingency + result.total_escalation
+            )
+            result.budget_date = budget_date
+
+            from src.analytics.cost_integration import _generate_insights
+
+            _generate_insights(result)
+            return result
+        except Exception as exc:
+            logger.warning("get_cost_snapshot failed: %s", exc)
+            return None
 
 
 # ------------------------------------------------------------------ #
