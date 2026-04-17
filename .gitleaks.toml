@@ -1,0 +1,64 @@
+title = "MeridianIQ gitleaks config"
+
+# Extends the default gitleaks ruleset (AWS, GCP, Azure, Stripe, GitHub PAT,
+# npm, Slack, Supabase, JWT, and ~100 more provider patterns). We layer
+# project-specific custom rules + allowlists on top.
+
+[extend]
+useDefault = true
+
+# ---- Custom rules -----------------------------------------------------------
+
+[[rules]]
+id = "meridianiq-supabase-service-role-jwt"
+description = "Supabase service_role key is a long-lived ES256 JWT — must NEVER land in the repo"
+# Supabase service-role JWTs are ~200+ chars, 3-part base64url, and the payload
+# contains `"role":"service_role"`. Detect either the raw role claim in a JWT
+# payload or an env-style assignment.
+regex = '''(?i)(supabase[_-]?service[_-]?role|SUPABASE_SERVICE_ROLE_KEY)\s*[:=]\s*['"]?ey[A-Za-z0-9_-]{20,}\.ey[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}'''
+tags = ["key", "supabase", "critical"]
+
+[[rules]]
+id = "meridianiq-fly-api-token"
+description = "Fly.io API token — deploy capability, rotate immediately if leaked"
+regex = '''(?i)(FLY_API_TOKEN|fly[_-]?api[_-]?token)\s*[:=]\s*['"]?(fo1_[A-Za-z0-9_-]{40,}|fm1_[A-Za-z0-9_-]{40,}|fm2_[A-Za-z0-9_-]{40,})'''
+tags = ["key", "flyio", "critical"]
+
+[[rules]]
+id = "meridianiq-absolute-home-path"
+description = "Absolute path to /home/<user>/ leaking through into committed files"
+regex = '''/home/[a-z0-9_]+/(Documents|Downloads|Desktop)/[^\s"'`]+'''
+tags = ["privacy", "low"]
+
+# ---- Allowlists -------------------------------------------------------------
+
+[allowlist]
+description = "Paths and patterns that are NEVER considered secrets"
+
+paths = [
+  # Synthetic fixtures — never real data
+  '''tests/fixtures/''',
+  # Archived legacy Power BI models (sanitised historical snapshot)
+  '''archive/v1-power-bi-models/''',
+  # Generated doc catalogs — derived from code, no secrets
+  '''docs/api-reference\.md''',
+  '''docs/methodologies\.md''',
+  '''docs/mcp-tools\.md''',
+  # Example env file — template with placeholders only
+  '''\.env\.example''',
+  # Lockfiles — can have registry tokens in comments that look secret-y
+  '''web/package-lock\.json''',
+  '''web/yarn\.lock''',
+]
+
+# Inline regex allowlist for known-safe pseudo-secret patterns
+regexes = [
+  # Supabase publishable/anon keys in user-facing docs — they're public by design
+  '''sbp_[0-9a-f]{40,}''',
+  # Documentation placeholder JWT token (all zeros)
+  '''eyJhbGciOiJFUzI1NiJ9\.eyJzdWIiOiIwMDAwMDAwMCIsImlhdCI6MH0''',
+]
+
+commits = [
+  # Pre-governance commits — don't re-flag history
+]
