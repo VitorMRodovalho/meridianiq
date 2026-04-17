@@ -11,12 +11,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.half_step import analyze_half_step
 from src.analytics.mip_observational import analyze_mip_3_1, analyze_mip_3_2
+from src.analytics.mip_subtractive import DelayEvent, analyze_mip_3_6
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
 from ..deps import get_store, get_timeline_store
 from ..schemas import (
+    AppliedDelayEventSchema,
     CreateTimelineRequest,
+    DelayEventSchema,
     DelayTrendPoint,
     DelayTrendResponse,
     HalfStepRequest,
@@ -26,6 +29,8 @@ from ..schemas import (
     Mip32EventSchema,
     Mip32Request,
     Mip32Response,
+    Mip36Request,
+    Mip36Response,
     TimelineDetailSchema,
     TimelineListResponse,
     TimelineSummarySchema,
@@ -358,6 +363,80 @@ def run_mip_3_2(
         total_delay_days=result.total_delay_days,
         events=events,
         cp_activities_ever_critical=result.cp_activities_ever_critical,
+        methodology=result.methodology,
+    )
+
+
+@router.post(
+    "/api/v1/forensic/mip-3-6",
+    response_model=Mip36Response,
+)
+def run_mip_3_6(
+    request: Mip36Request,
+    _user: object = Depends(optional_auth),
+) -> Mip36Response:
+    """Run MIP 3.6 — Modified / Subtractive Single Simulation (Collapsed As-Built).
+
+    Per AACE RP 29R-03 §3.6.  Caller names activities with per-activity
+    delay attributions; the engine shortens those activities and re-runs
+    CPM to compute the "but-for" completion date — what the project
+    duration would have been without those delays.
+
+    Unmatched ``task_id`` values are returned in ``unmatched_events``
+    rather than raising, so the caller can show partial results.
+
+    Args:
+        request: ``Mip36Request`` with project_id + list of delay events.
+
+    Raises:
+        HTTPException: 404 if project missing, 400 on negative days.
+    """
+    store = get_store()
+
+    schedule = store.get(request.project_id)
+    if schedule is None:
+        raise HTTPException(status_code=404, detail=f"Project not found: {request.project_id}")
+
+    events = [
+        DelayEvent(
+            task_id=e.task_id,
+            days=e.days,
+            description=e.description,
+        )
+        for e in request.delay_events
+    ]
+
+    try:
+        result = analyze_mip_3_6(schedule, events)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MIP 3.6 analysis failed: {exc}")
+
+    return Mip36Response(
+        as_built_completion_days=result.as_built_completion_days,
+        but_for_completion_days=result.but_for_completion_days,
+        attributable_delay_days=result.attributable_delay_days,
+        delay_events_applied=[
+            AppliedDelayEventSchema(
+                task_id=a.task_id,
+                task_code=a.task_code,
+                task_name=a.task_name,
+                days_requested=a.days_requested,
+                days_applied=a.days_applied,
+                original_duration_days=a.original_duration_days,
+                collapsed_duration_days=a.collapsed_duration_days,
+                description=a.description,
+                note=a.note,
+            )
+            for a in result.delay_events_applied
+        ],
+        unmatched_events=[
+            DelayEventSchema(task_id=u.task_id, days=u.days, description=u.description)
+            for u in result.unmatched_events
+        ],
+        as_built_critical_path=result.as_built_critical_path,
+        but_for_critical_path=result.but_for_critical_path,
         methodology=result.methodology,
     )
 

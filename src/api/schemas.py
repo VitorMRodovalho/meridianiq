@@ -457,6 +457,50 @@ class Mip32Response(BaseModel):
     methodology: str = "AACE RP 29R-03 MIP 3.2 — Dynamic Logic / Contemporaneous As-Is"
 
 
+class DelayEventSchema(BaseModel):
+    """Caller-supplied delay attribution for MIP 3.6 collapsed as-built."""
+
+    task_id: str
+    days: float = Field(..., ge=0, description="Working days of delay to remove from the activity")
+    description: str = ""
+
+
+class Mip36Request(BaseModel):
+    """Request body for POST /api/v1/forensic/mip-3-6."""
+
+    project_id: str
+    delay_events: list[DelayEventSchema] = Field(
+        ..., min_length=1, description="At least one delay event is required"
+    )
+
+
+class AppliedDelayEventSchema(BaseModel):
+    """Record of a delay event's application."""
+
+    task_id: str
+    task_code: str = ""
+    task_name: str = ""
+    days_requested: float
+    days_applied: float
+    original_duration_days: float
+    collapsed_duration_days: float
+    description: str = ""
+    note: str = ""
+
+
+class Mip36Response(BaseModel):
+    """Response for POST /api/v1/forensic/mip-3-6."""
+
+    as_built_completion_days: float = 0.0
+    but_for_completion_days: float = 0.0
+    attributable_delay_days: float = 0.0
+    delay_events_applied: list[AppliedDelayEventSchema] = Field(default_factory=list)
+    unmatched_events: list[DelayEventSchema] = Field(default_factory=list)
+    as_built_critical_path: list[str] = Field(default_factory=list)
+    but_for_critical_path: list[str] = Field(default_factory=list)
+    methodology: str = "AACE RP 29R-03 MIP 3.6 — Modified / Subtractive Single Simulation"
+
+
 class HalfStepResponse(BaseModel):
     """Response for POST /api/v1/forensic/half-step."""
 

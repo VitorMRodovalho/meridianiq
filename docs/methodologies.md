@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **43 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **44 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -33,6 +33,7 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`ips_reconciliation`](#ips-reconciliation--ips-reconciliation) | Integrated Project Schedule (IPS) Reconciliation Engine. |
 | [`lookahead`](#lookahead--lookahead) | Look-ahead schedule — short-term activity window view. |
 | [`mip_observational`](#mip-observational--mip-observational) | AACE RP 29R-03 observational MIPs — 3.1 (Gross) and 3.2 (As-Is). |
+| [`mip_subtractive`](#mip-subtractive--mip-subtractive) | AACE RP 29R-03 MIP 3.6 — Modified / Subtractive Single Simulation. |
 | [`narrative_report`](#narrative-report--narrative-report) | Narrative report generator — structured text from schedule analysis. |
 | [`nlp_query`](#nlp-query--nlp-query) | NLP Schedule Query engine — natural language interface for schedule data. |
 | [`pareto`](#pareto--pareto) | Time-cost Pareto analysis — multi-scenario trade-off frontier. |
@@ -565,6 +566,30 @@ rely on the existing CPM calculator and schedule comparison engine.
 - AACE RP 29R-03 §3.1 (Static Logic Gross), §3.2 (Dynamic Logic As-Is).
 - SCL Delay and Disruption Protocol, 2nd ed. (2017) — time-slice
 - methodology alignment.
+
+---
+
+### `mip_subtractive` — Mip Subtractive
+
+**AACE RP 29R-03 MIP 3.6 — Modified / Subtractive Single Simulation.**
+
+Implements the "Collapsed As-Built" method per AACE Recommended Practice 29R-03 §3.6.  Starting from the as-built schedule, the caller names the activities (and delay amounts) they attribute to specific events.  The engine shortens each affected activity's duration by the stated amount and re-runs CPM, yielding a "but-for" completion date: *what the project completion would have been had those delay events not occurred*.
+
+The method is **subjective** in that the caller identifies the delay
+events; the computation of the but-for completion is deterministic once
+the events are fixed.  This matches how owner-side counsel typically
+prepares a collapsed as-built: the analyst chooses which delays to
+"remove" and the tool measures the impact.
+
+**Standards implemented:**
+
+- AACE RP 29R-03 — Forensic Schedule Analysis
+
+**Explicit references from docstring:**
+
+- AACE RP 29R-03 §3.6 (Modified / Subtractive Single Simulation).
+- SCL Delay and Disruption Protocol 2nd ed. §22.4 (Collapsed As-Built
+- Analysis).
 
 ---
 
