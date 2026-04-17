@@ -10,10 +10,42 @@ Implements the hybrid multi-org model:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from .auth import optional_auth
+
+
+def _client_ip(request: Request | None) -> str | None:
+    """Extract the originating client IP from a FastAPI Request.
+
+    Honours the first entry of ``X-Forwarded-For`` since the API runs
+    behind Fly.io's edge proxy — the direct ``request.client.host`` is
+    the proxy, not the end user.  When no proxy header is present,
+    falls back to ``request.client.host``.  Returns ``None`` if the
+    request object is missing or has no client (e.g. in some test
+    harnesses that synthesise requests).
+    """
+    if request is None:
+        return None
+    xff = request.headers.get("x-forwarded-for") or request.headers.get("X-Forwarded-For")
+    if xff:
+        # Comma-separated list; the leftmost entry is the original client.
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    real_ip = request.headers.get("x-real-ip") or request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+    return request.client.host if request.client else None
+
+
+def _user_agent(request: Request | None) -> str | None:
+    if request is None:
+        return None
+    ua = request.headers.get("user-agent") or request.headers.get("User-Agent")
+    return ua if ua else None
+
 
 router = APIRouter(prefix="/api/v1", tags=["organizations"])
 
@@ -94,8 +126,15 @@ def _audit(
     entity_type: str,
     entity_id: str | None,
     details: dict | None = None,
+    request: Request | None = None,
 ):
-    """Write an audit log entry."""
+    """Write an audit log entry.
+
+    When ``request`` is supplied, the originating client IP (honouring
+    ``X-Forwarded-For`` for the Fly.io edge proxy) and User-Agent are
+    captured on the row. Required for litigation-grade traceability per
+    the ``audit_log`` schema in migration 007.
+    """
     client = _get_supabase()
     client.table("audit_log").insert(
         {
@@ -105,6 +144,8 @@ def _audit(
             "entity_type": entity_type,
             "entity_id": entity_id,
             "details": details or {},
+            "ip_address": _client_ip(request),
+            "user_agent": _user_agent(request),
         }
     ).execute()
 
@@ -136,7 +177,11 @@ def list_organizations(user: dict = Depends(optional_auth)):
 
 
 @router.post("/organizations")
-def create_organization(req: CreateOrgRequest, user: dict = Depends(optional_auth)):
+def create_organization(
+    req: CreateOrgRequest,
+    request: Request,
+    user: dict = Depends(optional_auth),
+):
     """Create a new organization and add the creator as owner."""
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -177,7 +222,15 @@ def create_organization(req: CreateOrgRequest, user: dict = Depends(optional_aut
         }
     ).execute()
 
-    _audit(org["id"], user["id"], "create", "organization", org["id"], {"name": req.name})
+    _audit(
+        org["id"],
+        user["id"],
+        "create",
+        "organization",
+        org["id"],
+        {"name": req.name},
+        request=request,
+    )
 
     return {"organization": org}
 
@@ -212,7 +265,12 @@ def get_organization(org_id: str, user: dict = Depends(optional_auth)):
 
 
 @router.post("/organizations/{org_id}/invite")
-def invite_member(org_id: str, req: InviteMemberRequest, user: dict = Depends(optional_auth)):
+def invite_member(
+    org_id: str,
+    req: InviteMemberRequest,
+    request: Request,
+    user: dict = Depends(optional_auth),
+):
     """Invite a user to the organization by email."""
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -260,13 +318,19 @@ def invite_member(org_id: str, req: InviteMemberRequest, user: dict = Depends(op
             "email": req.email,
             "role": req.role,
         },
+        request=request,
     )
 
     return {"status": "invited", "email": req.email, "role": req.role}
 
 
 @router.delete("/organizations/{org_id}/members/{member_user_id}")
-def remove_member(org_id: str, member_user_id: str, user: dict = Depends(optional_auth)):
+def remove_member(
+    org_id: str,
+    member_user_id: str,
+    request: Request,
+    user: dict = Depends(optional_auth),
+):
     """Remove a member from the organization."""
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -278,7 +342,14 @@ def remove_member(org_id: str, member_user_id: str, user: dict = Depends(optiona
         "user_id", member_user_id
     ).execute()
 
-    _audit(org_id, user["id"], "remove_member", "membership", member_user_id)
+    _audit(
+        org_id,
+        user["id"],
+        "remove_member",
+        "membership",
+        member_user_id,
+        request=request,
+    )
 
     return {"status": "removed"}
 
@@ -287,7 +358,11 @@ def remove_member(org_id: str, member_user_id: str, user: dict = Depends(optiona
 
 
 @router.post("/shares/project")
-def share_project(req: ShareProjectRequest, user: dict = Depends(optional_auth)):
+def share_project(
+    req: ShareProjectRequest,
+    request: Request,
+    user: dict = Depends(optional_auth),
+):
     """Share a project with another organization."""
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -323,6 +398,7 @@ def share_project(req: ShareProjectRequest, user: dict = Depends(optional_auth))
             "shared_with_org": req.shared_with_org_id,
             "permission": req.permission,
         },
+        request=request,
     )
 
     return {"status": "shared", "permission": req.permission}
@@ -410,7 +486,10 @@ def list_value_milestones(project_id: str, user: dict = Depends(optional_auth)):
 
 @router.post("/projects/{project_id}/value-milestones")
 def create_value_milestone(
-    project_id: str, req: ValueMilestoneRequest, user: dict = Depends(optional_auth)
+    project_id: str,
+    req: ValueMilestoneRequest,
+    request: Request,
+    user: dict = Depends(optional_auth),
 ):
     """Create a value milestone linking a schedule milestone to commercial value."""
     if not user:
@@ -453,6 +532,7 @@ def create_value_milestone(
                 "task_code": req.task_code,
                 "value": req.commercial_value,
             },
+            request=request,
         )
 
     return {"milestone": result.data[0] if result.data else {}}
