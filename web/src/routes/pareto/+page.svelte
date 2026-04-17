@@ -84,8 +84,8 @@
 
 	<div class="flex gap-4 mb-6">
 		<div class="flex-1">
-			<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Schedule</label>
-			<select bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
+			<label for="pareto-schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Schedule</label>
+			<select id="pareto-schedule" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
 				<option value="">Select schedule...</option>
 				{#each projects as p}
 					<option value={p.project_id}>{p.name || p.project_id}</option>

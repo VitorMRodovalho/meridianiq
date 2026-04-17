@@ -164,6 +164,7 @@
 			<button
 				onclick={askQuestion}
 				disabled={!selectedProject || !question.trim() || loading}
+				aria-label="Send question"
 				class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

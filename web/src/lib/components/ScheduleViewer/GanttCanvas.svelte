@@ -49,8 +49,15 @@
 	const PAD_LEFT = 0;
 	const HEADER_H = 28;
 	const BAR_H = 14;
-	const BAR_PAD = (rowHeight - BAR_H) / 2;
+	const BAR_PAD = $derived((rowHeight - BAR_H) / 2);
 	const BUFFER_ROWS = 20;
+
+	function activateOnKey(e: KeyboardEvent, taskId: string) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onClick?.(taskId);
+		}
+	}
 
 	const totalDays = $derived(Math.max(1, daysBetween(startDate, endDate)));
 
@@ -223,6 +230,7 @@
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}
 					onclick={() => onClick?.(act.task_id)}
+					onkeydown={(e) => activateOnKey(e, act.task_id)}
 					class="cursor-pointer"
 				>
 					<polygon points="0,-6 6,0 0,6 -6,0" fill={color} stroke="white" stroke-width="1" />
@@ -236,6 +244,7 @@
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}
 					onclick={() => onClick?.(act.task_id)}
+					onkeydown={(e) => activateOnKey(e, act.task_id)}
 					class="cursor-pointer"
 				>
 					<!-- Background bar (full duration) -->

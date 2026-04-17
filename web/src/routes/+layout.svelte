@@ -364,8 +364,23 @@
 
 	<!-- Keyboard shortcuts modal -->
 	{#if showShortcuts}
-		<div class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center" onclick={() => showShortcuts = false} role="dialog" aria-label="Keyboard shortcuts">
-			<div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full mx-4" onclick={(e) => e.stopPropagation()}>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center"
+			onclick={() => showShortcuts = false}
+			onkeydown={(e) => { if (e.key === 'Escape') showShortcuts = false; }}
+			role="dialog"
+			aria-modal="true"
+			aria-label="Keyboard shortcuts"
+			tabindex="-1"
+		>
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full mx-4"
+				onclick={(e) => e.stopPropagation()}
+			>
 				<div class="flex items-center justify-between mb-4">
 					<h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">Keyboard Shortcuts</h2>
 					<button onclick={() => showShortcuts = false} class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Close">

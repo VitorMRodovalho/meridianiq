@@ -120,8 +120,8 @@
 
 	<!-- Upload -->
 	<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-		<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload CBS Excel (.xlsx)</label>
-		<input type="file" accept=".xlsx,.xls" onchange={handleUpload} class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-950 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100" />
+		<label for="cbs-upload" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload CBS Excel (.xlsx)</label>
+		<input id="cbs-upload" type="file" accept=".xlsx,.xls" onchange={handleUpload} class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-950 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100" />
 	</div>
 
 	{#if loading}
