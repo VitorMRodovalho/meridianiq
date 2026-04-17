@@ -4,14 +4,10 @@
 
 from __future__ import annotations
 
+import importlib.util
+
 import pytest
 from fastapi.testclient import TestClient
-
-_openpyxl_available = True
-try:
-    import openpyxl  # noqa: F401
-except ImportError:
-    _openpyxl_available = False
 
 from src.analytics.aia_g703 import (
     G703ContinuationSheet,
@@ -21,6 +17,8 @@ from src.analytics.aia_g703 import (
 from src.analytics.cost_integration import CBSElement, CostIntegrationResult
 from src.api.app import app
 from src.api.deps import get_store
+
+_openpyxl_available = importlib.util.find_spec("openpyxl") is not None
 
 
 def _sample_snapshot() -> CostIntegrationResult:
