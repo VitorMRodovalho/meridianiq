@@ -118,8 +118,7 @@ class TestBuildG702:
         assert g702.retainage_stored_materials == 32_500.0
         assert g702.retainage_completed_work == 97_500.0
         assert (
-            g702.retainage_stored_materials + g702.retainage_completed_work
-            == g702.total_retainage
+            g702.retainage_stored_materials + g702.retainage_completed_work == g702.total_retainage
         )
 
     def test_zero_retainage_split_defaults_to_all_completed(self) -> None:

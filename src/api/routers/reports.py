@@ -877,13 +877,9 @@ def _generate_aia_g702_report(
     if hasattr(store, "get_cost_snapshot"):
         snapshot = store.get_cost_snapshot(request.project_id, snapshot_id)
     if snapshot is None:
-        raise HTTPException(
-            status_code=404, detail=f"CBS snapshot not retrievable: {snapshot_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"CBS snapshot not retrievable: {snapshot_id}")
 
-    project_name = (
-        schedule.projects[0].proj_short_name if schedule.projects else request.project_id
-    )
+    project_name = schedule.projects[0].proj_short_name if schedule.projects else request.project_id
 
     from src.analytics.aia_g702 import G702ChangeOrder, build_g702_from_g703
     from src.analytics.aia_g703 import build_g703_from_cbs

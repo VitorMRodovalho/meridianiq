@@ -162,9 +162,7 @@ def build_g702_from_g703(
         period_to=getattr(g703, "period_to", "") or "",
         contract_for=contract_for or getattr(g703, "contract_for", "") or "",
         architects_project_number=(
-            architects_project_number
-            or getattr(g703, "architects_project_number", "")
-            or ""
+            architects_project_number or getattr(g703, "architects_project_number", "") or ""
         ),
         contract_date=contract_date or getattr(g703, "contract_date", "") or "",
         owner=owner,
@@ -173,9 +171,7 @@ def build_g702_from_g703(
         via_architect=via_architect,
         original_contract_sum=float(original_contract_sum),
         change_order=change_order,
-        total_completed_and_stored=float(
-            getattr(g703, "total_completed_and_stored", 0.0) or 0.0
-        ),
+        total_completed_and_stored=float(getattr(g703, "total_completed_and_stored", 0.0) or 0.0),
         retainage_completed_work=retainage_completed,
         retainage_stored_materials=retainage_stored,
         previous_certificates_total=float(previous_certificates_total),
