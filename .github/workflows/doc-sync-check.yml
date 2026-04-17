@@ -9,9 +9,12 @@ on:
       - "src/export/**"
       - "src/mcp_server.py"
       - "scripts/generate_*.py"
+      - "scripts/check_stats_consistency.py"
       - "docs/api-reference.md"
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
+      - "CLAUDE.md"
+      - "web/src/routes/**/+page.svelte"
   push:
     branches: [main]
     paths:
@@ -20,9 +23,12 @@ on:
       - "src/export/**"
       - "src/mcp_server.py"
       - "scripts/generate_*.py"
+      - "scripts/check_stats_consistency.py"
       - "docs/api-reference.md"
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
+      - "CLAUDE.md"
+      - "web/src/routes/**/+page.svelte"
 
 jobs:
   check:
@@ -43,6 +49,9 @@ jobs:
           python scripts/generate_api_reference.py
           python scripts/generate_methodology_catalog.py
           python scripts/generate_mcp_catalog.py
+
+      - name: Check stats consistency with CLAUDE.md
+        run: python scripts/check_stats_consistency.py
 
       - name: Fail if committed catalogs differ from generated
         run: |
