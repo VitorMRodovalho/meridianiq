@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **112 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **113 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -16,7 +16,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [TIA](#tia) — 4 endpoints
 - [EVM](#evm) — 6 endpoints
 - [Risk](#risk) — 8 endpoints
-- [Analysis](#analysis) — 10 endpoints
+- [Analysis](#analysis) — 11 endpoints
 - [Intelligence](#intelligence) — 8 endpoints
 - [What-If](#what-if) — 7 endpoints
 - [Schedule Ops](#schedule-ops) — 7 endpoints
@@ -138,6 +138,7 @@ _CPM, DCMA 14-point, schedule view, calendar, attribution_
 | `GET` | `/api/v1/projects/{project_id}/float-distribution` | Return float distribution buckets for a project. | `FloatDistributionResponse` | optional |
 | `GET` | `/api/v1/projects/{project_id}/milestones` | Return all milestone activities for a project. | `MilestonesResponse` | optional |
 | `GET` | `/api/v1/projects/{project_id}/schedule-view` | Get pre-computed layout data for the interactive Gantt viewer. | `dict` | optional |
+| `DELETE` | `/api/v1/projects/{project_id}/schedule-view/cache` | Drop all cached schedule-view variants (every baseline) for a project. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/schedule-view/resources` | Per-resource daily demand for histogram rendering below the Gantt. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/validation` | Run DCMA 14-Point assessment for a project. | `ValidationResponse` | optional |
 

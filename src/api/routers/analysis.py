@@ -377,6 +377,16 @@ def get_schedule_view(
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # When the caller forces a recompute, also purge sibling cache entries
+    # for other baseline variants of this project — they were computed
+    # against the same underlying schedule and are presumed stale for the
+    # same reason this one is.
+    if force and hasattr(store, "invalidate_analysis"):
+        try:
+            store.invalidate_analysis(project_id, analysis_type_prefix="schedule_view:")
+        except Exception:
+            pass
+
     baseline = store.get(baseline_id) if baseline_id else None
     result = build_schedule_view(schedule, baseline=baseline)
     result_dict = asdict(result)
@@ -385,6 +395,37 @@ def get_schedule_view(
     store.save_analysis(project_id, cache_key, result_dict)
 
     return result_dict
+
+
+@router.delete("/api/v1/projects/{project_id}/schedule-view/cache")
+def invalidate_schedule_view_cache(
+    project_id: str,
+    _user: object = Depends(optional_auth),
+) -> dict:
+    """Drop all cached schedule-view variants (every baseline) for a project.
+
+    Call this when a baseline schedule is replaced or when the underlying
+    XER has been re-uploaded — subsequent ``/schedule-view`` requests will
+    recompute CPM from scratch.
+
+    Returns:
+        ``{"project_id": ..., "invalidated": N}`` where ``N`` is the
+        number of cached rows that were cleared (0 if nothing was
+        cached, store-dependent).
+    """
+    store = get_store()
+    if store.get(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    count = 0
+    if hasattr(store, "invalidate_analysis"):
+        try:
+            count = int(
+                store.invalidate_analysis(project_id, analysis_type_prefix="schedule_view:")
+            )
+        except Exception:
+            count = 0
+    return {"project_id": project_id, "invalidated": count}
 
 
 @router.get("/api/v1/projects/{project_id}/schedule-view/resources")

@@ -277,6 +277,8 @@ class InMemoryStore:
         self._project_owners.clear()
         self._programs.clear()
         self._program_counter = 0
+        self._analyses.clear()
+        self._comparisons.clear()
         self._upload_program.clear()
         self._upload_revision.clear()
         self._cost_uploads.clear()
@@ -310,6 +312,36 @@ class InMemoryStore:
             if entry["project_id"] == project_id and entry["analysis_type"] == analysis_type:
                 return entry["results"]
         return None
+
+    def invalidate_analysis(
+        self,
+        project_id: str,
+        analysis_type_prefix: str | None = None,
+    ) -> int:
+        """Delete cached analysis rows for a project.
+
+        Args:
+            project_id: The project whose cache should be cleared.
+            analysis_type_prefix: If given, only invalidate rows whose
+                ``analysis_type`` starts with this string (e.g.
+                ``"schedule_view:"`` clears every baseline variant).
+                If ``None``, invalidates all analysis rows for the project.
+
+        Returns:
+            Number of cached rows deleted.
+        """
+        to_delete: list[str] = []
+        for aid, entry in self._analyses.items():
+            if entry["project_id"] != project_id:
+                continue
+            if analysis_type_prefix is not None and not entry["analysis_type"].startswith(
+                analysis_type_prefix
+            ):
+                continue
+            to_delete.append(aid)
+        for aid in to_delete:
+            del self._analyses[aid]
+        return len(to_delete)
 
     # -- comparisons -----------------------------------------------------
 
@@ -1497,6 +1529,45 @@ class SupabaseStore:
             if entry["project_id"] == project_id and entry["analysis_type"] == analysis_type:
                 return entry["results"]
         return None
+
+    def invalidate_analysis(
+        self,
+        project_id: str,
+        analysis_type_prefix: str | None = None,
+    ) -> int:
+        """Delete cached analysis rows for a project.
+
+        Best-effort against Supabase; falls back to clearing the local
+        in-memory mirror if the remote call fails. See the
+        ``InMemoryStore`` docstring for semantics.
+        """
+        removed = 0
+
+        # Remote delete — Supabase requires us to match rows first when
+        # doing a prefix match, since PostgREST `.like()` is supported via
+        # the query builder.
+        try:
+            query = self._client.table("analysis_results").delete().eq("project_id", project_id)
+            if analysis_type_prefix is not None:
+                query = query.like("analysis_type", f"{analysis_type_prefix}%")
+            result = query.execute()
+            removed = len(result.data or [])
+        except Exception as exc:
+            logger.warning("invalidate_analysis Supabase delete failed: %s", exc)
+
+        # Always mirror the purge locally so cached fallbacks don't win.
+        to_delete = [
+            aid
+            for aid, entry in self._analyses.items()
+            if entry["project_id"] == project_id
+            and (
+                analysis_type_prefix is None
+                or entry["analysis_type"].startswith(analysis_type_prefix)
+            )
+        ]
+        for aid in to_delete:
+            del self._analyses[aid]
+        return max(removed, len(to_delete))
 
     # -- comparisons -----------------------------------------------------
 
