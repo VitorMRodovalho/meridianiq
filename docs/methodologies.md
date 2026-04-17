@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **44 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **45 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -32,6 +32,7 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`health_score`](#health-score--health-score) | Composite Schedule Health Score per DCMA + GAO. |
 | [`ips_reconciliation`](#ips-reconciliation--ips-reconciliation) | Integrated Project Schedule (IPS) Reconciliation Engine. |
 | [`lookahead`](#lookahead--lookahead) | Look-ahead schedule — short-term activity window view. |
+| [`mip_additive`](#mip-additive--mip-additive) | AACE RP 29R-03 MIP 3.5 — Modified / Additive Multiple Base. |
 | [`mip_observational`](#mip-observational--mip-observational) | AACE RP 29R-03 observational MIPs — 3.1 (Gross) and 3.2 (As-Is). |
 | [`mip_subtractive`](#mip-subtractive--mip-subtractive) | AACE RP 29R-03 MIP 3.6 — Modified / Subtractive Single Simulation. |
 | [`narrative_report`](#narrative-report--narrative-report) | Narrative report generator — structured text from schedule analysis. |
@@ -533,6 +534,33 @@ Filters activities to a configurable time window (typically 2-4 weeks) relative 
 
 - PMI Practice Standard for Scheduling — Look-Ahead Planning
 - Lean Construction Institute — Last Planner System (LPS)
+
+---
+
+### `mip_additive` — Mip Additive
+
+**AACE RP 29R-03 MIP 3.5 — Modified / Additive Multiple Base.**
+
+Implements the "Impacted As-Planned, Multiple Base" method per AACE Recommended Practice 29R-03 §3.5.  For each analysis window (pair of consecutive schedule updates), the caller attributes delay events (activity + days) to that window.  The engine clones the window's baseline (first schedule of the pair), *extends* each affected activity's duration by the event days, re-runs CPM, and reports the impact as the difference between the impacted completion and the original (as-planned) baseline completion.
+
+This mirrors ``mip_subtractive`` in structure but applies additive
+rather than subtractive edits — i.e. "add these delay events to the
+schedule and measure the resulting slippage" vs. MIP 3.6/3.7's "remove
+these delay events and measure the but-for completion".
+
+The method is **subjective** in that the caller identifies the delay
+events; the computation of the impacted completion is deterministic
+once the events are fixed.
+
+**Standards implemented:**
+
+- AACE RP 29R-03 — Forensic Schedule Analysis
+
+**Explicit references from docstring:**
+
+- AACE RP 29R-03 §3.5 (Modified / Additive Multiple Base).
+- SCL Delay and Disruption Protocol 2nd ed. §22.2 (Impacted
+- As-Planned Analysis).
 
 ---
 

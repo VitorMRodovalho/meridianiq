@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.half_step import analyze_half_step
 from src.analytics.mip_observational import analyze_mip_3_1, analyze_mip_3_2
+from src.analytics.mip_additive import analyze_mip_3_5
 from src.analytics.mip_subtractive import (
     DelayEvent,
     WindowDelayEvents,
@@ -22,6 +23,7 @@ from src.parser.models import ParsedSchedule
 from ..auth import optional_auth
 from ..deps import get_store, get_timeline_store
 from ..schemas import (
+    AppliedAdditiveEventSchema,
     AppliedDelayEventSchema,
     CreateTimelineRequest,
     DelayEventSchema,
@@ -34,6 +36,9 @@ from ..schemas import (
     Mip32EventSchema,
     Mip32Request,
     Mip32Response,
+    Mip35Request,
+    Mip35Response,
+    Mip35WindowSchema,
     Mip36Request,
     Mip36Response,
     Mip37Request,
@@ -539,6 +544,105 @@ def run_mip_3_7(
         schedule_count=result.schedule_count,
         window_count=result.window_count,
         total_attributable_delay_days=result.total_attributable_delay_days,
+        windows=windows,
+        methodology=result.methodology,
+    )
+
+
+@router.post(
+    "/api/v1/forensic/mip-3-5",
+    response_model=Mip35Response,
+)
+def run_mip_3_5(
+    request: Mip35Request,
+    _user: object = Depends(optional_auth),
+) -> Mip35Response:
+    """Run MIP 3.5 — Modified / Additive Multiple Base (Impacted As-Planned).
+
+    Per AACE RP 29R-03 §3.5.  For each analysis window (schedule pair),
+    the window's baseline (first schedule) is impacted with caller-
+    attributed delay events — each event extends the named activity's
+    duration by the given days.  The impact is measured as impacted
+    completion minus baseline completion for that window.
+
+    Mirrors MIP 3.7 structurally but applies additive (impact)
+    semantics rather than subtractive (but-for) semantics.
+
+    Args:
+        request: project_ids (minimum 2) + optional per-window delay
+            event bundles.
+
+    Raises:
+        HTTPException: 404 if any project is missing, 400 on invalid
+            window_number or negative days.
+    """
+    store = get_store()
+
+    schedules: list[ParsedSchedule] = []
+    for pid in request.project_ids:
+        schedule = store.get(pid)
+        if schedule is None:
+            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
+        schedules.append(schedule)
+
+    bundles = [
+        WindowDelayEvents(
+            window_number=b.window_number,
+            events=[
+                DelayEvent(task_id=e.task_id, days=e.days, description=e.description)
+                for e in b.events
+            ],
+        )
+        for b in request.window_delay_events
+    ]
+
+    try:
+        result = analyze_mip_3_5(
+            schedules,
+            window_delay_events=bundles,
+            project_ids=list(request.project_ids),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MIP 3.5 analysis failed: {exc}")
+
+    windows = [
+        Mip35WindowSchema(
+            window_number=w.window_number,
+            window_id=w.window_id,
+            baseline_project_id=w.baseline_project_id,
+            update_project_id=w.update_project_id,
+            baseline_completion_days=w.baseline_completion_days,
+            impacted_completion_days=w.impacted_completion_days,
+            impact_delay_days=w.impact_delay_days,
+            delay_events_applied=[
+                AppliedAdditiveEventSchema(
+                    task_id=a.task_id,
+                    task_code=a.task_code,
+                    task_name=a.task_name,
+                    days_requested=a.days_requested,
+                    days_applied=a.days_applied,
+                    original_duration_days=a.original_duration_days,
+                    impacted_duration_days=a.impacted_duration_days,
+                    description=a.description,
+                    note=a.note,
+                )
+                for a in w.delay_events_applied
+            ],
+            unmatched_events=[
+                DelayEventSchema(task_id=u.task_id, days=u.days, description=u.description)
+                for u in w.unmatched_events
+            ],
+        )
+        for w in result.windows
+    ]
+
+    return Mip35Response(
+        project_ids=result.project_ids,
+        schedule_count=result.schedule_count,
+        window_count=result.window_count,
+        total_impact_delay_days=result.total_impact_delay_days,
         windows=windows,
         methodology=result.methodology,
     )

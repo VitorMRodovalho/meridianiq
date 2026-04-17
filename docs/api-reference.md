@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **111 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **112 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -12,7 +12,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Projects](#projects) — 3 endpoints
 - [Programs](#programs) — 5 endpoints
 - [Comparison](#comparison) — 1 endpoints
-- [Forensics](#forensics) — 9 endpoints
+- [Forensics](#forensics) — 10 endpoints
 - [TIA](#tia) — 4 endpoints
 - [EVM](#evm) — 6 endpoints
 - [Risk](#risk) — 8 endpoints
@@ -78,6 +78,7 @@ _CPA per AACE RP 29R-03, delay waterfall_
 | `POST` | `/api/v1/forensic/half-step` | Run a half-step (bifurcation) analysis between two schedule updates. | `HalfStepResponse` | optional |
 | `POST` | `/api/v1/forensic/mip-3-1` | Run MIP 3.1 — Observational Static Logic / Gross comparison. | `Mip31Response` | optional |
 | `POST` | `/api/v1/forensic/mip-3-2` | Run MIP 3.2 — Observational Dynamic Logic / Contemporaneous As-Is. | `Mip32Response` | optional |
+| `POST` | `/api/v1/forensic/mip-3-5` | Run MIP 3.5 — Modified / Additive Multiple Base (Impacted As-Planned). | `Mip35Response` | optional |
 | `POST` | `/api/v1/forensic/mip-3-6` | Run MIP 3.6 — Modified / Subtractive Single Simulation (Collapsed As-Built). | `Mip36Response` | optional |
 | `POST` | `/api/v1/forensic/mip-3-7` | Run MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed). | `Mip37Response` | optional |
 | `GET` | `/api/v1/forensic/timelines` | List all forensic timelines. | `TimelineListResponse` | optional |
