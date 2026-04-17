@@ -184,3 +184,128 @@ def analyze_mip_3_6(
     )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class WindowDelayEvents:
+    """Delay events attributed to a single analysis window.
+
+    ``window_number`` is 1-based.  Window N spans between
+    ``schedules[N-1]`` (start) and ``schedules[N]`` (end).  Delay events
+    are applied to the end schedule, per the MIP 3.6 pattern.
+    """
+
+    window_number: int
+    events: list[DelayEvent] = field(default_factory=list)
+
+
+@dataclass
+class Mip37WindowResult:
+    """Per-window output of MIP 3.7."""
+
+    window_number: int
+    window_id: str
+    baseline_project_id: str = ""
+    update_project_id: str = ""
+    as_built_completion_days: float = 0.0
+    but_for_completion_days: float = 0.0
+    attributable_delay_days: float = 0.0
+    delay_events_applied: list[AppliedDelayEvent] = field(default_factory=list)
+    unmatched_events: list[DelayEvent] = field(default_factory=list)
+
+
+@dataclass
+class Mip37Result:
+    """Output of MIP 3.7 — Windowed Collapsed As-Built analysis."""
+
+    project_ids: list[str] = field(default_factory=list)
+    schedule_count: int = 0
+    window_count: int = 0
+    total_attributable_delay_days: float = 0.0
+    windows: list[Mip37WindowResult] = field(default_factory=list)
+    methodology: str = "AACE RP 29R-03 MIP 3.7 — Modified / Subtractive Multiple Simulation"
+
+
+def analyze_mip_3_7(
+    schedules: list[ParsedSchedule],
+    window_delay_events: list[WindowDelayEvents] | None = None,
+    project_ids: list[str] | None = None,
+    hours_per_day: float = _HOURS_PER_DAY,
+) -> Mip37Result:
+    """Run MIP 3.7 — Windowed Collapsed As-Built analysis.
+
+    Applies the MIP 3.6 pattern to each analysis window: one collapsed
+    simulation per schedule pair.  The window spans schedule[N-1] →
+    schedule[N]; delay events attributed to window N are removed from
+    schedule[N] and the resulting but-for completion measured.
+
+    Args:
+        schedules: Parsed schedules in chronological order, minimum 2.
+        window_delay_events: Optional delay-event bundles keyed by window
+            number (1-based).  Windows without an entry collapse with
+            zero events (as-built == but-for).
+        project_ids: Optional IDs parallel to ``schedules``.
+        hours_per_day: Hours per working day (matches CPM default).
+
+    Returns:
+        A populated ``Mip37Result`` — per-window breakdown plus total.
+
+    Raises:
+        ValueError: If fewer than 2 schedules or a window_number is
+            outside the valid range.
+
+    Reference: AACE RP 29R-03 §3.7.
+    """
+    if len(schedules) < 2:
+        raise ValueError("MIP 3.7 requires at least 2 schedule updates")
+
+    ids = list(project_ids or [""] * len(schedules))
+    if len(ids) < len(schedules):
+        ids.extend([""] * (len(schedules) - len(ids)))
+
+    window_count = len(schedules) - 1
+    bundles = {w.window_number: w for w in (window_delay_events or [])}
+
+    for bundle in bundles.values():
+        if bundle.window_number < 1 or bundle.window_number > window_count:
+            raise ValueError(f"window_number {bundle.window_number} out of range 1..{window_count}")
+
+    result = Mip37Result(
+        project_ids=ids[: len(schedules)],
+        schedule_count=len(schedules),
+        window_count=window_count,
+    )
+
+    total = 0.0
+    for n in range(1, window_count + 1):
+        baseline_schedule = schedules[n - 1]
+        end_schedule = schedules[n]
+        events = bundles[n].events if n in bundles else []
+
+        per_window = analyze_mip_3_6(end_schedule, events, hours_per_day=hours_per_day)
+
+        result.windows.append(
+            Mip37WindowResult(
+                window_number=n,
+                window_id=f"W{n:02d}",
+                baseline_project_id=ids[n - 1],
+                update_project_id=ids[n],
+                as_built_completion_days=per_window.as_built_completion_days,
+                but_for_completion_days=per_window.but_for_completion_days,
+                attributable_delay_days=per_window.attributable_delay_days,
+                delay_events_applied=per_window.delay_events_applied,
+                unmatched_events=per_window.unmatched_events,
+            )
+        )
+        total += per_window.attributable_delay_days
+
+    # Silence lint: we discard the baseline_schedule reference intentionally.
+    del baseline_schedule
+
+    result.total_attributable_delay_days = round(total, 2)
+    return result

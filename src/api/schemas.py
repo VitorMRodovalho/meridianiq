@@ -501,6 +501,52 @@ class Mip36Response(BaseModel):
     methodology: str = "AACE RP 29R-03 MIP 3.6 — Modified / Subtractive Single Simulation"
 
 
+class WindowDelayEventsSchema(BaseModel):
+    """Delay events attributed to a single analysis window (MIP 3.7)."""
+
+    window_number: int = Field(..., ge=1, description="1-based window index")
+    events: list[DelayEventSchema] = Field(default_factory=list)
+
+
+class Mip37Request(BaseModel):
+    """Request body for POST /api/v1/forensic/mip-3-7."""
+
+    project_ids: list[str] = Field(
+        ...,
+        min_length=2,
+        description="At least 2 project IDs in chronological order",
+    )
+    window_delay_events: list[WindowDelayEventsSchema] = Field(
+        default_factory=list,
+        description="Delay events keyed by window_number; omitted windows default to empty",
+    )
+
+
+class Mip37WindowSchema(BaseModel):
+    """One analysis window's collapsed-as-built result."""
+
+    window_number: int
+    window_id: str
+    baseline_project_id: str = ""
+    update_project_id: str = ""
+    as_built_completion_days: float = 0.0
+    but_for_completion_days: float = 0.0
+    attributable_delay_days: float = 0.0
+    delay_events_applied: list[AppliedDelayEventSchema] = Field(default_factory=list)
+    unmatched_events: list[DelayEventSchema] = Field(default_factory=list)
+
+
+class Mip37Response(BaseModel):
+    """Response for POST /api/v1/forensic/mip-3-7."""
+
+    project_ids: list[str] = Field(default_factory=list)
+    schedule_count: int = 0
+    window_count: int = 0
+    total_attributable_delay_days: float = 0.0
+    windows: list[Mip37WindowSchema] = Field(default_factory=list)
+    methodology: str = "AACE RP 29R-03 MIP 3.7 — Modified / Subtractive Multiple Simulation"
+
+
 class HalfStepResponse(BaseModel):
     """Response for POST /api/v1/forensic/half-step."""
 

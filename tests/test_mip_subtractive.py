@@ -12,7 +12,10 @@ from fastapi.testclient import TestClient
 from src.analytics.mip_subtractive import (
     DelayEvent,
     Mip36Result,
+    Mip37Result,
+    WindowDelayEvents,
     analyze_mip_3_6,
+    analyze_mip_3_7,
 )
 from src.api.app import app
 from src.api.deps import get_store
@@ -277,6 +280,196 @@ class TestMip36Router:
 # ---------------------------------------------------------------------------
 # Integration with real fixture — verifies CPM is actually re-run
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# MIP 3.7 unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestMip37Unit:
+    def test_requires_two_schedules(self) -> None:
+        with pytest.raises(ValueError):
+            analyze_mip_3_7([_linear_schedule()])
+
+    def test_returns_result_no_events(self) -> None:
+        result = analyze_mip_3_7([_linear_schedule(), _linear_schedule()])
+        assert isinstance(result, Mip37Result)
+        assert result.schedule_count == 2
+        assert result.window_count == 1
+        assert len(result.windows) == 1
+        # No events → zero attributable delay
+        assert result.total_attributable_delay_days == 0.0
+        assert result.windows[0].attributable_delay_days == 0.0
+
+    def test_window_number_out_of_range_raises(self) -> None:
+        with pytest.raises(ValueError):
+            analyze_mip_3_7(
+                [_linear_schedule(), _linear_schedule()],
+                window_delay_events=[
+                    WindowDelayEvents(window_number=2, events=[])  # only 1 window
+                ],
+            )
+
+    def test_window_number_zero_raises(self) -> None:
+        with pytest.raises(ValueError):
+            analyze_mip_3_7(
+                [_linear_schedule(), _linear_schedule()],
+                window_delay_events=[WindowDelayEvents(window_number=0, events=[])],
+            )
+
+    def test_three_schedules_two_windows(self) -> None:
+        result = analyze_mip_3_7(
+            [_linear_schedule(), _linear_schedule(), _linear_schedule()],
+            project_ids=["a", "b", "c"],
+        )
+        assert result.window_count == 2
+        assert [w.window_id for w in result.windows] == ["W01", "W02"]
+        assert result.windows[0].baseline_project_id == "a"
+        assert result.windows[0].update_project_id == "b"
+        assert result.windows[1].baseline_project_id == "b"
+        assert result.windows[1].update_project_id == "c"
+
+    def test_per_window_events_apply_independently(self) -> None:
+        result = analyze_mip_3_7(
+            [_linear_schedule(), _linear_schedule(), _linear_schedule()],
+            window_delay_events=[
+                WindowDelayEvents(
+                    window_number=1,
+                    events=[DelayEvent(task_id="T2", days=3)],
+                ),
+                WindowDelayEvents(
+                    window_number=2,
+                    events=[DelayEvent(task_id="T1", days=2)],
+                ),
+            ],
+        )
+        # Each window linear 30d baseline; window 1 − 3d, window 2 − 2d
+        assert result.windows[0].attributable_delay_days == pytest.approx(3.0, abs=0.1)
+        assert result.windows[1].attributable_delay_days == pytest.approx(2.0, abs=0.1)
+        assert result.total_attributable_delay_days == pytest.approx(5.0, abs=0.1)
+
+    def test_window_without_bundle_zero_delay(self) -> None:
+        result = analyze_mip_3_7(
+            [_linear_schedule(), _linear_schedule(), _linear_schedule()],
+            window_delay_events=[
+                WindowDelayEvents(
+                    window_number=2,
+                    events=[DelayEvent(task_id="T1", days=4)],
+                )
+                # window 1 omitted → zero attributable delay
+            ],
+        )
+        assert result.windows[0].attributable_delay_days == 0.0
+        assert result.windows[1].attributable_delay_days == pytest.approx(4.0, abs=0.1)
+        assert result.total_attributable_delay_days == pytest.approx(4.0, abs=0.1)
+
+    def test_unmatched_events_reported_per_window(self) -> None:
+        result = analyze_mip_3_7(
+            [_linear_schedule(), _linear_schedule()],
+            window_delay_events=[
+                WindowDelayEvents(
+                    window_number=1,
+                    events=[
+                        DelayEvent(task_id="T1", days=1),
+                        DelayEvent(task_id="ghost", days=9),
+                    ],
+                )
+            ],
+        )
+        w = result.windows[0]
+        assert len(w.delay_events_applied) == 1
+        assert len(w.unmatched_events) == 1
+        assert w.unmatched_events[0].task_id == "ghost"
+
+    def test_methodology_string(self) -> None:
+        result = analyze_mip_3_7([_linear_schedule(), _linear_schedule()])
+        assert "MIP 3.7" in result.methodology
+
+
+# ---------------------------------------------------------------------------
+# MIP 3.7 router integration tests
+# ---------------------------------------------------------------------------
+
+
+def _upload_three_linear(client: TestClient) -> tuple[str, str, str]:
+    store = get_store()
+    a = store.add(_linear_schedule(), b"xer")
+    b = store.add(_linear_schedule(), b"xer")
+    c = store.add(_linear_schedule(), b"xer")
+    return a, b, c
+
+
+class TestMip37Router:
+    def test_missing_project_returns_404(self) -> None:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forensic/mip-3-7",
+            json={"project_ids": ["missing-a", "missing-b"]},
+        )
+        assert resp.status_code == 404
+
+    def test_requires_at_least_2_projects(self) -> None:
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/forensic/mip-3-7",
+            json={"project_ids": ["only-one"]},
+        )
+        assert resp.status_code == 422
+
+    def test_end_to_end_no_events(self) -> None:
+        client = TestClient(app)
+        a, b, _c = _upload_three_linear(client)
+        resp = client.post(
+            "/api/v1/forensic/mip-3-7",
+            json={"project_ids": [a, b], "window_delay_events": []},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert "MIP 3.7" in data["methodology"]
+        assert data["window_count"] == 1
+        assert data["total_attributable_delay_days"] == 0.0
+
+    def test_end_to_end_per_window_events(self) -> None:
+        client = TestClient(app)
+        a, b, c = _upload_three_linear(client)
+        resp = client.post(
+            "/api/v1/forensic/mip-3-7",
+            json={
+                "project_ids": [a, b, c],
+                "window_delay_events": [
+                    {
+                        "window_number": 1,
+                        "events": [{"task_id": "T2", "days": 3}],
+                    },
+                    {
+                        "window_number": 2,
+                        "events": [{"task_id": "T1", "days": 2}],
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["window_count"] == 2
+        assert data["total_attributable_delay_days"] == pytest.approx(5.0, abs=0.1)
+        assert data["windows"][0]["window_id"] == "W01"
+        assert data["windows"][1]["window_id"] == "W02"
+
+    def test_window_number_out_of_range_returns_400(self) -> None:
+        client = TestClient(app)
+        a, b, _c = _upload_three_linear(client)
+        resp = client.post(
+            "/api/v1/forensic/mip-3-7",
+            json={
+                "project_ids": [a, b],
+                "window_delay_events": [
+                    {"window_number": 5, "events": [{"task_id": "T1", "days": 1}]}
+                ],
+            },
+        )
+        assert resp.status_code == 400
+        assert "out of range" in resp.text.lower()
 
 
 class TestMip36OnRealFixture:

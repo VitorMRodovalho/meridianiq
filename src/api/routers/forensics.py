@@ -11,7 +11,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.half_step import analyze_half_step
 from src.analytics.mip_observational import analyze_mip_3_1, analyze_mip_3_2
-from src.analytics.mip_subtractive import DelayEvent, analyze_mip_3_6
+from src.analytics.mip_subtractive import (
+    DelayEvent,
+    WindowDelayEvents,
+    analyze_mip_3_6,
+    analyze_mip_3_7,
+)
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
@@ -31,6 +36,9 @@ from ..schemas import (
     Mip32Response,
     Mip36Request,
     Mip36Response,
+    Mip37Request,
+    Mip37Response,
+    Mip37WindowSchema,
     TimelineDetailSchema,
     TimelineListResponse,
     TimelineSummarySchema,
@@ -437,6 +445,101 @@ def run_mip_3_6(
         ],
         as_built_critical_path=result.as_built_critical_path,
         but_for_critical_path=result.but_for_critical_path,
+        methodology=result.methodology,
+    )
+
+
+@router.post(
+    "/api/v1/forensic/mip-3-7",
+    response_model=Mip37Response,
+)
+def run_mip_3_7(
+    request: Mip37Request,
+    _user: object = Depends(optional_auth),
+) -> Mip37Response:
+    """Run MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed).
+
+    Per AACE RP 29R-03 §3.7.  Applies the MIP 3.6 collapsed-as-built
+    pattern to each analysis window in a schedule-update series.  Delay
+    events are attributed to specific windows; windows without events
+    report zero attributable delay.
+
+    Args:
+        request: project_ids (minimum 2) + optional per-window delay
+            event bundles.
+
+    Raises:
+        HTTPException: 404 if any project is missing, 400 on invalid
+            window_number or negative days.
+    """
+    store = get_store()
+
+    schedules: list[ParsedSchedule] = []
+    for pid in request.project_ids:
+        schedule = store.get(pid)
+        if schedule is None:
+            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
+        schedules.append(schedule)
+
+    bundles = [
+        WindowDelayEvents(
+            window_number=b.window_number,
+            events=[
+                DelayEvent(task_id=e.task_id, days=e.days, description=e.description)
+                for e in b.events
+            ],
+        )
+        for b in request.window_delay_events
+    ]
+
+    try:
+        result = analyze_mip_3_7(
+            schedules,
+            window_delay_events=bundles,
+            project_ids=list(request.project_ids),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MIP 3.7 analysis failed: {exc}")
+
+    windows = [
+        Mip37WindowSchema(
+            window_number=w.window_number,
+            window_id=w.window_id,
+            baseline_project_id=w.baseline_project_id,
+            update_project_id=w.update_project_id,
+            as_built_completion_days=w.as_built_completion_days,
+            but_for_completion_days=w.but_for_completion_days,
+            attributable_delay_days=w.attributable_delay_days,
+            delay_events_applied=[
+                AppliedDelayEventSchema(
+                    task_id=a.task_id,
+                    task_code=a.task_code,
+                    task_name=a.task_name,
+                    days_requested=a.days_requested,
+                    days_applied=a.days_applied,
+                    original_duration_days=a.original_duration_days,
+                    collapsed_duration_days=a.collapsed_duration_days,
+                    description=a.description,
+                    note=a.note,
+                )
+                for a in w.delay_events_applied
+            ],
+            unmatched_events=[
+                DelayEventSchema(task_id=u.task_id, days=u.days, description=u.description)
+                for u in w.unmatched_events
+            ],
+        )
+        for w in result.windows
+    ]
+
+    return Mip37Response(
+        project_ids=result.project_ids,
+        schedule_count=result.schedule_count,
+        window_count=result.window_count,
+        total_attributable_delay_days=result.total_attributable_delay_days,
+        windows=windows,
         methodology=result.methodology,
     )
 
