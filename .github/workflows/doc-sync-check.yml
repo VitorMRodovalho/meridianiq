@@ -1,0 +1,58 @@
+name: Doc sync check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/api/routers/**"
+      - "src/analytics/**"
+      - "src/export/**"
+      - "src/mcp_server.py"
+      - "scripts/generate_*.py"
+      - "docs/api-reference.md"
+      - "docs/methodologies.md"
+      - "docs/mcp-tools.md"
+  push:
+    branches: [main]
+    paths:
+      - "src/api/routers/**"
+      - "src/analytics/**"
+      - "src/export/**"
+      - "src/mcp_server.py"
+      - "scripts/generate_*.py"
+      - "docs/api-reference.md"
+      - "docs/methodologies.md"
+      - "docs/mcp-tools.md"
+
+jobs:
+  check:
+    name: Verify catalogs match source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Regenerate catalogs
+        run: |
+          python scripts/generate_api_reference.py
+          python scripts/generate_methodology_catalog.py
+          python scripts/generate_mcp_catalog.py
+
+      - name: Fail if committed catalogs differ from generated
+        run: |
+          if ! git diff --exit-status docs/api-reference.md docs/methodologies.md docs/mcp-tools.md; then
+            echo ""
+            echo "::error::Doc catalogs are out of sync with source code."
+            echo "::error::Run the generators locally (or the /sync-docs slash command) and commit the results:"
+            echo "::error::  python scripts/generate_api_reference.py"
+            echo "::error::  python scripts/generate_methodology_catalog.py"
+            echo "::error::  python scripts/generate_mcp_catalog.py"
+            exit 1
+          fi
+          echo "Catalogs are in sync with source."
