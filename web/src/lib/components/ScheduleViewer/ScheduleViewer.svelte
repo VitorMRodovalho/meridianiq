@@ -4,7 +4,7 @@
 	import GanttCanvas from './GanttCanvas.svelte';
 	import ActivityTooltip from './ActivityTooltip.svelte';
 	import { onMount } from 'svelte';
-	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, getWbsIdsBeyondDepth } from './utils';
+	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, getWbsIdsBeyondDepth, collectActivitiesByWbs } from './utils';
 
 	interface Props {
 		data: ScheduleViewData;
@@ -338,6 +338,107 @@ ${svgClone.outerHTML}
 		setTimeout(() => printWindow.print(), 300);
 	}
 
+	// Per-WBS print export — one printable table per top-level WBS node,
+	// with page-break-before: always between sections. Uses the visible
+	// (search-filtered) data so filters flow through to the print output.
+	function exportPdfByWbs() {
+		const roots = searchFilteredData.wbs_tree;
+		if (roots.length === 0) return;
+
+		const projectName = data.project_name || 'Schedule';
+		const dateStr = data.data_date ? `Data Date: ${formatDateShort(data.data_date)}` : '';
+		const esc = (s: string) =>
+			s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+		const sections: string[] = [];
+		let firstPage = true;
+		for (const root of roots) {
+			const acts = collectActivitiesByWbs(root, searchFilteredData.activities);
+			if (acts.length === 0) continue;
+
+			const rows = acts
+				.map((a) => {
+					const critCls = a.is_critical ? ' class="critical"' : '';
+					const status =
+						a.status === 'complete'
+							? 'Complete'
+							: a.status === 'active'
+								? 'In Progress'
+								: 'Not Started';
+					return `<tr${critCls}>
+						<td>${esc(a.task_code)}</td>
+						<td>${esc(a.task_name)}</td>
+						<td>${esc(formatDateShort(a.early_start))}</td>
+						<td>${esc(formatDateShort(a.early_finish))}</td>
+						<td class="num">${a.duration_days.toFixed(0)}</td>
+						<td class="num">${a.total_float_days.toFixed(0)}</td>
+						<td class="num">${a.progress_pct.toFixed(0)}%</td>
+						<td>${status}</td>
+					</tr>`;
+				})
+				.join('\n');
+
+			const pageClass = firstPage ? 'wbs-page' : 'wbs-page page-break';
+			firstPage = false;
+			sections.push(`<section class="${pageClass}">
+				<h2>${esc(root.name)}</h2>
+				<div class="meta">${acts.length} activities</div>
+				<table>
+					<thead><tr>
+						<th>Code</th>
+						<th>Activity Name</th>
+						<th>Start</th>
+						<th>Finish</th>
+						<th class="num">Dur</th>
+						<th class="num">TF</th>
+						<th class="num">%</th>
+						<th>Status</th>
+					</tr></thead>
+					<tbody>${rows}</tbody>
+				</table>
+			</section>`);
+		}
+
+		if (sections.length === 0) return;
+
+		const printWindow = window.open('', '_blank');
+		if (!printWindow) return;
+
+		printWindow.document.write(`<!DOCTYPE html>
+<html><head><title>${esc(projectName)} — By WBS</title>
+<style>
+@page { size: letter portrait; margin: 12mm; }
+@media print {
+	body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+	.page-break { page-break-before: always; break-before: page; }
+	table { page-break-inside: auto; }
+	tr { page-break-inside: avoid; }
+	thead { display: table-header-group; }
+	h1, h2 { page-break-after: avoid; }
+}
+body { margin: 0; font-family: system-ui, sans-serif; color: #111; }
+h1 { font-size: 14px; margin: 0 0 2px; }
+h2 { font-size: 13px; margin: 6px 0; padding-bottom: 4px; border-bottom: 1px solid #9ca3af; }
+.cover { margin-bottom: 14px; }
+.meta { font-size: 10px; color: #666; margin-bottom: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 10px; }
+th, td { padding: 3px 6px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+th { background: #f3f4f6; font-weight: 600; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.critical td { background: #fef2f2; color: #991b1b; font-weight: 500; }
+section.wbs-page { margin-bottom: 10px; }
+</style></head><body>
+<div class="cover">
+	<h1>${esc(projectName)} — Schedule by WBS</h1>
+	<div class="meta">${esc(dateStr)} | ${searchFilteredData.activities.length} activities | Printed ${new Date().toLocaleDateString()}</div>
+</div>
+${sections.join('\n')}
+</body></html>`);
+		printWindow.document.close();
+		printWindow.focus();
+		setTimeout(() => printWindow.print(), 300);
+	}
+
 	// Tooltip data
 	const hoveredActivity = $derived(
 		hoveredId ? searchFilteredData.activities.find(a => a.task_id === hoveredId) : null
@@ -440,11 +541,20 @@ ${svgClone.outerHTML}
 			>
 				<span class="text-[10px] font-bold">PNG</span>
 			</button>
-			<!-- Export PDF (print) -->
-			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Export PDF (Print with per-WBS page breaks)" aria-label="Export PDF">
+			<!-- Export PDF (print, single-page Gantt SVG) -->
+			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title="Print Gantt (single page)" aria-label="Print Gantt">
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
 				</svg>
+			</button>
+			<!-- Print by WBS (one page per top-level WBS) -->
+			<button
+				onclick={exportPdfByWbs}
+				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-bold"
+				title="Print by WBS (page break per top-level WBS)"
+				aria-label="Print by WBS"
+			>
+				WBS
 			</button>
 		</div>
 	</div>

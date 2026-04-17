@@ -251,6 +251,22 @@ export function getMaxWBSDepth(nodes: WBSNode[]): number {
 	return max;
 }
 
+/** Collect every ActivityView whose wbs_id falls under the given WBS node —
+ *  including activities in all descendant WBS nodes. Order matches the
+ *  supplied ``activities`` list. Used by per-WBS print export. */
+export function collectActivitiesByWbs(
+	node: WBSNode,
+	activities: ActivityView[],
+): ActivityView[] {
+	const ids = new Set<string>();
+	function walk(n: WBSNode) {
+		ids.add(n.wbs_id);
+		for (const child of n.children) walk(child);
+	}
+	walk(node);
+	return activities.filter((a) => ids.has(a.wbs_id));
+}
+
 /** Collect all WBS IDs at depth > maxDepth (for auto-collapse). */
 export function getWbsIdsBeyondDepth(nodes: WBSNode[], maxDepth: number): Set<string> {
 	const ids = new Set<string>();
