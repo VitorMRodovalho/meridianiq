@@ -1,0 +1,89 @@
+// MeridianIQ — DAX measures for Power BI Desktop
+// Copyright (c) 2026 Vitor Maia Rodovalho — MIT License
+//
+// Paste each measure (without the leading label line) into a measure
+// on the Projects or DCMAMetrics table as noted. Format hints are
+// included — apply via the Modeling ribbon → Format.
+//
+// Assumes the three tables Projects, DCMAMetrics, Activities have been
+// loaded from meridianiq.pq. Relationships required:
+//   Projects[project_id] 1 ← * DCMAMetrics[project_id]
+//   Projects[project_id] 1 ← * Activities[project_id]
+
+// ---- Portfolio-level (place on Projects) ----
+
+// Count of projects in the current filter context. Format: whole number.
+Portfolio Project Count =
+    COUNTROWS ( Projects )
+
+// Average DCMA overall score. Format: 0.0
+Avg DCMA Score =
+    AVERAGE ( Projects[dcma_score] )
+
+// Average health score. Format: 0.0
+Avg Health Score =
+    AVERAGE ( Projects[health_score] )
+
+// Share of projects whose DCMA score >= 85 (industry "green" threshold).
+// Format: 0.0%
+DCMA Green Share =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( Projects ), Projects[dcma_score] >= 85 ),
+        COUNTROWS ( Projects )
+    )
+
+// Share of projects whose health_rating = "green". Format: 0.0%
+Health Green Share =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( Projects ), Projects[health_rating] = "green" ),
+        COUNTROWS ( Projects )
+    )
+
+// Total negative-float activities across the portfolio. Format: whole
+// number. A rising trend here is a leading indicator of slippage.
+Negative Float Activities =
+    SUM ( Projects[negative_float_count] )
+
+// ---- DCMA-level (place on DCMAMetrics) ----
+
+// Portfolio-wide pass rate per metric (use in a matrix with metric_name
+// as the row axis). Format: 0.0%
+DCMA Pass Rate =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( DCMAMetrics ), DCMAMetrics[passed] = TRUE ),
+        COUNTROWS ( DCMAMetrics )
+    )
+
+// Average metric value — useful on numeric DCMA metrics (e.g. "Logic"
+// missing-relationship %). Format: 0.00
+Avg Metric Value =
+    AVERAGE ( DCMAMetrics[value] )
+
+// Count of failing metrics per project (use as a sortable column on a
+// project card). Format: whole number.
+Failed Metrics per Project =
+    CALCULATE (
+        COUNTROWS ( DCMAMetrics ),
+        DCMAMetrics[passed] = FALSE
+    )
+
+// ---- Activity-level (place on Activities) ----
+
+// Share of activities on the critical path. Format: 0.0%
+Critical Activity Ratio =
+    DIVIDE (
+        CALCULATE ( COUNTROWS ( Activities ), Activities[is_critical] = TRUE ),
+        COUNTROWS ( Activities )
+    )
+
+// Average total float (hours). Format: 0.0
+Avg Total Float (h) =
+    AVERAGE ( Activities[cpm_total_float] )
+
+// Count of activities with negative total float (drives CPM compression
+// narratives). Format: whole number.
+Negative Float Activity Count =
+    CALCULATE (
+        COUNTROWS ( Activities ),
+        Activities[cpm_total_float] < 0
+    )

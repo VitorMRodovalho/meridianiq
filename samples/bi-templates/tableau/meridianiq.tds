@@ -1,0 +1,113 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!--
+  MeridianIQ — Tableau Data Source template
+  Copyright (c) 2026 Vitor Maia Rodovalho — MIT License
+
+  This .tds points Tableau Desktop / Server at a local JSON snapshot of
+  /api/v1/bi/projects. Because Tableau's built-in connectors do not loop
+  paginated REST APIs, the recommended setup is:
+
+    1. Pull the full dataset with curl:
+       curl -H "Accept: application/json" \
+            "https://meridianiq.vitormr.dev/api/v1/bi/projects?limit=500" \
+            | jq '.items' > projects.json
+
+    2. Place projects.json next to this .tds file.
+    3. Open this .tds in Tableau — it will connect to ./projects.json.
+
+  For live dashboards with larger portfolios, use the Supabase Postgres
+  connection directly (schema: public, table: projects / activities)
+  instead of the BI REST surface.
+-->
+<datasource inline='true' version='2021.4' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <connection class='federated'>
+    <named-connections>
+      <named-connection caption='projects.json' name='meridianiq-projects'>
+        <connection
+          class='jsonfile'
+          directory='.'
+          filename='projects.json'
+          server=''/>
+      </named-connection>
+    </named-connections>
+    <relation connection='meridianiq-projects' name='projects' table='[projects]' type='table'/>
+    <metadata-records>
+      <metadata-record class='column'>
+        <remote-name>project_id</remote-name>
+        <local-name>[project_id]</local-name>
+        <local-type>string</local-type>
+        <aggregation>Count</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>name</remote-name>
+        <local-name>[name]</local-name>
+        <local-type>string</local-type>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>activity_count</remote-name>
+        <local-name>[activity_count]</local-name>
+        <local-type>integer</local-type>
+        <aggregation>Sum</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>relationship_count</remote-name>
+        <local-name>[relationship_count]</local-name>
+        <local-type>integer</local-type>
+        <aggregation>Sum</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>data_date</remote-name>
+        <local-name>[data_date]</local-name>
+        <local-type>date</local-type>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>dcma_score</remote-name>
+        <local-name>[dcma_score]</local-name>
+        <local-type>real</local-type>
+        <aggregation>Avg</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>dcma_passed_count</remote-name>
+        <local-name>[dcma_passed_count]</local-name>
+        <local-type>integer</local-type>
+        <aggregation>Sum</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>dcma_failed_count</remote-name>
+        <local-name>[dcma_failed_count]</local-name>
+        <local-type>integer</local-type>
+        <aggregation>Sum</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>health_score</remote-name>
+        <local-name>[health_score]</local-name>
+        <local-type>real</local-type>
+        <aggregation>Avg</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>health_rating</remote-name>
+        <local-name>[health_rating]</local-name>
+        <local-type>string</local-type>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>critical_path_length_days</remote-name>
+        <local-name>[critical_path_length_days]</local-name>
+        <local-type>real</local-type>
+        <aggregation>Avg</aggregation>
+      </metadata-record>
+      <metadata-record class='column'>
+        <remote-name>negative_float_count</remote-name>
+        <local-name>[negative_float_count]</local-name>
+        <local-type>integer</local-type>
+        <aggregation>Sum</aggregation>
+      </metadata-record>
+    </metadata-records>
+  </connection>
+  <aliases enabled='yes'/>
+  <column caption='DCMA Pass Rate' datatype='real' name='[dcma_pass_rate]' role='measure' type='quantitative'>
+    <calculation class='tableau' formula='SUM([dcma_passed_count]) / (SUM([dcma_passed_count]) + SUM([dcma_failed_count]))'/>
+  </column>
+  <column caption='Is Green (DCMA)' datatype='boolean' name='[is_green_dcma]' role='dimension' type='nominal'>
+    <calculation class='tableau' formula='[dcma_score] &gt;= 85'/>
+  </column>
+</datasource>
