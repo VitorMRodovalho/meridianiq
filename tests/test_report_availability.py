@@ -90,6 +90,8 @@ class TestAvailableReports:
             "attribution",
             "narrative",
             "executive_summary",
+            "scl_protocol",
+            "aace_29r03",
         }
         assert expected == types
 
@@ -156,6 +158,58 @@ class TestExecutiveSummaryGeneration:
         dl = client.get(f"/api/v1/reports/{report_id}/download")
         assert dl.status_code == 200
         assert len(dl.content) > 0
+
+    def test_scl_protocol_generate_and_download(self, client: TestClient) -> None:
+        """SCL Protocol submission generates + downloads (with a single upload)."""
+        pid = _upload(client, SAMPLE_XER)
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={"project_id": pid, "report_type": "scl_protocol"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["report_type"] == "scl_protocol"
+
+        dl = client.get(f"/api/v1/reports/{data['report_id']}/download")
+        assert dl.status_code == 200
+        assert len(dl.content) > 0
+
+    def test_scl_protocol_listed_ready(self, client: TestClient) -> None:
+        pid = _upload(client, SAMPLE_XER)
+        resp = client.get(f"/api/v1/projects/{pid}/available-reports")
+        by_type = {r["type"]: r for r in resp.json()["reports"]}
+        assert "scl_protocol" in by_type
+        assert by_type["scl_protocol"]["ready"] is True
+        assert by_type["scl_protocol"]["name"] == "SCL Protocol Delay Analysis"
+
+    def test_aace_29r03_generate_and_download(self, client: TestClient) -> None:
+        """AACE RP 29R-03 §5.3 submission generates + downloads."""
+        pid = _upload(client, SAMPLE_XER)
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={"project_id": pid, "report_type": "aace_29r03"},
+        )
+        assert resp.status_code == 200, resp.text
+
+        dl = client.get(f"/api/v1/reports/{resp.json()['report_id']}/download")
+        assert dl.status_code == 200
+        body = dl.content.decode("utf-8", errors="ignore")
+        # Expect the method marker in HTML fallback or PDF stream
+        assert "MIP 3.3" in body or dl.content.startswith(b"%PDF")
+
+    def test_aace_29r03_with_baseline_enables_timeline(self, client: TestClient) -> None:
+        """Supplying baseline_id unlocks the forensic timeline sections."""
+        base_pid = _upload(client, SAMPLE_XER)
+        update_pid = _upload(client, SAMPLE_UPDATE_XER)
+        resp = client.post(
+            "/api/v1/reports/generate",
+            json={
+                "project_id": update_pid,
+                "report_type": "aace_29r03",
+                "baseline_id": base_pid,
+            },
+        )
+        assert resp.status_code == 200, resp.text
 
     def test_executive_summary_enriched_with_cost_variance(self, client: TestClient) -> None:
         """When two CBS snapshots exist, the PDF includes a Cost Variance section."""

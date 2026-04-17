@@ -518,6 +518,381 @@ class ReportGenerator:
         html = self._html_wrapper("Executive Summary", project_name, "\n".join(sections))
         return self._html_to_pdf(html)
 
+    def generate_scl_protocol_report(
+        self,
+        schedule: Any,
+        timeline: Any | None = None,
+        attribution: Any | None = None,
+        narrative: Any | None = None,
+    ) -> bytes:
+        """Generate an SCL Protocol Delay Analysis submission PDF.
+
+        Structured per the SCL Delay and Disruption Protocol (2nd ed.) —
+        the de-facto UK/Commonwealth standard for contractual delay
+        claims. Sections map to SCL guidance on contemporaneous period
+        analysis, responsibility attribution, and concurrency.
+
+        Args:
+            schedule: ParsedSchedule of the update / current status.
+            timeline: Optional ForensicTimeline (multi-window CPA).
+            attribution: Optional AttributionResult (party breakdown).
+            narrative: Optional NarrativeReport (factual narrative).
+
+        Returns:
+            PDF bytes.
+
+        References:
+            SCL Delay and Disruption Protocol (2nd ed., 2017) §Appendix B;
+            AACE RP 29R-03 cross-reference for methodology alignment.
+        """
+        project_name = ""
+        if schedule and hasattr(schedule, "projects") and schedule.projects:
+            project_name = schedule.projects[0].proj_short_name or "Project"
+
+        sections = [
+            self._methodology_box(
+                "Prepared per the Society of Construction Law Delay and "
+                "Disruption Protocol (2nd ed., 2017), Appendix B — Records. "
+                "Contemporaneous Period Analysis methodology per AACE RP 29R-03 MIP 3.3."
+            )
+        ]
+
+        sections.append("<h2>1. Factual Narrative</h2>" + self._narrative_sections_html(narrative))
+
+        sections.append(
+            "<h2>2. Contractual Milestone Status</h2>" + self._milestone_status_html(timeline)
+        )
+
+        sections.append("<h2>3. Critical Path Evolution</h2>" + self._cp_evolution_html(timeline))
+
+        sections.append(
+            "<h2>4. Contemporaneous Period Analysis (Windows)</h2>"
+            + self._window_table_html(timeline)
+        )
+
+        sections.append(
+            "<h2>5. Responsibility Attribution</h2>" + self._attribution_html(attribution)
+        )
+
+        sections.append(
+            "<h2>6. Concurrency Assessment</h2>" + self._concurrency_html(attribution, timeline)
+        )
+
+        sections.append(
+            "<h2>7. Records Appendix — Driving Activities</h2>"
+            + self._driving_activities_html(timeline, attribution)
+        )
+
+        html = self._html_wrapper(
+            "SCL Protocol Delay Analysis Submission",
+            project_name,
+            "\n".join(sections),
+        )
+        return self._html_to_pdf(html)
+
+    def generate_aace_forensic_report(
+        self,
+        schedule: Any,
+        timeline: Any | None = None,
+        attribution: Any | None = None,
+        scorecard: Any | None = None,
+        half_step: Any | None = None,
+        baseline: Any | None = None,
+    ) -> bytes:
+        """Generate an AACE RP 29R-03 §5.3 forensic schedule analysis report.
+
+        Section structure follows AACE RP 29R-03 §5.3 (Forensic Schedule
+        Analysis — Documentation Requirements) with explicit support for
+        MIP 3.4 bifurcated analysis when a half-step result is supplied.
+
+        Args:
+            schedule: ParsedSchedule of the current / update state.
+            timeline: Optional ForensicTimeline (required for most sections).
+            attribution: Optional AttributionResult.
+            scorecard: Optional ScorecardResult for executive summary.
+            half_step: Optional HalfStepResult (MIP 3.4 bifurcated split).
+            baseline: Optional baseline ParsedSchedule for §2 background.
+
+        Returns:
+            PDF bytes.
+
+        References:
+            AACE RP 29R-03 §5.3 — Forensic Schedule Analysis Documentation;
+            MIP 3.3 (observational) and MIP 3.4 (half-step bifurcated).
+        """
+        project_name = ""
+        if schedule and hasattr(schedule, "projects") and schedule.projects:
+            project_name = schedule.projects[0].proj_short_name or "Project"
+
+        sections = [
+            self._methodology_box(
+                "Prepared per AACE International Recommended Practice 29R-03, "
+                "§5.3 Forensic Schedule Analysis — Documentation Requirements. "
+                f"Method: MIP {'3.4 (Bifurcated)' if half_step else '3.3 (Observational / Contemporaneous)'}."
+            )
+        ]
+
+        sections.append(
+            "<h2>§5.3.1 Executive Summary</h2>"
+            + self._aace_exec_summary_html(timeline, attribution, scorecard)
+        )
+
+        sections.append(
+            "<h2>§5.3.2 Project Background &amp; Baseline Schedule</h2>"
+            + self._project_background_html(schedule, baseline)
+        )
+
+        sections.append(
+            "<h2>§5.3.3 Analysis Methodology</h2>"
+            + self._methodology_detail_html(timeline, half_step)
+        )
+
+        sections.append(
+            "<h2>§5.3.4 Schedule Updates &amp; Data Dates</h2>"
+            + self._schedule_updates_html(timeline)
+        )
+
+        sections.append(
+            "<h2>§5.3.5 Analysis Windows</h2>" + self._window_table_html(timeline, show_cp=True)
+        )
+
+        sections.append(
+            "<h2>§5.3.6 Critical Path Tracking</h2>" + self._cp_evolution_html(timeline)
+        )
+
+        sections.append(
+            "<h2>§5.3.7 Delay Attribution by Party</h2>" + self._attribution_html(attribution)
+        )
+
+        if half_step:
+            sections.append(
+                "<h2>§5.3.8 Bifurcated Analysis (MIP 3.4)</h2>" + self._half_step_html(half_step)
+            )
+
+        sections.append(
+            "<h2>§5.3.9 Concurrency &amp; Interaction</h2>"
+            + self._concurrency_html(attribution, timeline)
+        )
+
+        html = self._html_wrapper(
+            "AACE RP 29R-03 §5.3 Forensic Schedule Analysis Report",
+            project_name,
+            "\n".join(sections),
+        )
+        return self._html_to_pdf(html)
+
+    # ------------------------------------------------------------------
+    # Submission-report HTML section helpers
+    # ------------------------------------------------------------------
+
+    def _narrative_sections_html(self, narrative: Any | None) -> str:
+        if not narrative or not getattr(narrative, "sections", None):
+            return "<p>No narrative content supplied.</p>"
+        parts = []
+        if getattr(narrative, "executive_summary", ""):
+            parts.append(f"<p><em>{_esc(narrative.executive_summary)}</em></p>")
+        for s in narrative.sections[:8]:
+            parts.append(f"<h3>{_esc(s.title)}</h3><p>{_esc(s.content)}</p>")
+        return "\n".join(parts) or "<p>No narrative content supplied.</p>"
+
+    def _milestone_status_html(self, timeline: Any | None) -> str:
+        if not timeline:
+            return "<p>Contractual milestone data not supplied.</p>"
+        contract = getattr(timeline, "contract_completion", None)
+        current = getattr(timeline, "current_completion", None)
+        total = getattr(timeline, "total_delay_days", 0.0) or 0.0
+        return (
+            "<table><tr><th>Contract Completion</th><th>Current Forecast</th>"
+            "<th>Total Slippage (days)</th></tr>"
+            f"<tr><td>{_esc(str(contract) if contract else '—')}</td>"
+            f"<td>{_esc(str(current) if current else '—')}</td>"
+            f"<td>{total:.1f}</td></tr></table>"
+        )
+
+    def _cp_evolution_html(self, timeline: Any | None) -> str:
+        if not timeline or not getattr(timeline, "windows", None):
+            return "<p>No window results supplied.</p>"
+        rows = []
+        for w in timeline.windows:
+            win = getattr(w, "window", None)
+            num = getattr(win, "window_number", None) if win else None
+            start = getattr(win, "start_date", None) if win else None
+            end = getattr(win, "end_date", None) if win else None
+            joined = len(getattr(w, "cp_activities_joined", []) or [])
+            left = len(getattr(w, "cp_activities_left", []) or [])
+            driver = getattr(w, "driving_activity", "") or "—"
+            rows.append(
+                f"<tr><td>{num if num is not None else '—'}</td>"
+                f"<td>{start or '—'} → {end or '—'}</td>"
+                f"<td>+{joined} / −{left}</td>"
+                f"<td>{_esc(driver)}</td></tr>"
+            )
+        return (
+            "<table><tr><th>Window</th><th>Period</th><th>CP Δ (joined/left)</th>"
+            "<th>Driving Activity</th></tr>" + "".join(rows) + "</table>"
+        )
+
+    def _window_table_html(self, timeline: Any | None, show_cp: bool = False) -> str:
+        if not timeline or not getattr(timeline, "windows", None):
+            return "<p>No forensic windows available.</p>"
+        headers = ["Window", "Period", "Delay (days)", "Cumulative"]
+        if show_cp:
+            headers.append("CP Length")
+        head = "".join(f"<th>{h}</th>" for h in headers)
+        rows = []
+        for w in timeline.windows:
+            win = getattr(w, "window", None)
+            num = getattr(win, "window_number", None) if win else None
+            start = getattr(win, "start_date", None) if win else None
+            end = getattr(win, "end_date", None) if win else None
+            cells = [
+                f"<td>{num if num is not None else '—'}</td>",
+                f"<td>{start or '—'} → {end or '—'}</td>",
+                f"<td>{w.delay_days:.1f}</td>",
+                f"<td>{w.cumulative_delay:.1f}</td>",
+            ]
+            if show_cp:
+                cp_len = len(getattr(w, "critical_path_end", []) or [])
+                cells.append(f"<td>{cp_len}</td>")
+            rows.append("<tr>" + "".join(cells) + "</tr>")
+        return f"<table><tr>{head}</tr>" + "".join(rows) + "</table>"
+
+    def _attribution_html(self, attribution: Any | None) -> str:
+        if not attribution or not getattr(attribution, "parties", None):
+            return "<p>Delay attribution data not supplied.</p>"
+        rows = "".join(
+            f"<tr><td><strong>{_esc(p.party)}</strong></td>"
+            f"<td>{p.delay_days:.1f}</td><td>{p.pct_of_total:.0f}%</td>"
+            f"<td>{p.activity_count}</td></tr>"
+            for p in attribution.parties
+        )
+        summary = (
+            f"<p>Total: <strong>{attribution.total_delay_days:.1f} days</strong> · "
+            f"Excusable: {attribution.excusable_days:.1f}d · "
+            f"Non-excusable: {attribution.non_excusable_days:.1f}d · "
+            f"Concurrent: {attribution.concurrent_days:.1f}d · "
+            f"Source: {attribution.data_source}</p>"
+        )
+        return (
+            summary
+            + "<table><tr><th>Party</th><th>Days</th><th>%</th><th>Activities</th></tr>"
+            + rows
+            + "</table>"
+        )
+
+    def _concurrency_html(self, attribution: Any | None, timeline: Any | None) -> str:
+        concurrent = 0.0
+        if attribution:
+            concurrent = getattr(attribution, "concurrent_days", 0.0) or 0.0
+        if concurrent <= 0:
+            return "<p>No concurrent delay periods identified.</p>"
+        return (
+            f"<p>Concurrent delay: <strong>{concurrent:.1f} days</strong>. "
+            "Overlapping owner/contractor delays identified through forensic "
+            "window comparison. Per SCL Protocol §10, concurrent periods may "
+            "qualify the contractor for time but not cost relief.</p>"
+        )
+
+    def _driving_activities_html(self, timeline: Any | None, attribution: Any | None) -> str:
+        names: list[str] = []
+        if timeline and getattr(timeline, "windows", None):
+            for w in timeline.windows:
+                drv = getattr(w, "driving_activity", "") or ""
+                if drv and drv not in names:
+                    names.append(drv)
+        if attribution and getattr(attribution, "parties", None):
+            for p in attribution.parties:
+                for a in (getattr(p, "top_activities", None) or [])[:3]:
+                    if a not in names:
+                        names.append(a)
+        if not names:
+            return "<p>No driving activities identified.</p>"
+        items = "".join(f"<li>{_esc(n)}</li>" for n in names[:25])
+        return f"<ul>{items}</ul>"
+
+    def _aace_exec_summary_html(
+        self, timeline: Any | None, attribution: Any | None, scorecard: Any | None
+    ) -> str:
+        parts = []
+        if timeline:
+            parts.append(
+                f"<p>Total project delay: <strong>"
+                f"{getattr(timeline, 'total_delay_days', 0.0):.1f} days</strong> "
+                f"across {len(getattr(timeline, 'windows', []) or [])} windows.</p>"
+            )
+        if attribution:
+            parts.append(
+                f"<p>Attributed: Excusable {attribution.excusable_days:.1f}d · "
+                f"Non-excusable {attribution.non_excusable_days:.1f}d · "
+                f"Concurrent {attribution.concurrent_days:.1f}d.</p>"
+            )
+        if scorecard:
+            parts.append(
+                f"<p>Schedule quality at analysis: "
+                f"<strong>{scorecard.overall_grade}</strong> "
+                f"({scorecard.overall_score:.0f}/100).</p>"
+            )
+        return "\n".join(parts) or "<p>Summary data not supplied.</p>"
+
+    def _project_background_html(self, schedule: Any, baseline: Any | None) -> str:
+        act_count = len(schedule.activities) if schedule else 0
+        baseline_acts = len(baseline.activities) if baseline else 0
+        baseline_line = (
+            f"Baseline: {baseline_acts} activities."
+            if baseline
+            else "No baseline schedule supplied."
+        )
+        return f"<p>Current schedule: {act_count} activities. {baseline_line}</p>"
+
+    def _methodology_detail_html(self, timeline: Any | None, half_step: Any | None) -> str:
+        method = (
+            "MIP 3.4 — Modeled/Additive Bifurcated (half-step analysis)"
+            if half_step
+            else "MIP 3.3 — Observational / Contemporaneous Period Analysis"
+        )
+        window_count = len(getattr(timeline, "windows", []) or []) if timeline else 0
+        return (
+            f"<p><strong>Method:</strong> {method}</p>"
+            f"<p><strong>Analysis windows:</strong> {window_count}</p>"
+            "<p>Delay measured per window by comparing the as-planned "
+            "completion against the contemporaneous re-forecast, with "
+            "critical-path evolution tracked for each interval.</p>"
+        )
+
+    def _schedule_updates_html(self, timeline: Any | None) -> str:
+        if not timeline or not getattr(timeline, "windows", None):
+            return "<p>No schedule updates supplied.</p>"
+        rows = []
+        for i, w in enumerate(timeline.windows, start=1):
+            win = getattr(w, "window", None)
+            start = getattr(win, "start_date", None) if win else None
+            end = getattr(win, "end_date", None) if win else None
+            rows.append(
+                f"<tr><td>Update {i}</td>"
+                f"<td>{start or '—'}</td>"
+                f"<td>{end or '—'}</td></tr>"
+            )
+        return (
+            "<table><tr><th>Schedule</th><th>Start</th><th>End</th></tr>"
+            + "".join(rows)
+            + "</table>"
+        )
+
+    def _half_step_html(self, half_step: Any) -> str:
+        progress = getattr(half_step, "progress_effect_days", 0.0) or 0.0
+        revision = getattr(half_step, "revision_effect_days", 0.0) or 0.0
+        total = getattr(half_step, "total_delay_days", 0.0) or 0.0
+        invariant = getattr(half_step, "invariant_holds", False)
+        return (
+            f"<p>Total: <strong>{total:.1f} days</strong> — "
+            f"Progress effect: {progress:+.1f}d · Revision effect: {revision:+.1f}d · "
+            f"Invariant holds: {'Yes' if invariant else 'No'}.</p>"
+            "<p>Per MIP 3.4, the total delay is decomposed into the effect "
+            "of progress made during the window (actual work) and the "
+            "effect of schedule revisions (logic, duration or date changes) "
+            "so they can be attributed independently.</p>"
+        )
+
     def generate_calendar_report(
         self,
         schedule: Any,

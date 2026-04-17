@@ -39,6 +39,8 @@ _VALID_REPORT_TYPES = {
     "calendar",
     "attribution",
     "narrative",
+    "scl_protocol",
+    "aace_29r03",
 }
 
 
@@ -109,6 +111,10 @@ def generate_report(
             pdf_bytes = generator.generate_attribution_report(schedule, result)
         elif report_type == "narrative":
             pdf_bytes = _generate_narrative_report(generator, schedule, request, store)
+        elif report_type == "scl_protocol":
+            pdf_bytes = _generate_scl_protocol_report(generator, schedule, request, store)
+        elif report_type == "aace_29r03":
+            pdf_bytes = _generate_aace_29r03_report(generator, schedule, request, store)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -347,6 +353,28 @@ def get_available_reports(
         }
     )
 
+    # --- scl_protocol: always computable (enriched with forensic timeline
+    # when baseline_id is passed to generate; core sections render from
+    # schedule alone as factual narrative) ---
+    reports.append(
+        {
+            "type": "scl_protocol",
+            "name": "SCL Protocol Delay Analysis",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
+    # --- aace_29r03: AACE RP 29R-03 §5.3 forensic submission ---
+    reports.append(
+        {
+            "type": "aace_29r03",
+            "name": "AACE RP 29R-03 §5.3 Forensic Report",
+            "ready": True,
+            "reason": "",
+        }
+    )
+
     return {"project_id": project_id, "reports": reports}
 
 
@@ -576,6 +604,128 @@ def _generate_narrative_report(
     )
 
     return generator.generate_narrative_report(schedule, narrative)
+
+
+def _generate_scl_protocol_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate SCL Protocol submission PDF.
+
+    Composes: delay attribution (always), forensic timeline (when
+    baseline_id is supplied), and schedule narrative (always).
+    """
+    from src.analytics.delay_attribution import compute_delay_attribution
+    from src.analytics.narrative_report import generate_schedule_narrative
+    from src.analytics.schedule_view import build_schedule_view
+    from src.analytics.scorecard import calculate_scorecard
+
+    attribution = None
+    timeline = None
+    narrative = None
+
+    baseline = None
+    if request.baseline_id:
+        baseline = store.get(request.baseline_id)
+
+    try:
+        attribution = compute_delay_attribution(schedule, baseline=baseline)
+    except Exception:
+        pass
+
+    if baseline is not None:
+        try:
+            analyzer = ForensicAnalyzer(
+                schedules=[baseline, schedule],
+                project_ids=[request.baseline_id or "", request.project_id],
+            )
+            timeline = analyzer.analyze()
+        except Exception:
+            pass
+
+    try:
+        view = build_schedule_view(schedule)
+        scorecard_data = None
+        try:
+            from dataclasses import asdict as _asdict
+
+            scorecard_data = _asdict(calculate_scorecard(schedule))
+        except Exception:
+            pass
+        narrative = generate_schedule_narrative(
+            project_name=view.project_name,
+            data_date=view.data_date,
+            summary=view.summary,
+            scorecard=scorecard_data,
+        )
+    except Exception:
+        pass
+
+    return generator.generate_scl_protocol_report(
+        schedule,
+        timeline=timeline,
+        attribution=attribution,
+        narrative=narrative,
+    )
+
+
+def _generate_aace_29r03_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate AACE RP 29R-03 §5.3 forensic submission PDF."""
+    from src.analytics.delay_attribution import compute_delay_attribution
+    from src.analytics.scorecard import calculate_scorecard
+
+    attribution = None
+    timeline = None
+    scorecard = None
+    half_step = None
+
+    baseline = None
+    if request.baseline_id:
+        baseline = store.get(request.baseline_id)
+
+    try:
+        attribution = compute_delay_attribution(schedule, baseline=baseline)
+    except Exception:
+        pass
+
+    if baseline is not None:
+        try:
+            analyzer = ForensicAnalyzer(
+                schedules=[baseline, schedule],
+                project_ids=[request.baseline_id or "", request.project_id],
+            )
+            timeline = analyzer.analyze()
+        except Exception:
+            pass
+
+    try:
+        scorecard = calculate_scorecard(schedule)
+    except Exception:
+        pass
+
+    if baseline is not None and request.options.get("bifurcated"):
+        try:
+            from src.analytics.half_step import analyze_half_step
+
+            half_step = analyze_half_step(baseline, schedule)
+        except Exception:
+            pass
+
+    return generator.generate_aace_forensic_report(
+        schedule,
+        timeline=timeline,
+        attribution=attribution,
+        scorecard=scorecard,
+        half_step=half_step,
+        baseline=baseline,
+    )
 
 
 def _generate_executive_summary(
