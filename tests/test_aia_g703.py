@@ -4,7 +4,14 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+
+_openpyxl_available = True
+try:
+    import openpyxl  # noqa: F401
+except ImportError:
+    _openpyxl_available = False
 
 from src.analytics.aia_g703 import (
     G703ContinuationSheet,
@@ -151,6 +158,7 @@ class TestG703ExportEndpoint:
         )
         assert resp.status_code == 404
 
+    @pytest.mark.skipif(not _openpyxl_available, reason="openpyxl required for xlsx generation")
     def test_end_to_end_xlsx(self) -> None:
         get_store().clear()
         store = get_store()
@@ -171,6 +179,7 @@ class TestG703ExportEndpoint:
         # Default xlsx signature starts with PK (zip file)
         assert resp.content[:2] == b"PK"
 
+    @pytest.mark.skipif(not _openpyxl_available, reason="openpyxl required for xlsx generation")
     def test_filename_includes_application_number(self) -> None:
         get_store().clear()
         store = get_store()
