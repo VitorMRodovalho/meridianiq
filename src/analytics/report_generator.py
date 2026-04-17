@@ -867,11 +867,7 @@ class ReportGenerator:
             win = getattr(w, "window", None)
             start = getattr(win, "start_date", None) if win else None
             end = getattr(win, "end_date", None) if win else None
-            rows.append(
-                f"<tr><td>Update {i}</td>"
-                f"<td>{start or '—'}</td>"
-                f"<td>{end or '—'}</td></tr>"
-            )
+            rows.append(f"<tr><td>Update {i}</td><td>{start or '—'}</td><td>{end or '—'}</td></tr>")
         return (
             "<table><tr><th>Schedule</th><th>Start</th><th>End</th></tr>"
             + "".join(rows)
