@@ -3,7 +3,7 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.7.0-dev] — KB + P1 Feature Wave (9 waves: CBS, Rollup, Exec PDF, Risk Linkage, CBS Rehydration, BI, SCL+AACE, AIA G703, Gantt Export)
+## [3.7.0] — 2026-04-17 — KB + P1 Feature Wave (9 waves: CBS, Rollup, Exec PDF, Risk Linkage, CBS Rehydration, BI, SCL+AACE, AIA G703, Gantt Export)
 
 ### Added — P1 feature wave follow-up (2026-04-17, Waves 7-9)
 - **SCL Protocol submission PDF** (`scl_protocol`) — 7-section format per SCL Delay and Disruption Protocol (2nd ed., 2017) Appendix B: factual narrative, contractual milestone status, CP evolution, contemporaneous period analysis windows, responsibility attribution, concurrency assessment, records appendix. Opportunistically fetches delay attribution, forensic timeline (when baseline_id supplied), and schedule narrative.

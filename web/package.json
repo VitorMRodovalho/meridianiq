@@ -1,7 +1,7 @@
 {
   "name": "meridianiq-web",
   "private": true,
-  "version": "3.7.0-dev",
+  "version": "3.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
