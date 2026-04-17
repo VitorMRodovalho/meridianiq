@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getPrograms } from '$lib/api';
+	import { getPrograms, type ProgramListItem } from '$lib/api';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import { onMount } from 'svelte';
 
-	let programs: any[] = $state([]);
+	let programs: ProgramListItem[] = $state([]);
 	let loading = $state(true);
 	let error = $state('');
 
@@ -41,10 +41,10 @@
 	{:else}
 		<div class="grid gap-4">
 			{#each programs as prog}
-				<a href="/programs/{prog.program_id || prog.id}" class="block bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+				<a href="/programs/{prog.proj_short_name || prog.id}" class="block bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
 					<div class="flex items-center justify-between">
 						<div>
-							<h3 class="font-semibold text-gray-900 dark:text-gray-100">{prog.name || prog.program_id || 'Unnamed Program'}</h3>
+							<h3 class="font-semibold text-gray-900 dark:text-gray-100">{prog.name || prog.proj_short_name || 'Unnamed Program'}</h3>
 							{#if prog.description}
 								<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{prog.description}</p>
 							{/if}

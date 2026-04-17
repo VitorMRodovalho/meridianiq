@@ -1,15 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { getProgramDetail, getProgramTrends, getProgramRollup } from '$lib/api';
+	import {
+		getProgramDetail,
+		getProgramTrends,
+		getProgramRollup,
+		type ProgramListItem,
+		type ProgramRevision
+	} from '$lib/api';
 	import TrendChart from '$lib/components/TrendChart.svelte';
 	import type { ProgramTrends } from '$lib/types';
 	import type { ProgramRollup } from '$lib/api';
 
 	const programId = $derived($page.params.id!);
 
-	let program: Record<string, unknown> | null = $state(null);
-	let revisions: Record<string, unknown>[] = $state([]);
+	let program: ProgramListItem | null = $state(null);
+	let revisions: ProgramRevision[] = $state([]);
 	let trends: ProgramTrends | null = $state(null);
 	let rollup: ProgramRollup | null = $state(null);
 	let loading = $state(true);
@@ -296,7 +302,7 @@
 						</thead>
 						<tbody class="divide-y divide-gray-50">
 							{#each revisions as rev}
-								{@const revObj = rev as Record<string, unknown>}
+								{@const revObj = rev as unknown as Record<string, unknown>}
 								{@const healthScore = getRevisionHealthScore(String(revObj.id ?? ''))}
 								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
 									<td class="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getEVMAnalysis } from '$lib/api';
+	import { getEVMAnalysis, type EVMAnalysis, type EVMSCurvePoint } from '$lib/api';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 
-	let analysis: any = $state(null);
+	let analysis: EVMAnalysis | null = $state(null);
 	let loading = $state(true);
 	let error = $state('');
 
@@ -14,8 +14,8 @@
 		loading = true;
 		try {
 			analysis = await getEVMAnalysis(id);
-		} catch (e: any) {
-			error = e.message || 'Failed to load';
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load';
 		} finally {
 			loading = false;
 		}
@@ -55,14 +55,20 @@
 	const padT = 20;
 	const padB = 40;
 
-	function buildPath(points: any[], key: string, maxVal: number): string {
+	function buildPath(
+		points: EVMSCurvePoint[] | undefined,
+		key: keyof EVMSCurvePoint,
+		maxVal: number
+	): string {
 		if (!points || points.length === 0) return '';
 		const plotW = svgW - padL - padR;
 		const plotH = svgH - padT - padB;
 		return points
-			.map((p: any, i: number) => {
+			.map((p, i) => {
 				const x = padL + (i / Math.max(points.length - 1, 1)) * plotW;
-				const y = padT + plotH - (maxVal > 0 ? (p[key] / maxVal) * plotH : 0);
+				const raw = p[key];
+				const value = typeof raw === 'number' ? raw : 0;
+				const y = padT + plotH - (maxVal > 0 ? (value / maxVal) * plotH : 0);
 				return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
 			})
 			.join(' ');

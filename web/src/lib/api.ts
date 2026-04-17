@@ -132,17 +132,34 @@ export async function getProjects(): Promise<ProjectListResponse> {
 	return request<ProjectListResponse>('/api/v1/projects');
 }
 
+// Re-export commonly used schema types so consumer pages don't have to
+// reach into `$lib/schemas` directly.
+export type { ProjectSummary };
+
 // ── Programs (revision-grouped uploads) ─────────────────
-export async function getPrograms(): Promise<{ programs: any[] }> {
-	return request<{ programs: any[] }>('/api/v1/programs');
+
+import type { ProgramListItem, ProgramListResponse, ProgramRevision } from '$lib/types';
+
+export type { ProgramListItem, ProgramListResponse, ProgramRevision };
+
+export interface ProgramDetail {
+	program: ProgramListItem;
+	revisions: ProgramRevision[];
 }
 
-export async function getProgramDetail(id: string): Promise<{ program: any; revisions: any[] }> {
-	return request<{ program: any; revisions: any[] }>(`/api/v1/programs/${id}`);
+export async function getPrograms(): Promise<ProgramListResponse> {
+	return request<ProgramListResponse>('/api/v1/programs');
 }
 
-export async function updateProgram(id: string, body: { name?: string; description?: string }): Promise<{ program: any }> {
-	return request<{ program: any }>(`/api/v1/programs/${id}`, {
+export async function getProgramDetail(id: string): Promise<ProgramDetail> {
+	return request<ProgramDetail>(`/api/v1/programs/${id}`);
+}
+
+export async function updateProgram(
+	id: string,
+	body: { name?: string; description?: string }
+): Promise<{ program: ProgramListItem }> {
+	return request<{ program: ProgramListItem }>(`/api/v1/programs/${id}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
@@ -456,16 +473,109 @@ export async function compareCostSnapshots(
 }
 
 // ── EVM (Earned Value Management) ─────────────────────────
-export async function getEVMAnalyses(): Promise<{ analyses: any[] }> {
-	return request<{ analyses: any[] }>('/api/v1/evm/analyses');
+
+export interface EVMSCurvePoint {
+	date: string;
+	cumulative_pv: number;
+	cumulative_ev: number;
+	cumulative_ac: number;
+	pv?: number;
+	ev?: number;
+	ac?: number;
 }
 
-export async function createEVMAnalysis(projectId: string): Promise<any> {
-	return request<any>(`/api/v1/evm/analyze/${projectId}`, { method: 'POST' });
+/** Summary row as returned by the analyses list — flat shape, gauges + coloured badges. */
+export interface EVMAnalysisSummary {
+	analysis_id: string;
+	project_id?: string;
+	project_name?: string;
+	data_date?: string;
+	bac: number;
+	pv: number;
+	ev: number;
+	ac: number;
+	eac: number;
+	spi: number;
+	cpi: number;
+	schedule_health: 'good' | 'watch' | 'bad' | string;
+	cost_health: 'good' | 'watch' | 'bad' | string;
+	s_curve?: EVMSCurvePoint[];
 }
 
-export async function getEVMAnalysis(id: string): Promise<any> {
-	return request<any>(`/api/v1/evm/analyses/${id}`);
+/** Nested metrics object on the detail response. */
+export interface EVMMetrics {
+	bac: number;
+	pv: number;
+	ev: number;
+	ac: number;
+	eac: number;
+	sv: number;
+	cv: number;
+	spi: number;
+	cpi: number;
+	etc?: number;
+	vac?: number;
+	tcpi?: number;
+}
+
+/** Health verdict with traffic-light status + human-readable label. */
+export interface EVMHealthBadge {
+	status: 'good' | 'watch' | 'bad' | string;
+	label: string;
+}
+
+/** Forecast block on the detail response. */
+export interface EVMForecast {
+	eac_cpi: number;
+	eac_combined: number;
+	eac_etc_new: number;
+	etc: number;
+	vac: number;
+	tcpi: number;
+}
+
+/** One WBS row on the detail response. */
+export interface EVMWBSBreakdown {
+	wbs_id?: string;
+	wbs_name: string;
+	metrics: EVMMetrics;
+}
+
+/** Detail response — nested shape from /evm/analyses/{id}. */
+export interface EVMAnalysis {
+	analysis_id: string;
+	project_id?: string;
+	project_name?: string;
+	data_date?: string;
+	metrics: EVMMetrics;
+	schedule_health: EVMHealthBadge;
+	cost_health: EVMHealthBadge;
+	forecast: EVMForecast;
+	s_curve?: EVMSCurvePoint[];
+	wbs_breakdown?: EVMWBSBreakdown[];
+	activities?: Array<{
+		task_id: string;
+		task_code?: string;
+		task_name?: string;
+		pv: number;
+		ev: number;
+		ac: number;
+	}>;
+	warnings?: string[];
+	variance_narrative?: string;
+	[k: string]: unknown;
+}
+
+export async function getEVMAnalyses(): Promise<{ analyses: EVMAnalysisSummary[] }> {
+	return request<{ analyses: EVMAnalysisSummary[] }>('/api/v1/evm/analyses');
+}
+
+export async function createEVMAnalysis(projectId: string): Promise<EVMAnalysis> {
+	return request<EVMAnalysis>(`/api/v1/evm/analyze/${projectId}`, { method: 'POST' });
+}
+
+export async function getEVMAnalysis(id: string): Promise<EVMAnalysis> {
+	return request<EVMAnalysis>(`/api/v1/evm/analyses/${id}`);
 }
 
 // ── Risk (Monte Carlo QSRA) ────────────────────────────────

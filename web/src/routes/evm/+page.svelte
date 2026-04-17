@@ -1,13 +1,19 @@
 <script lang="ts">
-	import { getEVMAnalyses, createEVMAnalysis, getProjects } from '$lib/api';
+	import {
+		getEVMAnalyses,
+		createEVMAnalysis,
+		getProjects,
+		type EVMAnalysisSummary
+	} from '$lib/api';
+	import type { ProjectListItem } from '$lib/types';
 	import { error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import EVMSCurveChart from '$lib/components/charts/EVMSCurveChart.svelte';
 
-	let analyses: any[] = $state([]);
-	let projects: any[] = $state([]);
+	let analyses: EVMAnalysisSummary[] = $state([]);
+	let projects: ProjectListItem[] = $state([]);
 	let selectedProject = $state('');
 	let loading = $state(false);
 	let error = $state('');
@@ -37,8 +43,8 @@
 		try {
 			const result = await createEVMAnalysis(selectedProject);
 			window.location.href = `/evm/${result.analysis_id}`;
-		} catch (e: any) {
-			error = e.message || 'Analysis failed';
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Analysis failed';
 			toastError(error);
 		} finally {
 			loading = false;
