@@ -47,8 +47,11 @@
 		try {
 			const resp = await getCostSnapshots(projectId);
 			snapshots = resp.snapshots;
-			snapshotA = snapshots.length >= 2 ? snapshots[1].snapshot_id : '';
-			snapshotB = snapshots.length >= 1 ? snapshots[0].snapshot_id : '';
+			// Seed default picks from comparable snapshots only (skip empties
+			// which otherwise 404 when rehydrated on the backend).
+			const pickable = snapshots.filter((s) => s.cbs_element_count > 0);
+			snapshotA = pickable.length >= 2 ? pickable[1].snapshot_id : '';
+			snapshotB = pickable.length >= 1 ? pickable[0].snapshot_id : '';
 			result = null;
 		} catch (e) {
 			toastError(e instanceof Error ? e.message : 'Failed to load snapshots');
@@ -57,6 +60,15 @@
 			loading = false;
 		}
 	}
+
+	// Only snapshots with at least one CBS element can be compared — empty
+	// snapshots rehydrate to no rows and the backend returns 404.
+	const comparableSnapshots = $derived(
+		snapshots.filter((s) => s.cbs_element_count > 0)
+	);
+	const filteredOutCount = $derived(
+		snapshots.length - comparableSnapshots.length
+	);
 
 	async function runCompare() {
 		if (!selectedProject || !snapshotA || !snapshotB || snapshotA === snapshotB) return;
@@ -174,11 +186,11 @@
 				</span>
 				<select
 					bind:value={snapshotA}
-					disabled={snapshots.length < 2}
+					disabled={comparableSnapshots.length < 2}
 					class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-3 py-2 disabled:opacity-50"
 				>
 					<option value="">—</option>
-					{#each snapshots as s}
+					{#each comparableSnapshots as s}
 						<option value={s.snapshot_id}>
 							{s.snapshot_id} — {s.source_name} ({fmt(s.total_budget)})
 						</option>
@@ -192,11 +204,11 @@
 				</span>
 				<select
 					bind:value={snapshotB}
-					disabled={snapshots.length < 2}
+					disabled={comparableSnapshots.length < 2}
 					class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm px-3 py-2 disabled:opacity-50"
 				>
 					<option value="">—</option>
-					{#each snapshots as s}
+					{#each comparableSnapshots as s}
 						<option value={s.snapshot_id}>
 							{s.snapshot_id} — {s.source_name} ({fmt(s.total_budget)})
 						</option>
@@ -205,9 +217,14 @@
 			</label>
 		</div>
 
-		{#if selectedProject && snapshots.length < 2}
+		{#if selectedProject && comparableSnapshots.length < 2}
 			<p class="text-xs text-amber-700 dark:text-amber-400 mt-3">
-				Need at least two snapshots on this project to compare (currently {snapshots.length}). Upload more CBS files via <a href="/cost" class="underline">/cost</a> with <code>?project_id={selectedProject}</code>.
+				Need at least two snapshots with parsed CBS elements on this project to compare (currently {comparableSnapshots.length}). Upload more CBS files via <a href="/cost" class="underline">/cost</a> with <code>?project_id={selectedProject}</code>.
+			</p>
+		{/if}
+		{#if filteredOutCount > 0}
+			<p class="text-xs text-gray-500 dark:text-gray-500 mt-2">
+				{filteredOutCount} snapshot{filteredOutCount === 1 ? '' : 's'} hidden (no parsed CBS elements — would 404 on compare).
 			</p>
 		{/if}
 
