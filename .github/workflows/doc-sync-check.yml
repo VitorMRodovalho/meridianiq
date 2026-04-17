@@ -46,7 +46,7 @@ jobs:
 
       - name: Fail if committed catalogs differ from generated
         run: |
-          if ! git diff --exit-status docs/api-reference.md docs/methodologies.md docs/mcp-tools.md; then
+          if ! git diff --exit-code docs/api-reference.md docs/methodologies.md docs/mcp-tools.md; then
             echo ""
             echo "::error::Doc catalogs are out of sync with source code."
             echo "::error::Run the generators locally (or the /sync-docs slash command) and commit the results:"
