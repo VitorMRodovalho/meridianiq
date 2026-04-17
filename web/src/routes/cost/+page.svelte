@@ -102,12 +102,20 @@
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Cost-Schedule Integration</h1>
 			<p class="text-sm text-gray-500 dark:text-gray-400">CBS/WBS correlation — upload program budget Excel to analyze cost breakdown (AACE RP 10S-90)</p>
 		</div>
-		<a
-			href="/cost/compare"
-			class="shrink-0 inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-		>
-			Compare Snapshots →
-		</a>
+		<div class="flex gap-2 shrink-0">
+			<a
+				href="/cost/compare"
+				class="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+			>
+				Compare Snapshots →
+			</a>
+			<a
+				href="/cost/g702"
+				class="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+			>
+				AIA G702 Certificate →
+			</a>
+		</div>
 	</div>
 
 	<!-- Upload -->

@@ -41,6 +41,7 @@ _VALID_REPORT_TYPES = {
     "narrative",
     "scl_protocol",
     "aace_29r03",
+    "aia_g702",
 }
 
 
@@ -115,6 +116,8 @@ def generate_report(
             pdf_bytes = _generate_scl_protocol_report(generator, schedule, request, store)
         elif report_type == "aace_29r03":
             pdf_bytes = _generate_aace_29r03_report(generator, schedule, request, store)
+        elif report_type == "aia_g702":
+            pdf_bytes = _generate_aia_g702_report(generator, schedule, request, store)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -372,6 +375,22 @@ def get_available_reports(
             "name": "AACE RP 29R-03 §5.3 Forensic Report",
             "ready": True,
             "reason": "",
+        }
+    )
+
+    # --- aia_g702: Application and Certificate for Payment (requires CBS snapshot) ---
+    has_snapshot = False
+    if hasattr(store, "list_cost_snapshots"):
+        try:
+            has_snapshot = bool(store.list_cost_snapshots(project_id))
+        except Exception:
+            has_snapshot = False
+    reports.append(
+        {
+            "type": "aia_g702",
+            "name": "AIA G702 Application and Certificate for Payment",
+            "ready": has_snapshot,
+            "reason": "" if has_snapshot else "Requires at least one CBS snapshot",
         }
     )
 
@@ -810,3 +829,94 @@ def _generate_executive_summary(
         cost_comparison=cost_comparison,
         program_rollup=program_rollup,
     )
+
+
+def _generate_aia_g702_report(
+    generator: ReportGenerator,
+    schedule: ParsedSchedule,
+    request: GenerateReportRequest,
+    store: ProjectStore,
+) -> bytes:
+    """Generate AIA G702 Application and Certificate for Payment PDF.
+
+    Requires a CBS snapshot (for the paired G703 totals) and several
+    caller-supplied contract fields passed via ``request.options``:
+
+    - ``snapshot_id`` (required) — CBS snapshot to derive G703 totals from
+    - ``original_contract_sum`` (required, float)
+    - ``application_number`` (int, default 1)
+    - ``period_to`` (str, default "")
+    - ``retainage_pct`` (float, default 0.10)
+    - ``retainage_stored_fraction`` (float 0-1, default 0.0) — split of
+      g703.total_retainage between stored materials (5b) and completed
+      work (5a)
+    - ``previous_certificates_total`` (float, default 0.0) — Line 7
+    - ``change_order`` (dict with keys prior_additions,
+      prior_deductions, this_period_additions, this_period_deductions)
+    - ``owner``, ``contractor``, ``architect``, ``contract_for``,
+      ``architects_project_number``, ``contract_date``, ``via_architect``
+      (str, optional header fields)
+    """
+    opts = request.options or {}
+
+    snapshot_id = opts.get("snapshot_id")
+    if not snapshot_id:
+        raise HTTPException(
+            status_code=400,
+            detail="aia_g702 requires 'snapshot_id' in options (CBS snapshot)",
+        )
+
+    original_contract_sum = opts.get("original_contract_sum")
+    if original_contract_sum is None:
+        raise HTTPException(
+            status_code=400,
+            detail="aia_g702 requires 'original_contract_sum' in options",
+        )
+
+    snapshot = None
+    if hasattr(store, "get_cost_snapshot"):
+        snapshot = store.get_cost_snapshot(request.project_id, snapshot_id)
+    if snapshot is None:
+        raise HTTPException(
+            status_code=404, detail=f"CBS snapshot not retrievable: {snapshot_id}"
+        )
+
+    project_name = (
+        schedule.projects[0].proj_short_name if schedule.projects else request.project_id
+    )
+
+    from src.analytics.aia_g702 import G702ChangeOrder, build_g702_from_g703
+    from src.analytics.aia_g703 import build_g703_from_cbs
+
+    g703 = build_g703_from_cbs(
+        snapshot,
+        project_name=project_name,
+        application_number=int(opts.get("application_number", 1) or 1),
+        period_to=str(opts.get("period_to", "") or ""),
+        retainage_pct=float(opts.get("retainage_pct", 0.10) or 0.10),
+    )
+
+    co_input = opts.get("change_order") or {}
+    change_order = G702ChangeOrder(
+        prior_additions=float(co_input.get("prior_additions", 0.0) or 0.0),
+        prior_deductions=float(co_input.get("prior_deductions", 0.0) or 0.0),
+        this_period_additions=float(co_input.get("this_period_additions", 0.0) or 0.0),
+        this_period_deductions=float(co_input.get("this_period_deductions", 0.0) or 0.0),
+    )
+
+    g702 = build_g702_from_g703(
+        g703,
+        original_contract_sum=float(original_contract_sum),
+        previous_certificates_total=float(opts.get("previous_certificates_total", 0.0) or 0.0),
+        change_order=change_order,
+        retainage_stored_fraction=float(opts.get("retainage_stored_fraction", 0.0) or 0.0),
+        owner=str(opts.get("owner", "") or ""),
+        contractor=str(opts.get("contractor", "") or ""),
+        architect=str(opts.get("architect", "") or ""),
+        contract_for=str(opts.get("contract_for", "") or ""),
+        architects_project_number=str(opts.get("architects_project_number", "") or ""),
+        contract_date=str(opts.get("contract_date", "") or ""),
+        via_architect=str(opts.get("via_architect", "") or ""),
+    )
+
+    return generator.generate_aia_g702_report(g702, g703=g703)

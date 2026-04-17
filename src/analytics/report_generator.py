@@ -1079,6 +1079,258 @@ class ReportGenerator:
         return self._html_to_pdf(html)
 
     # ------------------------------------------------------------------
+    # AIA G702 — Application and Certificate for Payment
+    # ------------------------------------------------------------------
+
+    def generate_aia_g702_report(
+        self,
+        g702: Any,
+        g703: Any | None = None,
+    ) -> bytes:
+        """Generate an AIA G702 Application and Certificate for Payment PDF.
+
+        Renders the cover certificate that pairs with a G703 Continuation
+        Sheet. Reproduces the form layout: header block, Application
+        block (lines 1-9), Change Order summary, Contractor's
+        Certification, and Architect's Certification (signature areas
+        left blank — intended to be signed post-download).
+
+        Args:
+            g702: ``G702Application`` with lines 1-9 computed.
+            g703: Optional ``G703ContinuationSheet`` — if supplied, a
+                compact summary of line-item totals is appended as an
+                appendix for reviewer convenience.
+
+        Returns:
+            PDF bytes.
+
+        Reference:
+            AIA Document G702™-1992 (current edition) — Application and
+            Certificate for Payment.
+        """
+        body = self._build_aia_g702_html(g702, g703)
+        html = self._html_wrapper(
+            "AIA G702 — Application and Certificate for Payment",
+            getattr(g702, "project_name", "") or "Project",
+            body,
+        )
+        return self._html_to_pdf(html)
+
+    def _build_aia_g702_html(self, g702: Any, g703: Any | None) -> str:
+        """Compose the HTML body for the G702 certificate."""
+        fmt = lambda v: f"${v:,.2f}"  # noqa: E731
+
+        header_rows = [
+            ("To Owner", getattr(g702, "owner", "") or "—"),
+            ("From Contractor", getattr(g702, "contractor", "") or "—"),
+            ("Via Architect", getattr(g702, "via_architect", "") or "—"),
+            ("Architect", getattr(g702, "architect", "") or "—"),
+            ("Project", getattr(g702, "project_name", "") or "—"),
+            ("Contract For", getattr(g702, "contract_for", "") or "—"),
+            ("Contract Date", getattr(g702, "contract_date", "") or "—"),
+            (
+                "Application No.",
+                str(getattr(g702, "application_number", "") or "—"),
+            ),
+            ("Period To", getattr(g702, "period_to", "") or "—"),
+            (
+                "Architect's Project No.",
+                getattr(g702, "architects_project_number", "") or "—",
+            ),
+        ]
+        header_html = "<table class='g702-header'>"
+        for label, value in header_rows:
+            header_html += (
+                f"<tr><th style='width:32%;text-align:left;'>{_esc(label)}</th>"
+                f"<td>{_esc(value)}</td></tr>"
+            )
+        header_html += "</table>"
+
+        co = getattr(g702, "change_order", None)
+
+        line_rows: list[tuple[str, str, str]] = [
+            ("1.", "ORIGINAL CONTRACT SUM", fmt(g702.original_contract_sum)),
+            (
+                "2.",
+                "Net change by Change Orders",
+                fmt(g702.net_change_by_change_orders),
+            ),
+            ("3.", "CONTRACT SUM TO DATE (Line 1 \u00b1 2)", fmt(g702.contract_sum_to_date)),
+            (
+                "4.",
+                "TOTAL COMPLETED &amp; STORED TO DATE (G703 column G)",
+                fmt(g702.total_completed_and_stored),
+            ),
+            ("5a.", "Retainage — Completed Work", fmt(g702.retainage_completed_work)),
+            (
+                "5b.",
+                "Retainage — Stored Materials",
+                fmt(g702.retainage_stored_materials),
+            ),
+            ("5.", "Total Retainage (5a + 5b)", fmt(g702.total_retainage)),
+            (
+                "6.",
+                "TOTAL EARNED LESS RETAINAGE (Line 4 \u2212 5)",
+                fmt(g702.total_earned_less_retainage),
+            ),
+            (
+                "7.",
+                "LESS PREVIOUS CERTIFICATES FOR PAYMENT",
+                fmt(g702.previous_certificates_total),
+            ),
+            ("8.", "CURRENT PAYMENT DUE (Line 6 \u2212 7)", fmt(g702.current_payment_due)),
+            (
+                "9.",
+                "BALANCE TO FINISH, INCLUDING RETAINAGE (Line 3 \u2212 6)",
+                fmt(g702.balance_to_finish_including_retainage),
+            ),
+        ]
+        line_html = (
+            "<table class='g702-lines'>"
+            "<thead><tr><th style='width:8%'>Line</th>"
+            "<th>Description</th>"
+            "<th style='width:22%;text-align:right'>Amount (USD)</th></tr></thead>"
+            "<tbody>"
+        )
+        for num, desc, amt in line_rows:
+            emphasize = num in {"3.", "4.", "6.", "8.", "9."}
+            style = "font-weight:600;background:#f3f4f6;" if emphasize else ""
+            line_html += (
+                f"<tr style='{style}'>"
+                f"<td>{num}</td><td>{desc}</td>"
+                f"<td style='text-align:right;font-variant-numeric:tabular-nums'>{amt}</td>"
+                f"</tr>"
+            )
+        line_html += "</tbody></table>"
+
+        if co is not None:
+            co_html = (
+                "<table class='g702-co'>"
+                "<thead><tr><th></th>"
+                "<th style='text-align:right'>Additions</th>"
+                "<th style='text-align:right'>Deductions</th></tr></thead>"
+                "<tbody>"
+                f"<tr><td>Total changes approved in previous months</td>"
+                f"<td style='text-align:right'>{fmt(co.prior_additions)}</td>"
+                f"<td style='text-align:right'>{fmt(co.prior_deductions)}</td></tr>"
+                f"<tr><td>Total approved this month</td>"
+                f"<td style='text-align:right'>{fmt(co.this_period_additions)}</td>"
+                f"<td style='text-align:right'>{fmt(co.this_period_deductions)}</td></tr>"
+                f"<tr style='font-weight:600;background:#f3f4f6;'>"
+                f"<td>TOTALS</td>"
+                f"<td style='text-align:right'>{fmt(co.total_additions)}</td>"
+                f"<td style='text-align:right'>{fmt(co.total_deductions)}</td></tr>"
+                f"<tr style='font-weight:600;'>"
+                f"<td>NET CHANGE BY CHANGE ORDERS</td>"
+                f"<td colspan='2' style='text-align:right'>{fmt(co.net_change)}</td></tr>"
+                "</tbody></table>"
+            )
+        else:
+            co_html = "<p>No change orders recorded.</p>"
+
+        contractor_cert = (
+            "<div class='cert-block'>"
+            "<h3>Contractor's Certification</h3>"
+            "<p>The undersigned Contractor certifies that to the best of the "
+            "Contractor's knowledge, information and belief the Work covered by "
+            "this Application for Payment has been completed in accordance with "
+            "the Contract Documents, that all amounts have been paid by the "
+            "Contractor for Work for which previous Certificates for Payment were "
+            "issued and payments received from the Owner, and that current "
+            "payment shown herein is now due.</p>"
+            "<div class='sig-row'>"
+            "<div class='sig-cell'><div class='sig-line'></div><div>Contractor</div></div>"
+            "<div class='sig-cell'><div class='sig-line'></div><div>Date</div></div>"
+            "</div>"
+            "</div>"
+        )
+
+        architect_cert = (
+            "<div class='cert-block'>"
+            "<h3>Architect's Certificate for Payment</h3>"
+            "<p>In accordance with the Contract Documents, based on on-site "
+            "observations and the data comprising this application, the Architect "
+            "certifies to the Owner that to the best of the Architect's knowledge, "
+            "information and belief the Work has progressed as indicated, the "
+            "quality of the Work is in accordance with the Contract Documents, "
+            "and the Contractor is entitled to payment of the AMOUNT CERTIFIED.</p>"
+            f"<p class='amount-certified'>AMOUNT CERTIFIED: "
+            f"{fmt(g702.current_payment_due)}</p>"
+            "<div class='sig-row'>"
+            "<div class='sig-cell'><div class='sig-line'></div><div>Architect</div></div>"
+            "<div class='sig-cell'><div class='sig-line'></div><div>Date</div></div>"
+            "</div>"
+            "</div>"
+        )
+
+        g703_appendix = ""
+        if g703 is not None:
+            rows = [
+                ("Scheduled Value (total)", fmt(getattr(g703, "total_scheduled_value", 0.0))),
+                (
+                    "Previous Application (total)",
+                    fmt(getattr(g703, "total_previous_application", 0.0)),
+                ),
+                ("This Period (total)", fmt(getattr(g703, "total_this_period", 0.0))),
+                ("Materials Stored (total)", fmt(getattr(g703, "total_materials_stored", 0.0))),
+                (
+                    "Completed &amp; Stored (total)",
+                    fmt(getattr(g703, "total_completed_and_stored", 0.0)),
+                ),
+                ("Balance to Finish (total)", fmt(getattr(g703, "total_balance_to_finish", 0.0))),
+                ("Retainage (total)", fmt(getattr(g703, "total_retainage", 0.0))),
+                ("Line items", str(len(getattr(g703, "line_items", []) or []))),
+            ]
+            rows_html = "".join(
+                f"<tr><th style='text-align:left'>{_esc(lbl)}</th>"
+                f"<td style='text-align:right'>{val}</td></tr>"
+                for lbl, val in rows
+            )
+            g703_appendix = (
+                "<h2>Appendix — G703 Continuation Sheet Summary</h2>"
+                "<table class='g702-header'>"
+                f"{rows_html}"
+                "</table>"
+            )
+
+        style_block = (
+            "<style>"
+            ".g702-header th, .g702-header td { padding:4px 8px; border-bottom:1px solid #e5e7eb; }"
+            ".g702-lines th, .g702-lines td { padding:6px 10px; border-bottom:1px solid #e5e7eb; }"
+            ".g702-co th, .g702-co td { padding:6px 10px; border-bottom:1px solid #e5e7eb; }"
+            ".cert-block { margin-top:24px; padding:14px; "
+            "border:1px solid #9ca3af; border-radius:4px; }"
+            ".cert-block h3 { margin-top:0; }"
+            ".sig-row { display:flex; gap:24px; margin-top:18px; }"
+            ".sig-cell { flex:1; }"
+            ".sig-line { border-bottom:1px solid #111; height:18px; margin-bottom:4px; }"
+            ".amount-certified { font-size:14px; font-weight:700; "
+            "background:#fef3c7; padding:8px 12px; border-radius:4px; }"
+            "</style>"
+        )
+
+        return (
+            style_block
+            + self._methodology_box(
+                "Prepared per AIA Document G702™ — Application and Certificate "
+                "for Payment. Figures derived from the paired G703 Continuation "
+                "Sheet (column G grand total and retainage) combined with "
+                "caller-supplied contract sum, change orders, and prior "
+                "certificates. Certification signatures are left blank for "
+                "manual execution after download."
+            )
+            + "<h2>Project &amp; Contract Information</h2>"
+            + header_html
+            + "<h2>Application for Payment</h2>"
+            + line_html
+            + "<h2>Change Order Summary</h2>"
+            + co_html
+            + contractor_cert
+            + architect_cert
+            + g703_appendix
+        )
+
+    # ------------------------------------------------------------------
     # PDF conversion
     # ------------------------------------------------------------------
 

@@ -92,6 +92,7 @@ class TestAvailableReports:
             "executive_summary",
             "scl_protocol",
             "aace_29r03",
+            "aia_g702",
         }
         assert expected == types
 
