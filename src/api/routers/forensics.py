@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.half_step import analyze_half_step
+from src.analytics.mip_observational import analyze_mip_3_1, analyze_mip_3_2
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
@@ -20,6 +21,11 @@ from ..schemas import (
     DelayTrendResponse,
     HalfStepRequest,
     HalfStepResponse,
+    Mip31Request,
+    Mip31Response,
+    Mip32EventSchema,
+    Mip32Request,
+    Mip32Response,
     TimelineDetailSchema,
     TimelineListResponse,
     TimelineSummarySchema,
@@ -221,6 +227,138 @@ def run_half_step(
         critical_path_b=result.critical_path_b,
         classification_summary=result.classification.summary if result.classification else {},
         summary=result.summary,
+    )
+
+
+@router.post(
+    "/api/v1/forensic/mip-3-1",
+    response_model=Mip31Response,
+)
+def run_mip_3_1(
+    request: Mip31Request,
+    _user: object = Depends(optional_auth),
+) -> Mip31Response:
+    """Run MIP 3.1 — Observational Static Logic / Gross comparison.
+
+    Compares only the earliest (baseline) and latest (as-built) schedules
+    per AACE RP 29R-03 §3.1. No intermediate updates are examined.
+
+    Args:
+        request: Contains baseline_id and final_id.
+
+    Raises:
+        HTTPException: If either project is not found.
+    """
+    store = get_store()
+
+    baseline = store.get(request.baseline_id)
+    if baseline is None:
+        raise HTTPException(
+            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
+        )
+
+    final = store.get(request.final_id)
+    if final is None:
+        raise HTTPException(status_code=404, detail=f"Final project not found: {request.final_id}")
+
+    try:
+        result = analyze_mip_3_1(
+            baseline, final, baseline_id=request.baseline_id, final_id=request.final_id
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MIP 3.1 analysis failed: {exc}")
+
+    return Mip31Response(
+        baseline_project_id=result.baseline_project_id,
+        final_project_id=result.final_project_id,
+        baseline_data_date=(
+            result.baseline_data_date.isoformat() if result.baseline_data_date else None
+        ),
+        final_data_date=(result.final_data_date.isoformat() if result.final_data_date else None),
+        baseline_completion_date=(
+            result.baseline_completion_date.isoformat() if result.baseline_completion_date else None
+        ),
+        final_completion_date=(
+            result.final_completion_date.isoformat() if result.final_completion_date else None
+        ),
+        gross_delay_days=result.gross_delay_days,
+        baseline_critical_path=result.baseline_critical_path,
+        final_critical_path=result.final_critical_path,
+        cp_activities_joined=result.cp_activities_joined,
+        cp_activities_left=result.cp_activities_left,
+        driving_activity=result.driving_activity,
+        activities_added=result.activities_added,
+        activities_deleted=result.activities_deleted,
+        activities_changed=result.activities_changed,
+        comparison_summary=result.comparison_summary,
+        methodology=result.methodology,
+    )
+
+
+@router.post(
+    "/api/v1/forensic/mip-3-2",
+    response_model=Mip32Response,
+)
+def run_mip_3_2(
+    request: Mip32Request,
+    _user: object = Depends(optional_auth),
+) -> Mip32Response:
+    """Run MIP 3.2 — Observational Dynamic Logic / Contemporaneous As-Is.
+
+    Walks every supplied schedule chronologically, producing one event per
+    update (no window splitting). Per AACE RP 29R-03 §3.2.
+
+    Args:
+        request: Contains project_ids (minimum 2).
+
+    Raises:
+        HTTPException: 404 if any project is missing, 400 on invalid input.
+    """
+    store = get_store()
+
+    schedules: list[ParsedSchedule] = []
+    for pid in request.project_ids:
+        schedule = store.get(pid)
+        if schedule is None:
+            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
+        schedules.append(schedule)
+
+    try:
+        result = analyze_mip_3_2(schedules, project_ids=list(request.project_ids))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"MIP 3.2 analysis failed: {exc}")
+
+    events = [
+        Mip32EventSchema(
+            index=e.index,
+            project_id=e.project_id,
+            data_date=e.data_date.isoformat() if e.data_date else None,
+            completion_date=e.completion_date.isoformat() if e.completion_date else None,
+            delay_since_baseline_days=e.delay_since_baseline_days,
+            delay_since_previous_days=e.delay_since_previous_days,
+            critical_path=e.critical_path,
+            cp_activities_joined_since_previous=e.cp_activities_joined_since_previous,
+            cp_activities_left_since_previous=e.cp_activities_left_since_previous,
+            driving_activity=e.driving_activity,
+        )
+        for e in result.events
+    ]
+
+    return Mip32Response(
+        project_ids=result.project_ids,
+        schedule_count=result.schedule_count,
+        baseline_completion_date=(
+            result.baseline_completion_date.isoformat() if result.baseline_completion_date else None
+        ),
+        final_completion_date=(
+            result.final_completion_date.isoformat() if result.final_completion_date else None
+        ),
+        total_delay_days=result.total_delay_days,
+        events=events,
+        cp_activities_ever_critical=result.cp_activities_ever_critical,
+        methodology=result.methodology,
     )
 
 

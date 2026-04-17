@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **42 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **43 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -32,6 +32,7 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`health_score`](#health-score--health-score) | Composite Schedule Health Score per DCMA + GAO. |
 | [`ips_reconciliation`](#ips-reconciliation--ips-reconciliation) | Integrated Project Schedule (IPS) Reconciliation Engine. |
 | [`lookahead`](#lookahead--lookahead) | Look-ahead schedule — short-term activity window view. |
+| [`mip_observational`](#mip-observational--mip-observational) | AACE RP 29R-03 observational MIPs — 3.1 (Gross) and 3.2 (As-Is). |
 | [`narrative_report`](#narrative-report--narrative-report) | Narrative report generator — structured text from schedule analysis. |
 | [`nlp_query`](#nlp-query--nlp-query) | NLP Schedule Query engine — natural language interface for schedule data. |
 | [`pareto`](#pareto--pareto) | Time-cost Pareto analysis — multi-scenario trade-off frontier. |
@@ -531,6 +532,39 @@ Filters activities to a configurable time window (typically 2-4 weeks) relative 
 
 - PMI Practice Standard for Scheduling — Look-Ahead Planning
 - Lean Construction Institute — Last Planner System (LPS)
+
+---
+
+### `mip_observational` — Mip Observational
+
+**AACE RP 29R-03 observational MIPs — 3.1 (Gross) and 3.2 (As-Is).**
+
+Implements the two observational Methods of Implementation per AACE Recommended Practice 29R-03 (Forensic Schedule Analysis):
+
+- **MIP 3.1 — Observational / Static Logic / Gross**.  The most abridged
+  forensic method.  Pairs the earliest as-planned schedule with the
+  latest as-built schedule and reports gross delay, critical-path shift,
+  and activity inventory deltas.  No intermediate updates are examined.
+
+- **MIP 3.2 — Observational / Dynamic Logic / Contemporaneous As-Is**.
+  Walks every schedule update chronologically, observing completion
+  date movement and critical-path evolution at each data date without
+  splitting the project into discrete windows.  Output is a narrative
+  event stream rather than a window-by-window decomposition (that is
+  MIP 3.3's job).
+
+Both methods are *observational* — neither alters the schedules.  They
+rely on the existing CPM calculator and schedule comparison engine.
+
+**Standards implemented:**
+
+- AACE RP 29R-03 — Forensic Schedule Analysis
+
+**Explicit references from docstring:**
+
+- AACE RP 29R-03 §3.1 (Static Logic Gross), §3.2 (Dynamic Logic As-Is).
+- SCL Delay and Disruption Protocol, 2nd ed. (2017) — time-slice
+- methodology alignment.
 
 ---
 

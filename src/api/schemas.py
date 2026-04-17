@@ -392,6 +392,71 @@ class HalfStepRequest(BaseModel):
     update_id: str
 
 
+class Mip31Request(BaseModel):
+    """Request body for POST /api/v1/forensic/mip-3-1."""
+
+    baseline_id: str
+    final_id: str
+
+
+class Mip31Response(BaseModel):
+    """Response for POST /api/v1/forensic/mip-3-1."""
+
+    baseline_project_id: str = ""
+    final_project_id: str = ""
+    baseline_data_date: Optional[str] = None
+    final_data_date: Optional[str] = None
+    baseline_completion_date: Optional[str] = None
+    final_completion_date: Optional[str] = None
+    gross_delay_days: float = 0.0
+    baseline_critical_path: list[str] = Field(default_factory=list)
+    final_critical_path: list[str] = Field(default_factory=list)
+    cp_activities_joined: list[str] = Field(default_factory=list)
+    cp_activities_left: list[str] = Field(default_factory=list)
+    driving_activity: str = ""
+    activities_added: int = 0
+    activities_deleted: int = 0
+    activities_changed: int = 0
+    comparison_summary: dict[str, Any] = Field(default_factory=dict)
+    methodology: str = "AACE RP 29R-03 MIP 3.1 — Static Logic / Gross"
+
+
+class Mip32Request(BaseModel):
+    """Request body for POST /api/v1/forensic/mip-3-2."""
+
+    project_ids: list[str] = Field(
+        ..., min_length=2, description="At least 2 project IDs in chronological order"
+    )
+
+
+class Mip32EventSchema(BaseModel):
+    """One observational event in the MIP 3.2 narrative."""
+
+    index: int
+    project_id: str = ""
+    data_date: Optional[str] = None
+    completion_date: Optional[str] = None
+    delay_since_baseline_days: float = 0.0
+    delay_since_previous_days: float = 0.0
+    critical_path: list[str] = Field(default_factory=list)
+    cp_activities_joined_since_previous: list[str] = Field(default_factory=list)
+    cp_activities_left_since_previous: list[str] = Field(default_factory=list)
+    driving_activity: str = ""
+
+
+class Mip32Response(BaseModel):
+    """Response for POST /api/v1/forensic/mip-3-2."""
+
+    project_ids: list[str] = Field(default_factory=list)
+    schedule_count: int = 0
+    baseline_completion_date: Optional[str] = None
+    final_completion_date: Optional[str] = None
+    total_delay_days: float = 0.0
+    events: list[Mip32EventSchema] = Field(default_factory=list)
+    cp_activities_ever_critical: list[str] = Field(default_factory=list)
+    methodology: str = "AACE RP 29R-03 MIP 3.2 — Dynamic Logic / Contemporaneous As-Is"
+
+
 class HalfStepResponse(BaseModel):
     """Response for POST /api/v1/forensic/half-step."""
 

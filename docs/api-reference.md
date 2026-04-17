@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **107 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **109 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -12,7 +12,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Projects](#projects) — 3 endpoints
 - [Programs](#programs) — 5 endpoints
 - [Comparison](#comparison) — 1 endpoints
-- [Forensics](#forensics) — 5 endpoints
+- [Forensics](#forensics) — 7 endpoints
 - [TIA](#tia) — 4 endpoints
 - [EVM](#evm) — 6 endpoints
 - [Risk](#risk) — 8 endpoints
@@ -76,6 +76,8 @@ _CPA per AACE RP 29R-03, delay waterfall_
 |---|---|---|---|---|
 | `POST` | `/api/v1/forensic/create-timeline` | Create a forensic CPA timeline from multiple schedule updates. | `TimelineDetailSchema` | optional |
 | `POST` | `/api/v1/forensic/half-step` | Run a half-step (bifurcation) analysis between two schedule updates. | `HalfStepResponse` | optional |
+| `POST` | `/api/v1/forensic/mip-3-1` | Run MIP 3.1 — Observational Static Logic / Gross comparison. | `Mip31Response` | optional |
+| `POST` | `/api/v1/forensic/mip-3-2` | Run MIP 3.2 — Observational Dynamic Logic / Contemporaneous As-Is. | `Mip32Response` | optional |
 | `GET` | `/api/v1/forensic/timelines` | List all forensic timelines. | `TimelineListResponse` | optional |
 | `GET` | `/api/v1/forensic/timelines/{timeline_id}` | Get full forensic timeline with all window results. | `TimelineDetailSchema` | optional |
 | `GET` | `/api/v1/forensic/timelines/{timeline_id}/delay-trend` | Return delay trend data for charting. | `DelayTrendResponse` | optional |
