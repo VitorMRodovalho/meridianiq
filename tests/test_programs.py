@@ -205,3 +205,68 @@ class TestProgramsAPIEndpoints:
             data = resp.json()
             assert "program" in data
             assert "revisions" in data
+
+
+class TestProgramRollupAPI:
+    """Tests for GET /api/v1/programs/{id}/rollup."""
+
+    def test_rollup_not_found(self, client: TestClient) -> None:
+        """Unknown program returns 404."""
+        resp = client.get("/api/v1/programs/prog-nonexistent/rollup")
+        assert resp.status_code == 404
+
+    def test_rollup_single_revision_no_trend(
+        self, client: TestClient, store: InMemoryStore
+    ) -> None:
+        """With only one revision, no trend delta is reported."""
+        store.add(_make_schedule("Alpha", num_activities=5), b"v1", user_id="user-1")
+        programs = store.get_programs(user_id="user-1")
+        assert programs, "program should be created"
+        prog_id = programs[0]["id"]
+
+        resp = client.get(f"/api/v1/programs/{prog_id}/rollup")
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        assert data["program_id"] == prog_id
+        assert data["revision_count"] == 1
+        assert data["latest_revision_number"] == 1
+        assert data["previous_revision_id"] is None
+        assert data["trend_delta"] is None
+        assert data["trend_direction"] == "stable"
+        assert data["latest_metrics"]["activity_count"] == 5
+        assert "critical_path_length_days" in data["latest_metrics"]
+        assert "dcma_score" in data["latest_metrics"]
+        assert "health_score" in data["latest_metrics"]
+
+    def test_rollup_two_revisions_has_trend(self, client: TestClient, store: InMemoryStore) -> None:
+        """With two revisions, trend delta and direction are computed."""
+        store.add(_make_schedule("Alpha", num_activities=3), b"v1", user_id="user-1")
+        store.add(_make_schedule("Alpha", num_activities=7), b"v2", user_id="user-1")
+        programs = store.get_programs(user_id="user-1")
+        prog_id = programs[0]["id"]
+
+        resp = client.get(f"/api/v1/programs/{prog_id}/rollup")
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        assert data["revision_count"] == 2
+        assert data["latest_revision_number"] == 2
+        assert data["previous_revision_id"] is not None
+        assert data["previous_revision_number"] == 1
+        assert data["trend_delta"] is not None
+        assert data["trend_direction"] in ("improving", "stable", "degrading")
+        assert data["latest_metrics"]["activity_count"] == 7
+
+    def test_rollup_relationship_count_included(
+        self, client: TestClient, store: InMemoryStore
+    ) -> None:
+        """Rollup surfaces relationship count from the latest schedule."""
+        store.add(_make_schedule("Alpha", num_activities=4), b"v1", user_id="user-1")
+        programs = store.get_programs(user_id="user-1")
+        prog_id = programs[0]["id"]
+
+        resp = client.get(f"/api/v1/programs/{prog_id}/rollup")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "relationship_count" in data["latest_metrics"]

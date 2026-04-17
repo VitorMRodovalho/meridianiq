@@ -1,24 +1,27 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { getProgramDetail, getProgramTrends } from '$lib/api';
+	import { getProgramDetail, getProgramTrends, getProgramRollup } from '$lib/api';
 	import TrendChart from '$lib/components/TrendChart.svelte';
 	import type { ProgramTrends } from '$lib/types';
+	import type { ProgramRollup } from '$lib/api';
 
 	const programId = $derived($page.params.id!);
 
 	let program: Record<string, unknown> | null = $state(null);
 	let revisions: Record<string, unknown>[] = $state([]);
 	let trends: ProgramTrends | null = $state(null);
+	let rollup: ProgramRollup | null = $state(null);
 	let loading = $state(true);
 	let error = $state('');
 
 	onMount(async () => {
 		try {
 			const id = $page.params.id!;
-			const [detailRes, trendsRes] = await Promise.allSettled([
+			const [detailRes, trendsRes, rollupRes] = await Promise.allSettled([
 				getProgramDetail(id),
-				getProgramTrends(id)
+				getProgramTrends(id),
+				getProgramRollup(id)
 			]);
 
 			if (detailRes.status === 'fulfilled') {
@@ -30,6 +33,10 @@
 
 			if (trendsRes.status === 'fulfilled') {
 				trends = trendsRes.value;
+			}
+
+			if (rollupRes.status === 'fulfilled') {
+				rollup = rollupRes.value;
 			}
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to load program';
@@ -116,6 +123,107 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Rollup KPIs -->
+		{#if rollup}
+			{@const m = rollup.latest_metrics}
+			<div class="mb-8">
+				<div class="flex items-baseline justify-between mb-4">
+					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+						Latest Revision KPIs
+						<span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">
+							Rev {rollup.latest_revision_number ?? '—'}
+							{#if rollup.latest_data_date}· {formatDate(rollup.latest_data_date)}{/if}
+						</span>
+					</h2>
+					{#if rollup.trend_delta !== null}
+						<span
+							class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {rollup.trend_direction ===
+							'improving'
+								? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+								: rollup.trend_direction === 'degrading'
+									? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+									: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}"
+						>
+							Health trend {rollup.trend_direction}
+							({rollup.trend_delta > 0 ? '+' : ''}{rollup.trend_delta.toFixed(1)})
+						</span>
+					{/if}
+				</div>
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold {m.health_score !== undefined
+							? healthScoreColor(m.health_score).split(' ')[1] || 'text-gray-900 dark:text-gray-100'
+							: 'text-gray-400'}">
+							{m.health_score !== undefined ? m.health_score.toFixed(0) : '—'}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							Health Score {m.health_rating ? `· ${m.health_rating}` : ''}
+						</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-purple-600 dark:text-purple-400">
+							{m.dcma_score !== undefined ? m.dcma_score.toFixed(0) : '—'}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							DCMA {m.dcma_passed_count !== undefined
+								? `${m.dcma_passed_count} / ${(m.dcma_passed_count ?? 0) + (m.dcma_failed_count ?? 0)} passed`
+								: ''}
+						</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+							{m.critical_path_length_days !== undefined
+								? m.critical_path_length_days.toFixed(1)
+								: '—'}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							CP Length (days) · {m.critical_activities_count ?? '—'} activities
+						</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p
+							class="text-2xl font-bold {(m.negative_float_count ?? 0) > 0
+								? 'text-red-600 dark:text-red-400'
+								: 'text-gray-500 dark:text-gray-400'}"
+						>
+							{m.negative_float_count ?? 0}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+							Negative Float Activities
+						</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+							{m.activity_count ?? '—'}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Activities</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+							{m.relationship_count ?? '—'}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Relationships</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+							{rollup.revision_count}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Revisions</p>
+					</div>
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+						<p
+							class="text-2xl font-bold {m.has_cycles
+								? 'text-red-600 dark:text-red-400'
+								: 'text-green-600 dark:text-green-400'}"
+						>
+							{m.has_cycles ? 'Yes' : 'No'}
+						</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Network Cycles</p>
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Trend Charts (only if ≥2 revisions) -->
 		{#if trends && trends.revision_count >= 2}

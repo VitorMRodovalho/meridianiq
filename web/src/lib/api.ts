@@ -153,6 +153,38 @@ export async function getProgramTrends(programId: string): Promise<ProgramTrends
 	return request<ProgramTrends>(`/api/v1/programs/${programId}/trends`);
 }
 
+export interface ProgramRollup {
+	program_id: string;
+	revision_count: number;
+	latest_revision_id: string;
+	latest_revision_number: number | null;
+	latest_data_date: string | null;
+	latest_metrics: {
+		activity_count?: number;
+		relationship_count?: number;
+		revision_number?: number | null;
+		data_date?: string | null;
+		critical_path_length_days?: number;
+		critical_activities_count?: number;
+		has_cycles?: boolean;
+		negative_float_count?: number;
+		dcma_score?: number;
+		dcma_passed_count?: number;
+		dcma_failed_count?: number;
+		health_score?: number;
+		health_rating?: string;
+		health_trend_arrow?: string;
+	};
+	trend_direction: 'improving' | 'stable' | 'degrading';
+	trend_delta: number | null;
+	previous_revision_id: string | null;
+	previous_revision_number: number | null;
+}
+
+export async function getProgramRollup(programId: string): Promise<ProgramRollup> {
+	return request<ProgramRollup>(`/api/v1/programs/${programId}/rollup`);
+}
+
 export async function getProject(id: string): Promise<ProjectDetailResponse> {
 	return request<ProjectDetailResponse>(`/api/v1/projects/${id}`);
 }
