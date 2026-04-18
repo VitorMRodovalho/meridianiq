@@ -127,7 +127,7 @@ async def run_risk_simulation(
     """
     import asyncio
 
-    from ..progress import get_channel, publish, thread_safe_publisher
+    from ..progress import get_channel, get_channel_owner, publish, thread_safe_publisher
 
     store = get_store()
     risk_store = get_risk_store()
@@ -178,6 +178,17 @@ async def run_risk_simulation(
     )
 
     progress_callback = None
+    if job_id:
+        # Wave 0 #7 hardening: the caller may only use a job_id they own
+        # (the channel was bound on POST /api/v1/jobs/progress/start). If
+        # the channel is bound AND the authenticated user differs, reject.
+        owner = get_channel_owner(job_id)
+        caller_id = _user["id"] if isinstance(_user, dict) else None
+        if owner is not None and caller_id is not None and owner != caller_id:
+            raise HTTPException(
+                status_code=403,
+                detail="job_id is bound to another user",
+            )
     if job_id and get_channel(job_id) is not None:
         publish_event = thread_safe_publisher(job_id)
 

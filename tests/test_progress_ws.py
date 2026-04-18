@@ -101,9 +101,13 @@ def _tiny_schedule() -> ParsedSchedule:
 def test_websocket_streams_done_event_when_simulation_finishes() -> None:
     """End-to-end: open WS, run Monte Carlo with the same job_id, expect
     progress events terminated by a ``done`` event with the simulation_id."""
+    import uuid as _uuid
+
     pid = _store.add(_tiny_schedule(), b"raw")
 
-    job_id = "test-job-001"
+    # Wave 0 #7 hardening: WS path param must be a UUID; non-UUID ids are
+    # rejected with close code 4404 before reaching the handler.
+    job_id = str(_uuid.uuid4())
     client = TestClient(app)
 
     with client.websocket_connect(f"/api/v1/ws/progress/{job_id}") as ws:

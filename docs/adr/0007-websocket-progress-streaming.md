@@ -1,6 +1,6 @@
 # 0007. WebSocket progress streaming for long-running analytics
 
-* Status: accepted
+* Status: superseded-by-0013 — authentication, server-generated ids, and the stale-channel reaper landed in Wave 0 #7 of v4.0 Cycle 1 (2026-04-18)
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-18 (backfilled — decision shipped in v3.9.0 commit `8704be6`)
 
