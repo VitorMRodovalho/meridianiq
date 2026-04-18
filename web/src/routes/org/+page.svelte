@@ -5,6 +5,7 @@
 		createOrganization,
 		type OrganizationWithRole
 	} from '$lib/api';
+	import { t } from '$lib/i18n';
 
 	let orgs: OrganizationWithRole[] = $state([]);
 	let loading = $state(true);
@@ -14,13 +15,13 @@
 	let newType = $state('general');
 	let creating = $state(false);
 
-	const orgTypes = [
-		{ value: 'owner', label: 'Owner / Developer' },
-		{ value: 'pm_firm', label: 'PM / Cost Consultancy' },
-		{ value: 'cm_firm', label: 'CM Firm' },
-		{ value: 'general_contractor', label: 'General Contractor' },
-		{ value: 'subcontractor', label: 'Subcontractor' },
-		{ value: 'general', label: 'Other' },
+	const orgTypeKeys: { value: string; labelKey: string }[] = [
+		{ value: 'owner', labelKey: 'org.type_owner' },
+		{ value: 'pm_firm', labelKey: 'org.type_pm_firm' },
+		{ value: 'cm_firm', labelKey: 'org.type_cm_firm' },
+		{ value: 'general_contractor', labelKey: 'org.type_general_contractor' },
+		{ value: 'subcontractor', labelKey: 'org.type_subcontractor' },
+		{ value: 'general', labelKey: 'org.type_general' },
 	];
 
 	onMount(async () => {
@@ -28,7 +29,7 @@
 			const res = await getOrganizations();
 			orgs = res.organizations;
 		} catch {
-			error = 'Failed to load organizations';
+			error = $t('org.load_failed');
 		} finally {
 			loading = false;
 		}
@@ -43,7 +44,7 @@
 			showCreate = false;
 			newName = '';
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Failed to create';
+			error = e instanceof Error ? e.message : $t('org.create_failed');
 		} finally {
 			creating = false;
 		}
@@ -57,25 +58,26 @@
 	}
 
 	function typeLabel(type: string): string {
-		return orgTypes.find(t => t.value === type)?.label || type;
+		const entry = orgTypeKeys.find(t => t.value === type);
+		return entry ? $t(entry.labelKey) : type;
 	}
 </script>
 
 <svelte:head>
-	<title>Organizations - MeridianIQ</title>
+	<title>{$t('nav.org')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-4xl mx-auto">
 	<div class="flex items-center justify-between mb-8">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Organizations</h1>
-			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your teams and project sharing</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('nav.org')}</h1>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{$t('org.page_subtitle')}</p>
 		</div>
 		<button
 			onclick={() => showCreate = !showCreate}
 			class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
 		>
-			+ New Organization
+			{$t('org.new_cta')}
 		</button>
 	</div>
 
@@ -85,25 +87,25 @@
 
 	{#if showCreate}
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Create Organization</h2>
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('org.create_title')}</h2>
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
 				<label class="block">
-					<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Organization Name</span>
+					<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org.field_name')}</span>
 					<input
 						type="text"
 						bind:value={newName}
-						placeholder="e.g., Turner Construction"
+						placeholder={$t('org.name_placeholder')}
 						class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
 					/>
 				</label>
 				<label class="block">
-					<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Type</span>
+					<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org.field_type')}</span>
 					<select
 						bind:value={newType}
 						class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
 					>
-						{#each orgTypes as t}
-							<option value={t.value}>{t.label}</option>
+						{#each orgTypeKeys as ot}
+							<option value={ot.value}>{$t(ot.labelKey)}</option>
 						{/each}
 					</select>
 				</label>
@@ -114,13 +116,13 @@
 					disabled={creating || !newName.trim()}
 					class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 				>
-					{creating ? 'Creating...' : 'Create'}
+					{creating ? $t('org.btn_creating') : $t('org.btn_create')}
 				</button>
 				<button
 					onclick={() => showCreate = false}
 					class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
 				>
-					Cancel
+					{$t('org.btn_cancel')}
 				</button>
 			</div>
 		</div>
@@ -132,12 +134,12 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading organizations...
+			{$t('org.loading')}
 		</div>
 	{:else if orgs.length === 0}
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
-			<h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No organizations yet</h3>
-			<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Create an organization to start collaborating with your team.</p>
+			<h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{$t('org.empty_title')}</h3>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{$t('org.empty_hint')}</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
