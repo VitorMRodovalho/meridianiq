@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { DemoProjectResponse } from '$lib/api';
 
-	let data: any = $state(null);
+	let data: DemoProjectResponse | null = $state(null);
 	let loading = $state(true);
 	let error = $state('');
 

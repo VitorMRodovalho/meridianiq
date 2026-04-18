@@ -578,21 +578,131 @@ export async function getEVMAnalysis(id: string): Promise<EVMAnalysis> {
 	return request<EVMAnalysis>(`/api/v1/evm/analyses/${id}`);
 }
 
-// ── Risk (Monte Carlo QSRA) ────────────────────────────────
-export async function getRiskSimulations(): Promise<{ simulations: any[] }> {
-	return request<{ simulations: any[] }>('/api/v1/risk/simulations');
+// ── Demo ────────────────────────────────────────────────
+
+export interface DemoDCMAMetric {
+	number: number;
+	name: string;
+	value: number;
+	threshold: number;
+	unit: string;
+	passed: boolean;
+	direction: string;
 }
 
-export async function createRiskSimulation(projectId: string, config: any): Promise<any> {
-	return request<any>(`/api/v1/risk/simulate/${projectId}`, {
+export interface DemoCriticalPathActivity {
+	task_code: string;
+	task_name: string;
+	total_float: number;
+}
+
+export interface DemoProjectResponse {
+	project: {
+		name: string;
+		activity_count: number;
+		relationship_count: number;
+		calendar_count: number;
+		wbs_count: number;
+	};
+	validation: {
+		overall_score: number;
+		passed_count: number;
+		failed_count: number;
+		metrics: DemoDCMAMetric[];
+	};
+	critical_path: {
+		length: number;
+		activities: DemoCriticalPathActivity[];
+	};
+}
+
+// ── Risk (Monte Carlo QSRA) ────────────────────────────────
+
+export interface RiskPValue {
+	percentile: number;
+	duration_days: number;
+	delta_days: number;
+}
+
+export interface RiskHistogramBin {
+	bin_start: number;
+	bin_end: number;
+	count: number;
+	frequency: number;
+}
+
+export interface RiskCriticalityEntry {
+	activity_id: string;
+	activity_name: string;
+	criticality_pct: number;
+}
+
+export interface RiskSensitivityEntry {
+	activity_id: string;
+	activity_name: string;
+	correlation: number;
+}
+
+export interface RiskSCurvePoint {
+	duration_days: number;
+	cumulative_probability: number;
+}
+
+export interface RiskSimulationSummary {
+	simulation_id: string;
+	project_name: string;
+	project_id: string;
+	iterations: number;
+	deterministic_days: number;
+	mean_days: number;
+	p50_days: number;
+	p80_days: number;
+}
+
+export interface RiskSimulationResult {
+	simulation_id: string;
+	project_name: string;
+	project_id: string;
+	iterations: number;
+	deterministic_days: number;
+	mean_days: number;
+	std_days: number;
+	p_values: RiskPValue[];
+	histogram: RiskHistogramBin[];
+	criticality: RiskCriticalityEntry[];
+	sensitivity: RiskSensitivityEntry[];
+	s_curve: RiskSCurvePoint[];
+}
+
+export interface RiskSimulationRunConfig {
+	config: {
+		iterations: number;
+		default_distribution: string;
+		default_uncertainty: number;
+		confidence_levels: number[];
+		seed?: number;
+	};
+	duration_risks: unknown[];
+	risk_events: unknown[];
+}
+
+export async function getRiskSimulations(): Promise<{ simulations: RiskSimulationSummary[] }> {
+	return request<{ simulations: RiskSimulationSummary[] }>('/api/v1/risk/simulations');
+}
+
+export async function createRiskSimulation(
+	projectId: string,
+	config: RiskSimulationRunConfig
+): Promise<RiskSimulationResult> {
+	return request<RiskSimulationResult>(`/api/v1/risk/simulate/${projectId}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(config)
 	});
 }
 
-export async function getRiskSimulation(id: string): Promise<any> {
-	return request<any>(`/api/v1/risk/simulations/${id}`);
+export async function getRiskSimulation(id: string): Promise<RiskSimulationResult> {
+	return request<RiskSimulationResult>(`/api/v1/risk/simulations/${id}`);
 }
 
 export interface RegisterEntryMatched {
@@ -700,89 +810,303 @@ export async function searchActivities(
 
 // ── Organizations ────────────────────────────────────────
 
-export async function getOrganizations(): Promise<{ organizations: any[] }> {
-	return request<{ organizations: any[] }>('/api/v1/organizations');
+export interface Organization {
+	id: string;
+	name: string;
+	slug: string;
+	org_type: string;
+	description?: string;
+	created_at?: string;
 }
 
-export async function createOrganization(name: string, orgType: string = 'general'): Promise<{ organization: any }> {
-	return request<{ organization: any }>('/api/v1/organizations', {
+export interface OrganizationWithRole {
+	id: string;
+	name: string;
+	slug: string;
+	org_type: string;
+	role: string;
+}
+
+export interface UserProfileSummary {
+	id?: string;
+	email?: string;
+	full_name?: string;
+	avatar_url?: string;
+}
+
+export interface OrgMember {
+	user_id: string;
+	role: string;
+	accepted_at: string | null;
+	user_profiles?: UserProfileSummary | null;
+}
+
+export interface AuditEntry {
+	id?: string;
+	created_at: string;
+	action: string;
+	entity_type: string;
+	entity_id?: string | null;
+	details?: Record<string, unknown>;
+	ip_address?: string | null;
+	user_agent?: string | null;
+	user_profiles?: UserProfileSummary | null;
+}
+
+export interface ProjectShare {
+	project_id: string;
+	shared_with_org: string;
+	permission: string;
+	shared_by?: string;
+	organizations?: { id: string; name: string; slug: string; org_type: string } | null;
+}
+
+export async function getOrganizations(): Promise<{ organizations: OrganizationWithRole[] }> {
+	return request<{ organizations: OrganizationWithRole[] }>('/api/v1/organizations');
+}
+
+export async function createOrganization(
+	name: string,
+	orgType: string = 'general'
+): Promise<{ organization: Organization }> {
+	return request<{ organization: Organization }>('/api/v1/organizations', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name, org_type: orgType }),
+		body: JSON.stringify({ name, org_type: orgType })
 	});
 }
 
-export async function getOrganization(orgId: string): Promise<{ organization: any; members: any[] }> {
-	return request<{ organization: any; members: any[] }>(`/api/v1/organizations/${orgId}`);
+export async function getOrganization(
+	orgId: string
+): Promise<{ organization: Organization; members: OrgMember[] }> {
+	return request<{ organization: Organization; members: OrgMember[] }>(
+		`/api/v1/organizations/${orgId}`
+	);
 }
 
-export async function inviteMember(orgId: string, email: string, role: string = 'member'): Promise<any> {
-	return request<any>(`/api/v1/organizations/${orgId}/invite`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ email, role }),
+export async function inviteMember(
+	orgId: string,
+	email: string,
+	role: string = 'member'
+): Promise<{ status: string; email: string; role: string }> {
+	return request<{ status: string; email: string; role: string }>(
+		`/api/v1/organizations/${orgId}/invite`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email, role })
+		}
+	);
+}
+
+export async function removeMember(
+	orgId: string,
+	userId: string
+): Promise<{ status: string }> {
+	return request<{ status: string }>(`/api/v1/organizations/${orgId}/members/${userId}`, {
+		method: 'DELETE'
 	});
 }
 
-export async function removeMember(orgId: string, userId: string): Promise<any> {
-	return request<any>(`/api/v1/organizations/${orgId}/members/${userId}`, { method: 'DELETE' });
-}
-
-export async function shareProject(projectId: string, sharedWithOrgId: string, permission: string = 'viewer'): Promise<any> {
-	return request<any>('/api/v1/shares/project', {
+export async function shareProject(
+	projectId: string,
+	sharedWithOrgId: string,
+	permission: string = 'viewer'
+): Promise<{ status: string; permission: string }> {
+	return request<{ status: string; permission: string }>('/api/v1/shares/project', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ project_id: projectId, shared_with_org_id: sharedWithOrgId, permission }),
+		body: JSON.stringify({
+			project_id: projectId,
+			shared_with_org_id: sharedWithOrgId,
+			permission
+		})
 	});
 }
 
-export async function getProjectShares(projectId: string): Promise<{ shares: any[] }> {
-	return request<{ shares: any[] }>(`/api/v1/shares/project/${projectId}`);
+export async function getProjectShares(
+	projectId: string
+): Promise<{ shares: ProjectShare[] }> {
+	return request<{ shares: ProjectShare[] }>(`/api/v1/shares/project/${projectId}`);
 }
 
-export async function getAuditLog(orgId: string, limit: number = 50): Promise<{ entries: any[] }> {
-	return request<{ entries: any[] }>(`/api/v1/organizations/${orgId}/audit?limit=${limit}`);
+export async function getAuditLog(
+	orgId: string,
+	limit: number = 50
+): Promise<{ entries: AuditEntry[] }> {
+	return request<{ entries: AuditEntry[] }>(
+		`/api/v1/organizations/${orgId}/audit?limit=${limit}`
+	);
 }
 
 // ── IPS Reconciliation ──────────────────────────────────
 
-export async function reconcileIPS(masterProjectId: string, subProjectIds: string[]): Promise<any> {
-	return request<any>('/api/v1/ips/reconcile', {
+export interface ReconciliationIssue {
+	severity: string;
+	category: string;
+	master_activity: string;
+	sub_activity: string;
+	sub_schedule: string;
+	description: string;
+	master_value: string;
+	sub_value: string;
+	delta: string;
+}
+
+export interface SubScheduleResult {
+	sub_name: string;
+	sub_activity_count: number;
+	matched_milestones: number;
+	unmatched_milestones: number;
+	date_issues: number;
+	logic_issues: number;
+	issues: ReconciliationIssue[];
+	alignment_score: number;
+}
+
+export interface IPSReconciliationResult {
+	master_name: string;
+	master_activity_count: number;
+	sub_count: number;
+	sub_results: SubScheduleResult[];
+	total_issues: number;
+	critical_issues: number;
+	warning_issues: number;
+	overall_alignment_score: number;
+	reconciliation_status: string;
+}
+
+export async function reconcileIPS(
+	masterProjectId: string,
+	subProjectIds: string[]
+): Promise<IPSReconciliationResult> {
+	return request<IPSReconciliationResult>('/api/v1/ips/reconcile', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ master_project_id: masterProjectId, sub_project_ids: subProjectIds }),
+		body: JSON.stringify({
+			master_project_id: masterProjectId,
+			sub_project_ids: subProjectIds
+		})
 	});
 }
 
 // ── Recovery Validation ─────────────────────────────────
 
-export async function validateRecovery(impactedProjectId: string, recoveryProjectId: string): Promise<any> {
-	return request<any>('/api/v1/recovery/validate', {
+export interface RecoveryIssue {
+	severity: string;
+	category: string;
+	task_code: string;
+	task_name: string;
+	description: string;
+	impacted_value: string;
+	recovery_value: string;
+}
+
+export interface RecoveryValidationResult {
+	impacted_name: string;
+	recovery_name: string;
+	impacted_activity_count: number;
+	recovery_activity_count: number;
+	issues: RecoveryIssue[];
+	critical_count: number;
+	warning_count: number;
+	total_duration_reduction_pct: number;
+	activities_compressed: number;
+	activities_added: number;
+	activities_removed: number;
+	zero_float_activities: number;
+	validation_score: number;
+	verdict: string;
+}
+
+export async function validateRecovery(
+	impactedProjectId: string,
+	recoveryProjectId: string
+): Promise<RecoveryValidationResult> {
+	return request<RecoveryValidationResult>('/api/v1/recovery/validate', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ impacted_project_id: impactedProjectId, recovery_project_id: recoveryProjectId }),
+		body: JSON.stringify({
+			impacted_project_id: impactedProjectId,
+			recovery_project_id: recoveryProjectId
+		})
 	});
 }
 
 // ── Value Milestones ────────────────────────────────────
 
-export async function getValueMilestones(projectId: string): Promise<{ milestones: any[] }> {
-	return request<{ milestones: any[] }>(`/api/v1/projects/${projectId}/value-milestones`);
+export interface ValueMilestone {
+	id: string;
+	project_id: string;
+	org_id?: string | null;
+	task_code: string;
+	task_name: string;
+	milestone_type: string;
+	commercial_value: number;
+	currency: string;
+	payment_trigger: string;
+	contract_ref: string;
+	notes: string;
+	baseline_date: string | null;
+	forecast_date: string | null;
+	actual_date: string | null;
+	status: string | null;
+	created_by?: string;
+	created_at?: string;
+	updated_at?: string;
 }
 
-export async function createValueMilestone(projectId: string, data: Record<string, unknown>): Promise<{ milestone: any }> {
-	return request<{ milestone: any }>(`/api/v1/projects/${projectId}/value-milestones`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(data),
-	});
+export type ValueMilestoneCreate = Partial<Omit<ValueMilestone, 'id' | 'created_at' | 'updated_at'>> & {
+	task_code: string;
+	project_id: string;
+};
+
+export type ValueMilestoneUpdate = Partial<
+	Pick<
+		ValueMilestone,
+		| 'commercial_value'
+		| 'currency'
+		| 'payment_trigger'
+		| 'contract_ref'
+		| 'notes'
+		| 'baseline_date'
+		| 'forecast_date'
+		| 'actual_date'
+		| 'status'
+		| 'milestone_type'
+	>
+>;
+
+export async function getValueMilestones(
+	projectId: string
+): Promise<{ milestones: ValueMilestone[] }> {
+	return request<{ milestones: ValueMilestone[] }>(
+		`/api/v1/projects/${projectId}/value-milestones`
+	);
 }
 
-export async function updateValueMilestone(milestoneId: string, data: Record<string, unknown>): Promise<{ milestone: any }> {
-	return request<{ milestone: any }>(`/api/v1/value-milestones/${milestoneId}`, {
+export async function createValueMilestone(
+	projectId: string,
+	data: ValueMilestoneCreate
+): Promise<{ milestone: ValueMilestone }> {
+	return request<{ milestone: ValueMilestone }>(
+		`/api/v1/projects/${projectId}/value-milestones`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		}
+	);
+}
+
+export async function updateValueMilestone(
+	milestoneId: string,
+	data: ValueMilestoneUpdate
+): Promise<{ milestone: ValueMilestone }> {
+	return request<{ milestone: ValueMilestone }>(`/api/v1/value-milestones/${milestoneId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(data),
+		body: JSON.stringify(data)
 	});
 }
 

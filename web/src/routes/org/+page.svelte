@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getOrganizations, createOrganization } from '$lib/api';
+	import {
+		getOrganizations,
+		createOrganization,
+		type OrganizationWithRole
+	} from '$lib/api';
 
-	let orgs: any[] = $state([]);
+	let orgs: OrganizationWithRole[] = $state([]);
 	let loading = $state(true);
 	let error = $state('');
 	let showCreate = $state(false);

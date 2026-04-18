@@ -201,7 +201,7 @@
 		const acts = [...base];
 		const dir = sortAsc ? 1 : -1;
 		acts.sort((a, b) => {
-			let va: any, vb: any;
+			let va: string | number, vb: string | number;
 			switch (sortCol) {
 				case 'code': va = a.task_code; vb = b.task_code; break;
 				case 'name': va = a.task_name; vb = b.task_name; break;

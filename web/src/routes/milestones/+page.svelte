@@ -1,12 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, getValueMilestones, createValueMilestone, updateValueMilestone } from '$lib/api';
+	import {
+		getProjects,
+		getValueMilestones,
+		createValueMilestone,
+		updateValueMilestone,
+		type ValueMilestone,
+		type ValueMilestoneCreate
+	} from '$lib/api';
 	import { success, error as toastError } from '$lib/toast';
 	import type { ProjectListItem } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
 	let selectedProjectId = $state('');
-	let milestones: any[] = $state([]);
+	let milestones: ValueMilestone[] = $state([]);
 	let loading = $state(true);
 	let milestonesLoading = $state(false);
 	let error = $state('');
@@ -77,7 +84,7 @@
 		}
 		saving = true;
 		try {
-			const payload: Record<string, unknown> = {
+			const payload: ValueMilestoneCreate = {
 				project_id: selectedProjectId,
 				task_code: formData.task_code,
 				task_name: formData.task_name,
@@ -118,7 +125,7 @@
 		};
 	}
 
-	function startEdit(m: any) {
+	function startEdit(m: ValueMilestone) {
 		editingId = m.id;
 		editStatus = m.status || 'pending';
 		editActualDate = m.actual_date ? m.actual_date.split('T')[0] : '';
@@ -126,7 +133,7 @@
 
 	async function saveEdit(id: string) {
 		try {
-			const updates: Record<string, unknown> = { status: editStatus };
+			const updates: { status: string; actual_date?: string } = { status: editStatus };
 			if (editActualDate) updates.actual_date = editActualDate;
 			await updateValueMilestone(id, updates);
 			success('Milestone updated');

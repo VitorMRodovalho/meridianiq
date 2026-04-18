@@ -4,26 +4,12 @@
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-
-	interface HealthResult {
-		overall: number;
-		dcma_component: number;
-		float_component: number;
-		logic_component: number;
-		trend_component: number;
-		dcma_raw: Record<string, any>;
-		float_raw: Record<string, any>;
-		logic_raw: Record<string, any>;
-		trend_raw: Record<string, any>;
-		rating: string;
-		trend_arrow: string;
-		details: Record<string, any>;
-	}
+	import type { ScheduleHealthResponse } from '$lib/types';
 
 	let projects: { project_id: string; name: string; activity_count?: number }[] = $state([]);
 	let selectedProject = $state('');
 	let baselineProject = $state('');
-	let result = $state<HealthResult | null>(null);
+	let result = $state<ScheduleHealthResponse | null>(null);
 	let loading = $state(false);
 	let error = $state('');
 
@@ -40,9 +26,9 @@
 		error = '';
 		result = null;
 		try {
-			result = await getProjectHealth(selectedProject, baselineProject || undefined) as unknown as HealthResult;
-		} catch (e: any) {
-			error = e.message || 'Analysis failed';
+			result = await getProjectHealth(selectedProject, baselineProject || undefined);
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Analysis failed';
 			toastError(error);
 		} finally {
 			loading = false;

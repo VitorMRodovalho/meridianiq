@@ -4,32 +4,12 @@
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
-
-	interface Alert {
-		rule_id: string;
-		severity: string;
-		title: string;
-		description: string;
-		affected_activities: number;
-		projected_impact_days: number;
-		confidence: number;
-		alert_score: number;
-	}
-
-	interface AlertsResult {
-		alerts: Alert[];
-		total_alerts: number;
-		critical_count: number;
-		warning_count: number;
-		info_count: number;
-		aggregate_score: number;
-		summary: Record<string, any>;
-	}
+	import type { AlertsResponse } from '$lib/types';
 
 	let projects: { project_id: string; name: string; activity_count?: number }[] = $state([]);
 	let selectedProject = $state('');
 	let baselineProject = $state('');
-	let result = $state<AlertsResult | null>(null);
+	let result = $state<AlertsResponse | null>(null);
 	let loading = $state(false);
 	let error = $state('');
 
@@ -46,10 +26,10 @@
 		error = '';
 		result = null;
 		try {
-			result = await getProjectAlerts(selectedProject, baselineProject) as unknown as AlertsResult;
+			result = await getProjectAlerts(selectedProject, baselineProject);
 			toastSuccess(`Found ${result.total_alerts} alerts`);
-		} catch (e: any) {
-			error = e.message || 'Analysis failed';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Analysis failed';
 			toastError(error);
 		} finally {
 			loading = false;
@@ -178,7 +158,7 @@
 								</div>
 								<p class="text-sm text-gray-600 dark:text-gray-400">{alert.description}</p>
 								<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-									<span>{alert.affected_activities} activities affected</span>
+									<span>{alert.affected_activities.length} activities affected</span>
 									{#if alert.projected_impact_days > 0}
 										<span class="text-red-500 font-semibold">+{alert.projected_impact_days}d projected impact</span>
 									{/if}

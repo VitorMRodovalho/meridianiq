@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { user } from '$lib/auth';
 	import { getProjects, getPrograms } from '$lib/api';
+	import type { User } from '@supabase/supabase-js';
 
 	let stats = $state({ projects: 0, programs: 0 });
 	let statsLoaded = $state(false);
@@ -38,7 +39,7 @@
 		return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 	}
 
-	function getProvider(user: any): string {
+	function getProvider(user: User | null): string {
 		const provider = user?.app_metadata?.provider;
 		if (provider === 'google') return 'Google';
 		if (provider === 'azure') return 'Microsoft';

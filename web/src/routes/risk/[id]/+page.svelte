@@ -3,14 +3,13 @@
 	import {
 		getRiskSimulation,
 		getSimulationRegisterEntries,
-		type SimulationRegisterLinkage
+		type SimulationRegisterLinkage,
+		type RiskPValue,
+		type RiskHistogramBin,
+		type RiskCriticalityEntry,
+		type RiskSensitivityEntry,
+		type RiskSCurvePoint
 	} from '$lib/api';
-
-	interface PValue { percentile: number; duration_days: number; delta_days: number; }
-	interface HistogramBin { bin_start: number; bin_end: number; count: number; frequency: number; }
-	interface CriticalityEntry { activity_id: string; activity_name: string; criticality_pct: number; }
-	interface SensitivityEntry { activity_id: string; activity_name: string; correlation: number; }
-	interface SCurvePoint { duration_days: number; cumulative_probability: number; }
 
 	const simulationId = $derived(page.params.id!);
 	let loading = $state(true);
@@ -22,11 +21,11 @@
 	let deterministicDays = $state(0);
 	let meanDays = $state(0);
 	let stdDays = $state(0);
-	let pValues: PValue[] = $state([]);
-	let histogram: HistogramBin[] = $state([]);
-	let criticality: CriticalityEntry[] = $state([]);
-	let sensitivity: SensitivityEntry[] = $state([]);
-	let sCurve: SCurvePoint[] = $state([]);
+	let pValues: RiskPValue[] = $state([]);
+	let histogram: RiskHistogramBin[] = $state([]);
+	let criticality: RiskCriticalityEntry[] = $state([]);
+	let sensitivity: RiskSensitivityEntry[] = $state([]);
+	let sCurve: RiskSCurvePoint[] = $state([]);
 	let linkage = $state<SimulationRegisterLinkage | null>(null);
 
 	async function loadSimulation() {
@@ -50,14 +49,14 @@
 			} catch {
 				linkage = null;
 			}
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to load simulation';
 		} finally {
 			loading = false;
 		}
 	}
 
-	function getPValue(pct: number): PValue | undefined {
+	function getPValue(pct: number): RiskPValue | undefined {
 		return pValues.find(p => p.percentile === pct);
 	}
 

@@ -1,12 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getOrganization, inviteMember, removeMember, getAuditLog } from '$lib/api';
+	import {
+		getOrganization,
+		inviteMember,
+		removeMember,
+		getAuditLog,
+		type Organization,
+		type OrgMember,
+		type AuditEntry
+	} from '$lib/api';
 
 	const orgId = $derived(page.params.id!);
-	let org: any = $state(null);
-	let members: any[] = $state([]);
-	let auditEntries: any[] = $state([]);
+	let org: Organization | null = $state(null);
+	let members: OrgMember[] = $state([]);
+	let auditEntries: AuditEntry[] = $state([]);
 	let loading = $state(true);
 	let error = $state('');
 	let activeTab = $state('members');

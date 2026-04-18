@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, validateRecovery } from '$lib/api';
+	import {
+		getProjects,
+		validateRecovery,
+		type RecoveryValidationResult
+	} from '$lib/api';
 	import { t } from '$lib/i18n';
 	import type { ProjectListItem } from '$lib/types';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
@@ -13,7 +17,7 @@
 	let impactedId = $state('');
 	let recoveryId = $state('');
 	let validating = $state(false);
-	let result: any = $state(null);
+	let result: RecoveryValidationResult | null = $state(null);
 
 	onMount(async () => {
 		try {

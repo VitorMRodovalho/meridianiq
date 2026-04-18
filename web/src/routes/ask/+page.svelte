@@ -49,8 +49,8 @@
 			}
 			const data: QA = await res.json();
 			history = [...history, data];
-		} catch (e: any) {
-			error = e.message || 'Failed to get answer';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to get answer';
 			toastError(error);
 			// Restore question on error
 			question = q;

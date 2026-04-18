@@ -1,19 +1,14 @@
 <script lang="ts">
-	import { getRiskSimulations, createRiskSimulation, getProjects } from '$lib/api';
+	import {
+		getRiskSimulations,
+		createRiskSimulation,
+		getProjects,
+		type RiskSimulationSummary,
+		type RiskSimulationRunConfig
+	} from '$lib/api';
 	import { error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-
-	interface SimulationSummary {
-		simulation_id: string;
-		project_name: string;
-		project_id: string;
-		iterations: number;
-		deterministic_days: number;
-		mean_days: number;
-		p50_days: number;
-		p80_days: number;
-	}
 
 	interface ProjectItem {
 		project_id: string;
@@ -21,7 +16,7 @@
 		activity_count: number;
 	}
 
-	let simulations: SimulationSummary[] = $state([]);
+	let simulations: RiskSimulationSummary[] = $state([]);
 	let projects: ProjectItem[] = $state([]);
 	let loading = $state(false);
 	let running = $state(false);
@@ -40,8 +35,8 @@
 		try {
 			const data = await getRiskSimulations();
 			simulations = data.simulations;
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to load simulations';
 			toastError(error);
 		} finally {
 			loading = false;
@@ -60,7 +55,7 @@
 		running = true;
 		error = '';
 		try {
-			const body: any = {
+			const body: RiskSimulationRunConfig = {
 				config: {
 					iterations,
 					default_distribution: distributionType,
@@ -74,8 +69,8 @@
 
 			await createRiskSimulation(selectedProject, body);
 			await loadSimulations();
-		} catch (e: any) {
-			error = e.message;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Simulation failed';
 			toastError(error);
 		} finally {
 			running = false;

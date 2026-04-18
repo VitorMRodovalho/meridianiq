@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, reconcileIPS } from '$lib/api';
+	import { getProjects, reconcileIPS, type IPSReconciliationResult } from '$lib/api';
 	import { t } from '$lib/i18n';
 	import type { ProjectListItem } from '$lib/types';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
@@ -13,7 +13,7 @@
 	let masterProjectId = $state('');
 	let subProjectIds: string[] = $state([]);
 	let reconciling = $state(false);
-	let result: any = $state(null);
+	let result: IPSReconciliationResult | null = $state(null);
 
 	onMount(async () => {
 		try {
@@ -182,7 +182,7 @@
 						title="Sub-Schedule Alignment Comparison"
 						horizontal={true}
 						height={Math.max(160, result.sub_results.length * 36)}
-						data={result.sub_results.map((s: any) => ({
+						data={result.sub_results.map((s) => ({
 							label: s.sub_name || 'Sub',
 							value: s.alignment_score,
 							color: s.alignment_score >= 85 ? '#10b981' : s.alignment_score >= 70 ? '#3b82f6' : s.alignment_score >= 50 ? '#f59e0b' : '#ef4444',
