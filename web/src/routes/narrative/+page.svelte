@@ -4,6 +4,7 @@
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import { supabase } from '$lib/supabase';
 	import { onMount } from 'svelte';
+	import { t } from '$lib/i18n';
 
 	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
 	let selectedProject = $state('');
@@ -32,7 +33,7 @@
 			const res = await getProjects();
 			projects = res.projects;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			error = e instanceof Error ? e.message : $t('narrative.error_generic');
 		}
 	});
 
@@ -50,9 +51,9 @@
 			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/narrative${params}`, { headers });
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
-			toastSuccess('Narrative report generated');
+			toastSuccess($t('narrative.toast_generated'));
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			error = e instanceof Error ? e.message : $t('narrative.error_generic');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -79,33 +80,33 @@
 			text += `${s.title.toUpperCase()}\n${s.content}\n\n`;
 		}
 		navigator.clipboard.writeText(text);
-		toastSuccess('Copied to clipboard');
+		toastSuccess($t('narrative.toast_copied'));
 	}
 </script>
 
 <svelte:head>
-	<title>Narrative Report | MeridianIQ</title>
+	<title>{$t('nav.narrative')} | MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-4xl mx-auto px-4 py-8">
-	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Narrative Report</h1>
-	<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Generate structured schedule status narrative for claims and reports (AACE RP 29R-03)</p>
+	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{$t('nav.narrative')}</h1>
+	<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{$t('narrative.subtitle')}</p>
 
 	<!-- Selectors -->
 	<div class="flex gap-4 mb-6">
 		<div class="flex-1">
-			<label for="narrative-schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Schedule</label>
+			<label for="narrative-schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('narrative.label_schedule')}</label>
 			<select id="narrative-schedule" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
-				<option value="">Select schedule...</option>
+				<option value="">{$t('narrative.select_schedule')}</option>
 				{#each projects as p}
 					<option value={p.project_id}>{p.name || p.project_id}{p.tags?.length ? ` [${p.tags.slice(0, 2).join(', ')}]` : ''}</option>
 				{/each}
 			</select>
 		</div>
 		<div class="flex-1">
-			<label for="narrative-baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline (optional)</label>
+			<label for="narrative-baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('narrative.label_baseline')}</label>
 			<select id="narrative-baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
-				<option value="">None</option>
+				<option value="">{$t('narrative.baseline_none')}</option>
 				{#each projects as p}
 					<option value={p.project_id}>{p.name || p.project_id}</option>
 				{/each}
@@ -114,7 +115,7 @@
 		<div class="flex items-end">
 			<button onclick={generate} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Generating...' : 'Generate'}
+				{loading ? $t('narrative.btn_generating') : $t('narrative.btn_generate')}
 			</button>
 		</div>
 	</div>
@@ -129,16 +130,16 @@
 			<div class="flex items-center justify-between mb-4">
 				<div>
 					<h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">{data.title}</h2>
-					<p class="text-sm text-gray-500 dark:text-gray-400">Data Date: {data.data_date} | Generated: {new Date(data.generated_at).toLocaleString()}</p>
+					<p class="text-sm text-gray-500 dark:text-gray-400">{$t('narrative.data_date_label')} {data.data_date} | {$t('narrative.generated_label')} {new Date(data.generated_at).toLocaleString()}</p>
 				</div>
 				<button onclick={copyToClipboard} class="text-[10px] px-3 py-1.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 font-medium">
-					Copy to Clipboard
+					{$t('narrative.btn_copy')}
 				</button>
 			</div>
 
 			<!-- Executive Summary -->
 			<div class="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 rounded">
-				<h3 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">Executive Summary</h3>
+				<h3 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">{$t('narrative.exec_summary')}</h3>
 				<p class="text-sm text-blue-700 dark:text-blue-400 leading-relaxed">{data.executive_summary}</p>
 			</div>
 		</div>
@@ -167,8 +168,8 @@
 		</div>
 	{:else}
 		<div class="text-center py-12 text-gray-400 dark:text-gray-600">
-			<p class="text-lg mb-2">Select a schedule to generate a narrative report</p>
-			<p class="text-sm">Optionally select a baseline for comparison narrative</p>
+			<p class="text-lg mb-2">{$t('narrative.empty_title')}</p>
+			<p class="text-sm">{$t('narrative.empty_hint')}</p>
 		</div>
 	{/if}
 </main>

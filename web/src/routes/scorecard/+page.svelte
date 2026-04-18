@@ -4,6 +4,7 @@
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -16,7 +17,7 @@
 			const res = await getProjects();
 			projects = res.projects;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load projects';
+			error = e instanceof Error ? e.message : $t('scorecard.load_failed');
 		}
 	}
 
@@ -27,9 +28,9 @@
 		scorecard = null;
 		try {
 			scorecard = await getScorecard(selectedProject);
-			toastSuccess(`Scorecard: Grade ${scorecard.overall_grade}`);
+			toastSuccess(`${$t('nav.scorecard')}: ${$t('scorecard.toast_grade')} ${scorecard.overall_grade}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load scorecard';
+			error = e instanceof Error ? e.message : $t('scorecard.get_failed');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -61,25 +62,25 @@
 </script>
 
 <svelte:head>
-	<title>Schedule Scorecard - MeridianIQ</title>
+	<title>{$t('page.scorecard')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Scorecard</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Multi-dimension quality assessment with letter grades</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.scorecard')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('scorecard.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Project</label>
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('scorecard.field_project')}</label>
 				<select
 					id="project"
 					bind:value={selectedProject}
 					class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm"
 				>
-					<option value="">Choose a project...</option>
+					<option value="">{$t('scorecard.select_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
@@ -90,10 +91,10 @@
 				disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
 			>
-				{loading ? 'Loading...' : 'Get Scorecard'}
+				{loading ? $t('scorecard.btn_loading') : $t('scorecard.btn_get')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('scorecard.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -115,7 +116,7 @@
 				</div>
 				<div class="text-left">
 					<p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{scorecard.overall_score.toFixed(1)}</p>
-					<p class="text-gray-500 dark:text-gray-400 text-sm">Overall Score</p>
+					<p class="text-gray-500 dark:text-gray-400 text-sm">{$t('scorecard.overall_score')}</p>
 				</div>
 			</div>
 			<p class="text-gray-500 dark:text-gray-400 text-xs mt-3">{scorecard.methodology}</p>
@@ -134,7 +135,7 @@
 		<!-- Recommendations -->
 		{#if scorecard.recommendations.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Recommendations</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('scorecard.recommendations_title')}</h2>
 				<ul class="space-y-2">
 					{#each scorecard.recommendations as rec}
 						<li class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
