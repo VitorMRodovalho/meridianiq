@@ -22,7 +22,9 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from src.analytics.cpm import CPMCalculator
-from src.parser.models import ParsedSchedule
+from src.parser.models import WBS, ParsedSchedule, Task
+
+GROUP_BY_OPTIONS = ("wbs", "status", "critical", "task_type", "calendar", "float_bucket")
 
 logger = logging.getLogger(__name__)
 
@@ -167,28 +169,98 @@ def parse_calendar_holidays(schedule: ParsedSchedule) -> list[str]:
     return sorted(holidays)
 
 
+def _bucket_for_activity(task: Task, group_by: str, critical_ids: set[str]) -> str:
+    """Return the group label for one activity under the chosen grouping mode.
+
+    Activities sharing a label end up under the same synthetic root node
+    in the WBS tree.
+    """
+    if group_by == "status":
+        return _status_label(task.status_code) or "Unknown"
+    if group_by == "critical":
+        return "Critical" if task.task_id in critical_ids else "Non-Critical"
+    if group_by == "task_type":
+        return _task_type_label(task.task_type) or "Unknown"
+    if group_by == "calendar":
+        return task.clndr_id or "Default"
+    if group_by == "float_bucket":
+        tf_hours = task.total_float_hr_cnt or 0
+        # Convert hours to days using a fixed 8h/day — buckets are coarse
+        # enough that the calendar-specific conversion isn't worth the
+        # plumbing here.
+        tf_days = tf_hours / 8.0
+        if tf_days < 0:
+            return "Negative float"
+        if tf_days <= 5:
+            return "0-5 days"
+        if tf_days <= 20:
+            return "5-20 days"
+        return ">20 days"
+    return "All"  # fallback for unknown group_by — single bucket
+
+
+def _apply_grouping(
+    schedule: ParsedSchedule, group_by: str, critical_ids: set[str]
+) -> ParsedSchedule:
+    """Return a synthetic schedule whose wbs_nodes + activity wbs_ids encode the
+    requested grouping. ``group_by="wbs"`` returns the input unchanged so the
+    default code path stays a zero-cost no-op.
+    """
+    if group_by == "wbs":
+        return schedule
+
+    bucket_assignments: dict[str, str] = {
+        t.task_id: _bucket_for_activity(t, group_by, critical_ids) for t in schedule.activities
+    }
+    unique_buckets = sorted(set(bucket_assignments.values()))
+    bucket_to_id = {label: f"_grp_{i:03d}" for i, label in enumerate(unique_buckets)}
+
+    new_wbs_nodes = [
+        WBS(
+            wbs_id=bucket_to_id[label],
+            parent_wbs_id="",
+            wbs_short_name=label,
+            wbs_name=label,
+        )
+        for label in unique_buckets
+    ]
+    new_activities = [
+        t.model_copy(update={"wbs_id": bucket_to_id[bucket_assignments[t.task_id]]})
+        for t in schedule.activities
+    ]
+    return schedule.model_copy(update={"wbs_nodes": new_wbs_nodes, "activities": new_activities})
+
+
 def build_schedule_view(
     schedule: ParsedSchedule,
     baseline: ParsedSchedule | None = None,
+    group_by: str = "wbs",
 ) -> ScheduleViewResult:
     """Build pre-computed layout data for the Gantt viewer.
 
     Args:
         schedule: The current/update schedule.
         baseline: Optional baseline schedule for comparison bars.
+        group_by: How to group activities in the WBS tree. One of
+            ``GROUP_BY_OPTIONS`` (``wbs`` is the default and preserves the
+            project's real WBS hierarchy). Non-``wbs`` modes flatten activities
+            into one synthetic root per group label (no nesting).
 
     Returns:
         ScheduleViewResult with WBS tree, flattened activities, and relationships.
     """
+    if group_by not in GROUP_BY_OPTIONS:
+        group_by = "wbs"
+
     result = ScheduleViewResult()
 
-    # Project metadata
+    # Project metadata (read from the original schedule — grouping doesn't change this)
     if schedule.projects:
         proj = schedule.projects[0]
         result.project_name = proj.proj_short_name or ""
         result.data_date = _fmt_date(proj.last_recalc_date or proj.sum_data_date)
 
-    # Run CPM to get critical path
+    # Run CPM on the *original* schedule (relationships are unchanged by grouping)
     cpm = CPMCalculator(schedule)
     cpm_result = cpm.calculate()
 
@@ -196,6 +268,10 @@ def build_schedule_view(
     critical_ids: set[str] = set()
     if cpm_result.critical_path:
         critical_ids = set(cpm_result.critical_path)
+
+    # Apply optional non-WBS grouping (replaces wbs_nodes + activity wbs_ids with
+    # synthetic ones). The original schedule is left untouched — model_copy.
+    schedule = _apply_grouping(schedule, group_by, critical_ids)
 
     # Build WBS hierarchy
     wbs_map: dict[str, WBSNode] = {}

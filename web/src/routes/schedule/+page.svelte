@@ -13,6 +13,7 @@
 	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
 	let selectedProject: string = $state('');
 	let baselineProject: string = $state('');
+	let groupBy: string = $state('wbs');
 	let data = $state<ScheduleViewData | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
@@ -88,7 +89,10 @@
 			const headers: Record<string, string> = session?.access_token
 				? { Authorization: `Bearer ${session.access_token}` }
 				: {};
-			const params = baselineProject ? `?baseline_id=${baselineProject}` : '';
+			const queryParts: string[] = [];
+			if (baselineProject) queryParts.push(`baseline_id=${baselineProject}`);
+			if (groupBy && groupBy !== 'wbs') queryParts.push(`group_by=${groupBy}`);
+			const params = queryParts.length ? `?${queryParts.join('&')}` : '';
 			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/schedule-view${params}`, { headers });
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
@@ -297,6 +301,17 @@
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}{p.tags?.length ? ` [${p.tags.slice(0, 3).join(', ')}]` : ''}</option>
 					{/each}
+				</select>
+			</div>
+			<div class="min-w-44">
+				<label for="groupBy" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group by</label>
+				<select id="groupBy" bind:value={groupBy} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
+					<option value="wbs">WBS (default)</option>
+					<option value="status">Status</option>
+					<option value="critical">Critical / Non-Critical</option>
+					<option value="task_type">Task type</option>
+					<option value="calendar">Calendar</option>
+					<option value="float_bucket">Float bucket</option>
 				</select>
 			</div>
 			<button onclick={loadSchedule} disabled={!selectedProject || loading}

@@ -341,6 +341,7 @@ def get_schedule_view(
     project_id: str,
     baseline_id: str | None = None,
     force: bool = False,
+    group_by: str = "wbs",
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Get pre-computed layout data for the interactive Gantt viewer.
@@ -356,6 +357,10 @@ def get_schedule_view(
         project_id: The schedule identifier.
         baseline_id: Optional baseline schedule for comparison bars.
         force: Force recomputation (bypass cache).
+        group_by: Tree grouping mode. ``wbs`` (default) preserves the project's
+            real WBS hierarchy. Other accepted values: ``status``, ``critical``,
+            ``task_type``, ``calendar``, ``float_bucket``. Unknown values fall
+            back to ``wbs``.
 
     Returns:
         ScheduleViewResult with WBS tree, activities, relationships, summary.
@@ -364,8 +369,13 @@ def get_schedule_view(
         AACE RP 49R-06 — Identifying Critical Activities.
         GAO Schedule Assessment Guide.
     """
+    from src.analytics.schedule_view import GROUP_BY_OPTIONS
+
+    if group_by not in GROUP_BY_OPTIONS:
+        group_by = "wbs"
+
     store = get_store()
-    cache_key = f"schedule_view:{baseline_id or 'none'}"
+    cache_key = f"schedule_view:{baseline_id or 'none'}:{group_by}"
 
     # Check cache first (skip if force=True)
     if not force:
@@ -378,9 +388,9 @@ def get_schedule_view(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # When the caller forces a recompute, also purge sibling cache entries
-    # for other baseline variants of this project — they were computed
-    # against the same underlying schedule and are presumed stale for the
-    # same reason this one is.
+    # for other baseline variants + grouping modes of this project — they were
+    # computed against the same underlying schedule and are presumed stale for
+    # the same reason this one is.
     if force and hasattr(store, "invalidate_analysis"):
         try:
             store.invalidate_analysis(project_id, analysis_type_prefix="schedule_view:")
@@ -388,7 +398,7 @@ def get_schedule_view(
             pass
 
     baseline = store.get(baseline_id) if baseline_id else None
-    result = build_schedule_view(schedule, baseline=baseline)
+    result = build_schedule_view(schedule, baseline=baseline, group_by=group_by)
     result_dict = asdict(result)
 
     # Cache for future requests

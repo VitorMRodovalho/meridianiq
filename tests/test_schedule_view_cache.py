@@ -95,14 +95,14 @@ class TestScheduleViewCacheBehaviour:
     def test_first_call_populates_cache(self) -> None:
         store = get_store()
         pid = store.add(_schedule(), b"xer")
-        assert store.get_analysis(pid, "schedule_view:none") is None
+        assert store.get_analysis(pid, "schedule_view:none:wbs") is None
 
         client = TestClient(app)
         resp = client.get(f"/api/v1/projects/{pid}/schedule-view")
         assert resp.status_code == 200, resp.text
 
         # Cache should be populated after first call
-        cached = store.get_analysis(pid, "schedule_view:none")
+        cached = store.get_analysis(pid, "schedule_view:none:wbs")
         assert cached is not None
 
     def test_force_invalidates_sibling_variants(self) -> None:
@@ -131,7 +131,7 @@ class TestScheduleViewCacheBehaviour:
         store = get_store()
         pid = store.add(_schedule(), b"xer")
         sentinel = {"project_name": "CACHED-SENTINEL", "activities": []}
-        store.save_analysis(pid, "schedule_view:none", sentinel)
+        store.save_analysis(pid, "schedule_view:none:wbs", sentinel)
 
         client = TestClient(app)
         resp = client.get(f"/api/v1/projects/{pid}/schedule-view")
@@ -152,8 +152,8 @@ class TestScheduleViewCacheBehaviour:
         assert r2.status_code == 200
 
         # Two distinct cache entries exist
-        assert store.get_analysis(pid, f"schedule_view:{base_a}") is not None
-        assert store.get_analysis(pid, f"schedule_view:{base_b}") is not None
+        assert store.get_analysis(pid, f"schedule_view:{base_a}:wbs") is not None
+        assert store.get_analysis(pid, f"schedule_view:{base_b}:wbs") is not None
 
 
 class TestInvalidateCacheEndpoint:

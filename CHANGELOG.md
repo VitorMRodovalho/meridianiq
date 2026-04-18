@@ -41,6 +41,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **Plugin architecture (initial)** (wave 7) — third-party packages can ship their own analysis engines via Python entry-points (`[project.entry-points."meridianiq.engines"]`). The `src/plugins` package defines an `AnalysisEngine` `Protocol` (runtime-checkable: `name`, `version`, `analyze(schedule)`) plus a registry with `discover_plugins()` / `list_plugins()` / `get_plugin(name)` / `register_plugin(instance)`. A broken plugin is logged and skipped — it can never take down host startup. A working reference plugin lives at `samples/plugin-example/` (`activity-counter` engine that buckets activities by status). 9 tests cover protocol checks, register / lookup / list, error paths, and the sample plugin shape. API exposure (`GET /api/v1/plugins`, `POST /api/v1/plugins/{name}/run`) deferred to a follow-up wave.
 
+### Schedule Viewer
+
+- **Activity grouping by any field** (wave 8, BUGS.md #13) — the `/schedule-view` endpoint accepts a new `group_by` query param. Default `wbs` keeps the project's real WBS hierarchy (zero-cost no-op). Other modes — `status`, `critical`, `task_type`, `calendar`, `float_bucket` — synthesise a flat WBS tree where each root is one bucket and activities are reassigned via `model_copy` so the original schedule stays untouched. The /schedule UI gains a "Group by" dropdown next to the baseline picker. Cache key now includes the grouping mode so different views are cached independently. 14 new tests + 11 cache tests still pass.
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).
