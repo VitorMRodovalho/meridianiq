@@ -37,6 +37,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **Structured P6 calendar data parser** (wave 6, BUGS.md #12) — new `src/parser/calendar_data.py` parses the `clndr_data` blob into a `CalendarSchedule` with per-weekday working hours (1=Sunday..7=Saturday per P6 SDK) and a list of `CalendarException` entries that distinguish full holidays (`is_working=False`) from partial-working exception days (`is_working=True, hours=N`). Tolerant of malformed input — returns whatever it could decode without raising. The legacy `parse_calendar_holidays()` regex in `schedule_view.py` continues to work unchanged (only used for Gantt timeline shading). 9 tests cover empty input, weekly schedule extraction, both exception kinds, sort ordering + counters, malformed blobs, and over-large day numbers.
 
+### Extensibility
+
+- **Plugin architecture (initial)** (wave 7) — third-party packages can ship their own analysis engines via Python entry-points (`[project.entry-points."meridianiq.engines"]`). The `src/plugins` package defines an `AnalysisEngine` `Protocol` (runtime-checkable: `name`, `version`, `analyze(schedule)`) plus a registry with `discover_plugins()` / `list_plugins()` / `get_plugin(name)` / `register_plugin(instance)`. A broken plugin is logged and skipped — it can never take down host startup. A working reference plugin lives at `samples/plugin-example/` (`activity-counter` engine that buckets activities by status). 9 tests cover protocol checks, register / lookup / list, error paths, and the sample plugin shape. API exposure (`GET /api/v1/plugins`, `POST /api/v1/plugins/{name}/run`) deferred to a follow-up wave.
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).
