@@ -232,9 +232,7 @@ async def upload_xer(
     # the async materializer flips to 'ready' once the engines complete.
     # InMemoryStore sync-fast-path returns 'ready' immediately.
     status_value = (
-        store.get_project_status(project_id)
-        if hasattr(store, "get_project_status")
-        else "pending"
+        store.get_project_status(project_id) if hasattr(store, "get_project_status") else "pending"
     )
 
     return ProjectSummary(

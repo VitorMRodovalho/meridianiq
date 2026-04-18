@@ -246,8 +246,7 @@ class InMemoryStore:
         """
         if status not in {"pending", "ready", "failed"}:
             raise ValueError(
-                f"invalid projects.status: {status!r}; "
-                "must be one of 'pending', 'ready', 'failed'"
+                f"invalid projects.status: {status!r}; must be one of 'pending', 'ready', 'failed'"
             )
         if project_id not in {pid for pid in self._projects.list_ids()}:
             return False
@@ -1330,8 +1329,7 @@ class SupabaseStore:
             )
         except Exception:
             logger.error(
-                "Schedule data persistence failed for project %s; "
-                "flipping status to failed",
+                "Schedule data persistence failed for project %s; flipping status to failed",
                 project_id,
                 exc_info=True,
             )
@@ -1733,8 +1731,7 @@ class SupabaseStore:
         """
         if status not in {"pending", "ready", "failed"}:
             raise ValueError(
-                f"invalid projects.status: {status!r}; "
-                "must be one of 'pending', 'ready', 'failed'"
+                f"invalid projects.status: {status!r}; must be one of 'pending', 'ready', 'failed'"
             )
         updated = self._update("projects", {"status": status}, {"id": project_id})
         if not updated:
@@ -1896,8 +1893,7 @@ class SupabaseStore:
         return (
             self._client.table("projects")
             .select(
-                "id, project_name, data_date, created_at, "
-                "revision_number, activity_count, status"
+                "id, project_name, data_date, created_at, revision_number, activity_count, status"
             )
             .eq("program_id", program_id)
             .order("revision_number", desc=True)

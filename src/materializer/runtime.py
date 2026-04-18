@@ -267,9 +267,7 @@ class Materializer:
         async with sem:
             try:
                 await asyncio.wait_for(
-                    self._materialize_project(
-                        project_id, user_id, job_id, audit_details_extra
-                    ),
+                    self._materialize_project(project_id, user_id, job_id, audit_details_extra),
                     timeout=self._timeout_s,
                 )
             except StaleMaterializationError:
@@ -330,9 +328,7 @@ class Materializer:
         # storage identifier. For single-project XERs (the common case)
         # we take the first project's ``proj_id``; multi-project XERs are
         # Wave 3+ scope and will iterate per-project.
-        hash_scope_id = (
-            schedule.projects[0].proj_id if schedule.projects else project_id
-        )
+        hash_scope_id = schedule.projects[0].proj_id if schedule.projects else project_id
         input_hash_start = compute_input_hash(schedule, hash_scope_id)
         effective_at = self._effective_at(schedule)
 
@@ -356,13 +352,9 @@ class Materializer:
             # the semaphore — abort without persisting this run's artifacts.
             schedule_now = self._fetch_schedule(project_id)
             if schedule_now is None:
-                raise RuntimeError(
-                    f"Project {project_id} disappeared mid-materialization"
-                )
+                raise RuntimeError(f"Project {project_id} disappeared mid-materialization")
             hash_scope_now = (
-                schedule_now.projects[0].proj_id
-                if schedule_now.projects
-                else project_id
+                schedule_now.projects[0].proj_id if schedule_now.projects else project_id
             )
             input_hash_now = compute_input_hash(schedule_now, hash_scope_now)
             if input_hash_now != input_hash_start:
@@ -428,10 +420,7 @@ class Materializer:
     def _effective_at(schedule: ParsedSchedule) -> datetime:
         """Pick the schedule's effective data_date for artifact provenance."""
         if schedule.projects:
-            dd = (
-                schedule.projects[0].last_recalc_date
-                or schedule.projects[0].sum_data_date
-            )
+            dd = schedule.projects[0].last_recalc_date or schedule.projects[0].sum_data_date
             if dd is not None:
                 return dd if dd.tzinfo is not None else dd.replace(tzinfo=UTC)
         return datetime.now(UTC)
@@ -442,9 +431,7 @@ class Materializer:
             if setter is not None:
                 setter(project_id, status)
         except Exception:
-            logger.exception(
-                "Materializer: failed to set status=%s on %s", status, project_id
-            )
+            logger.exception("Materializer: failed to set status=%s on %s", status, project_id)
 
     @staticmethod
     def _publish_event(job_id: str, event: dict[str, Any]) -> None:
@@ -454,6 +441,4 @@ class Materializer:
 
             publish(job_id, event)
         except Exception:
-            logger.exception(
-                "Materializer: failed to publish progress event for job %s", job_id
-            )
+            logger.exception("Materializer: failed to publish progress event for job %s", job_id)

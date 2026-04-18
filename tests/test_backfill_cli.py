@@ -64,9 +64,7 @@ class TestCandidateSelection:
 
     def test_explicit_project_id_short_circuits(self) -> None:
         store = InMemoryStore()
-        pids = _candidate_project_ids(
-            store, limit=None, explicit_project_id="proj-explicit"
-        )
+        pids = _candidate_project_ids(store, limit=None, explicit_project_id="proj-explicit")
         assert pids == ["proj-explicit"]
 
     def test_limit_honoured(self) -> None:
@@ -145,9 +143,7 @@ class TestCliMain:
         materialized = [pid for pid, kinds in kinds_by_pid.items() if "dcma" in kinds]
         assert len(materialized) == 1
 
-    def test_empty_candidate_set_returns_zero(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_empty_candidate_set_returns_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
         store = InMemoryStore()
         # No projects → no candidates.
         monkeypatch.setattr("src.api.deps.get_store", lambda: store)
@@ -158,9 +154,7 @@ class TestCliMain:
         rc = main([])
         assert rc == 0
 
-    def test_idempotent_rerun_does_not_duplicate(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_idempotent_rerun_does_not_duplicate(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Re-running after all candidates materialized should find none.
 
         Upserts on the uniqueness tuple mean a redundant run writes no new
