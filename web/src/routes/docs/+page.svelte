@@ -1,48 +1,50 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
+
 	let activeSection = $state('getting-started');
 
 	const sections = [
-		{ id: 'getting-started', title: 'Getting Started' },
-		{ id: 'upload', title: 'Uploading Schedules' },
-		{ id: 'dcma', title: 'DCMA 14-Point Assessment' },
-		{ id: 'compare', title: 'Schedule Comparison' },
-		{ id: 'forensic', title: 'Forensic Analysis (CPA)' },
-		{ id: 'tia', title: 'Time Impact Analysis' },
-		{ id: 'evm', title: 'Earned Value Management' },
-		{ id: 'risk', title: 'Monte Carlo Simulation' },
-		{ id: 'health', title: 'Health Score & Alerts' },
-		{ id: 'anomalies', title: 'Anomaly Detection' },
-		{ id: 'rootcause', title: 'Root Cause Analysis' },
-		{ id: 'floattrends', title: 'Float Trends & Entropy' },
-		{ id: 'scorecard', title: 'Schedule Scorecard' },
-		{ id: 'whatif', title: 'What-If Simulator' },
-		{ id: 'resources', title: 'Resource Leveling' },
-		{ id: 'builder', title: 'Schedule Builder' },
-		{ id: 'benchmarks', title: 'Benchmarks & Percentiles' },
-		{ id: 'delay', title: 'Delay & Duration Prediction' },
-		{ id: 'pareto', title: 'Pareto Trade-Off Analysis' },
-		{ id: 'visualization', title: '4D Visualization' },
-		{ id: 'schedule', title: 'Schedule Viewer' },
-		{ id: 'optimizer', title: 'Schedule Optimizer' },
-		{ id: 'reports', title: 'Reports Hub' },
-		{ id: 'export', title: 'XER Export' },
-		{ id: 'metadata', title: 'Schedule Metadata' },
-		{ id: 'trends', title: 'Schedule Trends' },
-		{ id: 'cost', title: 'Cost Integration' },
-		{ id: 'narrative', title: 'Narrative Reports' },
-		{ id: 'mcp', title: 'MCP & AI Integration' },
-		{ id: 'api', title: 'API Reference' },
+		{ id: 'getting-started', titleKey: 'docs.section_getting_started' },
+		{ id: 'upload', titleKey: 'docs.section_upload' },
+		{ id: 'dcma', titleKey: 'docs.section_dcma' },
+		{ id: 'compare', titleKey: 'docs.section_compare' },
+		{ id: 'forensic', titleKey: 'docs.section_forensic' },
+		{ id: 'tia', titleKey: 'docs.section_tia' },
+		{ id: 'evm', titleKey: 'docs.section_evm' },
+		{ id: 'risk', titleKey: 'docs.section_risk' },
+		{ id: 'health', titleKey: 'docs.section_health' },
+		{ id: 'anomalies', titleKey: 'docs.section_anomalies' },
+		{ id: 'rootcause', titleKey: 'docs.section_rootcause' },
+		{ id: 'floattrends', titleKey: 'docs.section_floattrends' },
+		{ id: 'scorecard', titleKey: 'docs.section_scorecard' },
+		{ id: 'whatif', titleKey: 'docs.section_whatif' },
+		{ id: 'resources', titleKey: 'docs.section_resources' },
+		{ id: 'builder', titleKey: 'docs.section_builder' },
+		{ id: 'benchmarks', titleKey: 'docs.section_benchmarks' },
+		{ id: 'delay', titleKey: 'docs.section_delay' },
+		{ id: 'pareto', titleKey: 'docs.section_pareto' },
+		{ id: 'visualization', titleKey: 'docs.section_visualization' },
+		{ id: 'schedule', titleKey: 'docs.section_schedule' },
+		{ id: 'optimizer', titleKey: 'docs.section_optimizer' },
+		{ id: 'reports', titleKey: 'docs.section_reports' },
+		{ id: 'export', titleKey: 'docs.section_export' },
+		{ id: 'metadata', titleKey: 'docs.section_metadata' },
+		{ id: 'trends', titleKey: 'docs.section_trends' },
+		{ id: 'cost', titleKey: 'docs.section_cost' },
+		{ id: 'narrative', titleKey: 'docs.section_narrative' },
+		{ id: 'mcp', titleKey: 'docs.section_mcp' },
+		{ id: 'api', titleKey: 'docs.section_api' },
 	];
 </script>
 
 <svelte:head>
-	<title>Documentation - MeridianIQ</title>
+	<title>{$t('docs.title')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="flex">
 	<!-- Docs sidebar -->
 	<nav class="w-56 shrink-0 border-r border-gray-200 dark:border-gray-700 p-6 hidden lg:block sticky top-0 h-screen overflow-y-auto">
-		<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Documentation</p>
+		<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">{$t('docs.title')}</p>
 		{#each sections as section}
 			<button
 				onclick={() => activeSection = section.id}
@@ -50,7 +52,7 @@
 					? 'bg-blue-50 dark:bg-blue-950 text-blue-700 font-medium'
 					: 'text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:text-gray-100'}"
 			>
-				{section.title}
+				{$t(section.titleKey)}
 			</button>
 		{/each}
 	</nav>
@@ -60,10 +62,10 @@
 		<!-- Mobile section selector -->
 		<div class="lg:hidden mb-6">
 			<label class="block">
-				<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Section</span>
+				<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('docs.mobile_label')}</span>
 				<select bind:value={activeSection} class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
 					{#each sections as section}
-						<option value={section.id}>{section.title}</option>
+						<option value={section.id}>{$t(section.titleKey)}</option>
 					{/each}
 				</select>
 			</label>
