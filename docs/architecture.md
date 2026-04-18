@@ -5,7 +5,7 @@
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v3.9.0**: 45 analysis engines + 1 export module, 115 API endpoints across 21 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 20 Supabase migrations, 22 MCP tools, 15 PDF report types, 1148 tests.
+As of **v3.9.0 + Cycle 1 Wave 1 (v4.0-dev)**: 45 analysis engines + 1 export module, 116 API endpoints across 22 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 23 Supabase migrations, 22 MCP tools, 15 PDF report types, 1266 tests.
 
 ```mermaid
 graph TB
@@ -14,7 +14,7 @@ graph TB
     end
 
     subgraph "Compute — Fly.io"
-        API[FastAPI application<br/>115 endpoints · 21 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
+        API[FastAPI application<br/>116 endpoints · 22 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
         ENGINES[45 analysis engines<br/>+ 1 export module<br/>src/analytics/ + src/export/]
         MCP[MCP server<br/>22 tools · stdio + http + sse<br/>src/mcp_server.py]
         API --> ENGINES
@@ -23,7 +23,7 @@ graph TB
 
     subgraph "Platform — Supabase"
         AUTH["Supabase Auth<br/>Google · LinkedIn · Microsoft<br/>ES256 JWT via JWKS"]
-        DB[("PostgreSQL<br/>20 migrations · RLS enforced<br/>projects · activities · WBS<br/>erp_sources · cbs_elements<br/>cost_snapshots · cbs_wbs_mappings<br/>api_keys · audit")]
+        DB[("PostgreSQL<br/>23 migrations · RLS enforced<br/>projects · activities · WBS<br/>schedule_derived_artifacts<br/>erp_sources · cbs_elements<br/>cost_snapshots · audit")]
         STORAGE["Supabase Storage<br/>xer-files bucket · RLS"]
     end
 
@@ -60,7 +60,7 @@ src/
   database/          InMemoryStore + SupabaseStore abstraction, Supabase client
   api/
     app.py           FastAPI shell — all domain logic in routers/
-    routers/         21 modular routers (see docs/api-reference.md)
+    routers/         22 modular routers (see docs/api-reference.md)
     schemas.py       Pydantic v2 request/response models
     auth.py          JWT + optional_auth / require_auth dependencies
     deps.py          Shared store + limiter singletons

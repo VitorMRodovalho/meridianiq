@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **115 endpoints** across **21 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **116 endpoints** across **22 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -29,6 +29,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Bi](#bi) — 3 endpoints
 - [Organizations](#organizations) — 11 endpoints
 - [Plugins](#plugins) — 2 endpoints
+- [Ws](#ws) — 1 endpoints
 
 ## Upload
 
@@ -285,4 +286,10 @@ _Readiness and liveness_
 |---|---|---|---|---|
 | `GET` | `/api/v1/plugins` | Return every plugin currently in the registry (sorted by name). | `dict` | optional |
 | `POST` | `/api/v1/plugins/{name}/run/{project_id}` | Run one registered plugin against a stored schedule. | `dict` | optional |
+
+## Ws
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `POST` | `/api/v1/jobs/progress/start` | Allocate a server-generated ``job_id`` bound to the caller. | `dict` | required |
 
