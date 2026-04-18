@@ -14,14 +14,14 @@ Consequence: any mid-persist failure (transient Supabase 5xx, constraint violati
 Two further discoveries reshaped the option space:
 
 - **All 13 child tables already FK to `projects(id) ON DELETE CASCADE`.** A single `DELETE FROM projects WHERE id = :project_uuid` is a one-statement compensating action that cleans every partial write. This enables an unlisted fourth option with lower blast radius than any of the three originally considered.
-- **`_persist_schedule_data` is about to compose with two larger Cycle 1 pieces**: migration 022 `schedule_derived_artifacts` (Wave 1) and the async materialization pipeline (Wave 2). Whatever atomicity contract we pick now must compose with "materialization runs after persist returns, in a background task, flipping state on completion." Any solution that blocks the HTTP path on a transactional boundary that includes materialization collapses into the Fly.io cold-start / 1-CPU problem (BUG-007 precedent).
+- **`_persist_schedule_data` is about to compose with two larger Cycle 1 pieces**: migration 023 `schedule_derived_artifacts` (Wave 1, per ADR-0014) and the async materialization pipeline (Wave 2). Whatever atomicity contract we pick now must compose with "materialization runs after persist returns, in a background task, flipping state on completion." Any solution that blocks the HTTP path on a transactional boundary that includes materialization collapses into the Fly.io cold-start / 1-CPU problem (BUG-007 precedent).
 
 ## Decision Drivers
 
 - **Correctness comes first.** Silent partial-persist is indefensible for a forensic / claims-grade analytics platform; the Consultant SME persona cannot audit a schedule that was truncated at upload time with no record.
 - **Blast radius must fit Wave 0.** Wave 0 is 7 items; any one of them exceeding ~half-wave of effort pushes v4.0-proper work past the cycle budget.
-- **Composition with Wave 1/2 is non-optional.** A solution that forces re-work at migration 022 or at async materialization time doubles the cost.
-- **Do not over-build now what Wave 1/2 naturally requires anyway.** A `status` column (`pending | ready | failed`) is the natural surface for async materialization state. Adding it now, before the materializer exists, pays the read-path audit cost without the benefit. Adding it later, batched with migration 022, pays the same cost once.
+- **Composition with Wave 1/2 is non-optional.** A solution that forces re-work at migration 023 or at async materialization time doubles the cost.
+- **Do not over-build now what Wave 1/2 naturally requires anyway.** A `status` column (`pending | ready | failed`) is the natural surface for async materialization state. Adding it now, before the materializer exists, pays the read-path audit cost without the benefit. Adding it later, batched with a sibling migration 024 alongside migration 023, pays the same cost once.
 
 ## Considered Options
 
@@ -37,7 +37,7 @@ Two further discoveries reshaped the option space:
 
 **Wave 0 #3 (now):** Implement option (d). Replace the swallow-and-warn with outer `try/except` → compensating `DELETE FROM projects WHERE id = :uuid` → re-raise. Add a helper `_delete(table, filters)` on `SupabaseStore` to keep symmetry with `_insert` / `_batch_insert` / `_select`. Update the existing regression test `test_persistence_failure_does_not_raise` (which asserts the bug) to `test_persistence_failure_raises_and_rolls_back` asserting the new contract: exception propagates, `projects` row is absent afterwards.
 
-**Wave 1/2 (later):** When migration 022 (`schedule_derived_artifacts`) lands, batch it with a second migration that adds `status` to `projects` and flips option (d)'s compensating delete into option (c)'s status transition. At that point the async materializer is the natural flipping agent: `pending` after upload persist, `ready` when materialization completes, `failed` when compensating cleanup runs. Read-path audit (~40 sites) happens once, at the point where it pays off.
+**Wave 1/2 (later):** When migration 023 (`schedule_derived_artifacts`, per ADR-0014) lands, a sibling migration 024 adds `status` to `projects` and flips option (d)'s compensating delete into option (c)'s status transition. The 023/024 split keeps each migration semantically atomic: 023 = provenance surface, 024 = state machine + read-path audit. At that point the async materializer is the natural flipping agent: `pending` after upload persist, `ready` when materialization completes, `failed` when compensating cleanup runs. Read-path audit (~40 sites) happens once, at the point where it pays off.
 
 ### Rationale
 

@@ -51,7 +51,7 @@ Two Cycle 1 shallows accompany the deep:
 - Harden `/api/v1/ws/progress/{job_id}`: require Bearer token, server-generate `job_id` and return in upload response, add TTL reaper for abandoned channels (closes P1 from v3.9 wave 10).
 
 **Wave 1 (deep — materialization foundation):**
-- Migration 022: `schedule_derived_artifacts` table with provenance columns (`engine_version`, `ruleset_version`, `input_hash`, `inferred_at`, `computed_at`, `is_stale`), `ON DELETE CASCADE` on `project_id`, and RLS triplet mirroring migration 018 pattern (no `WITH CHECK (TRUE)` — policy must re-verify project ownership).
+- Migration 023 [renumbered from 022 after Wave 0 #5 consumed 022]: `schedule_derived_artifacts` table with provenance columns. Full column shape (9 columns including `computed_by`, `stale_reason`, `effective_at` renamed from `inferred_at`), RLS **quadruple** (SELECT/INSERT/UPDATE/DELETE — UPDATE added to close the silent-no-op class ADR-0012 amendment #2 identified), partial index strategy, `UNIQUE NULLS NOT DISTINCT`, and the `input_hash` canonical algorithm are specified in **ADR-0014**. `ON DELETE CASCADE` on `project_id` preserved; RLS policies re-verify ownership via `projects.user_id = auth.uid()` (no `WITH CHECK (TRUE)`).
 - Audit: every materialization writes one `audit_log` row with `action = 'materialize'`.
 
 **Wave 2 (deep — async materialization pipeline):**
@@ -84,7 +84,7 @@ Two Cycle 1 shallows accompany the deep:
 - Also add UTF-16 BOM detection to `msp_reader.parse` (Microsoft tooling commonly emits UTF-16-LE with BOM; current UTF-8-only path breaks PT-BR / ES-LATAM content with accented strings).
 
 **Governance artefacts landing in the same cycle:**
-- `PRIVACY.md` — non-binding factual data-handling disclosure (Supabase region, what is materialized, retention default, deletion path). Published alongside migration 022.
+- `PRIVACY.md` — non-binding factual data-handling disclosure (Supabase region, what is materialized, retention default, deletion path). Published alongside migration 023.
 
 ### Rationale
 
