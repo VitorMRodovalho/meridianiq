@@ -21,7 +21,7 @@
 			const res = await getProjects();
 			projects = res.projects;
 		} catch {
-			error = 'Failed to load projects';
+			error = $t('compare.load_failed');
 			toastError(error);
 		} finally {
 			projectsLoading = false;
@@ -30,11 +30,11 @@
 
 	async function doCompare() {
 		if (!baselineId || !updateId) {
-			error = 'Please select both baseline and update projects';
+			error = $t('compare.select_both_error');
 			return;
 		}
 		if (baselineId === updateId) {
-			error = 'Baseline and update must be different projects';
+			error = $t('compare.same_project_error');
 			return;
 		}
 		loading = true;
@@ -43,7 +43,7 @@
 		try {
 			result = await compareSchedules(baselineId, updateId);
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Comparison failed';
+			error = e instanceof Error ? e.message : $t('compare.compare_failed');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -52,44 +52,44 @@
 </script>
 
 <svelte:head>
-	<title>Compare - MeridianIQ</title>
+	<title>{$t('compare.title')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">
-	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Compare Schedules</h1>
+	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{$t('compare.title')}</h1>
 
 	<!-- Selection -->
 	<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
 		{#if projectsLoading}
-			<p class="text-gray-500 dark:text-gray-400">Loading projects...</p>
+			<p class="text-gray-500 dark:text-gray-400">{$t('compare.loading_projects')}</p>
 		{:else if projects.length < 2}
-			<p class="text-gray-500 dark:text-gray-400">Upload at least two XER files to compare schedules.</p>
-			<a href="/upload" class="mt-3 inline-block text-sm text-blue-600 hover:underline">Upload XER File</a>
+			<p class="text-gray-500 dark:text-gray-400">{$t('compare.need_two_uploads')}</p>
+			<a href="/upload" class="mt-3 inline-block text-sm text-blue-600 hover:underline">{$t('projects.upload_cta')}</a>
 		{:else}
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
 				<div>
-					<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline Schedule</label>
+					<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('compare.label_baseline')}</label>
 					<select
 						id="baseline"
 						bind:value={baselineId}
 						class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 					>
-						<option value="">Select baseline...</option>
+						<option value="">{$t('compare.select_baseline')}</option>
 						{#each projects as p}
-							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} activities)</option>
+							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} {$t('compare.activities_suffix')})</option>
 						{/each}
 					</select>
 				</div>
 				<div>
-					<label for="update" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Update Schedule</label>
+					<label for="update" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('compare.label_update')}</label>
 					<select
 						id="update"
 						bind:value={updateId}
 						class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
 					>
-						<option value="">Select update...</option>
+						<option value="">{$t('compare.select_update')}</option>
 						{#each projects as p}
-							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} activities)</option>
+							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} {$t('compare.activities_suffix')})</option>
 						{/each}
 					</select>
 				</div>
@@ -99,7 +99,7 @@
 						disabled={loading}
 						class="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
-						{loading ? 'Comparing...' : 'Compare'}
+						{loading ? $t('compare.btn_comparing') : $t('compare.btn_compare')}
 					</button>
 				</div>
 			</div>
@@ -115,7 +115,7 @@
 	{#if loading}
 		<div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
 			<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-			Running comparison analysis...
+			{$t('compare.running_msg')}
 		</div>
 	{/if}
 
@@ -127,12 +127,12 @@
 				class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-md text-xs font-medium hover:bg-teal-700"
 			>
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-				View in Schedule Viewer
+				{$t('compare.view_schedule')}
 			</a>
 			{#if result.significant_float_changes.length > 0}
 				<span class="text-xs text-gray-500 dark:text-gray-400">
-					Float erosion: <strong class="text-red-600">{result.significant_float_changes.filter(f => f.direction === 'decreased').length}</strong> decreased,
-					<strong class="text-green-600">{result.significant_float_changes.filter(f => f.direction === 'increased').length}</strong> increased
+					{$t('compare.float_prefix')} <strong class="text-red-600">{result.significant_float_changes.filter(f => f.direction === 'decreased').length}</strong> {$t('compare.float_decreased_suffix')}
+					<strong class="text-green-600">{result.significant_float_changes.filter(f => f.direction === 'increased').length}</strong> {$t('compare.float_increased_suffix')}
 				</span>
 			{/if}
 		</div>
@@ -140,31 +140,31 @@
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Changed</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_changed')}</p>
 				<p class="text-2xl font-bold {result.changed_percentage > 20 ? 'text-red-600' : result.changed_percentage > 5 ? 'text-yellow-600' : 'text-green-600'}">
 					{result.changed_percentage.toFixed(1)}%
 				</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Added</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_added')}</p>
 				<p class="text-2xl font-bold text-green-600">{result.activities_added.length}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Deleted</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_deleted')}</p>
 				<p class="text-2xl font-bold text-red-600">{result.activities_deleted.length}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Modified</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_modified')}</p>
 				<p class="text-2xl font-bold text-blue-600">{result.activity_modifications.length}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Rel Added</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_rel_added')}</p>
 				<p class="text-2xl font-bold text-green-600">{result.relationships_added.length}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">CP Changed</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_cp_changed')}</p>
 				<p class="text-lg font-bold {result.critical_path_changed ? 'text-red-600' : 'text-green-600'}">
-					{result.critical_path_changed ? 'YES' : 'NO'}
+					{result.critical_path_changed ? $t('compare.yes') : $t('compare.no')}
 				</p>
 			</div>
 		</div>
@@ -172,22 +172,22 @@
 		<!-- Visual Charts -->
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 			<BarChart
-				title="Change Distribution"
+				title={$t('compare.chart_distribution')}
 				data={[
-					{ label: 'Added', value: result.activities_added.length, color: '#10b981' },
-					{ label: 'Deleted', value: result.activities_deleted.length, color: '#ef4444' },
-					{ label: 'Modified', value: result.activity_modifications.length, color: '#3b82f6' },
-					{ label: 'Duration', value: result.duration_changes.length, color: '#8b5cf6' },
-					{ label: 'Float', value: result.significant_float_changes.length, color: '#f59e0b' },
-					{ label: 'Constraints', value: result.constraint_changes.length, color: '#06b6d4' },
+					{ label: $t('compare.chart_added'), value: result.activities_added.length, color: '#10b981' },
+					{ label: $t('compare.chart_deleted'), value: result.activities_deleted.length, color: '#ef4444' },
+					{ label: $t('compare.chart_modified'), value: result.activity_modifications.length, color: '#3b82f6' },
+					{ label: $t('compare.chart_duration'), value: result.duration_changes.length, color: '#8b5cf6' },
+					{ label: $t('compare.chart_float'), value: result.significant_float_changes.length, color: '#f59e0b' },
+					{ label: $t('compare.chart_constraints'), value: result.constraint_changes.length, color: '#06b6d4' },
 				]}
 				formatValue={(v) => Math.round(v).toString()}
 			/>
 			{#if result.manipulation_score !== undefined}
 				<GaugeChart
 					value={result.manipulation_score}
-					title="Manipulation Risk Score"
-					label={result.manipulation_classification === 'red_flag' ? 'RED FLAG' : result.manipulation_classification === 'suspicious' ? 'SUSPICIOUS' : 'NORMAL'}
+					title={$t('compare.gauge_manipulation')}
+					label={result.manipulation_classification === 'red_flag' ? $t('compare.class_red_flag') : result.manipulation_classification === 'suspicious' ? $t('compare.class_suspicious') : $t('compare.class_normal')}
 					size={200}
 					bands={[
 						{ threshold: 30, color: '#10b981' },
@@ -201,24 +201,24 @@
 		<!-- Match Method + Code Restructuring -->
 		{#if result.match_stats}
 			<div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg p-4 mb-6">
-				<h3 class="text-sm font-medium text-blue-800 mb-2">Matching Method</h3>
+				<h3 class="text-sm font-medium text-blue-800 mb-2">{$t('compare.match_title')}</h3>
 				<div class="grid grid-cols-3 gap-4 text-sm">
 					<div>
 						<span class="text-blue-600 font-bold">{result.match_stats.matched_by_task_id.toLocaleString()}</span>
-						<span class="text-blue-700"> by system ID</span>
+						<span class="text-blue-700"> {$t('compare.match_by_id')}</span>
 					</div>
 					<div>
 						<span class="text-blue-600 font-bold">{result.match_stats.matched_by_task_code.toLocaleString()}</span>
-						<span class="text-blue-700"> by activity code</span>
+						<span class="text-blue-700"> {$t('compare.match_by_code')}</span>
 					</div>
 					<div>
 						<span class="text-blue-600 font-bold">{result.match_stats.total_matched.toLocaleString()}</span>
-						<span class="text-blue-700"> total matched</span>
+						<span class="text-blue-700"> {$t('compare.match_total')}</span>
 					</div>
 				</div>
 				{#if result.match_stats.code_restructured > 0}
 					<p class="text-xs text-blue-600 mt-2">
-						{result.match_stats.code_restructured} activities had their activity code changed between versions
+						{result.match_stats.code_restructured} {$t('compare.code_restructured_suffix')}
 					</p>
 				{/if}
 			</div>
@@ -226,16 +226,16 @@
 
 		{#if result.code_restructuring && result.code_restructuring.length > 0}
 			<div class="border border-yellow-300 bg-yellow-50 dark:bg-yellow-950 rounded-lg p-4 mb-6">
-				<h3 class="text-sm font-medium text-yellow-800 mb-2">Schedule Restructuring Detected ({result.code_restructuring.length} code changes)</h3>
+				<h3 class="text-sm font-medium text-yellow-800 mb-2">{$t('compare.restructuring_title')} ({result.code_restructuring.length} {$t('compare.restructuring_changes_suffix')})</h3>
 				<div class="max-h-48 overflow-y-auto">
 					<table class="w-full text-xs">
-						<thead><tr class="text-left text-yellow-700"><th class="py-1 pr-2">Old Code</th><th class="py-1 pr-2">New Code</th><th class="py-1">Activity</th></tr></thead>
+						<thead><tr class="text-left text-yellow-700"><th class="py-1 pr-2">{$t('compare.col_old_code')}</th><th class="py-1 pr-2">{$t('compare.col_new_code')}</th><th class="py-1">{$t('compare.col_activity')}</th></tr></thead>
 						<tbody>
 							{#each result.code_restructuring.slice(0, 20) as cr}
 								<tr class="border-t border-yellow-200"><td class="py-1 pr-2 font-mono">{cr.old_code}</td><td class="py-1 pr-2 font-mono">{cr.new_code}</td><td class="py-1">{cr.activity_name}</td></tr>
 							{/each}
 							{#if result.code_restructuring.length > 20}
-								<tr><td colspan="3" class="py-1 text-yellow-600">... and {result.code_restructuring.length - 20} more</td></tr>
+								<tr><td colspan="3" class="py-1 text-yellow-600">{$t('compare.restructuring_more_prefix')} {result.code_restructuring.length - 20} {$t('compare.restructuring_more_suffix')}</td></tr>
 							{/if}
 						</tbody>
 					</table>
@@ -246,7 +246,7 @@
 		<!-- Manipulation Classification Banner -->
 		{@const classColor = result.manipulation_classification === 'red_flag' ? 'border-red-300 bg-red-50 dark:bg-red-950' : result.manipulation_classification === 'suspicious' ? 'border-yellow-300 bg-yellow-50 dark:bg-yellow-950' : 'border-green-300 bg-green-50 dark:bg-green-950'}
 		{@const classText = result.manipulation_classification === 'red_flag' ? 'text-red-800' : result.manipulation_classification === 'suspicious' ? 'text-yellow-800' : 'text-green-800'}
-		{@const classLabel = result.manipulation_classification === 'red_flag' ? 'RED FLAG' : result.manipulation_classification === 'suspicious' ? 'SUSPICIOUS' : 'NORMAL'}
+		{@const classLabel = result.manipulation_classification === 'red_flag' ? $t('compare.class_red_flag') : result.manipulation_classification === 'suspicious' ? $t('compare.class_suspicious') : $t('compare.class_normal')}
 
 		<div class="border-2 {classColor} rounded-lg p-6 mb-6">
 			<div class="flex items-center justify-between mb-4">
@@ -256,16 +256,16 @@
 					</span>
 					<h2 class="text-lg font-bold {classText}">
 						{#if result.manipulation_classification === 'normal'}
-							No manipulation indicators
+							{$t('compare.banner_normal')}
 						{:else}
-							Schedule Manipulation Indicators
+							{$t('compare.banner_indicators')}
 						{/if}
 					</h2>
 				</div>
 				{#if result.manipulation_score !== undefined}
 					<div class="text-right">
 						<p class="text-2xl font-bold {classText}">{result.manipulation_score}</p>
-						<p class="text-xs text-gray-500 dark:text-gray-400">Risk Score</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400">{$t('compare.risk_score_label')}</p>
 					</div>
 				{/if}
 			</div>
@@ -284,10 +284,10 @@
 								</span>
 								<span class="text-sm font-medium text-gray-900 dark:text-gray-100">{flag.indicator}</span>
 								{#if flag.score}
-									<span class="text-xs text-gray-400 ml-auto">Score: {flag.score}</span>
+									<span class="text-xs text-gray-400 ml-auto">{$t('compare.flag_score_prefix')} {flag.score}</span>
 								{/if}
 							</div>
-							<p class="text-sm text-gray-600 dark:text-gray-400">Activity: {flag.task_id} — {flag.task_name}</p>
+							<p class="text-sm text-gray-600 dark:text-gray-400">{$t('compare.flag_activity_prefix')} {flag.task_id} — {flag.task_name}</p>
 							<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{flag.description}</p>
 							{#if flag.rationale}
 								<p class="text-xs text-gray-400 mt-1 italic">{flag.rationale}</p>
@@ -303,17 +303,17 @@
 		{#if result.activity_modifications.length > 0}
 			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-					Activity Changes ({result.activity_modifications.length})
+					{$t('compare.activity_changes_title')} ({result.activity_modifications.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change Type</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Old Value</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">New Value</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_task_id')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_name')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_change_type')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_old_value')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_new_value')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -335,18 +335,18 @@
 		{#if result.duration_changes.length > 0}
 			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-					Duration Changes ({result.duration_changes.length})
+					{$t('compare.duration_changes_title')} ({result.duration_changes.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Old</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">New</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Delta</th>
-								<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-32">Visual</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_task_id')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_name')}</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_old')}</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_new')}</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_delta')}</th>
+								<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-32">{$t('compare.col_visual')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -381,19 +381,19 @@
 		{#if result.significant_float_changes.length > 0}
 			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-					Float Changes ({result.significant_float_changes.length})
+					{$t('compare.float_changes_title')} ({result.significant_float_changes.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Old Float</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">New Float</th>
-								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Delta</th>
-								<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Direction</th>
-								<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-24">Erosion</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_task_id')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_name')}</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_old_float')}</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_new_float')}</th>
+								<th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_delta')}</th>
+								<th class="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_direction')}</th>
+								<th class="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase w-24">{$t('compare.col_erosion')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -421,21 +421,21 @@
 
 		{#if result.relationships_added.length > 0 || result.relationships_deleted.length > 0 || result.relationships_modified.length > 0}
 			{@const allRelChanges = [
-				...result.relationships_added.map(r => ({ ...r, type: 'Added' })),
-				...result.relationships_deleted.map(r => ({ ...r, type: 'Deleted' })),
-				...result.relationships_modified.map(r => ({ ...r, type: 'Modified' }))
+				...result.relationships_added.map(r => ({ ...r, type: 'Added', typeLabel: $t('compare.rel_added') })),
+				...result.relationships_deleted.map(r => ({ ...r, type: 'Deleted', typeLabel: $t('compare.rel_deleted') })),
+				...result.relationships_modified.map(r => ({ ...r, type: 'Modified', typeLabel: $t('compare.rel_modified') }))
 			]}
 			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-					Relationship Changes ({allRelChanges.length})
+					{$t('compare.rel_changes_title')} ({allRelChanges.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Pred ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change Type</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_task_id')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_pred_id')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_change_type')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -445,7 +445,7 @@
 									<td class="px-4 py-2 text-gray-700 dark:text-gray-300">{rel.pred_task_id}</td>
 									<td class="px-4 py-2">
 										<span class="px-2 py-0.5 rounded-full text-xs font-medium {rel.type === 'Added' ? 'bg-green-100 text-green-800' : rel.type === 'Deleted' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">
-											{rel.type}
+											{rel.typeLabel}
 										</span>
 									</td>
 								</tr>
@@ -459,15 +459,15 @@
 		{#if result.constraint_changes.length > 0}
 			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-					Constraint Changes ({result.constraint_changes.length})
+					{$t('compare.constraint_changes_title')} ({result.constraint_changes.length})
 				</summary>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task ID</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Change Type</th>
-								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Details</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_task_id')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_change_type')}</th>
+								<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('compare.col_details')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
