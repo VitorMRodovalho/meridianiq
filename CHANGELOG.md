@@ -3,6 +3,19 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.9.0-dev] — unreleased
+
+P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once the bundle has a coherent story.
+
+### Changed
+
+- **Sidebar regroup** (wave 1) — split the two 10-item sections (Risk, Prediction) so no section now exceeds 7 items. Risk drops to 7 (Health/Alerts/Scorecard/Monte Carlo/Risk Register/Contract/Anomalies) by extracting a new **Cost & Earned Value** section (EVM/Cashflow/Cost). Prediction splits into **AI Insights** (Ask/What-If/Delay Prediction/Duration ML/Benchmarks) and **Planning & Optimization** (Optimizer/Pareto/Resources/Builder/4D Visualization). 8 sections × ≤7 items each, in line with Miller's 7±2 chunking.
+- **Sidebar search discoverability** (wave 1) — added a left-side search-icon glyph + a right-side `/` `<kbd>` hint inside the input, bumped to `text-sm` with `py-2` and a focus ring. The hint hides on focus / when text is present, so the affordance announces the existing `/` shortcut without cluttering active use.
+
+### Added
+
+- **i18n keys** (wave 1) — `nav.section.cost`, `nav.section.ai_insights`, `nav.section.planning` across en / pt-BR / es. Replaces the now-unused `nav.section.prediction` key. Section labels: "Cost & Earned Value" / "Custo e Valor Agregado" / "Costo y Valor Ganado", "AI Insights" (uniform across locales), "Planning & Optimization" / "Planejamento e Otimizacao" / "Planificacion y Optimizacion".
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).

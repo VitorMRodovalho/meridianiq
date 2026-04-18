@@ -106,7 +106,9 @@ export default {
 	'nav.section.schedule': 'Schedule',
 	'nav.section.forensic': 'Claims & Forensic',
 	'nav.section.risk': 'Risk & Controls',
-	'nav.section.prediction': 'Prediction & AI',
+	'nav.section.cost': 'Cost & Earned Value',
+	'nav.section.ai_insights': 'AI Insights',
+	'nav.section.planning': 'Planning & Optimization',
 	'nav.section.enterprise': 'Enterprise',
 
 	// Sidebar — nav items (the keys already in 'Navigation' above are reused)

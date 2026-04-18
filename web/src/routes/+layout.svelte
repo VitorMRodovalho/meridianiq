@@ -16,6 +16,7 @@
 	let sidebarOpen = $state(false);
 	let showShortcuts = $state(false);
 	let sidebarSearch = $state('');
+	let sidebarSearchFocused = $state(false);
 
 	// Collapsible sidebar sections — persist state in localStorage
 	let collapsed: Record<string, boolean> = $state(
@@ -97,23 +98,33 @@
 				{ href: '/health', labelKey: 'nav.health', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' },
 				{ href: '/alerts', labelKey: 'nav.alerts', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
 				{ href: '/scorecard', labelKey: 'nav.scorecard', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
-				{ href: '/evm', labelKey: 'nav.evm', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
 				{ href: '/risk', labelKey: 'nav.monte_carlo', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z' },
 				{ href: '/risk-register', labelKey: 'nav.risk_register', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
 				{ href: '/contract', labelKey: 'nav.contract', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
 				{ href: '/anomalies', labelKey: 'nav.anomalies', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+			],
+		},
+		{
+			titleKey: 'nav.section.cost', auth: true,
+			items: [
+				{ href: '/evm', labelKey: 'nav.evm', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
 				{ href: '/cashflow', labelKey: 'nav.cashflow', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
 				{ href: '/cost', labelKey: 'nav.cost', icon: 'M9 7h6m0 10v-3m-3 3v-6m-3 6v-1M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z' },
 			],
 		},
 		{
-			titleKey: 'nav.section.prediction', auth: true,
+			titleKey: 'nav.section.ai_insights', auth: true,
 			items: [
 				{ href: '/ask', labelKey: 'nav.ask', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
 				{ href: '/whatif', labelKey: 'nav.whatif', icon: 'M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
 				{ href: '/delay-prediction', labelKey: 'nav.delay_prediction', icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
 				{ href: '/duration-prediction', labelKey: 'nav.duration_prediction', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
 				{ href: '/benchmarks', labelKey: 'nav.benchmarks', icon: 'M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3' },
+			],
+		},
+		{
+			titleKey: 'nav.section.planning', auth: true,
+			items: [
 				{ href: '/optimizer', labelKey: 'nav.optimizer', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
 				{ href: '/pareto', labelKey: 'nav.pareto', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
 				{ href: '/resources', labelKey: 'nav.resources', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
@@ -205,12 +216,22 @@
 		</div>
 		<!-- Sidebar search -->
 		<div class="px-4 pt-3 pb-1">
-			<input
-				type="text"
-				bind:value={sidebarSearch}
-				placeholder={$t('sidebar.search_placeholder')}
-				class="w-full bg-gray-800 text-gray-300 text-xs rounded-md border border-gray-700 px-3 py-1.5 placeholder-gray-500 focus:outline-none focus:border-gray-500"
-			/>
+			<div class="relative">
+				<svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+				<input
+					type="text"
+					bind:value={sidebarSearch}
+					onfocus={() => (sidebarSearchFocused = true)}
+					onblur={() => (sidebarSearchFocused = false)}
+					placeholder={$t('sidebar.search_placeholder')}
+					class="w-full bg-gray-800 text-gray-200 text-sm rounded-md border border-gray-700 pl-8 pr-9 py-2 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 transition-colors"
+				/>
+				{#if !sidebarSearchFocused && !sidebarSearch}
+					<kbd class="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-gray-700/80 border border-gray-600 rounded pointer-events-none">/</kbd>
+				{/if}
+			</div>
 		</div>
 		<nav class="flex-1 px-4 py-1 overflow-y-auto">
 			{#each filteredNavSections as section, si}

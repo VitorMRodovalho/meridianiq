@@ -106,7 +106,9 @@ export default {
 	'nav.section.schedule': 'Cronograma',
 	'nav.section.forensic': 'Reivindicacoes e Forense',
 	'nav.section.risk': 'Risco e Controles',
-	'nav.section.prediction': 'Previsao e IA',
+	'nav.section.cost': 'Custo e Valor Agregado',
+	'nav.section.ai_insights': 'Insights de IA',
+	'nav.section.planning': 'Planejamento e Otimizacao',
 	'nav.section.enterprise': 'Corporativo',
 
 	// Sidebar — nav items
