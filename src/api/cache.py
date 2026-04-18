@@ -33,6 +33,11 @@ _DEFAULT_TTL_SECONDS = 60
 
 _caches: dict[str, dict[Hashable, tuple[float, Any]]] = {}
 _stats: dict[str, dict[str, int]] = {}
+# Monotonic per-namespace generation. Bumped by ``invalidate_namespace``;
+# wrappers capture the value at miss-time and refuse to write back if the
+# generation changed during compute — closes the classic "read-compute-write
+# after invalidate" race that would otherwise re-poison the cache.
+_generations: dict[str, int] = {}
 _lock = threading.Lock()
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -44,11 +49,19 @@ def cached(namespace: str, ttl: int = _DEFAULT_TTL_SECONDS) -> Callable[[F], F]:
     Each namespace has its own dict; ``invalidate_namespace`` clears one
     namespace at a time. Entries past their ``ttl`` are recomputed lazily on
     next access (no background sweeper).
+
+    Invalidation race: between a cache-miss and the write-back, the compute
+    runs without the lock held. If ``invalidate_namespace`` fires during that
+    window, the wrapper would otherwise write a now-stale value and poison
+    the cache for the full TTL. A per-namespace generation counter is
+    captured at miss-time and re-checked before the write-back; a mismatch
+    means an invalidate happened during compute and the write is skipped.
     """
 
     def deco(fn: F) -> F:
         cache = _caches.setdefault(namespace, {})
         stats = _stats.setdefault(namespace, {"hits": 0, "misses": 0})
+        _generations.setdefault(namespace, 0)
 
         @wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -60,9 +73,14 @@ def cached(namespace: str, ttl: int = _DEFAULT_TTL_SECONDS) -> Callable[[F], F]:
                     stats["hits"] += 1
                     return entry[1]
                 stats["misses"] += 1
+                gen_at_miss = _generations.get(namespace, 0)
             result = fn(*args, **kwargs)
             with _lock:
-                cache[key] = (now + ttl, result)
+                # Skip the write if the namespace was invalidated while we
+                # were computing — otherwise we'd overwrite a fresh cleared
+                # state with a now-stale value.
+                if _generations.get(namespace, 0) == gen_at_miss:
+                    cache[key] = (now + ttl, result)
             return result
 
         return wrapper  # type: ignore[return-value]
@@ -71,8 +89,13 @@ def cached(namespace: str, ttl: int = _DEFAULT_TTL_SECONDS) -> Callable[[F], F]:
 
 
 def invalidate_namespace(namespace: str) -> int:
-    """Drop every entry in a namespace. Returns the number of entries removed."""
+    """Drop every entry in a namespace. Returns the number of entries removed.
+
+    Also bumps the namespace generation counter so any in-flight compute that
+    started before this call will skip its write-back on completion.
+    """
     with _lock:
+        _generations[namespace] = _generations.get(namespace, 0) + 1
         cache = _caches.get(namespace)
         if not cache:
             return 0
@@ -84,6 +107,8 @@ def invalidate_namespace(namespace: str) -> int:
 def invalidate_all() -> int:
     """Drop every entry across all namespaces. Returns total entries removed."""
     with _lock:
+        for ns in _caches:
+            _generations[ns] = _generations.get(ns, 0) + 1
         n = sum(len(c) for c in _caches.values())
         for c in _caches.values():
             c.clear()

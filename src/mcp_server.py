@@ -142,6 +142,12 @@ def upload_xer(file_path: str) -> str:
     xer_bytes = path.read_bytes()
     project_id = store.add(schedule, xer_bytes)
 
+    # Mirror the HTTP upload-path: drop stale schedule:kpis cache entries
+    # so follow-up /programs/rollup and /bi/* calls don't serve stale KPIs.
+    from src.api.cache import invalidate_namespace
+
+    invalidate_namespace("schedule:kpis")
+
     name = schedule.projects[0].proj_short_name if schedule.projects else ""
     return json.dumps(
         {

@@ -13,6 +13,7 @@ from src.analytics.dcma14 import DCMA14Analyzer
 from src.parser.xer_reader import XERReader
 
 from ..auth import optional_auth
+from ..cache import invalidate_namespace
 from ..deps import _sandbox_projects, get_store, limiter
 from ..schemas import ProjectSummary, ScheduleMetadataSchema
 
@@ -152,6 +153,11 @@ async def upload_xer(
     store = get_store()
     user_id = _user["id"] if _user else None
     project_id = store.add(schedule, xer_bytes, user_id=user_id)
+
+    # Drop stale KPI aggregates — a new schedule invalidates any cached
+    # CPM/DCMA/Health bundles under this user's project set. Namespace-wide
+    # drop is intentional: the cache has no per-project key enumeration.
+    invalidate_namespace("schedule:kpis")
 
     # Track sandbox status
     if is_sandbox:

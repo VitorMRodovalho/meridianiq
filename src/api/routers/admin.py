@@ -143,6 +143,14 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
         except Exception:
             pass
 
+    # Purge cached KPI bundles — the cache is a secondary copy of personal
+    # data under LGPD/GDPR, so right-to-erasure must clear it too. Namespace-
+    # wide drop is acceptable: the 120s TTL would only hide non-deleted
+    # data's aggregates from unrelated users for a brief recompute window.
+    from ..cache import invalidate_namespace
+
+    invalidate_namespace("schedule:kpis")
+
     return GDPRDeleteResponse(**deleted)
 
 

@@ -135,3 +135,54 @@ def test_none_user_id_distinct_from_empty_string() -> None:
     b = fn("")
     assert a != b
     assert cache_stats()["test:userid"]["size"] == 2
+
+
+def test_invalidate_during_compute_does_not_re_poison() -> None:
+    """Classic cache-invalidation race: a cache-miss starts computing,
+    ``invalidate_namespace`` fires while the compute is in flight, the
+    compute finishes and would otherwise write its now-stale result back
+    to a cache that was just cleared. The generation counter must cause
+    the write-back to be skipped; next access must see a clean miss.
+    """
+
+    @cached("test:race", ttl=60)
+    def compute(x: int) -> int:
+        # Simulate the invalidation firing in the middle of compute. The
+        # real production case is a concurrent upload request — here we
+        # just do it inline so the timing is deterministic.
+        invalidate_namespace("test:race")
+        return x * 10
+
+    result = compute(7)
+    assert result == 70  # caller still observes the computed value
+
+    # The key insight: the cache must NOT contain the stale write-back.
+    # If the race were unfixed, size would be 1 (poisoned). With the
+    # generation-counter fix, the compute's write is skipped.
+    assert cache_stats()["test:race"]["size"] == 0, (
+        "invalidate during compute must cause the write-back to be dropped; "
+        "otherwise the cache is re-poisoned for the full TTL"
+    )
+
+
+def test_generation_counter_resumes_caching_after_invalidate() -> None:
+    """After an invalidate, subsequent misses must cache normally — the
+    generation counter must not permanently block writes to the namespace.
+    """
+    calls = {"n": 0}
+
+    @cached("test:gen", ttl=60)
+    def compute(x: int) -> int:
+        calls["n"] += 1
+        return x
+
+    compute(1)
+    assert cache_stats()["test:gen"]["size"] == 1
+    invalidate_namespace("test:gen")
+    assert cache_stats()["test:gen"]["size"] == 0
+    compute(2)
+    assert cache_stats()["test:gen"]["size"] == 1
+    compute(2)
+    # Second call on arg=2 should hit the cache — proves post-invalidate
+    # writes resume normally.
+    assert calls["n"] == 2
