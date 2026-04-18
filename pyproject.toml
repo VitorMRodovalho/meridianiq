@@ -30,6 +30,7 @@ dependencies = [
     "python-multipart",
     "sentry-sdk[fastapi]>=2.20",
     "PyJWT[crypto]>=2.12",
+    "defusedxml>=0.7",
 ]
 
 [project.optional-dependencies]

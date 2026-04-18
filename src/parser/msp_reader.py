@@ -20,6 +20,12 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+# Parse via defusedxml to reject XXE, billion-laughs, external DTDs, and
+# entity-based attacks (CWE-611). Stdlib xml.etree is retained for the
+# ``ET.Element`` type annotation only — defusedxml returns stdlib Elements,
+# so type compatibility is preserved.
+from defusedxml.ElementTree import fromstring as _safe_fromstring
+
 from .models import (
     Calendar,
     ParsedSchedule,
@@ -120,7 +126,11 @@ class MSPReader:
         Returns:
             A ParsedSchedule populated with project data.
         """
-        root = ET.fromstring(xml_content)
+        # forbid_dtd=True is stricter than defusedxml's default (which accepts
+        # bare DTD declarations without fetching external resources). MSP
+        # exports do not use DTD — rejecting it is pure defense in depth
+        # against future entity-based attack constructs.
+        root = _safe_fromstring(xml_content, forbid_dtd=True)
 
         schedule = ParsedSchedule(
             header=XERHeader(version="MSP-XML", encoding="utf-8"),
