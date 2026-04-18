@@ -14,7 +14,7 @@ from src.parser.xer_reader import XERReader
 
 from ..auth import optional_auth
 from ..cache import invalidate_namespace
-from ..deps import _sandbox_projects, get_store, limiter
+from ..deps import _sandbox_projects, get_materializer, get_store, limiter
 from ..schemas import ProjectSummary, ScheduleMetadataSchema
 
 router = APIRouter()
@@ -163,6 +163,34 @@ async def upload_xer(
     if is_sandbox:
         _sandbox_projects.add(project_id)
 
+    # ADR-0015: kick off the async materializer so the client can return
+    # immediately while DCMA / health / CPM run in the background. The
+    # handle carries the ``job_id`` the frontend subscribes to on the
+    # ADR-0013 WebSocket progress channel.
+    job_id: str | None = None
+    ws_url: str | None = None
+    try:
+        materializer = get_materializer()
+        handle = materializer.enqueue(project_id, user_id=user_id)
+        job_id = handle.job_id
+        ws_url = f"/api/v1/ws/progress/{handle.job_id}"
+    except Exception:
+        # Materializer wiring failure must not leave the row in 'pending'
+        # forever (council W2 devils-advocate P1#4). Flip to 'failed' so
+        # the UI surfaces the incident and the operator can reconcile.
+        import logging as _logging
+
+        _logging.getLogger(__name__).exception(
+            "materializer.enqueue failed for project %s", project_id
+        )
+        try:
+            if hasattr(store, "set_project_status"):
+                store.set_project_status(project_id, "failed")
+        except Exception:
+            _logging.getLogger(__name__).exception(
+                "set_project_status(failed) also failed for project %s", project_id
+            )
+
     data_date = None
     name = ""
     dd_dt = None
@@ -199,6 +227,16 @@ async def upload_xer(
         tags=meta.tags,
     )
 
+    # ADR-0015: expose the state machine value so the frontend can render
+    # the computing badge. SupabaseStore returns 'pending' right after save;
+    # the async materializer flips to 'ready' once the engines complete.
+    # InMemoryStore sync-fast-path returns 'ready' immediately.
+    status_value = (
+        store.get_project_status(project_id)
+        if hasattr(store, "get_project_status")
+        else "pending"
+    )
+
     return ProjectSummary(
         project_id=project_id,
         name=name,
@@ -207,5 +245,8 @@ async def upload_xer(
         calendar_count=len(schedule.calendars),
         wbs_count=len(schedule.wbs_nodes),
         data_date=data_date,
+        status=status_value or "pending",
+        job_id=job_id,
+        ws_url=ws_url,
         metadata=meta_schema,
     )

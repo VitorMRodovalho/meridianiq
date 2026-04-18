@@ -40,6 +40,35 @@ def get_store() -> Any:
     return _store
 
 
+# ------------------------------------------------------------------ #
+# Async materializer singleton (ADR-0015)                             #
+# ------------------------------------------------------------------ #
+#
+# One ``Materializer`` shared across every HTTP worker in the process so
+# the ``asyncio.Semaphore(1)`` actually serialises uploads. Per-request
+# instantiation would give each upload its own Semaphore and defeat the
+# serialisation commitment ADR-0015 §1 makes for Fly.io's 1-CPU deploy.
+
+_materializer: Any | None = None
+
+
+def get_materializer() -> Any:
+    """Return the process-wide materializer bound to the current global store.
+
+    If a test harness or reload swaps ``deps._store``, the materializer is
+    rebuilt so it does not keep a stale reference to the previous backend.
+    The ``asyncio.Semaphore`` is therefore per-binding — a fresh test
+    fixture gets a fresh semaphore, which matches the test isolation the
+    fixtures already rely on.
+    """
+    global _materializer
+    if _materializer is None or _materializer._store is not _store:
+        from src.materializer import Materializer
+
+        _materializer = Materializer(_store)
+    return _materializer
+
+
 def get_timeline_store() -> TimelineStore:
     """Return the global forensic timeline store."""
     return _timeline_store

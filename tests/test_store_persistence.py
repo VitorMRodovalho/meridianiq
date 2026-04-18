@@ -401,14 +401,26 @@ class TestPersistScheduleData:
         for rows in store._tables.values():
             assert len(rows) == 0
 
-    def test_persistence_failure_raises_and_rolls_back(self) -> None:
-        """Atomicity contract (ADR-0012): failure re-raises and cascades a compensating
-        DELETE on the projects row; partial child rows must not survive."""
+    def test_persistence_failure_flips_status_to_failed(self) -> None:
+        """Atomicity contract (ADR-0012 d→c, closed by ADR-0015): a mid-persist
+        failure re-raises and flips ``projects.status = 'failed'`` instead of
+        deleting the row. The row and the Storage XER blob are preserved so
+        the forensic audit trail survives and re-materialisation can recover
+        from the XER source."""
         import pytest
 
         store = MockSupabaseStore()
-        # Seed a projects row so the compensating delete has something to clear
-        store._insert("projects", {"id": "proj-fail", "project_name": "Failing"})
+        # Seed a projects row in the 'pending' initial state that save_project
+        # would produce once migration 024 + the save_project edit are in.
+        store._insert(
+            "projects",
+            {
+                "id": "proj-fail",
+                "project_name": "Failing",
+                "storage_path": "user-x/uuid-1/schedule.xer",
+                "status": "pending",
+            },
+        )
 
         calls: list[str] = []
         real_batch = store._batch_insert
@@ -425,40 +437,53 @@ class TestPersistScheduleData:
         with pytest.raises(RuntimeError, match="DB connection lost"):
             store._persist_schedule_data("proj-fail", _make_rich_schedule())
 
-        # Compensating delete removed the projects row
-        assert store._tables.get("projects", []) == []
-        # No activities persisted (fail happened on second batch)
-        assert store._tables.get("activities", []) == []
+        # Row is retained — compensating path is UPDATE, not DELETE.
+        projects_rows = store._tables.get("projects", [])
+        assert len(projects_rows) == 1
+        assert projects_rows[0]["id"] == "proj-fail"
+        # Status flipped to 'failed' so reports/BI/owner badges surface the
+        # incident (SCL §4 chain-of-custody).
+        assert projects_rows[0]["status"] == "failed"
+        # Storage path still pointing at the preserved XER blob.
+        assert projects_rows[0]["storage_path"] == "user-x/uuid-1/schedule.xer"
 
-    def test_compensating_delete_failure_does_not_mask_original(self) -> None:
-        """If the compensating delete itself fails, the ORIGINAL exception must still
-        propagate — the cleanup error is logged but not raised in its place."""
+    def test_compensating_update_failure_does_not_mask_original(self) -> None:
+        """If the compensating UPDATE itself fails, the ORIGINAL exception must
+        still propagate — the cleanup error is logged but not raised in its
+        place."""
         import pytest
 
         store = MockSupabaseStore()
-        store._insert("projects", {"id": "proj-cleanup-fail", "project_name": "X"})
+        store._insert(
+            "projects",
+            {"id": "proj-cleanup-fail", "project_name": "X", "status": "pending"},
+        )
 
         def always_fail_batch(table: str, rows: list[dict[str, Any]]) -> None:
             raise RuntimeError("original persist failure")
 
-        def always_fail_delete(table: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
+        def always_fail_update(
+            table: str, data: dict[str, Any], filters: dict[str, Any]
+        ) -> list[dict[str, Any]]:
             raise RuntimeError("cleanup also failed")
 
         store._batch_insert = always_fail_batch  # type: ignore[assignment]
-        store._delete = always_fail_delete  # type: ignore[assignment]
+        store._update = always_fail_update  # type: ignore[assignment]
 
         with pytest.raises(RuntimeError, match="original persist failure"):
             store._persist_schedule_data("proj-cleanup-fail", _make_rich_schedule())
 
-    def test_compensating_delete_silent_no_op_logs_warning(self, caplog: Any) -> None:
-        """PostgREST returns [] on RLS denial or row-not-found. The rollback
+    def test_compensating_update_silent_no_op_logs_warning(self, caplog: Any) -> None:
+        """PostgREST returns ``[]`` on RLS denial or row-not-found. The rollback
         path must log a WARNING so operators can reconcile instead of
-        concluding the cleanup succeeded."""
+        concluding the cleanup succeeded. After ADR-0015 the compensating
+        action is an UPDATE, so the silent-no-op surface is the same but the
+        WARN message names the status flip, not a DELETE."""
         import logging
         import pytest
 
         store = MockSupabaseStore()
-        # No projects row inserted → compensating DELETE will affect 0 rows.
+        # No projects row inserted → compensating UPDATE will affect 0 rows.
 
         def exploding_batch(table: str, rows: list[dict[str, Any]]) -> None:
             raise RuntimeError("DB connection lost")
@@ -470,14 +495,64 @@ class TestPersistScheduleData:
                 store._persist_schedule_data("proj-ghost", _make_rich_schedule())
 
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("affected 0 rows" in r.getMessage() for r in warnings), (
-            "expected a WARNING about compensating delete affecting 0 rows"
+        assert any(
+            "affected 0 rows" in r.getMessage() and "status flip" in r.getMessage()
+            for r in warnings
+        ), "expected a WARNING about compensating status flip affecting 0 rows"
+
+    def test_retry_after_failure_does_not_duplicate_child_rows(self) -> None:
+        """Council W2 P1#3: after a failed persist, re-running ``_persist``
+        must produce the SAME child row counts (idempotent) — the pre-insert
+        DELETE-by-project_id sweeps partial rows left behind by the prior
+        failure. Without this guard, WBS/activities/etc accumulate dupes and
+        ``_reconstruct_from_db`` breaks CPM."""
+        import pytest
+
+        store = MockSupabaseStore()
+        store._insert(
+            "projects",
+            {
+                "id": "proj-retry",
+                "project_name": "Retry",
+                "storage_path": "u/x/s.xer",
+                "status": "pending",
+            },
         )
 
-    def test_storage_blob_cleanup_is_attempted_on_rollback(self) -> None:
-        """On rollback the XER blob must be purged from Storage — otherwise it
-        lingers unreachable by any query, leaking confidential schedule data
-        and accruing cost. Best-effort: failure to clean is logged, not raised."""
+        # First attempt fails on the 2nd batch (mid-persist), leaving WBS
+        # rows behind.
+        calls: list[str] = []
+        real_batch = store._batch_insert
+
+        def flaky_once(table: str, rows: list[dict[str, Any]]) -> None:
+            calls.append(table)
+            if len(calls) == 2:
+                raise RuntimeError("transient")
+            real_batch(table, rows)
+
+        store._batch_insert = flaky_once  # type: ignore[assignment]
+        with pytest.raises(RuntimeError):
+            store._persist_schedule_data("proj-retry", _make_rich_schedule())
+
+        wbs_after_fail = len(store._tables.get("wbs_elements", []))
+        assert wbs_after_fail >= 1, "first attempt should have persisted WBS"
+
+        # Second attempt succeeds. Pre-insert DELETE sweeps the partial
+        # WBS rows so the final counts match the schedule content exactly.
+        store._batch_insert = real_batch  # type: ignore[assignment]
+        store._persist_schedule_data("proj-retry", _make_rich_schedule())
+
+        # Fresh fixture has 2 WBS nodes.
+        assert len(store._tables["wbs_elements"]) == 2
+        assert len(store._tables["activities"]) == 2
+        assert len(store._tables["predecessors"]) == 1
+
+    def test_storage_blob_is_preserved_on_rollback(self) -> None:
+        """ADR-0015 flips the compensating contract from delete-and-purge to
+        update-status-and-preserve. The XER blob remains reachable from the
+        ``projects.storage_path`` column so the async materializer can retry
+        without requiring a re-upload — the row, the blob, and the child
+        rows (wherever they landed) are all preserved."""
         import pytest
 
         class _RecordingStorage:
@@ -507,6 +582,7 @@ class TestPersistScheduleData:
                 "id": "proj-blob",
                 "project_name": "P",
                 "storage_path": "user-x/uuid-1/schedule.xer",
+                "status": "pending",
             },
         )
 
@@ -518,7 +594,10 @@ class TestPersistScheduleData:
         with pytest.raises(RuntimeError):
             store._persist_schedule_data("proj-blob", _make_rich_schedule())
 
-        assert recorder.storage.removed == [["user-x/uuid-1/schedule.xer"]]
+        # The blob was NOT removed — it is the re-materialisation source.
+        assert recorder.storage.removed == []
+        # Row still carries the storage_path reference.
+        assert store._tables["projects"][0]["storage_path"] == "user-x/uuid-1/schedule.xer"
 
 
 # ------------------------------------------------------------------ #

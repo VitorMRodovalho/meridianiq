@@ -74,6 +74,11 @@ class InMemoryStore:
         self._derived_artifact_counter: int = 0
         # Shadow audit_log (in-memory mirror of supabase audit_log for tests)
         self._audit_log: list[dict[str, Any]] = []
+        # Cycle 1 Wave 2 — projects.status state machine (ADR-0015).
+        # Default 'ready' on save_project here because the InMemoryStore
+        # represents the ADR-0015 sync-fast-path (under-threshold schedules
+        # materialise inline). Real async behaviour lives in SupabaseStore.
+        self._project_statuses: dict[str, str] = {}
 
     # -- programs --------------------------------------------------------
 
@@ -132,6 +137,7 @@ class InMemoryStore:
                             "uploaded_at": None,
                             "revision_number": rev,
                             "activity_count": len(schedule.activities),
+                            "status": self._project_statuses.get(pid, "ready"),
                         }
             enriched = {**prog, "latest_revision": latest, "revision_count": len(upload_pids)}
             results.append(enriched)
@@ -140,7 +146,12 @@ class InMemoryStore:
     def get_program_revisions(
         self, program_id: str, user_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """Return all revisions (uploads) for a given program."""
+        """Return all revisions (uploads) for a given program.
+
+        Each revision row carries the current ``status`` so reports / BI /
+        programs UI can surface failed or pending revisions with an
+        explicit marker (SCL §4 chain-of-custody; ADR-0015).
+        """
         if program_id not in self._programs:
             return []
         prog = self._programs[program_id]
@@ -164,6 +175,7 @@ class InMemoryStore:
                     "uploaded_at": None,
                     "revision_number": self._upload_revision.get(pid, 0),
                     "activity_count": len(schedule.activities),
+                    "status": self._project_statuses.get(pid, "ready"),
                 }
             )
         revisions.sort(key=lambda r: r["revision_number"], reverse=True)
@@ -208,6 +220,11 @@ class InMemoryStore:
         pid = self._projects.add(schedule, xer_bytes or b"")
         if user_id:
             self._project_owners[pid] = user_id
+        # ADR-0015 §2 state machine: InMemoryStore runs the sync-fast-path
+        # by design (tests exercise deterministic synchronous behaviour),
+        # so the initial status is 'ready'. Real async behaviour in
+        # SupabaseStore starts at 'pending' and flips via the materializer.
+        self._project_statuses[pid] = "ready"
         # Auto-assign program
         proj_name = ""
         if schedule.projects:
@@ -219,8 +236,53 @@ class InMemoryStore:
             self._upload_revision[pid] = rev
         return pid
 
-    def get_projects(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        """List all stored projects with summary info, optionally filtered by user."""
+    def set_project_status(self, project_id: str, status: str) -> bool:
+        """Set ``projects.status`` to one of 'pending' / 'ready' / 'failed'.
+
+        Returns True if the row exists, False otherwise. Used by the async
+        materializer (ADR-0015) to flip 'pending' → 'ready' on success or
+        → 'failed' on persist/materialize failure. InMemoryStore parity
+        keeps MockSupabaseStore-driven tests honest.
+        """
+        if status not in {"pending", "ready", "failed"}:
+            raise ValueError(
+                f"invalid projects.status: {status!r}; "
+                "must be one of 'pending', 'ready', 'failed'"
+            )
+        if project_id not in {pid for pid in self._projects.list_ids()}:
+            return False
+        self._project_statuses[project_id] = status
+        return True
+
+    def get_project_status(self, project_id: str) -> str | None:
+        """Return the current ``projects.status`` or None if the row is missing.
+
+        Added in ADR-0015 (Wave 2) as the read-side companion of
+        ``set_project_status`` — upload responses and polling endpoints use
+        this to expose the state machine to the UI without a full
+        ``get_projects`` round trip.
+        """
+        if project_id not in {pid for pid in self._projects.list_ids()}:
+            return None
+        return self._project_statuses.get(project_id, "ready")
+
+    def get_projects(
+        self,
+        user_id: str | None = None,
+        include_all_statuses: bool = False,
+    ) -> list[dict[str, Any]]:
+        """List all stored projects with summary info.
+
+        Args:
+            user_id: restricts the list to the caller's own projects
+                (and pre-ownership legacy rows). Owner-scope sees every
+                status so the UI can render status badges (ADR-0015 §3).
+            include_all_statuses: when True, non-owner list-all paths
+                (``user_id=None``) also return rows whose status is
+                'pending' or 'failed'. Reports / BI pass this flag to
+                surface ``failed`` rows with an explicit marker per
+                SCL §4 chain-of-custody.
+        """
         items = self._projects.list_all()
         if user_id:
             owned_pids = {pid for pid, uid in self._project_owners.items() if uid == user_id}
@@ -229,7 +291,15 @@ class InMemoryStore:
             }
             allowed = owned_pids | unowned_pids
             items = [i for i in items if i["project_id"] in allowed]
-        return items
+        out: list[dict[str, Any]] = []
+        for item in items:
+            pid = item["project_id"]
+            status = self._project_statuses.get(pid, "ready")
+            if not include_all_statuses and user_id is None and status != "ready":
+                continue
+            # Non-destructive copy — ``list_all()`` returns shared dicts.
+            out.append({**item, "status": status})
+        return out
 
     def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Retrieve a parsed schedule by project_id."""
@@ -268,9 +338,13 @@ class InMemoryStore:
         """Alias for ``get_project`` matching the v0.5 ProjectStore API."""
         return self.get_project(project_id, user_id=user_id)
 
-    def list_all(self, user_id: str | None = None) -> list[dict[str, Any]]:
+    def list_all(
+        self,
+        user_id: str | None = None,
+        include_all_statuses: bool = False,
+    ) -> list[dict[str, Any]]:
         """Alias for ``get_projects`` matching the v0.5 ProjectStore API."""
-        return self.get_projects(user_id=user_id)
+        return self.get_projects(user_id=user_id, include_all_statuses=include_all_statuses)
 
     def list_ids(self) -> list[str]:
         """Delegate to underlying ProjectStore."""
@@ -573,6 +647,7 @@ class InMemoryStore:
         *,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        audit_details_extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Upsert a derived-artifact row and write the paired audit_log row.
 
@@ -586,7 +661,11 @@ class InMemoryStore:
         The paired ``audit_log`` row with ``action='materialize'`` is written
         on every call irrespective of conflict outcome — each materialization
         attempt is a separate auditable event per ADR-0014 (SCL Protocol 2nd
-        ed §4 chain-of-custody).
+        ed §4 chain-of-custody). ``audit_details_extra`` merges additional
+        keys into ``audit_log.details`` so back-of-house callers such as the
+        backfill CLI can inject ``trigger='system_backfill_v2'`` and a
+        stable ``backfill_id`` without coupling to this method's signature
+        (ADR-0015 §6).
 
         Raises:
             ValueError: if ``artifact_kind`` is not one of the DB CHECK values.
@@ -631,19 +710,22 @@ class InMemoryStore:
             }
             self._derived_artifacts.append(saved)
 
+        audit_details: dict[str, Any] = {
+            "artifact_kind": artifact_kind,
+            "artifact_id": saved["id"],
+            "engine_version": engine_version,
+            "ruleset_version": ruleset_version,
+            "input_hash": input_hash,
+        }
+        if audit_details_extra:
+            audit_details.update(audit_details_extra)
         self._audit_log.append(
             {
                 "user_id": computed_by,
                 "action": "materialize",
                 "entity_type": "project",
                 "entity_id": project_id,
-                "details": {
-                    "artifact_kind": artifact_kind,
-                    "artifact_id": saved["id"],
-                    "engine_version": engine_version,
-                    "ruleset_version": ruleset_version,
-                    "input_hash": input_hash,
-                },
+                "details": audit_details,
                 "ip_address": ip_address,
                 "user_agent": user_agent,
                 "created_at": now,
@@ -907,7 +989,14 @@ class SupabaseStore:
             except Exception as exc:
                 logger.warning("Program assignment failed: %s", exc)
 
-        # Insert metadata only — NO schedule_data JSONB
+        # Insert metadata only — NO schedule_data JSONB. ``status='pending'``
+        # reflects ADR-0015's async-materialization contract: the row exists
+        # but its derived artifacts have not been computed yet. The async
+        # materializer flips to 'ready' on completion or to 'failed' on
+        # persist/materialize failure. Migration 024 and this assignment ship
+        # in the same commit — a code edit without the migration references
+        # a missing column; a migration without this edit would leave new
+        # rows at DEFAULT 'ready' during the pending window.
         data: dict[str, Any] = {
             "upload_id": upload_id,
             "project_name": proj_name,
@@ -917,6 +1006,7 @@ class SupabaseStore:
             "calendar_count": len(schedule.calendars),
             "wbs_count": len(schedule.wbs_nodes),
             "storage_path": storage_path,
+            "status": "pending",
         }
         if user_id:
             data["user_id"] = user_id
@@ -927,21 +1017,69 @@ class SupabaseStore:
         row = self._insert("projects", data)
         project_uuid = str(row["id"])
 
-        # Persist full schedule data to relational tables
+        # Persist full schedule data to relational tables. On failure the
+        # compensating path (see ``_persist_schedule_data``) flips
+        # ``status='failed'`` rather than deleting the row, preserving the
+        # forensic audit trail and leaving the Storage XER blob reachable
+        # for recovery/re-materialization.
         self._persist_schedule_data(project_uuid, schedule)
 
         return project_uuid
 
+    # Child tables persisted by _persist_schedule_data. Kept as a class
+    # attribute so the retry-idempotence pre-delete loop and any future
+    # schema probes share a single source of truth.
+    _PERSIST_CHILD_TABLES: tuple[str, ...] = (
+        "wbs_elements",
+        "activities",
+        "predecessors",
+        "calendars",
+        "resources",
+        "resource_assignments",
+        "activity_code_types",
+        "activity_codes",
+        "task_activity_codes",
+        "udf_types",
+        "udf_values",
+        "financial_periods",
+        "task_financials",
+    )
+
     def _persist_schedule_data(self, project_id: str, schedule: ParsedSchedule) -> None:
         """Batch-insert all parsed schedule entities into relational tables.
 
-        Atomicity contract (ADR-0012): on any batch-insert failure, issue a
-        compensating DELETE on the ``projects`` row (FK ``ON DELETE CASCADE``
-        clears the 13 child tables) and re-raise the original exception so
-        the caller observes an honest error. Silent partial-persist is not
-        acceptable — downstream analytics cannot reason about a schedule
-        that was truncated at upload time without a record.
+        Atomicity contract (ADR-0012 d→c, closed by ADR-0015): on any
+        batch-insert failure, flip ``projects.status`` from ``'pending'`` to
+        ``'failed'`` and re-raise the original exception so the caller
+        observes an honest error. The ``projects`` row is retained (not
+        deleted as in Wave 0) so the forensic audit trail survives and so
+        the Storage XER blob remains reachable for re-materialization.
+
+        Retry idempotence (council W2 P1#3): the child tables below do not
+        enforce UNIQUE on ``(project_id, …)``; a naive re-run after a
+        previous ``failed`` would leave both sets of partial rows visible
+        to ``_reconstruct_from_db`` and CPM would trip. Before inserting we
+        explicitly ``DELETE`` every child row scoped to this ``project_id``
+        so the retry is deterministic. FK ``ON DELETE CASCADE`` on
+        ``projects(id)`` continues to cover the whole-project teardown
+        path; the per-child pre-delete here is the per-row-scoped sibling
+        that keeps retries clean without requiring the projects row to be
+        removed.
         """
+        for table in self._PERSIST_CHILD_TABLES:
+            try:
+                self._delete(table, {"project_id": project_id})
+            except Exception:
+                # Pre-delete is best-effort. If it fails, the retry may
+                # dupe — log and continue; the subsequent INSERT will
+                # surface any uniqueness violation cleanly.
+                logger.warning(
+                    "Pre-insert cleanup of %s for project %s failed; "
+                    "continuing with retry at risk of duplicate rows",
+                    table,
+                    project_id,
+                )
+
         try:
             # WBS elements
             self._batch_insert(
@@ -1192,60 +1330,41 @@ class SupabaseStore:
             )
         except Exception:
             logger.error(
-                "Schedule data persistence failed for project %s; rolling back",
+                "Schedule data persistence failed for project %s; "
+                "flipping status to failed",
                 project_id,
                 exc_info=True,
             )
-            # Capture storage_path BEFORE the compensating DELETE so we can
-            # also purge the orphan XER blob — otherwise it would remain in
-            # the bucket unreachable by any query, leaking confidential
-            # schedule data and accruing cost.
-            storage_path: str | None = None
+            # ADR-0015 §2 state machine: flip status to 'failed' so the row
+            # remains visible to owners + reports/BI with an explicit marker
+            # (SCL §4 chain-of-custody; AACE MIP 3.6). The Storage XER blob
+            # is preserved — it is the source for re-materialization. The
+            # partially-written child rows (if any) are left in place; they
+            # are project-scoped and will be overwritten on retry or removed
+            # by project deletion (FK CASCADE topology unchanged).
             try:
-                probe = (
-                    self._client.table("projects")
-                    .select("storage_path")
-                    .eq("id", project_id)
-                    .limit(1)
-                    .execute()
+                updated_rows = self._update(
+                    "projects",
+                    {"status": "failed"},
+                    {"id": project_id},
                 )
-                if probe.data:
-                    storage_path = probe.data[0].get("storage_path") or None
-            except Exception as probe_exc:
-                logger.warning(
-                    "Could not read storage_path for rollback of %s: %s",
-                    project_id,
-                    probe_exc,
-                )
-
-            try:
-                deleted_rows = self._delete("projects", {"id": project_id})
-                if not deleted_rows:
+                if not updated_rows:
                     # PostgREST returns [] on RLS denial OR on row-not-found.
-                    # Either way the compensating delete did NOT take effect;
-                    # surface as WARN so the operator can reconcile.
+                    # Either way the compensating update did NOT take effect;
+                    # surface as WARN so the operator can reconcile (e.g.
+                    # service_role auth broken, row already gone, or the
+                    # migration 024 column missing).
                     logger.warning(
-                        "Compensating delete for projects/%s affected 0 rows "
-                        "(RLS denial, already gone, or FK topology missing CASCADE)",
+                        "Compensating status flip for projects/%s affected 0 rows "
+                        "(RLS denial, row missing, or migration 024 not applied)",
                         project_id,
                     )
             except Exception as cleanup_exc:
                 logger.error(
-                    "Compensating delete also failed for project %s: %s",
+                    "Compensating status flip also failed for project %s: %s",
                     project_id,
                     cleanup_exc,
                 )
-
-            if storage_path:
-                try:
-                    self._client.storage.from_(self.BUCKET).remove([storage_path])
-                except Exception as blob_exc:
-                    logger.warning(
-                        "Storage blob cleanup failed for %s (%s): %s",
-                        project_id,
-                        storage_path,
-                        blob_exc,
-                    )
 
             # Bare re-raise — preserves the original persist exception as the
             # caller-visible error. Intentional: do NOT change to
@@ -1560,27 +1679,85 @@ class SupabaseStore:
             logger.warning("DB reconstruction failed for %s: %s", project_id, exc)
             return None
 
-    def get_projects(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        """List all projects — metadata only (no re-parse)."""
+    def get_projects(
+        self,
+        user_id: str | None = None,
+        include_all_statuses: bool = False,
+    ) -> list[dict[str, Any]]:
+        """List all projects — metadata only (no re-parse).
+
+        Args:
+            user_id: restricts to the caller's own projects. Owner-scope
+                always returns every status so the UI can render badges
+                (ADR-0015 §3).
+            include_all_statuses: when True, non-owner list-all paths
+                (``user_id=None``) return 'pending' / 'failed' rows too.
+                Reports / BI / admin enumerate-with-marker paths pass
+                this flag per SCL §4.
+        """
         filters: dict[str, Any] | None = None
         if user_id:
             filters = {"user_id": user_id}
         rows = self._select(
             "projects",
             filters,
-            columns="id,project_name,activity_count,relationship_count,storage_path",
+            columns="id,project_name,activity_count,relationship_count,storage_path,status",
         )
-        return [
-            {
-                "project_id": str(r["id"]),
-                "name": r.get("project_name", ""),
-                "activity_count": r.get("activity_count", 0),
-                "relationship_count": r.get("relationship_count", 0),
-            }
-            for r in rows
-            # Guard: skip orphan rows where the XER file was never uploaded
-            if r.get("storage_path")
-        ]
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            # Guard: skip orphan rows where the XER file was never uploaded.
+            if not r.get("storage_path"):
+                continue
+            status = r.get("status") or "ready"
+            if not include_all_statuses and user_id is None and status != "ready":
+                continue
+            out.append(
+                {
+                    "project_id": str(r["id"]),
+                    "name": r.get("project_name", ""),
+                    "activity_count": r.get("activity_count", 0),
+                    "relationship_count": r.get("relationship_count", 0),
+                    "status": status,
+                }
+            )
+        return out
+
+    def set_project_status(self, project_id: str, status: str) -> bool:
+        """Flip ``projects.status`` to one of 'pending' / 'ready' / 'failed'.
+
+        Used by the async materializer (ADR-0015) and by the compensating
+        path of ``_persist_schedule_data``. Returns True on success, False
+        on silent-no-op (RLS denial, row missing, or migration 024 not
+        applied). The silent-no-op case logs at WARNING so operators can
+        reconcile.
+        """
+        if status not in {"pending", "ready", "failed"}:
+            raise ValueError(
+                f"invalid projects.status: {status!r}; "
+                "must be one of 'pending', 'ready', 'failed'"
+            )
+        updated = self._update("projects", {"status": status}, {"id": project_id})
+        if not updated:
+            logger.warning(
+                "set_project_status(%s, %s) affected 0 rows "
+                "(RLS denial, row missing, or migration 024 not applied)",
+                project_id,
+                status,
+            )
+            return False
+        return True
+
+    def get_project_status(self, project_id: str) -> str | None:
+        """Return the current ``projects.status`` or None if the row is missing.
+
+        Upload responses and polling endpoints call this so the UI can
+        render the ``pending`` / ``ready`` / ``failed`` badge without a
+        full ``get_projects`` round trip (ADR-0015).
+        """
+        rows = self._select("projects", {"id": project_id}, columns="status")
+        if not rows:
+            return None
+        return rows[0].get("status") or "ready"
 
     def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Retrieve a parsed schedule by downloading XER from the bucket."""
@@ -1662,7 +1839,12 @@ class SupabaseStore:
         return 1
 
     def get_programs(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        """Get all programs for user with latest revision info."""
+        """Get all programs for user with latest revision info.
+
+        The inner ``projects`` subqueries include ``status`` so reports / BI
+        paths can render ``failed`` revisions with an explicit marker per
+        SCL §4 chain-of-custody (ADR-0015).
+        """
         query = self._client.table("programs").select("*").order("updated_at", desc=True)
         if user_id:
             query = query.eq("user_id", user_id)
@@ -1674,7 +1856,8 @@ class SupabaseStore:
                 latest = (
                     self._client.table("projects")
                     .select(
-                        "id, project_name, data_date, created_at, revision_number, activity_count"
+                        "id, project_name, data_date, created_at, "
+                        "revision_number, activity_count, status"
                     )
                     .eq("program_id", prog["id"])
                     .order("revision_number", desc=True)
@@ -1698,7 +1881,12 @@ class SupabaseStore:
     def get_program_revisions(
         self, program_id: str, user_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """Return all revisions (uploads) for a given program."""
+        """Return all revisions (uploads) for a given program.
+
+        Includes ``status`` on every row so the caller can render a badge
+        or marker per revision. Failed revisions are retained intentionally
+        (ADR-0015 §2) — they are part of the forensic trail, not dead data.
+        """
         query = self._client.table("programs").select("id").eq("id", program_id)
         if user_id:
             query = query.eq("user_id", user_id)
@@ -1707,7 +1895,10 @@ class SupabaseStore:
             return []
         return (
             self._client.table("projects")
-            .select("id, project_name, data_date, created_at, revision_number, activity_count")
+            .select(
+                "id, project_name, data_date, created_at, "
+                "revision_number, activity_count, status"
+            )
             .eq("program_id", program_id)
             .order("revision_number", desc=True)
             .execute()
@@ -1745,9 +1936,13 @@ class SupabaseStore:
         """v0.5-compatible get method."""
         return self.get_project(project_id, user_id=user_id)
 
-    def list_all(self, user_id: str | None = None) -> list[dict[str, Any]]:
+    def list_all(
+        self,
+        user_id: str | None = None,
+        include_all_statuses: bool = False,
+    ) -> list[dict[str, Any]]:
         """v0.5-compatible list_all method."""
-        return self.get_projects(user_id=user_id)
+        return self.get_projects(user_id=user_id, include_all_statuses=include_all_statuses)
 
     def list_ids(self) -> list[str]:
         """List all project IDs from Supabase."""
@@ -2315,6 +2510,7 @@ class SupabaseStore:
         *,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        audit_details_extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Upsert a ``schedule_derived_artifacts`` row + write the paired audit_log row.
 
@@ -2365,6 +2561,15 @@ class SupabaseStore:
             row,
             on_conflict="project_id,artifact_kind,engine_version,ruleset_version,input_hash",
         )
+        audit_details: dict[str, Any] = {
+            "artifact_kind": artifact_kind,
+            "artifact_id": saved.get("id"),
+            "engine_version": engine_version,
+            "ruleset_version": ruleset_version,
+            "input_hash": input_hash,
+        }
+        if audit_details_extra:
+            audit_details.update(audit_details_extra)
         try:
             self._insert(
                 "audit_log",
@@ -2373,13 +2578,7 @@ class SupabaseStore:
                     "action": "materialize",
                     "entity_type": "project",
                     "entity_id": project_id,
-                    "details": {
-                        "artifact_kind": artifact_kind,
-                        "artifact_id": saved.get("id"),
-                        "engine_version": engine_version,
-                        "ruleset_version": ruleset_version,
-                        "input_hash": input_hash,
-                    },
+                    "details": audit_details,
                     "ip_address": ip_address,
                     "user_agent": user_agent,
                 },

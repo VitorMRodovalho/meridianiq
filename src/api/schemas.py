@@ -42,7 +42,19 @@ class ScheduleMetadataSchema(BaseModel):
 
 
 class ProjectSummary(BaseModel):
-    """Summary returned after uploading an XER file."""
+    """Summary returned after uploading an XER file.
+
+    Since ADR-0015 (Wave 2 Cycle 1 v4.0), ``status`` is part of the
+    response so the frontend can render a ``computing`` badge until the
+    async materializer flips the row to ``ready``. The default ``pending``
+    matches the SupabaseStore async contract; the InMemoryStore sync
+    fast-path overrides to ``ready`` once ``save_project`` returns.
+
+    ``job_id`` + ``ws_url`` point at the ADR-0013 WebSocket progress
+    channel the materializer publishes to. The frontend subscribes to
+    this channel (or falls back to polling) to receive ``engine_start`` /
+    ``engine_done`` / ``done`` / ``failed`` events.
+    """
 
     project_id: str
     name: str = ""
@@ -51,6 +63,9 @@ class ProjectSummary(BaseModel):
     calendar_count: int = 0
     wbs_count: int = 0
     data_date: Optional[str] = None
+    status: str = "pending"
+    job_id: Optional[str] = None
+    ws_url: Optional[str] = None
     metadata: Optional[ScheduleMetadataSchema] = None
 
 
@@ -58,13 +73,19 @@ class ProjectSummary(BaseModel):
 
 
 class ProjectListItem(BaseModel):
-    """A single project in the list response."""
+    """A single project in the list response.
+
+    ``status`` default is ``'ready'`` so pre-migration-024 legacy rows
+    deserialise without error. The store layer guarantees the real value
+    is one of ``'pending'`` / ``'ready'`` / ``'failed'`` (ADR-0015).
+    """
 
     project_id: str
     name: str = ""
     activity_count: int = 0
     relationship_count: int = 0
     data_date: Optional[str] = None
+    status: str = "ready"
     tags: list[str] = Field(default_factory=list)
 
 
