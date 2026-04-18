@@ -1,11 +1,11 @@
-<!-- Last updated: 2026-04-18 (v3.8.0) -->
+<!-- Last updated: 2026-04-18 (v3.9.0) -->
 # MeridianIQ — System Architecture
 
 ## System Overview
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v3.8.0**: 45 analysis engines + 1 export module, 113 API endpoints across 20 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 20 Supabase migrations, 22 MCP tools, 15 PDF report types, 1084 tests.
+As of **v3.9.0**: 45 analysis engines + 1 export module, 115 API endpoints across 21 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 20 Supabase migrations, 22 MCP tools, 15 PDF report types, 1148 tests.
 
 ```mermaid
 graph TB
@@ -14,9 +14,9 @@ graph TB
     end
 
     subgraph "Compute — Fly.io"
-        API[FastAPI application<br/>113 endpoints · 20 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
+        API[FastAPI application<br/>115 endpoints · 21 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
         ENGINES[45 analysis engines<br/>+ 1 export module<br/>src/analytics/ + src/export/]
-        MCP[MCP server<br/>22 tools<br/>src/mcp_server.py]
+        MCP[MCP server<br/>22 tools · stdio + http + sse<br/>src/mcp_server.py]
         API --> ENGINES
         MCP --> ENGINES
     end
@@ -53,23 +53,29 @@ graph TB
 
 ```
 src/
-  parser/            XER / MS Project XML readers, Pydantic models (17+ tables)
-  analytics/         40 analysis engines (see docs/methodologies.md)
+  parser/            XER / MS Project XML readers, Pydantic models (17+ tables),
+                     structured P6 calendar_data parser (CalendarSchedule + exceptions)
+  analytics/         45 analysis engines (see docs/methodologies.md)
   export/            XER round-trip writer
   database/          InMemoryStore + SupabaseStore abstraction, Supabase client
   api/
-    app.py           FastAPI shell (166 lines — all domain logic in routers/)
-    routers/         18 modular routers (see docs/api-reference.md)
+    app.py           FastAPI shell — all domain logic in routers/
+    routers/         21 modular routers (see docs/api-reference.md)
     schemas.py       Pydantic v2 request/response models
     auth.py          JWT + optional_auth / require_auth dependencies
     deps.py          Shared store + limiter singletons
+    cache.py         Namespace-scoped TTL cache (in-memory, single-process)
+    kpi_helpers.py   Cached CPM+DCMA+Health bundle for /programs/rollup + /bi/projects
+    progress.py      Per-job pub/sub channels for WebSocket progress streaming
   integrations/      ERP adapter protocols (cost, schedule, risk, reporting, resource)
                      + concrete adapters for Unifier, SAP PS, Kahua, eBuilder,
                        InEight, Procore, manual Excel
-  mcp_server.py      22 MCP tools (see docs/mcp-tools.md)
+  plugins/           Third-party AnalysisEngine registry (entry-point discovery).
+                     Reference plugin at samples/plugin-example/
+  mcp_server.py      22 MCP tools (see docs/mcp-tools.md). Transports: stdio | http | sse
 web/
   src/
-    routes/          52 SvelteKit pages (file-based routing)
+    routes/          54 SvelteKit pages (file-based routing)
     lib/
       components/
         charts/      11 hand-crafted SVG chart components
