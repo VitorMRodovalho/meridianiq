@@ -16,7 +16,7 @@
 			const res = await getProjects();
 			projects = res.projects;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load projects';
+			error = e instanceof Error ? e.message : $t('viz.load_failed_projects');
 		}
 	}
 
@@ -27,9 +27,9 @@
 		viz = null;
 		try {
 			viz = await getVisualization(selectedProject);
-			toastSuccess(`Loaded: ${viz.total_activities} activities`);
+			toastSuccess(`${$t('viz.toast_loaded_prefix')}: ${viz.total_activities} ${$t('viz.summary_activities')}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load visualization';
+			error = e instanceof Error ? e.message : $t('viz.load_failed_viz');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -44,6 +44,14 @@
 		complete: '#10b981',
 		not_started: '#9ca3af',
 		high_float: '#a78bfa',
+	};
+
+	const LEGEND_KEYS: Record<string, string> = {
+		critical: 'viz.legend_critical',
+		active: 'viz.legend_active',
+		complete: 'viz.legend_complete',
+		not_started: 'viz.legend_not_started',
+		high_float: 'viz.legend_high_float',
 	};
 
 	const svgWidth = 900;
@@ -65,21 +73,21 @@
 </script>
 
 <svelte:head>
-	<title>4D Visualization - MeridianIQ</title>
+	<title>{$t('page.visualization')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-7xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">4D Visualization</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">WBS spatial grouping x CPM temporal positioning</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.visualization')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('viz.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4">
 			<div class="flex-1">
-				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Project</label>
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('viz.field_project')}</label>
 				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
-					<option value="">Choose a project...</option>
+					<option value="">{$t('viz.select_project')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
@@ -87,7 +95,7 @@
 			</div>
 			<button onclick={loadViz} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Loading...' : 'Visualize'}
+				{loading ? $t('viz.btn_loading') : $t('viz.btn_visualize')}
 			</button>
 		</div>
 	</div>
@@ -106,11 +114,11 @@
 			{#each Object.entries(colorMap) as [cat, color]}
 				<div class="flex items-center gap-1.5">
 					<span class="w-3 h-3 rounded" style="background-color: {color}"></span>
-					<span class="text-gray-600 dark:text-gray-400 capitalize">{cat.replace('_', ' ')}</span>
+					<span class="text-gray-600 dark:text-gray-400">{$t(LEGEND_KEYS[cat] ?? cat)}</span>
 				</div>
 			{/each}
 			<div class="ml-auto text-gray-500 dark:text-gray-400">
-				{viz.total_activities} activities | {viz.critical_count} critical | {viz.project_duration_days}d duration
+				{viz.total_activities} {$t('viz.summary_activities')} | {viz.critical_count} {$t('viz.summary_critical')} | {viz.project_duration_days}d {$t('viz.summary_duration')}
 			</div>
 		</div>
 
@@ -173,13 +181,13 @@
 
 		<!-- WBS Groups -->
 		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mt-6">
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">WBS Groups</h2>
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('viz.wbs_groups_title')}</h2>
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
 				{#each viz.wbs_groups as group}
 					<div class="border border-gray-100 rounded-md p-3">
 						<p class="font-mono text-xs text-gray-500 dark:text-gray-400">{group.wbs_id}</p>
 						<p class="font-medium text-sm text-gray-900 dark:text-gray-100">{group.wbs_name}</p>
-						<p class="text-xs text-gray-400">{group.activity_count} activities</p>
+						<p class="text-xs text-gray-400">{group.activity_count} {$t('viz.activities_count_suffix')}</p>
 					</div>
 				{/each}
 			</div>

@@ -10,6 +10,19 @@
 		type OrgMember,
 		type AuditEntry
 	} from '$lib/api';
+	import { t, locale } from '$lib/i18n';
+
+	const ACTION_KEYS: Record<string, string> = {
+		upload: 'org_detail.action_upload',
+		analyze: 'org_detail.action_analyze',
+		share: 'org_detail.action_share',
+		compare: 'org_detail.action_compare',
+		export: 'org_detail.action_export',
+		invite: 'org_detail.action_invite',
+		remove_member: 'org_detail.action_remove_member',
+		create: 'org_detail.action_create',
+		delete: 'org_detail.action_delete',
+	};
 
 	const orgId = $derived(page.params.id!);
 	let org: Organization | null = $state(null);
@@ -32,7 +45,7 @@
 			org = res.organization;
 			members = res.members;
 		} catch {
-			error = 'Failed to load organization';
+			error = $t('org_detail.load_failed');
 		} finally {
 			loading = false;
 		}
@@ -54,13 +67,13 @@
 		inviteSuccess = '';
 		try {
 			await inviteMember(orgId, inviteEmail.trim(), inviteRole);
-			inviteSuccess = `Invited ${inviteEmail} as ${inviteRole}`;
+			inviteSuccess = `${$t('org_detail.invite_sent_prefix')} ${inviteEmail} ${$t('org_detail.invite_sent_infix')} ${inviteRole}`;
 			inviteEmail = '';
 			// Reload members
 			const res = await getOrganization(orgId);
 			members = res.members;
 		} catch (e: unknown) {
-			inviteError = e instanceof Error ? e.message : 'Failed to invite';
+			inviteError = e instanceof Error ? e.message : $t('org_detail.invite_failed');
 		} finally {
 			inviting = false;
 		}
@@ -71,7 +84,7 @@
 			await removeMember(orgId, userId);
 			members = members.filter(m => m.user_id !== userId);
 		} catch {
-			error = 'Failed to remove member';
+			error = $t('org_detail.remove_failed');
 		}
 	}
 
@@ -83,32 +96,28 @@
 	}
 
 	function actionLabel(action: string): string {
-		const labels: Record<string, string> = {
-			upload: 'Uploaded schedule',
-			analyze: 'Ran analysis',
-			share: 'Shared project',
-			compare: 'Compared schedules',
-			export: 'Exported data',
-			invite: 'Invited member',
-			remove_member: 'Removed member',
-			create: 'Created',
-			delete: 'Deleted',
-		};
-		return labels[action] || action;
+		const key = ACTION_KEYS[action];
+		return key ? $t(key) : action;
 	}
 
 	function formatDate(d: string): string {
-		return new Date(d).toLocaleString();
+		return new Date(d).toLocaleString($locale);
 	}
+
+	const tabs: [string, string][] = [
+		['members', 'org_detail.tab_members'],
+		['invite', 'org_detail.tab_invite'],
+		['audit', 'org_detail.tab_audit'],
+	];
 </script>
 
 <svelte:head>
-	<title>{org?.name || 'Organization'} - MeridianIQ</title>
+	<title>{org?.name || $t('org_detail.fallback_name')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-5xl mx-auto">
 	<div class="mb-6">
-		<a href="/org" class="text-sm text-blue-600 hover:underline">Back to Organizations</a>
+		<a href="/org" class="text-sm text-blue-600 hover:underline">{$t('org_detail.back_link')}</a>
 	</div>
 
 	{#if loading}
@@ -117,27 +126,27 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading...
+			{$t('common.loading')}
 		</div>
 	{:else if error}
 		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
 	{:else if org}
 		<div class="mb-6">
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{org.name}</h1>
-			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{org.org_type} &middot; {members.length} member{members.length !== 1 ? 's' : ''}</p>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{org.org_type} &middot; {members.length} {members.length === 1 ? $t('org_detail.members_single') : $t('org_detail.members_plural')}</p>
 		</div>
 
 		<!-- Tabs -->
 		<div class="border-b border-gray-200 dark:border-gray-700 mb-6">
 			<nav class="flex gap-6 -mb-px">
-				{#each [['members', 'Members'], ['invite', 'Invite'], ['audit', 'Audit Trail']] as [key, label]}
+				{#each tabs as [key, labelKey]}
 					<button
 						class="pb-3 px-1 text-sm font-medium border-b-2 transition-colors {activeTab === key
 							? 'border-blue-500 text-blue-600'
 							: 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:border-gray-600'}"
 						onclick={() => { activeTab = key; if (key === 'audit') loadAudit(); }}
 					>
-						{label}
+						{$t(labelKey)}
 					</button>
 				{/each}
 			</nav>
@@ -148,9 +157,9 @@
 				<table class="min-w-full divide-y divide-gray-200">
 					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Member</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Role</th>
-							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Joined</th>
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_member')}</th>
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_role')}</th>
+							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_joined')}</th>
 							<th class="px-4 py-3"></th>
 						</tr>
 					</thead>
@@ -167,7 +176,7 @@
 											</div>
 										{/if}
 										<div>
-											<p class="text-sm font-medium text-gray-900 dark:text-gray-100">{m.user_profiles?.full_name || 'User'}</p>
+											<p class="text-sm font-medium text-gray-900 dark:text-gray-100">{m.user_profiles?.full_name || $t('sidebar.user_fallback')}</p>
 											<p class="text-xs text-gray-500 dark:text-gray-400">{m.user_profiles?.email || ''}</p>
 										</div>
 									</div>
@@ -176,7 +185,7 @@
 									<span class="px-2 py-0.5 text-xs font-medium rounded-full {roleColor(m.role)}">{m.role}</span>
 								</td>
 								<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-									{m.accepted_at ? formatDate(m.accepted_at) : 'Pending'}
+									{m.accepted_at ? formatDate(m.accepted_at) : $t('org_detail.status_pending')}
 								</td>
 								<td class="px-4 py-3 text-right">
 									{#if m.role !== 'owner'}
@@ -184,7 +193,7 @@
 											onclick={() => handleRemove(m.user_id)}
 											class="text-xs text-red-500 hover:text-red-700"
 										>
-											Remove
+											{$t('org_detail.btn_remove')}
 										</button>
 									{/if}
 								</td>
@@ -196,7 +205,7 @@
 
 		{:else if activeTab === 'invite'}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Invite Team Member</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('org_detail.invite_title')}</h2>
 				{#if inviteError}
 					<div class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm mb-4">{inviteError}</div>
 				{/if}
@@ -205,20 +214,20 @@
 				{/if}
 				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
 					<label class="block sm:col-span-2">
-						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Email Address</span>
+						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_email')}</span>
 						<input
 							type="email"
 							bind:value={inviteEmail}
-							placeholder="colleague@company.com"
+							placeholder={$t('org_detail.placeholder_email')}
 							class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
 						/>
 					</label>
 					<label class="block">
-						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Role</span>
+						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_role')}</span>
 						<select bind:value={inviteRole} class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
-							<option value="viewer">Viewer</option>
-							<option value="member">Member</option>
-							<option value="admin">Admin</option>
+							<option value="viewer">{$t('org_detail.role_viewer')}</option>
+							<option value="member">{$t('org_detail.role_member')}</option>
+							<option value="admin">{$t('org_detail.role_admin')}</option>
 						</select>
 					</label>
 				</div>
@@ -227,29 +236,29 @@
 					disabled={inviting || !inviteEmail.trim()}
 					class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 				>
-					{inviting ? 'Inviting...' : 'Send Invite'}
+					{inviting ? $t('org_detail.btn_inviting') : $t('org_detail.btn_send_invite')}
 				</button>
 			</div>
 
 		{:else if activeTab === 'audit'}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
 				{#if auditEntries.length === 0}
-					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">No audit entries yet.</div>
+					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">{$t('org_detail.empty_audit')}</div>
 				{:else}
 					<table class="min-w-full divide-y divide-gray-200">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">When</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Who</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Details</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_when')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_who')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_action')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('org_detail.col_details')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
 							{#each auditEntries as entry}
 								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(entry.created_at)}</td>
-									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{entry.user_profiles?.full_name || entry.user_profiles?.email || 'System'}</td>
+									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{entry.user_profiles?.full_name || entry.user_profiles?.email || $t('org_detail.system_user')}</td>
 									<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{actionLabel(entry.action)}</td>
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-xs truncate">
 										{entry.entity_type}
