@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import optional_auth
 from ..deps import get_store
+from ..kpi_helpers import schedule_kpi_bundle
 
 router = APIRouter()
 
@@ -51,12 +52,14 @@ def update_program(program_id: str, body: dict, _user: object = Depends(optional
 
 
 def _build_rollup(
-    store, program_id: str, revisions: list[dict], user_id: str | None = None
+    program_id: str, revisions: list[dict], user_id: str | None = None
 ) -> dict:
     """Build the program rollup payload from a revisions list.
 
     Extracted so both the HTTP endpoint and other callers (exec-summary
-    PDF enrichment) can reuse the same computation path.
+    PDF enrichment) can reuse the same computation path. Heavy CPM / DCMA /
+    Health work is delegated to ``schedule_kpi_bundle`` which caches by
+    (project_id, user_id).
     """
     revisions.sort(key=lambda r: r.get("revision_number", 0), reverse=True)
     latest = revisions[0]
@@ -68,60 +71,21 @@ def _build_rollup(
         "data_date": latest.get("data_date"),
     }
 
-    latest_schedule = store.get(latest["id"], user_id=user_id)
-    if latest_schedule is not None:
-        latest_metrics["activity_count"] = len(latest_schedule.activities)
-        latest_metrics["relationship_count"] = len(latest_schedule.relationships)
-
-        try:
-            from src.analytics.cpm import CPMCalculator
-
-            cpm = CPMCalculator(latest_schedule).calculate()
-            latest_metrics["critical_path_length_days"] = round(cpm.project_duration, 2)
-            latest_metrics["critical_activities_count"] = len(cpm.critical_path)
-            latest_metrics["has_cycles"] = cpm.has_cycles
-            latest_metrics["negative_float_count"] = sum(
-                1 for ar in cpm.activity_results.values() if ar.total_float < 0
-            )
-        except Exception:
-            pass
-
-        try:
-            from src.analytics.dcma14 import DCMA14Analyzer
-
-            dcma = DCMA14Analyzer(latest_schedule).analyze()
-            latest_metrics["dcma_score"] = round(dcma.overall_score, 1)
-            latest_metrics["dcma_passed_count"] = dcma.passed_count
-            latest_metrics["dcma_failed_count"] = dcma.failed_count
-        except Exception:
-            pass
-
-        try:
-            from src.analytics.health_score import HealthScoreCalculator
-
-            health = HealthScoreCalculator(latest_schedule).calculate()
-            latest_metrics["health_score"] = round(health.overall, 1)
-            latest_metrics["health_rating"] = health.rating
-            latest_metrics["health_trend_arrow"] = health.trend_arrow
-        except Exception:
-            pass
+    bundle = schedule_kpi_bundle(latest["id"], user_id)
+    if bundle:
+        latest_metrics.update(bundle)
 
     trend_direction = "stable"
     trend_delta: float | None = None
     if prev and "health_score" in latest_metrics:
-        prev_schedule = store.get(prev["id"], user_id=user_id)
-        if prev_schedule is not None:
-            try:
-                from src.analytics.health_score import HealthScoreCalculator
-
-                prev_health = HealthScoreCalculator(prev_schedule).calculate()
-                trend_delta = round(latest_metrics["health_score"] - prev_health.overall, 1)
-                if trend_delta > 2:
-                    trend_direction = "improving"
-                elif trend_delta < -2:
-                    trend_direction = "degrading"
-            except Exception:
-                pass
+        prev_bundle = schedule_kpi_bundle(prev["id"], user_id)
+        prev_health = prev_bundle.get("health_score")
+        if prev_health is not None:
+            trend_delta = round(latest_metrics["health_score"] - prev_health, 1)
+            if trend_delta > 2:
+                trend_direction = "improving"
+            elif trend_delta < -2:
+                trend_direction = "degrading"
 
     return {
         "program_id": program_id,
@@ -152,7 +116,7 @@ def compute_program_rollup(program_id: str, user_id: str | None = None) -> dict 
     )
     if not revisions:
         return None
-    return _build_rollup(store, program_id, revisions, user_id=user_id)
+    return _build_rollup(program_id, revisions, user_id=user_id)
 
 
 @router.get("/api/v1/programs/{program_id}/rollup")
@@ -177,7 +141,7 @@ def get_program_rollup(program_id: str, _user: object = Depends(optional_auth)):
     if not revisions:
         raise HTTPException(status_code=404, detail="Program not found or no revisions")
 
-    return _build_rollup(store, program_id, revisions, user_id=user_id)
+    return _build_rollup(program_id, revisions, user_id=user_id)
 
 
 @router.get("/api/v1/programs/{program_id}/trends")

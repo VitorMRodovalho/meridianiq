@@ -21,6 +21,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **slowapi vs starlette-ratelimit** (wave 2, BUGS.md ticket #74) — evaluated migrating off `slowapi` after the BUGS.md "possibly unmaintained" flag. Findings: (1) slowapi 0.1.9 is the latest, last commit Aug 2025, repo not archived (1952 stars, 101 open issues — typical "stable enough" library); (2) `starlette-ratelimit` does not exist as a published PyPI package; (3) `fastapi-limiter` is async-Redis-backed (overkill for our 9 rate-limited endpoints, no Redis in stack); (4) rolling our own atop `limits` (the library slowapi already wraps) would duplicate slowapi's API for no gain. Decision: stay on slowapi, close ticket #74. Did consolidate the duplicate `Limiter` instance as a quality improvement (see Changed above).
 
+### Performance
+
+- **In-memory KPI cache for hot read endpoints** (wave 3) — `/api/v1/programs/{id}/rollup` and `/api/v1/bi/projects` both recomputed `CPMCalculator + DCMA14Analyzer + HealthScoreCalculator` on the latest schedule for every request. Repeated polls from BI dashboards (Power BI, Tableau) and program-director dashboards now coalesce to a single computation per 120 s window via `src/api/cache.py` (namespace-scoped TTL cache, single-process, no Redis). The shared `schedule_kpi_bundle()` helper in `src/api/kpi_helpers.py` collapses three previously-duplicated try/except CPM/DCMA/Health blocks into one. `cache_stats()` exposes per-namespace hit/miss/size for future observability wiring. 8 cache tests + existing 38 programs/bi tests pass.
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).

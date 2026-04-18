@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import optional_auth
 from ..deps import get_store
+from ..kpi_helpers import schedule_kpi_bundle
 
 router = APIRouter()
 
@@ -83,40 +84,21 @@ def bi_projects(
             "negative_float_count": None,
         }
 
-        schedule = store.get(pid, user_id=user_id) if pid else None
-        if schedule is not None:
-            row["activity_count"] = len(schedule.activities)
-            row["relationship_count"] = len(schedule.relationships)
-
-            try:
-                from src.analytics.dcma14 import DCMA14Analyzer
-
-                dcma = DCMA14Analyzer(schedule).analyze()
-                row["dcma_score"] = round(dcma.overall_score, 1)
-                row["dcma_passed_count"] = dcma.passed_count
-                row["dcma_failed_count"] = dcma.failed_count
-            except Exception:
-                pass
-
-            try:
-                from src.analytics.health_score import HealthScoreCalculator
-
-                h = HealthScoreCalculator(schedule).calculate()
-                row["health_score"] = round(h.overall, 1)
-                row["health_rating"] = h.rating
-            except Exception:
-                pass
-
-            try:
-                from src.analytics.cpm import CPMCalculator
-
-                cpm = CPMCalculator(schedule).calculate()
-                row["critical_path_length_days"] = round(cpm.project_duration, 2)
-                row["negative_float_count"] = sum(
-                    1 for ar in cpm.activity_results.values() if ar.total_float < 0
-                )
-            except Exception:
-                pass
+        if pid:
+            bundle = schedule_kpi_bundle(pid, user_id)
+            for k in (
+                "activity_count",
+                "relationship_count",
+                "dcma_score",
+                "dcma_passed_count",
+                "dcma_failed_count",
+                "health_score",
+                "health_rating",
+                "critical_path_length_days",
+                "negative_float_count",
+            ):
+                if k in bundle:
+                    row[k] = bundle[k]
 
         rows.append(row)
 
