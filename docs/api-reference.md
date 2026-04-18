@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **113 endpoints** across **20 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **115 endpoints** across **21 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -28,6 +28,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Health](#health) — 2 endpoints
 - [Bi](#bi) — 3 endpoints
 - [Organizations](#organizations) — 11 endpoints
+- [Plugins](#plugins) — 2 endpoints
 
 ## Upload
 
@@ -277,4 +278,11 @@ _Readiness and liveness_
 | `POST` | `/api/v1/shares/project` | Share a project with another organization. | `—` | optional |
 | `GET` | `/api/v1/shares/project/{project_id}` | List all organizations a project is shared with. | `—` | optional |
 | `PUT` | `/api/v1/value-milestones/{milestone_id}` | Update a value milestone (status, dates, value). | `—` | optional |
+
+## Plugins
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `GET` | `/api/v1/plugins` | Return every plugin currently in the registry (sorted by name). | `dict` | optional |
+| `POST` | `/api/v1/plugins/{name}/run/{project_id}` | Run one registered plugin against a stored schedule. | `dict` | optional |
 

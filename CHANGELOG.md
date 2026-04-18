@@ -45,6 +45,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **Activity grouping by any field** (wave 8, BUGS.md #13) — the `/schedule-view` endpoint accepts a new `group_by` query param. Default `wbs` keeps the project's real WBS hierarchy (zero-cost no-op). Other modes — `status`, `critical`, `task_type`, `calendar`, `float_bucket` — synthesise a flat WBS tree where each root is one bucket and activities are reassigned via `model_copy` so the original schedule stays untouched. The /schedule UI gains a "Group by" dropdown next to the baseline picker. Cache key now includes the grouping mode so different views are cached independently. 14 new tests + 11 cache tests still pass.
 
+### Plugins
+
+- **Plugin HTTP surface + startup discovery** (wave 9) — wave 7 shipped the in-process registry; this wave wires it through the API. New `src/api/routers/plugins.py` adds `GET /api/v1/plugins` (list registered) and `POST /api/v1/plugins/{name}/run/{project_id}` (invoke against a stored schedule). `discover_plugins()` is called once at FastAPI module load so the registry is populated before the first request. Plugin exceptions become HTTP 500 with the exception text — never propagate. 6 new HTTP tests. Stats: **115 endpoints** across **21 routers** (was 113 / 20).
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).
