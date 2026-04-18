@@ -45,6 +45,11 @@ supabase/.temp/
 
 # Claude Code local overrides
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Migration metadata — local report for the master-consolidation conversation,
+# may reference confidential client paths; never commit to public remote.
+STATUS_REPORT.md
 
 # Playwright
 web/test-results/
