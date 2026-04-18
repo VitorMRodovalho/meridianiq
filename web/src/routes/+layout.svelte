@@ -329,7 +329,7 @@
 			<span class="text-xs text-gray-600 mx-1">&middot;</span>
 			<a href="https://github.com/VitorMRodovalho/meridianiq" target="_blank" rel="noopener" class="text-xs text-gray-400 hover:text-white transition-colors">{$t('sidebar.github')}</a>
 			<p class="text-xs text-gray-500 mt-2">MeridianIQ &middot; MIT &middot; &copy; 2025–2026 Vitor Maia Rodovalho</p>
-			<p class="text-xs text-gray-500 mt-0.5">v3.7.0</p>
+			<p class="text-xs text-gray-500 mt-0.5">v3.8.0</p>
 		</div>
 	</aside>
 

@@ -42,7 +42,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Frontend pages | 52 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, …) |
 | API endpoints | 98 |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | 22 (v0.1.0 → v3.7.0) |
+| Released versions | 23 (v0.1.0 → v3.8.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 

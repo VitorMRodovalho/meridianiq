@@ -19,7 +19,7 @@ if dsn := os.environ.get("SENTRY_DSN"):
         dsn=dsn,
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
-        release="meridianiq-api@3.7.0",
+        release="meridianiq-api@3.8.0",
     )
 
 from fastapi import FastAPI, Request
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="3.7.0",
+    version="3.8.0",
 )
 
 # Rate limiting

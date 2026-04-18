@@ -3,6 +3,59 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
+
+26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).
+
+### Added — Forensic & Reporting (waves 1-9)
+
+- **BI connector templates** (wave 1) — `samples/bi-templates/` with Power Query M + DAX + Tableau .tds + LookML samples, plus `/docs/user-guide/bi-dashboards.md` walkthrough. 8 smoke tests.
+- **AIA G702 Application and Certificate for Payment PDF** (wave 2) — 15th report type (`aia_g702`), `/cost/g702` page, `src/analytics/aia_g702.py`, 15 tests. Completes AIA billing pair (G702 cover + G703 continuation from v3.7).
+- **AACE MIP 3.1 + 3.2** (wave 3) — Static Logic Gross Approach + Dynamic Logic As-Is. `src/analytics/mip_observational.py`, 20 tests.
+- **Per-WBS Gantt print page split** (wave 4) — `exportPdfByWbs()` on ScheduleViewer, one table per top-level WBS separated by page-break-before, critical highlighting.
+- **Stats-consistency CI validator** (wave 5) — `scripts/check_stats_consistency.py` parses catalog headers + counts pages, fails CI on CLAUDE.md drift. Also fixed pre-existing drift (40→43 engines, 98→109 endpoints, 52→54 pages) and a doc-sync `--exit-status` typo.
+- **Submission deliverables user guide** (wave 6) — `/docs/user-guide/submission-deliverables.md` covers SCL Protocol, AACE §5.3, AIA G702, AIA G703. 11 smoke tests.
+- **AACE MIP 3.6 Collapsed As-Built** (wave 7) — Modified Subtractive Single Simulation. `src/analytics/mip_subtractive.py`, `/forensic/mip-3-6`, 16 tests.
+- **AACE MIP 3.7 Windowed Collapsed As-Built** (wave 8) — reuses 3.6 engine per window. +14 tests.
+- **AACE MIP 3.5 Additive Multiple Base** (wave 9) — Impacted As-Planned. `src/analytics/mip_additive.py`, `/forensic/mip-3-5`, 19 tests. **7 of 9 AACE forensic MIPs now covered**; 3.8 + 3.9 are subjective reconstruction methods, deferred to future work.
+
+### Added — Frontend hardening (waves 10-15)
+
+- **a11y warnings cleared** (wave 10) — 12 warnings → 0. GanttCanvas `<g>` keyboard handlers, modal dialog a11y, label-for associations in cost/narrative/pareto/ask pages. Also bumped `overrides.cookie` to `^0.7.0` to close a Dependabot security update.
+- **Schedule-view cache invalidation** (wave 11) — `invalidate_analysis()` on both stores (`InMemoryStore` + `SupabaseStore`), `force=true` purges sibling baseline variants, new `DELETE /schedule-view/cache`. Fixed `InMemoryStore.clear()` not wiping `_analyses` / `_comparisons`. 11 tests.
+- **CBS compare picker filter** (wave 12) — hides `cbs_element_count == 0` snapshots on `/cost/compare`; amber warning when fewer than 2 comparable snapshots exist.
+- **Audit-trail IP + User-Agent** (wave 13) — `_client_ip()` honours `X-Forwarded-For` leftmost, `_user_agent()` helper, `_audit()` accepts optional `request`. 5 audit-writing endpoints capture IP + UA automatically. 18 tests.
+- **Type-safety sweep round 1** (wave 14) — Programs + EVM surfaces: 15+ `any` eliminated, EVM list/detail interface split, 6 typed `api.ts` functions.
+- **Type-safety sweep round 2** (wave 15) — all remaining 19 `any` removed across `/risk`, `/milestones`, `/settings`, `/alerts`, `/health`, `/ips`, `/recovery`, `/org`, `/schedule`, `/demo`, `/ask`. 9 new type groups in `api.ts` (Risk*, Organization*, IPS, Recovery, ValueMilestone*, Demo*). Latent bugs surfaced + fixed: alerts page was rendering an array as a count; health page had `Record<string, any>` fighting the canonical `ScheduleHealthResponse`.
+
+### Added — i18n wiring (waves 16-26)
+
+Layout chrome (wave 16) + 22 feature pages fully translated to en / pt-BR / es. **~650 new translation keys** across sidebar nav, form labels, chart titles, error fallbacks, toast messages, table column headers, and workflow-specific copy. Collapsed sidebar state keyed by invariant `titleKey` so it survives locale switching; per-page helper maps (org types, risk categories, action labels, status keys) resolve dynamic data via `$t`.
+
+Pages wired, by wave:
+- Wave 16: layout (sidebar + chrome + error boundary + keyboard shortcuts modal), 63 keys
+- Wave 17: login + programs + projects, 36 keys
+- Wave 18: settings + org, 37 keys
+- Wave 19: pareto + contract + forensic, 65 keys
+- Wave 20: recovery + ips + risk-register, 93 keys
+- Wave 21: builder + scorecard + narrative, 57 keys
+- Wave 22: cost + trends, 61 keys
+- Wave 23: demo + visualization + org/[id], 72 keys
+- Wave 24: milestones (biggest form-heavy page), 60 keys
+- Wave 25: compare (biggest overall), 76 keys
+- Wave 26: docs navigation (prose stays English per MDN/React-docs convention), 32 keys
+
+Date + currency formatting now reads `$locale` so numbers and timestamps render in the active language.
+
+### Tests
+
+- 943 → 1084 passing (+141). 6 skipped. All 26 waves pass `npm run check` with 0 errors / 0 warnings.
+
+### CI + tooling
+
+- All 26 waves pushed direct to `main`, every wave green on CI / gitleaks / doc-sync / deploy-web / deploy-api.
+- Doc-sync workflow fixed (wave 5): `git diff --exit-code` flag, `mcp` optional extra installed. Stats-consistency step added.
+
 ## [3.7.0] — 2026-04-17 — KB + P1 Feature Wave (9 waves: CBS, Rollup, Exec PDF, Risk Linkage, CBS Rehydration, BI, SCL+AACE, AIA G703, Gantt Export)
 
 ### Added — P1 feature wave follow-up (2026-04-17, Waves 7-9)
