@@ -350,7 +350,7 @@
 				</div>
 				<!-- Bifurcation summary -->
 				{#if timeline.summary?.bifurcated}
-					<div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
+					<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-100">
 						<div class="text-center">
 							<p class="text-xs text-gray-500 dark:text-gray-400">Total Progress Effect</p>
 							<p class="text-lg font-bold text-blue-600">

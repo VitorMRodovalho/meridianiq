@@ -148,7 +148,7 @@
 		</div>
 
 		<!-- Summary Cards -->
-		<div class="grid grid-cols-4 gap-4 mb-6">
+		<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium">Total Owner Delay</p>
 				<p class="text-2xl font-bold text-blue-600 mt-1">

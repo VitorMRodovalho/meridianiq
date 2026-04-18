@@ -29,6 +29,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **MCP server HTTP / SSE transports** (wave 4) — `python -m src.mcp_server` accepts `--transport stdio | http | sse` plus `--host` / `--port`. Default stays `stdio` (Claude Desktop / Code spawning). The new `http` mode (FastMCP "streamable-http") exposes the MCP endpoint at `/mcp`, enabling cloud-hosted MCP clients to reach the 22 MeridianIQ tools without spawning a local process. `sse` covers legacy MCP HTTP clients. Auth is intentionally not enforced at the MCP layer — terminate TLS + auth at a reverse proxy. New `tests/test_mcp_cli.py` (7 tests) exercises the parser without binding sockets. Closes the v3.9 P3 candidate "MCP over HTTP" from the v4.0 aspirational list.
 
+### Mobile
+
+- **Mobile responsiveness pass** (wave 5) — fixed 9 hot-spot pages where `grid-cols-3` / `grid-cols-4` KPI summaries collapsed into squashed cards on phones. Pattern: `grid-cols-3 → grid-cols-1 sm:grid-cols-3` (or `grid-cols-2 md:grid-cols-4` for 4-card panels). Pages touched: `/forensic/[id]`, `/tia/[id]`, `/builder`, `/contract`, `/risk/[id]`, `/evm`, `/pareto`, `/compare`. Five wide tables on `/projects/[id]` (critical-path / float-distribution / milestones) and `/org/[id]` (members / audit log) gained `overflow-x-auto` so they scroll horizontally instead of clipping. `GanttChart.svelte`'s SVG `min-width` dropped from 500 to 320 px to fit iPhone-SE-class viewports without forcing a large horizontal scroll. Sidebar already had a hamburger off-canvas pattern (no changes there).
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).

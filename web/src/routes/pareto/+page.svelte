@@ -107,7 +107,7 @@
 		<div class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400 text-sm">{error}</div>
 	{:else if data}
 		<!-- Summary -->
-		<div class="grid grid-cols-3 gap-4 mb-6">
+		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{data.base_duration_days}d</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400">{$t('pareto.stat_base_duration')}</p>

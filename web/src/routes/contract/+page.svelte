@@ -133,7 +133,7 @@
 		<!-- Check Results -->
 		{#if checkResult}
 			<div class="mb-8">
-				<div class="grid grid-cols-3 gap-4 mb-6">
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 					<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
 						<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.stat_total')}</p>
 						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{checkResult.total_checks}</p>

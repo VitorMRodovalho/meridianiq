@@ -91,7 +91,7 @@
 	{/if}
 
 	{#if result}
-		<div class="grid grid-cols-3 gap-4 mb-6">
+		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
 				<p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{result.activity_count}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase mt-1">{$t('builder.stat_activities')}</p>

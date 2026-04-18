@@ -617,7 +617,7 @@
 				{/if}
 
 				<!-- Table -->
-				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
@@ -697,7 +697,7 @@
 				</div>
 
 				<!-- Table -->
-				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-6">
+				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto mb-6">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
@@ -812,7 +812,7 @@
 				{#if milestones.milestones.length === 0}
 					<p class="text-gray-500 dark:text-gray-400">No milestones found in this schedule.</p>
 				{:else}
-					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
 						<table class="min-w-full divide-y divide-gray-200 text-sm">
 							<thead class="bg-gray-50 dark:bg-gray-800">
 								<tr>

@@ -169,7 +169,7 @@
 		</div>
 
 		<!-- Statistics -->
-		<div class="grid grid-cols-3 gap-4 mb-8">
+		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
 			<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
 				<div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Deterministic</div>
 				<div class="text-xl font-bold text-gray-900 dark:text-gray-100 mt-1">{deterministicDays.toFixed(1)} days</div>

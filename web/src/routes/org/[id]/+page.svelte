@@ -153,7 +153,7 @@
 		</div>
 
 		{#if activeTab === 'members'}
-			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200">
 					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
@@ -241,7 +241,7 @@
 			</div>
 
 		{:else if activeTab === 'audit'}
-			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
 				{#if auditEntries.length === 0}
 					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">{$t('org_detail.empty_audit')}</div>
 				{:else}

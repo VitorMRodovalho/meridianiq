@@ -173,7 +173,7 @@
 			<!-- Fallback: simple PV/EV/AC summary when no S-Curve data -->
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Earned Value Summary</p>
-				<div class="grid grid-cols-3 gap-4 text-center">
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
 					<div>
 						<p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">PV (Planned)</p>
 						<p class="text-lg font-bold text-blue-600">{formatCost(latest.pv || 0)}</p>

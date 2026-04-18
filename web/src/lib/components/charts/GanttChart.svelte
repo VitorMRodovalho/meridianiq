@@ -52,7 +52,7 @@
 	{#if items.length === 0}
 		<p class="text-gray-400 text-sm text-center py-6">No activities to display</p>
 	{:else}
-		<svg viewBox="0 0 {WIDTH} {svgH}" class="w-full" style="min-width: 500px;">
+		<svg viewBox="0 0 {WIDTH} {svgH}" class="w-full" style="min-width: 320px;">
 			<!-- Time grid -->
 			{#each timeMarks() as mark}
 				<line

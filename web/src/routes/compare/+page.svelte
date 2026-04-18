@@ -202,7 +202,7 @@
 		{#if result.match_stats}
 			<div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg p-4 mb-6">
 				<h3 class="text-sm font-medium text-blue-800 mb-2">{$t('compare.match_title')}</h3>
-				<div class="grid grid-cols-3 gap-4 text-sm">
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
 					<div>
 						<span class="text-blue-600 font-bold">{result.match_stats.matched_by_task_id.toLocaleString()}</span>
 						<span class="text-blue-700"> {$t('compare.match_by_id')}</span>
