@@ -3,9 +3,9 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.9.0-dev] — unreleased
+## [3.9.0] — 2026-04-18 — Real-Time + Extensibility (10 waves)
 
-P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once the bundle has a coherent story.
+10 waves on top of v3.8.0. Three tracks: P2 cleanup (waves 1-3, 5), P3 capability expansion (waves 4, 6-10), and one fix-up. Headline gains: WebSocket progress streaming for long-running ops, third-party plugin architecture, MCP server now reachable over HTTP, activity grouping by any field, structured P6 calendar exception parser, mobile responsiveness pass, in-memory KPI cache for hot endpoints.
 
 ### Changed
 
