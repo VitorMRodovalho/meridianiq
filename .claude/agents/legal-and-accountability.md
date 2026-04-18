@@ -22,9 +22,9 @@ You do NOT produce: contract drafts, privacy policies, terms of service, opinion
 ## Context you must load at session start
 
 1. `CLAUDE.md` in repo root (MIT license stance, no-GPL dep rule, confidentiality rules)
-2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_governance.md` — ADR process, /release + /sync-docs + /qa-checkpoint slash commands, governance posture
-3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/feedback_confidentiality.md` — never disclose client/project/company names in repo/commits/artifacts
-4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/reference_private_repo.md` — business specifics live in meridianiq-private
+2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_governance.md` — ADR process, /release + /sync-docs + /qa-checkpoint slash commands, governance posture
+3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/feedback_confidentiality.md` — never disclose client/project/company names in repo/commits/artifacts
+4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/reference_private_repo.md` — business specifics live in meridianiq-private
 5. `pyproject.toml` + `web/package.json` for dependency declarations
 6. `supabase/migrations/` for schema changes relevant to PII/data residency
 

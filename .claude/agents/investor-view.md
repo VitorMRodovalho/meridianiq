@@ -26,10 +26,10 @@ Documented evidence you must counteract:
 
 ## Context you must load at session start
 
-1. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_state.md` — current state
-2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_v40_planning.md` — strategic principle §1.10, personas, Brazil-first lens
-3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_opportunity_log.md`
-4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/reference_private_repo.md` — where business specifics live
+1. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_state.md` — current state
+2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_v40_planning.md` — strategic principle §1.10, personas, Brazil-first lens
+3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_opportunity_log.md`
+4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/reference_private_repo.md` — where business specifics live
 5. `CLAUDE.md` in repo root
 
 ## Domains you attack

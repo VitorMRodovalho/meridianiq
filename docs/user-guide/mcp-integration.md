@@ -46,7 +46,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
     "meridianiq": {
       "command": "python",
       "args": ["-m", "src.mcp_server"],
-      "cwd": "/absolute/path/to/p6-xer-analytics"
+      "cwd": "/absolute/path/to/meridianiq"
     }
   }
 }

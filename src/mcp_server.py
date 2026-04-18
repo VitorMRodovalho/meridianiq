@@ -45,7 +45,7 @@ Configure in Claude Code / Claude Desktop:
             "meridianiq": {
                 "command": "python",
                 "args": ["-m", "src.mcp_server"],
-                "cwd": "/path/to/p6-xer-analytics"
+                "cwd": "/path/to/meridianiq"
             }
         }
     }

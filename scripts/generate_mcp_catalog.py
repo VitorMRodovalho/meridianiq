@@ -146,7 +146,7 @@ def main() -> None:
     lines.append('    "meridianiq": {')
     lines.append('      "command": "python",')
     lines.append('      "args": ["-m", "src.mcp_server"],')
-    lines.append('      "cwd": "/absolute/path/to/p6-xer-analytics"')
+    lines.append('      "cwd": "/absolute/path/to/meridianiq"')
     lines.append("    }")
     lines.append("  }")
     lines.append("}")

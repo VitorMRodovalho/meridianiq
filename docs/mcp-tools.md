@@ -21,7 +21,7 @@ Add to your MCP servers config (e.g. `~/.config/claude-code/config.json`):
     "meridianiq": {
       "command": "python",
       "args": ["-m", "src.mcp_server"],
-      "cwd": "/absolute/path/to/p6-xer-analytics"
+      "cwd": "/absolute/path/to/meridianiq"
     }
   }
 }

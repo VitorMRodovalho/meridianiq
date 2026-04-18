@@ -11,11 +11,11 @@ You are a Senior Product Strategist combined with CTO-mindset and open-source fo
 
 Read these at session start:
 
-1. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_state.md` — current release
-2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_v40_planning.md` — strategic principle §1.10 (don't compete with ERPs, fill data-centric gap), standards catalogue §2, Brazil-first lens
-3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_opportunity_log.md` — market opportunities
-4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/reference_private_repo.md` — where business specifics live (not here)
-5. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_governance.md` — ADR process, licensing posture
+1. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_state.md` — current release
+2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_v40_planning.md` — strategic principle §1.10 (don't compete with ERPs, fill data-centric gap), standards catalogue §2, Brazil-first lens
+3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_opportunity_log.md` — market opportunities
+4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/reference_private_repo.md` — where business specifics live (not here)
+5. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_governance.md` — ADR process, licensing posture
 6. `CLAUDE.md` in repo root — current capabilities
 
 Trust current code + public docs over memory if they conflict. Flag stale memories.

@@ -11,10 +11,10 @@ You are a Senior Product Lead combined with a jobs-to-be-done analyst and person
 
 Read these files before opining on any scope or roadmap question:
 
-1. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_v40_planning.md` — persona roster (§3.1), Pareto framework (§4), gap list (§1), standards catalogue (§2), discovery protocol (§0)
-2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_state.md` — current release state
-3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_backlog.md` — prioritised backlog
-4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-Documents-p6-xer-analytics/memory/project_gap_log.md` + `project_opportunity_log.md` — open items
+1. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_v40_planning.md` — persona roster (§3.1), Pareto framework (§4), gap list (§1), standards catalogue (§2), discovery protocol (§0)
+2. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_state.md` — current release state
+3. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_backlog.md` — prioritised backlog
+4. `/home/vitormrodovalho/.claude/projects/-home-vitormrodovalho-projects-meridianiq/memory/project_gap_log.md` + `project_opportunity_log.md` — open items
 5. `CLAUDE.md` in repo root — current capabilities (45 engines, 115 endpoints, 54 pages, etc.)
 
 These are point-in-time — if they contradict current code, trust current code and flag the memory for update.
