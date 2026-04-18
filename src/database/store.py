@@ -591,6 +591,20 @@ class SupabaseStore:
             chunk = rows[i : i + self.BATCH_SIZE]
             self._client.table(table).insert(chunk).execute()
 
+    def _delete(self, table: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
+        """Delete rows matching equality filters and return the deleted rows.
+
+        PostgREST returns ``[]`` (no error) when RLS denies a DELETE or the row
+        does not exist — callers that need to detect silent no-ops must inspect
+        the returned list length.
+        """
+        query = self._client.table(table).delete()
+        for col, val in filters.items():
+            query = query.eq(col, val)
+        result = query.execute()
+        deleted: list[dict[str, Any]] = result.data or []
+        return deleted
+
     def _select(
         self,
         table: str,
@@ -726,9 +740,12 @@ class SupabaseStore:
     def _persist_schedule_data(self, project_id: str, schedule: ParsedSchedule) -> None:
         """Batch-insert all parsed schedule entities into relational tables.
 
-        Called from save_project() after metadata insert.  If any insert
-        fails the XER binary in the Storage bucket serves as fallback —
-        the upload is never blocked by a persistence failure.
+        Atomicity contract (ADR-0012): on any batch-insert failure, issue a
+        compensating DELETE on the ``projects`` row (FK ``ON DELETE CASCADE``
+        clears the 13 child tables) and re-raise the original exception so
+        the caller observes an honest error. Silent partial-persist is not
+        acceptable — downstream analytics cannot reason about a schedule
+        that was truncated at upload time without a record.
         """
         try:
             # WBS elements
@@ -978,12 +995,68 @@ class SupabaseStore:
                 len(schedule.wbs_nodes),
                 len(schedule.relationships),
             )
-        except Exception as exc:
-            logger.warning(
-                "Schedule data persistence failed for %s (XER fallback available): %s",
+        except Exception:
+            logger.error(
+                "Schedule data persistence failed for project %s; rolling back",
                 project_id,
-                exc,
+                exc_info=True,
             )
+            # Capture storage_path BEFORE the compensating DELETE so we can
+            # also purge the orphan XER blob — otherwise it would remain in
+            # the bucket unreachable by any query, leaking confidential
+            # schedule data and accruing cost.
+            storage_path: str | None = None
+            try:
+                probe = (
+                    self._client.table("projects")
+                    .select("storage_path")
+                    .eq("id", project_id)
+                    .limit(1)
+                    .execute()
+                )
+                if probe.data:
+                    storage_path = probe.data[0].get("storage_path") or None
+            except Exception as probe_exc:
+                logger.warning(
+                    "Could not read storage_path for rollback of %s: %s",
+                    project_id,
+                    probe_exc,
+                )
+
+            try:
+                deleted_rows = self._delete("projects", {"id": project_id})
+                if not deleted_rows:
+                    # PostgREST returns [] on RLS denial OR on row-not-found.
+                    # Either way the compensating delete did NOT take effect;
+                    # surface as WARN so the operator can reconcile.
+                    logger.warning(
+                        "Compensating delete for projects/%s affected 0 rows "
+                        "(RLS denial, already gone, or FK topology missing CASCADE)",
+                        project_id,
+                    )
+            except Exception as cleanup_exc:
+                logger.error(
+                    "Compensating delete also failed for project %s: %s",
+                    project_id,
+                    cleanup_exc,
+                )
+
+            if storage_path:
+                try:
+                    self._client.storage.from_(self.BUCKET).remove([storage_path])
+                except Exception as blob_exc:
+                    logger.warning(
+                        "Storage blob cleanup failed for %s (%s): %s",
+                        project_id,
+                        storage_path,
+                        blob_exc,
+                    )
+
+            # Bare re-raise — preserves the original persist exception as the
+            # caller-visible error. Intentional: do NOT change to
+            # ``raise original from cleanup_exc``; the belt-and-braces test
+            # asserts the original propagates even when the cleanup path fails.
+            raise
 
     def get_parsed_schedule(self, project_id: str) -> ParsedSchedule | None:
         """Reconstruct ParsedSchedule from DB, falling back to XER re-parse."""

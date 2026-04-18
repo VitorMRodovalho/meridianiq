@@ -276,6 +276,19 @@ class MockSupabaseStore(SupabaseStore):
         for row in rows:
             self._insert(table, row)
 
+    def _delete(self, table: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
+        if table not in self._tables:
+            return []
+        remaining: list[dict[str, Any]] = []
+        deleted: list[dict[str, Any]] = []
+        for r in self._tables[table]:
+            if all(r.get(col) == val for col, val in filters.items()):
+                deleted.append(r)
+            else:
+                remaining.append(r)
+        self._tables[table] = remaining
+        return deleted
+
     def _select(
         self,
         table: str,
@@ -354,16 +367,124 @@ class TestPersistScheduleData:
         for rows in store._tables.values():
             assert len(rows) == 0
 
-    def test_persistence_failure_does_not_raise(self) -> None:
-        """_persist_schedule_data should log warning, not raise."""
-        store = MockSupabaseStore()
+    def test_persistence_failure_raises_and_rolls_back(self) -> None:
+        """Atomicity contract (ADR-0012): failure re-raises and cascades a compensating
+        DELETE on the projects row; partial child rows must not survive."""
+        import pytest
 
-        def exploding_insert(table: str, rows: list[dict]) -> None:
+        store = MockSupabaseStore()
+        # Seed a projects row so the compensating delete has something to clear
+        store._insert("projects", {"id": "proj-fail", "project_name": "Failing"})
+
+        calls: list[str] = []
+        real_batch = store._batch_insert
+
+        def flaky_batch(table: str, rows: list[dict[str, Any]]) -> None:
+            calls.append(table)
+            # Let wbs_elements land, blow up on the second table (activities)
+            if len(calls) >= 2:
+                raise RuntimeError("DB connection lost")
+            real_batch(table, rows)
+
+        store._batch_insert = flaky_batch  # type: ignore[assignment]
+
+        with pytest.raises(RuntimeError, match="DB connection lost"):
+            store._persist_schedule_data("proj-fail", _make_rich_schedule())
+
+        # Compensating delete removed the projects row
+        assert store._tables.get("projects", []) == []
+        # No activities persisted (fail happened on second batch)
+        assert store._tables.get("activities", []) == []
+
+    def test_compensating_delete_failure_does_not_mask_original(self) -> None:
+        """If the compensating delete itself fails, the ORIGINAL exception must still
+        propagate — the cleanup error is logged but not raised in its place."""
+        import pytest
+
+        store = MockSupabaseStore()
+        store._insert("projects", {"id": "proj-cleanup-fail", "project_name": "X"})
+
+        def always_fail_batch(table: str, rows: list[dict[str, Any]]) -> None:
+            raise RuntimeError("original persist failure")
+
+        def always_fail_delete(table: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
+            raise RuntimeError("cleanup also failed")
+
+        store._batch_insert = always_fail_batch  # type: ignore[assignment]
+        store._delete = always_fail_delete  # type: ignore[assignment]
+
+        with pytest.raises(RuntimeError, match="original persist failure"):
+            store._persist_schedule_data("proj-cleanup-fail", _make_rich_schedule())
+
+    def test_compensating_delete_silent_no_op_logs_warning(self, caplog: Any) -> None:
+        """PostgREST returns [] on RLS denial or row-not-found. The rollback
+        path must log a WARNING so operators can reconcile instead of
+        concluding the cleanup succeeded."""
+        import logging
+        import pytest
+
+        store = MockSupabaseStore()
+        # No projects row inserted → compensating DELETE will affect 0 rows.
+
+        def exploding_batch(table: str, rows: list[dict[str, Any]]) -> None:
             raise RuntimeError("DB connection lost")
 
-        store._batch_insert = exploding_insert  # type: ignore[assignment]
-        # Should NOT raise
-        store._persist_schedule_data("proj-fail", _make_rich_schedule())
+        store._batch_insert = exploding_batch  # type: ignore[assignment]
+
+        with caplog.at_level(logging.WARNING, logger="src.database.store"):
+            with pytest.raises(RuntimeError):
+                store._persist_schedule_data("proj-ghost", _make_rich_schedule())
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("affected 0 rows" in r.getMessage() for r in warnings), (
+            "expected a WARNING about compensating delete affecting 0 rows"
+        )
+
+    def test_storage_blob_cleanup_is_attempted_on_rollback(self) -> None:
+        """On rollback the XER blob must be purged from Storage — otherwise it
+        lingers unreachable by any query, leaking confidential schedule data
+        and accruing cost. Best-effort: failure to clean is logged, not raised."""
+        import pytest
+
+        class _RecordingStorage:
+            def __init__(self) -> None:
+                self.removed: list[list[str]] = []
+
+            def from_(self, bucket: str) -> "_RecordingStorage":
+                return self
+
+            def remove(self, paths: list[str]) -> None:
+                self.removed.append(paths)
+
+        class _RecordingClient:
+            def __init__(self, tables: dict[str, list[dict[str, Any]]]) -> None:
+                self._inner = _MockClient(tables)
+                self.storage = _RecordingStorage()
+
+            def table(self, name: str) -> _MockTableQuery:
+                return self._inner.table(name)
+
+        store = MockSupabaseStore()
+        recorder = _RecordingClient(store._tables)
+        store._client = recorder  # type: ignore[assignment]
+        store._insert(
+            "projects",
+            {
+                "id": "proj-blob",
+                "project_name": "P",
+                "storage_path": "user-x/uuid-1/schedule.xer",
+            },
+        )
+
+        def exploding_batch(table: str, rows: list[dict[str, Any]]) -> None:
+            raise RuntimeError("DB connection lost")
+
+        store._batch_insert = exploding_batch  # type: ignore[assignment]
+
+        with pytest.raises(RuntimeError):
+            store._persist_schedule_data("proj-blob", _make_rich_schedule())
+
+        assert recorder.storage.removed == [["user-x/uuid-1/schedule.xer"]]
 
 
 # ------------------------------------------------------------------ #
