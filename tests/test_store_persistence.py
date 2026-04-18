@@ -237,6 +237,10 @@ class _MockTableQuery:
         self._rows = self._rows[start : end + 1]
         return self
 
+    def order(self, col: str, desc: bool = False) -> "_MockTableQuery":
+        self._rows = sorted(self._rows, key=lambda r: r.get(col, ""), reverse=desc)
+        return self
+
     def execute(self) -> Any:
         result = MagicMock()
         result.data = self._rows
@@ -308,6 +312,36 @@ class MockSupabaseStore(SupabaseStore):
         columns: str = "*",
     ) -> list[dict[str, Any]]:
         return self._select(table, {"project_id": project_id}, columns)
+
+    def _upsert(
+        self,
+        table: str,
+        data: dict[str, Any],
+        on_conflict: str,
+    ) -> dict[str, Any]:
+        if table not in self._tables:
+            self._tables[table] = []
+        keys = [k.strip() for k in on_conflict.split(",")]
+        for existing in self._tables[table]:
+            if all(existing.get(k) == data.get(k) for k in keys):
+                existing.update(data)
+                return existing
+        return self._insert(table, data)
+
+    def _update(
+        self,
+        table: str,
+        data: dict[str, Any],
+        filters: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        if table not in self._tables:
+            return []
+        updated: list[dict[str, Any]] = []
+        for row in self._tables[table]:
+            if all(row.get(col) == val for col, val in filters.items()):
+                row.update(data)
+                updated.append(row)
+        return updated
 
 
 # ------------------------------------------------------------------ #

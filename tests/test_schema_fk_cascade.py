@@ -44,6 +44,21 @@ PERSIST_CHAIN_TABLES: frozenset[str] = frozenset(
     }
 )
 
+# Tables written AFTER ``_persist_schedule_data`` returns, by the Wave 2 async
+# materializer (ADR-0009 Wave 1 + ADR-0014). These tables are not in the
+# compensating-delete chain directly, BUT they FK to ``projects`` with CASCADE
+# so the W2 materializer's rows still get cleaned up when ``projects`` is
+# deleted (for any reason, including GDPR delete, admin purge, etc.). This
+# guard composes cleanly with the compensating-delete contract of ADR-0012:
+# if any artifact exists for a project and the compensating delete fires (e.g.
+# during a failed re-upload that re-uses a project row), CASCADE prevents
+# orphans. Extend this set when W2+ introduces new post-persist tables.
+POST_PERSIST_TABLES: frozenset[str] = frozenset(
+    {
+        "schedule_derived_artifacts",
+    }
+)
+
 # Match a ``CREATE TABLE [IF NOT EXISTS] [schema.]name (`` header so we can
 # scope the FK scan to that table's body.
 _CREATE_TABLE = re.compile(
@@ -79,15 +94,15 @@ def _find_table_bodies(sql: str) -> list[tuple[str, str]]:
     return bodies
 
 
-def test_persist_chain_fks_declare_on_delete_cascade() -> None:
-    """Every table in PERSIST_CHAIN_TABLES must have ON DELETE CASCADE on its
-    FK to projects(id). Verified against all migration SQL files."""
+def _scan_fks_for_cascade(target_tables: frozenset[str]) -> list[str]:
+    """Scan migration SQL for tables in ``target_tables`` that FK to projects(id)
+    without ``ON DELETE CASCADE``. Returns a list of offender strings (empty when
+    clean)."""
     offenders: list[str] = []
-
     for sql_file in sorted(MIGRATIONS_DIR.glob("*.sql")):
         text = sql_file.read_text(encoding="utf-8")
         for table_name, body in _find_table_bodies(text):
-            if table_name not in PERSIST_CHAIN_TABLES:
+            if table_name not in target_tables:
                 continue
             for fk in _FK_TO_PROJECTS.finditer(body):
                 rest = fk.group("rest")
@@ -96,10 +111,34 @@ def test_persist_chain_fks_declare_on_delete_cascade() -> None:
                         f"{sql_file.name}: CREATE TABLE {table_name} has a FK to "
                         f"projects(id) without ON DELETE CASCADE"
                     )
+    return offenders
 
+
+def test_persist_chain_fks_declare_on_delete_cascade() -> None:
+    """Every table in PERSIST_CHAIN_TABLES must have ON DELETE CASCADE on its
+    FK to projects(id). Verified against all migration SQL files."""
+    offenders = _scan_fks_for_cascade(PERSIST_CHAIN_TABLES)
     assert not offenders, (
         "ADR-0012 compensating-delete contract violated. Every table written "
         "by _persist_schedule_data must have ON DELETE CASCADE on its FK to "
         "projects(id); otherwise a mid-persist failure leaves orphan rows "
         "after the compensating DELETE. Offenders:\n" + "\n".join(offenders)
+    )
+
+
+def test_post_persist_tables_declare_on_delete_cascade() -> None:
+    """Post-persist tables (Wave 2 async materializer output) must also declare
+    ON DELETE CASCADE on their FK to projects(id).
+
+    Per ADR-0014 + ADR-0009 Wave 1: when ``projects`` is deleted (for ANY reason —
+    GDPR, admin purge, compensating-delete on re-upload failure), the derived
+    artifacts must cascade. Omitting CASCADE here would leave forensic artefacts
+    in the DB pointing at a dead FK, violating the SCL §4 chain-of-custody
+    contract and breaking GDPR erasure compliance."""
+    offenders = _scan_fks_for_cascade(POST_PERSIST_TABLES)
+    assert not offenders, (
+        "ADR-0014 cascade contract violated. Every table written by the Wave 2 "
+        "async materializer must have ON DELETE CASCADE on its FK to projects(id); "
+        "otherwise deletion of a project leaves orphan derived artifacts. "
+        "Offenders:\n" + "\n".join(offenders)
     )

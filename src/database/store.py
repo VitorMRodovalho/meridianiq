@@ -69,6 +69,11 @@ class InMemoryStore:
         self._cost_upload_counter: int = 0
         # Risk register entries — per-project risk inventory
         self._risk_entries: dict[str, list[dict[str, Any]]] = {}
+        # Cycle 1 Wave 1 — derived-artifact materialization (ADR-0009 + ADR-0014)
+        self._derived_artifacts: list[dict[str, Any]] = []
+        self._derived_artifact_counter: int = 0
+        # Shadow audit_log (in-memory mirror of supabase audit_log for tests)
+        self._audit_log: list[dict[str, Any]] = []
 
     # -- programs --------------------------------------------------------
 
@@ -548,6 +553,161 @@ class InMemoryStore:
                 return True
         return False
 
+    # -- derived artifacts (ADR-0009 Wave 1 + ADR-0014) ------------------
+
+    _VALID_STALE_REASONS = frozenset(
+        {"input_changed", "engine_upgraded", "ruleset_upgraded", "manual"}
+    )
+    _VALID_ARTIFACT_KINDS = frozenset({"dcma", "health", "cpm", "float_trends", "lifecycle_health"})
+
+    def save_derived_artifact(
+        self,
+        project_id: str,
+        artifact_kind: str,
+        payload: dict[str, Any],
+        engine_version: str,
+        ruleset_version: str,
+        input_hash: str,
+        effective_at: datetime,
+        computed_by: str | None = None,
+        *,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict[str, Any]:
+        """Upsert a derived-artifact row and write the paired audit_log row.
+
+        On conflict over the identity tuple
+        ``(project_id, artifact_kind, engine_version, ruleset_version, input_hash)``,
+        the existing row is refreshed: ``computed_at`` / ``computed_by`` /
+        ``payload`` are overwritten and ``is_stale`` is cleared to False (with
+        ``stale_reason`` cleared to None). This makes re-materialization after
+        a stale-flip idempotently refresh the row.
+
+        The paired ``audit_log`` row with ``action='materialize'`` is written
+        on every call irrespective of conflict outcome — each materialization
+        attempt is a separate auditable event per ADR-0014 (SCL Protocol 2nd
+        ed §4 chain-of-custody).
+
+        Raises:
+            ValueError: if ``artifact_kind`` is not one of the DB CHECK values.
+        """
+        if artifact_kind not in self._VALID_ARTIFACT_KINDS:
+            raise ValueError(
+                f"invalid artifact_kind: {artifact_kind!r}; must be one of "
+                f"{sorted(self._VALID_ARTIFACT_KINDS)}"
+            )
+        now = datetime.now(UTC)
+        for row in self._derived_artifacts:
+            if (
+                row["project_id"] == project_id
+                and row["artifact_kind"] == artifact_kind
+                and row["engine_version"] == engine_version
+                and row["ruleset_version"] == ruleset_version
+                and row["input_hash"] == input_hash
+            ):
+                row["payload"] = payload
+                row["effective_at"] = effective_at
+                row["computed_at"] = now
+                row["computed_by"] = computed_by
+                row["is_stale"] = False
+                row["stale_reason"] = None
+                saved = row
+                break
+        else:
+            self._derived_artifact_counter += 1
+            saved = {
+                "id": f"sda-{self._derived_artifact_counter:06d}",
+                "project_id": project_id,
+                "artifact_kind": artifact_kind,
+                "payload": payload,
+                "engine_version": engine_version,
+                "ruleset_version": ruleset_version,
+                "input_hash": input_hash,
+                "effective_at": effective_at,
+                "computed_at": now,
+                "computed_by": computed_by,
+                "is_stale": False,
+                "stale_reason": None,
+            }
+            self._derived_artifacts.append(saved)
+
+        self._audit_log.append(
+            {
+                "user_id": computed_by,
+                "action": "materialize",
+                "entity_type": "project",
+                "entity_id": project_id,
+                "details": {
+                    "artifact_kind": artifact_kind,
+                    "artifact_id": saved["id"],
+                    "engine_version": engine_version,
+                    "ruleset_version": ruleset_version,
+                    "input_hash": input_hash,
+                },
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "created_at": now,
+            }
+        )
+        return saved
+
+    def get_latest_derived_artifact(
+        self,
+        project_id: str,
+        artifact_kind: str,
+        current_engine_version: str,
+        current_ruleset_version: str,
+    ) -> dict[str, Any] | None:
+        """Return the most recent non-stale artifact of the given kind for the project.
+
+        Returns None when no non-stale artifact exists, when the latest stored
+        ``engine_version`` differs from ``current_engine_version``, or when the
+        latest stored ``ruleset_version`` differs from ``current_ruleset_version``.
+        The version-mismatch path forces re-materialization under the current
+        engine per ADR-0014.
+        """
+        candidates = [
+            r
+            for r in self._derived_artifacts
+            if r["project_id"] == project_id
+            and r["artifact_kind"] == artifact_kind
+            and not r["is_stale"]
+        ]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda r: r["computed_at"], reverse=True)
+        latest = candidates[0]
+        if latest["engine_version"] != current_engine_version:
+            return None
+        if latest["ruleset_version"] != current_ruleset_version:
+            return None
+        return latest
+
+    def mark_stale(
+        self,
+        project_id: str,
+        stale_reason: str = "input_changed",
+    ) -> int:
+        """Flip ``is_stale=True`` and set ``stale_reason`` on every artifact of a project.
+
+        Returns the number of rows affected. Called from the upload happy-path
+        alongside ``invalidate_namespace("schedule:kpis")``. Default reason is
+        ``'input_changed'`` for the common upload case; callers pass explicit
+        ``'engine_upgraded'`` / ``'ruleset_upgraded'`` / ``'manual'`` for
+        targeted re-materialization workflows (AACE RP 114R determinism).
+        """
+        if stale_reason not in self._VALID_STALE_REASONS:
+            raise ValueError(
+                f"invalid stale_reason: {stale_reason!r}; must be one of {sorted(self._VALID_STALE_REASONS)}"
+            )
+        affected = 0
+        for row in self._derived_artifacts:
+            if row["project_id"] == project_id:
+                row["is_stale"] = True
+                row["stale_reason"] = stale_reason
+                affected += 1
+        return affected
+
 
 # ------------------------------------------------------------------ #
 # SupabaseStore — Storage bucket + PostgreSQL metadata               #
@@ -643,6 +803,41 @@ class SupabaseStore:
                 break
             offset += page_size
         return all_rows
+
+    def _upsert(
+        self,
+        table: str,
+        data: dict[str, Any],
+        on_conflict: str,
+    ) -> dict[str, Any]:
+        """Upsert a row using the given ON CONFLICT target.
+
+        ``on_conflict`` is a comma-separated list of column names matching a
+        unique constraint (e.g. ``"project_id,artifact_kind,engine_version"``).
+        Returns the upserted row. Added Wave 1 Cycle 1 v4.0 (ADR-0014).
+        """
+        result = self._client.table(table).upsert(data, on_conflict=on_conflict).execute()
+        upserted: list[dict[str, Any]] = result.data or []
+        return upserted[0] if upserted else {}
+
+    def _update(
+        self,
+        table: str,
+        data: dict[str, Any],
+        filters: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Update rows matching equality filters. Returns the updated rows.
+
+        PostgREST silently returns ``[]`` when RLS denies the UPDATE (same
+        pattern as ``_delete`` in ADR-0012 amendment #2). Callers that need
+        to detect silent no-ops inspect the returned list length.
+        """
+        query = self._client.table(table).update(data)
+        for col, val in filters.items():
+            query = query.eq(col, val)
+        result = query.execute()
+        updated: list[dict[str, Any]] = result.data or []
+        return updated
 
     @staticmethod
     def _dt_iso(dt: datetime | None) -> str | None:
@@ -1438,9 +1633,7 @@ class SupabaseStore:
         ).execute()
         data = result.data
         if not data:
-            raise RuntimeError(
-                f"upsert_program returned empty payload for user={user_id}"
-            )
+            raise RuntimeError(f"upsert_program returned empty payload for user={user_id}")
         # PostgREST serialises a ``RETURNS UUID`` scalar as a bare string.
         # Older supabase-py versions sometimes wrap it; be defensive.
         if isinstance(data, str):
@@ -2101,6 +2294,185 @@ class SupabaseStore:
         except Exception as exc:
             logger.warning("get_cost_snapshot failed: %s", exc)
             return None
+
+    # -- derived artifacts (ADR-0009 Wave 1 + ADR-0014) ------------------
+
+    _VALID_STALE_REASONS = frozenset(
+        {"input_changed", "engine_upgraded", "ruleset_upgraded", "manual"}
+    )
+    _VALID_ARTIFACT_KINDS = frozenset({"dcma", "health", "cpm", "float_trends", "lifecycle_health"})
+
+    def save_derived_artifact(
+        self,
+        project_id: str,
+        artifact_kind: str,
+        payload: dict[str, Any],
+        engine_version: str,
+        ruleset_version: str,
+        input_hash: str,
+        effective_at: datetime,
+        computed_by: str | None = None,
+        *,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict[str, Any]:
+        """Upsert a ``schedule_derived_artifacts`` row + write the paired audit_log row.
+
+        On conflict over the identity tuple
+        ``(project_id, artifact_kind, engine_version, ruleset_version, input_hash)``
+        the existing row is refreshed: ``payload`` / ``computed_at`` /
+        ``computed_by`` are overwritten and ``is_stale`` cleared to False with
+        ``stale_reason=NULL``. This makes re-materialization after a stale-flip
+        idempotently refresh the row.
+
+        The paired ``audit_log`` row with ``action='materialize'`` is written
+        unconditionally per ADR-0014 (SCL Protocol 2nd ed §4 chain-of-custody).
+        Each materialization attempt is a separate auditable event even if the
+        identity tuple already exists; the audit row details.artifact_id points
+        to the refreshed row's id. If the audit insert fails (transient 5xx,
+        cold-start 502, or RLS denial), the exception is caught and logged at
+        ERROR with structured fields so operators can reconcile via a future
+        reaper — the artifact row stays saved because it is still valid data.
+        A future ADR-0016 may wrap both writes in a Postgres RPC for strict
+        atomicity; W1 scope follows the ADR-0012 precedent of best-effort plus
+        compensating-action-on-failure over transactional-RPC-on-hot-path.
+
+        Raises:
+            ValueError: if ``artifact_kind`` is not one of the DB CHECK values
+                (``dcma``, ``health``, ``cpm``, ``float_trends``, ``lifecycle_health``).
+        """
+        if artifact_kind not in self._VALID_ARTIFACT_KINDS:
+            raise ValueError(
+                f"invalid artifact_kind: {artifact_kind!r}; must be one of "
+                f"{sorted(self._VALID_ARTIFACT_KINDS)}"
+            )
+        now_iso = datetime.now(UTC).isoformat()
+        row = {
+            "project_id": project_id,
+            "artifact_kind": artifact_kind,
+            "payload": payload,
+            "engine_version": engine_version,
+            "ruleset_version": ruleset_version,
+            "input_hash": input_hash,
+            "effective_at": effective_at.isoformat(),
+            "computed_at": now_iso,
+            "computed_by": computed_by,
+            "is_stale": False,
+            "stale_reason": None,
+        }
+        saved = self._upsert(
+            "schedule_derived_artifacts",
+            row,
+            on_conflict="project_id,artifact_kind,engine_version,ruleset_version,input_hash",
+        )
+        try:
+            self._insert(
+                "audit_log",
+                {
+                    "user_id": computed_by,
+                    "action": "materialize",
+                    "entity_type": "project",
+                    "entity_id": project_id,
+                    "details": {
+                        "artifact_kind": artifact_kind,
+                        "artifact_id": saved.get("id"),
+                        "engine_version": engine_version,
+                        "ruleset_version": ruleset_version,
+                        "input_hash": input_hash,
+                    },
+                    "ip_address": ip_address,
+                    "user_agent": user_agent,
+                },
+            )
+        except Exception as exc:
+            logger.error(
+                "audit_log_insert_failed action=materialize project_id=%s "
+                "artifact_id=%s artifact_kind=%s error=%s",
+                project_id,
+                saved.get("id"),
+                artifact_kind,
+                exc,
+            )
+        return saved
+
+    def get_latest_derived_artifact(
+        self,
+        project_id: str,
+        artifact_kind: str,
+        current_engine_version: str,
+        current_ruleset_version: str,
+    ) -> dict[str, Any] | None:
+        """Return the most recent non-stale artifact of the given kind for the project.
+
+        Reads via the partial index ``idx_sda_latest_fresh``
+        ``(project_id, artifact_kind, computed_at DESC) WHERE is_stale=false``.
+
+        Returns None when:
+        - no non-stale artifact exists for ``(project_id, artifact_kind)``
+        - stored ``engine_version`` differs from ``current_engine_version``
+        - stored ``ruleset_version`` differs from ``current_ruleset_version``
+
+        Version-mismatch → None forces re-materialization under the current
+        engine on the next read-path invocation per ADR-0014.
+        """
+        result = (
+            self._client.table("schedule_derived_artifacts")
+            .select("*")
+            .eq("project_id", project_id)
+            .eq("artifact_kind", artifact_kind)
+            .eq("is_stale", False)
+            .order("computed_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows: list[dict[str, Any]] = result.data or []
+        if not rows:
+            return None
+        latest = rows[0]
+        if latest.get("engine_version") != current_engine_version:
+            return None
+        if latest.get("ruleset_version") != current_ruleset_version:
+            return None
+        return latest
+
+    def mark_stale(
+        self,
+        project_id: str,
+        stale_reason: str = "input_changed",
+    ) -> int:
+        """Flip ``is_stale=True`` and set ``stale_reason`` on all artifacts of a project.
+
+        Returns the number of rows affected. Called from the upload happy-path
+        alongside ``invalidate_namespace("schedule:kpis")``. Default reason is
+        ``'input_changed'`` for the upload case; callers pass explicit
+        ``'engine_upgraded'`` / ``'ruleset_upgraded'`` / ``'manual'`` for
+        targeted re-materialization (AACE RP 114R determinism).
+
+        Under the ``authenticated`` role the UPDATE requires the
+        ``sda_update_own`` RLS policy (migration 023); a silent-no-op return
+        of 0 rows signals the policy is missing or the caller lacks ownership.
+
+        Raises:
+            ValueError: if ``stale_reason`` is not one of the CHECK values.
+        """
+        if stale_reason not in self._VALID_STALE_REASONS:
+            raise ValueError(
+                f"invalid stale_reason: {stale_reason!r}; must be one of {sorted(self._VALID_STALE_REASONS)}"
+            )
+        updated = self._update(
+            "schedule_derived_artifacts",
+            {"is_stale": True, "stale_reason": stale_reason},
+            {"project_id": project_id},
+        )
+        count = len(updated)
+        if count == 0:
+            logger.warning(
+                "mark_stale affected 0 rows for project_id=%s reason=%s "
+                "(no artifacts yet, all already stale, or RLS denial under authenticated role)",
+                project_id,
+                stale_reason,
+            )
+        return count
 
 
 # ------------------------------------------------------------------ #
