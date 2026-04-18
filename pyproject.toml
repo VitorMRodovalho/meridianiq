@@ -22,7 +22,11 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-    "pydantic>=2.10",
+    # Upper bound pinned per ADR-0015 P2#9 (Wave 1 devils-advocate
+    # follow-up): a silent 2.x-minor ``model_dump`` change would shift the
+    # ADR-0014 byte-exact input_hash pins. Lock the minor range until a
+    # conscious bump is audited against the pinned fixtures.
+    "pydantic>=2.10,<3.0",
     "networkx>=3.4",
     "numpy>=2.0",
     "supabase>=2.10",

@@ -1,6 +1,6 @@
 # 0014. Schedule derived-artifact provenance — hash canonicalization and column shape
 
-* Status: accepted
+* Status: accepted — §RLS quadruple rationale (service_role premise) amended by ADR-0015
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-18
 * Council review: `backend-reviewer` (schema correctness, RLS UPDATE gap, partial-index strategy, PG17 `NULLS NOT DISTINCT`); `product-validator` (SCL Protocol 2nd ed §4 chain-of-custody, AACE RP 57R §4.1 effective-date naming, AACE RP 114R Monte Carlo determinism)

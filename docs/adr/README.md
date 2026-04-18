@@ -18,6 +18,14 @@ Medium-sized projects accumulate decisions quickly. Without ADRs, the reasoning 
 | [0003](0003-supabase-for-auth-db-storage.md) | Supabase for auth, database, and storage | accepted |
 | [0004](0004-flyio-for-backend-hosting.md) | Fly.io for backend hosting | accepted |
 | [0005](0005-es256-jwt-algorithm.md) | ES256 JWT algorithm with JWKS | accepted |
+| [0006](0006-plugin-architecture.md) | Third-party plugin architecture | accepted |
+| [0007](0007-websocket-progress-streaming.md) | Minimum viable WebSocket progress | superseded by 0013 |
+| [0008](0008-mcp-http-sse-transport.md) | MCP HTTP/SSE transport | accepted |
+| [0009](0009-cycle1-lifecycle-intelligence.md) | Cycle 1 v4.0 — Lifecycle Intelligence | accepted |
+| [0012](0012-schedule-persistence-atomicity.md) | Schedule persistence atomicity (phased) | accepted, phase closed by 0015 |
+| [0013](0013-websocket-progress-hardening.md) | WebSocket progress hardening | accepted |
+| [0014](0014-derived-artifact-provenance-hash.md) | Derived-artifact provenance hash | accepted, amended by 0015 |
+| [0015](0015-async-materialization-state-machine.md) | Async materializer + `projects.status` state machine | accepted |
 
 ## Adding a new ADR
 

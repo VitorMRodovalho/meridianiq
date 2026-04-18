@@ -1,6 +1,6 @@
 # 0012. Schedule persistence atomicity — compensating delete now, status lifecycle later
 
-* Status: accepted
+* Status: accepted — phased commitment (option d→c) closed by ADR-0015 (Wave 2)
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-18
 * Council review: `backend-reviewer` (pre-check, surfaced option (d) via FK topology audit); `devils-advocate` (P1 flag in Cycle 1 council); see `project_v40_cycle_1.md`
