@@ -21,6 +21,13 @@ export interface ScheduleMetadata {
 	tags?: string[];
 }
 
+// Lifecycle state of a project as written in the DB.
+// - 'pending'  – upload persisted, async materializer has not flipped it yet.
+// - 'ready'    – at least one materialisation pass succeeded.
+// - 'failed'   – materializer or persist pipeline errored; row is retained
+//                for the forensic audit trail (ADR-0015).
+export type ProjectStatus = 'pending' | 'ready' | 'failed';
+
 export interface ProjectSummary {
 	project_id: string;
 	name: string;
@@ -29,6 +36,9 @@ export interface ProjectSummary {
 	calendar_count: number;
 	wbs_count: number;
 	data_date: string | null;
+	status: ProjectStatus;
+	job_id?: string | null;
+	ws_url?: string | null;
 	metadata?: ScheduleMetadata | null;
 }
 
@@ -38,6 +48,7 @@ export interface ProjectListItem {
 	activity_count: number;
 	relationship_count: number;
 	data_date?: string | null;
+	status: ProjectStatus;
 	tags?: string[];
 }
 
@@ -54,6 +65,7 @@ export interface ProgramRevision {
 	uploaded_at: string | null;
 	revision_number: number;
 	activity_count: number;
+	status?: ProjectStatus;
 }
 
 export interface ProgramListItem {

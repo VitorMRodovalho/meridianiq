@@ -837,4 +837,18 @@ export default {
 	'shortcuts.zoom_out': 'Diminuir zoom',
 	'shortcuts.expand_all': 'Expandir toda EAP',
 	'shortcuts.collapse_all': 'Recolher toda EAP',
+
+	// Estado do projeto (ADR-0015)
+	'status.ready': 'Pronto',
+	'status.computing': 'Processando',
+	'status.failed': 'Falhou',
+	'status.retry': 'Tentar novamente',
+	'status.stuck': 'Ainda rodando',
+	'upload.computing_toast': 'Arquivo lido — análise rodando em segundo plano',
+	'upload.redirecting': 'Redirecionando ao projeto…',
+	'analysis.materializing_banner': 'Calculando as análises — normalmente leva 5 a 30 segundos.',
+	'analysis.stale_hint': 'Resultados baseados numa versão anterior do motor. Nova execução disponível.',
+	'analysis.retry': 'Reexecutar materialização',
+	'projects.col_status': 'Situação',
+	'projects.computing_global': 'Processando {count} projeto(s) em segundo plano',
 } as Record<string, string>;

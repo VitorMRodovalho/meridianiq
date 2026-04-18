@@ -839,4 +839,18 @@ export default {
 	'shortcuts.zoom_out': 'Zoom out',
 	'shortcuts.expand_all': 'Expand all WBS',
 	'shortcuts.collapse_all': 'Collapse all WBS',
+
+	// Project lifecycle state (ADR-0015)
+	'status.ready': 'Ready',
+	'status.computing': 'Computing',
+	'status.failed': 'Failed',
+	'status.retry': 'Retry',
+	'status.stuck': 'Still running',
+	'upload.computing_toast': 'Parsed — analysis running in background',
+	'upload.redirecting': 'Redirecting to project…',
+	'analysis.materializing_banner': 'Computing analytics — this usually takes 5–30 seconds.',
+	'analysis.stale_hint': 'Results based on an older engine version. A fresh run is available.',
+	'analysis.retry': 'Retry materialization',
+	'projects.col_status': 'Status',
+	'projects.computing_global': 'Computing {count} project(s) in the background',
 } as Record<string, string>;

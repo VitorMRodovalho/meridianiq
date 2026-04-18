@@ -837,4 +837,18 @@ export default {
 	'shortcuts.zoom_out': 'Alejar',
 	'shortcuts.expand_all': 'Expandir toda EDT',
 	'shortcuts.collapse_all': 'Contraer toda EDT',
+
+	// Estado del proyecto (ADR-0015)
+	'status.ready': 'Listo',
+	'status.computing': 'Procesando',
+	'status.failed': 'Falló',
+	'status.retry': 'Reintentar',
+	'status.stuck': 'Aún ejecutándose',
+	'upload.computing_toast': 'Archivo leído — análisis en segundo plano',
+	'upload.redirecting': 'Redirigiendo al proyecto…',
+	'analysis.materializing_banner': 'Calculando el análisis — suele tardar de 5 a 30 segundos.',
+	'analysis.stale_hint': 'Resultados basados en una versión anterior del motor. Nueva ejecución disponible.',
+	'analysis.retry': 'Reejecutar materialización',
+	'projects.col_status': 'Estado',
+	'projects.computing_global': 'Procesando {count} proyecto(s) en segundo plano',
 } as Record<string, string>;

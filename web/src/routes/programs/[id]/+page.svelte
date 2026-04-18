@@ -9,6 +9,8 @@
 		type ProgramRevision
 	} from '$lib/api';
 	import TrendChart from '$lib/components/TrendChart.svelte';
+	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { t } from '$lib/i18n';
 	import type { ProgramTrends } from '$lib/types';
 	import type { ProgramRollup } from '$lib/api';
 
@@ -295,6 +297,7 @@
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Data Date</th>
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Filename</th>
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Activities</th>
+								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('projects.col_status')}</th>
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Health Score</th>
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Uploaded</th>
 								<th class="px-6 py-3"></th>
@@ -316,6 +319,11 @@
 									</td>
 									<td class="px-6 py-4 text-gray-600 dark:text-gray-400">
 										{revObj.activity_count ?? '—'}
+									</td>
+									<td class="px-6 py-4">
+										<StatusBadge
+											status={(revObj.status as 'pending' | 'ready' | 'failed' | undefined) ?? 'ready'}
+										/>
 									</td>
 									<td class="px-6 py-4">
 										{#if healthScore !== null}

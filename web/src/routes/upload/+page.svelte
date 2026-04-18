@@ -2,6 +2,7 @@
 	import { uploadXER } from '$lib/api';
 	import { trackEvent } from '$lib/analytics';
 	import { success, error as toastError } from '$lib/toast';
+	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { ProjectSummary } from '$lib/types';
 	import { t } from '$lib/i18n';
 
@@ -44,10 +45,17 @@
 		result = null;
 		try {
 			result = await uploadXER(file, isSandbox);
-			success(`Parsed ${result.activity_count} activities and ${result.relationship_count} relationships`);
+			// ADR-0015: pending means the async materializer is still running;
+			// ready means the sync fast-path completed (InMemoryStore / tests).
+			const toastMsg =
+				result.status === 'pending'
+					? $t('upload.computing_toast')
+					: `${$t('upload.success')} — ${result.activity_count} × ${result.relationship_count}`;
+			success(toastMsg);
 			trackEvent('xer_upload_success', {
 				activity_count: result.activity_count,
 				relationship_count: result.relationship_count,
+				status: result.status,
 			});
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Upload failed';
@@ -119,12 +127,18 @@
 	<!-- Result -->
 	{#if result}
 		<div class="mt-6 bg-white border border-gray-200 rounded-lg p-6">
-			<div class="flex items-center gap-2 mb-4">
+			<div class="flex flex-wrap items-center gap-2 mb-4">
 				<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
 					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 				</svg>
 				<h2 class="text-lg font-semibold text-gray-900">{$t('upload.success')}</h2>
+				<StatusBadge status={result.status ?? 'pending'} />
 			</div>
+			{#if result.status === 'pending'}
+				<p class="mb-4 text-sm text-sky-700 dark:text-sky-300">
+					{$t('upload.computing_toast')}
+				</p>
+			{/if}
 
 			<dl class="grid grid-cols-2 gap-4 text-sm">
 				<div>

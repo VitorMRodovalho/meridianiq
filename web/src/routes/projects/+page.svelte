@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getProjects, getPrograms } from '$lib/api';
 	import { t } from '$lib/i18n';
+	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { ProjectListItem, ProgramListItem } from '$lib/types';
 
 	let projects: ProjectListItem[] = $state([]);
@@ -202,6 +203,7 @@
 								</button>
 							</th>
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('projects.col_project_id')}</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('projects.col_status')}</th>
 							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
 								<button class="inline-flex items-center gap-1 hover:text-gray-700 dark:text-gray-300" onclick={() => toggleSort('activities')}>
 									{$t('projects.col_activities')} <span class="text-blue-500">{sortIcon('activities')}</span>
@@ -223,6 +225,9 @@
 							>
 								<td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{project.name || $t('projects.unnamed')}</td>
 								<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{project.project_id}</td>
+								<td class="px-6 py-4 text-sm">
+									<StatusBadge status={project.status ?? 'ready'} />
+								</td>
 								<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 text-right">{project.activity_count}</td>
 								<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 text-right">{project.relationship_count}</td>
 								<td class="px-6 py-4 text-right" onclick={(e) => e.stopPropagation()}>
