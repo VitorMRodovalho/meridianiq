@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
+	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
@@ -54,9 +55,9 @@
 			const res = await fetch(`${BASE}/api/v1/cost/upload`, { method: 'POST', headers, body: formData });
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
-			toastSuccess(`Parsed ${data!.cbs_element_count} CBS elements`);
+			toastSuccess(`${data!.cbs_element_count} ${$t('cost.toast_parsed')}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			error = e instanceof Error ? e.message : $t('cost.load_failed');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -93,34 +94,34 @@
 </script>
 
 <svelte:head>
-	<title>Cost Integration | MeridianIQ</title>
+	<title>{$t('cost.title')} | MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-7xl mx-auto px-4 py-8">
 	<div class="flex items-start justify-between mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Cost-Schedule Integration</h1>
-			<p class="text-sm text-gray-500 dark:text-gray-400">CBS/WBS correlation — upload program budget Excel to analyze cost breakdown (AACE RP 10S-90)</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{$t('cost.title')}</h1>
+			<p class="text-sm text-gray-500 dark:text-gray-400">{$t('cost.subtitle')}</p>
 		</div>
 		<div class="flex gap-2 shrink-0">
 			<a
 				href="/cost/compare"
 				class="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
 			>
-				Compare Snapshots →
+				{$t('cost.link_compare')}
 			</a>
 			<a
 				href="/cost/g702"
 				class="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
 			>
-				AIA G702 Certificate →
+				{$t('cost.link_g702')}
 			</a>
 		</div>
 	</div>
 
 	<!-- Upload -->
 	<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-		<label for="cbs-upload" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload CBS Excel (.xlsx)</label>
+		<label for="cbs-upload" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{$t('cost.upload_label')}</label>
 		<input id="cbs-upload" type="file" accept=".xlsx,.xls" onchange={handleUpload} class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-950 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100" />
 	</div>
 
@@ -133,26 +134,26 @@
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xl font-bold text-gray-900 dark:text-gray-100">{fmt(data.total_budget)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400">Total Estimate</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400">{$t('cost.stat_total_estimate')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xl font-bold text-amber-600">{fmt(data.total_contingency)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400">Contingency</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400">{$t('cost.stat_contingency')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xl font-bold text-blue-600">{data.cbs_element_count}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400">CBS Elements</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400">{$t('cost.stat_cbs_elements')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xl font-bold text-purple-600">{data.mapping_count}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400">CBS-WBS Mappings</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400">{$t('cost.stat_mappings')}</p>
 			</div>
 		</div>
 
 		<!-- Insights -->
 		{#if data.insights.length > 0}
 			<div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-				<h3 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Cost Insights</h3>
+				<h3 class="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">{$t('cost.insights_title')}</h3>
 				<ul class="space-y-1">
 					{#each data.insights as insight}
 						<li class="text-xs text-blue-700 dark:text-blue-400">{insight}</li>
@@ -165,13 +166,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 			{#if wbsChart.length > 0}
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Top WBS by Budget ($M)</h3>
+					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('cost.chart_top_wbs')}</h3>
 					<BarChart data={wbsChart} height={200} />
 				</div>
 			{/if}
 			{#if cbsL1Chart.length > 0}
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">CBS Level 1 ($M)</h3>
+					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('cost.chart_cbs_l1')}</h3>
 					<BarChart data={cbsL1Chart} height={200} />
 				</div>
 			{/if}
@@ -181,14 +182,14 @@
 		{#if data.cbs_wbs_mappings.length > 0}
 			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-6">
 				<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-					CBS → WBS Mappings ({data.cbs_wbs_mappings.length})
+					{$t('cost.mapping_title')} ({data.cbs_wbs_mappings.length})
 				</summary>
 				<table class="w-full text-xs">
 					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">Cost Category</th>
-							<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">CBS Code</th>
-							<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">WBS Level 1</th>
+							<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">{$t('cost.col_cost_category')}</th>
+							<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">{$t('cost.col_cbs_code')}</th>
+							<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">{$t('cost.col_wbs_l1')}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -207,13 +208,13 @@
 		<!-- WBS Budgets Table -->
 		<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
 			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-				WBS Budgets ({data.wbs_budgets.length})
+				{$t('cost.wbs_budgets_title')} ({data.wbs_budgets.length})
 			</summary>
 			<table class="w-full text-xs">
 				<thead class="bg-gray-50 dark:bg-gray-800">
 					<tr>
-						<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">WBS Code</th>
-						<th class="text-right py-2 px-3 text-gray-500 dark:text-gray-400">Budget</th>
+						<th class="text-left py-2 px-3 text-gray-500 dark:text-gray-400">{$t('cost.col_wbs_code')}</th>
+						<th class="text-right py-2 px-3 text-gray-500 dark:text-gray-400">{$t('cost.col_budget')}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -228,8 +229,8 @@
 		</details>
 	{:else}
 		<div class="text-center py-12 text-gray-400 dark:text-gray-600">
-			<p class="text-lg mb-2">Upload a CBS Excel file to analyze cost breakdown</p>
-			<p class="text-sm">Supports program budget workbooks with CBS/WBS summary sheets</p>
+			<p class="text-lg mb-2">{$t('cost.empty_title')}</p>
+			<p class="text-sm">{$t('cost.empty_hint')}</p>
 		</div>
 	{/if}
 </main>

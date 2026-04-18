@@ -52,7 +52,7 @@
 			const res = await getProjects();
 			projects = res.projects;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			error = e instanceof Error ? e.message : $t('trends.load_failed');
 		}
 	}
 
@@ -77,7 +77,7 @@
 
 	async function analyze() {
 		if (selectedIds.length < 2) {
-			toastError('Select at least 2 schedules');
+			toastError($t('trends.toast_need_two'));
 			return;
 		}
 		loading = true;
@@ -96,9 +96,9 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
-			toastSuccess(`Analyzed ${data!.point_count} schedule updates`);
+			toastSuccess(`${$t('trends.toast_analyzed_prefix')} ${data!.point_count} ${$t('trends.toast_analyzed_suffix')}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			error = e instanceof Error ? e.message : $t('trends.analyze_failed');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -125,23 +125,23 @@
 </script>
 
 <svelte:head>
-	<title>Schedule Trends | MeridianIQ</title>
+	<title>{$t('nav.trends')} | MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-7xl mx-auto px-4 py-8">
-	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Schedule Trends</h1>
-	<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Track schedule evolution across sequential updates (AACE RP 29R-03)</p>
+	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{$t('nav.trends')}</h1>
+	<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">{$t('trends.subtitle')}</p>
 
 	<!-- Project selector -->
 	<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
 		<div class="flex items-center justify-between mb-3">
-			<h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Select Schedule Updates ({selectedIds.length} selected)</h2>
+			<h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{$t('trends.select_title')} ({selectedIds.length} {$t('trends.selected_suffix')})</h2>
 			<div class="flex gap-2">
-				<button onclick={selectAll} class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200">Select All</button>
-				<button onclick={clearSelection} class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200">Clear</button>
+				<button onclick={selectAll} class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200">{$t('trends.btn_select_all')}</button>
+				<button onclick={clearSelection} class="text-[10px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200">{$t('trends.btn_clear')}</button>
 				<button onclick={analyze} disabled={selectedIds.length < 2 || loading}
 					class="text-[10px] px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 font-medium">
-					{loading ? 'Analyzing...' : 'Analyze Trends'}
+					{loading ? $t('trends.btn_analyzing') : $t('trends.btn_analyze')}
 				</button>
 			</div>
 		</div>
@@ -166,7 +166,7 @@
 		<!-- Insights -->
 		{#if data.insights.length > 0}
 			<div class="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
-				<h3 class="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Trend Insights — {data.series_name}</h3>
+				<h3 class="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">{$t('trends.insights_title')} — {data.series_name}</h3>
 				<ul class="space-y-1">
 					{#each data.insights as insight}
 						<li class="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
@@ -182,44 +182,44 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 			<!-- Activity Count -->
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Activity Count (Scope Growth)</h3>
+				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_activity')}</h3>
 				<BarChart data={activityChart} height={200}/>
 			</div>
 
 			<!-- Completion % -->
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Completion Progress (%)</h3>
+				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_completion')}</h3>
 				<BarChart data={completionChart} height={200}/>
 			</div>
 
 			<!-- Average Float -->
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Average Total Float (days)</h3>
+				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_float')}</h3>
 				<BarChart data={floatChart} height={200}/>
 			</div>
 
 			<!-- Critical Count -->
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Critical Path Activities</h3>
+				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_critical')}</h3>
 				<BarChart data={criticalChart} height={200}/>
 			</div>
 
 			<!-- Negative Float -->
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Negative Float Activities</h3>
+				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_neg_float')}</h3>
 				<BarChart data={negFloatChart} height={200}/>
 			</div>
 
 			<!-- Logic Density -->
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Logic Density (rels/acts)</h3>
+				<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_logic_density')}</h3>
 				<BarChart data={logicDensityChart} height={200}/>
 			</div>
 
 			<!-- Quality Score -->
 			{#if qualityChart.some(d => d.value > 0)}
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Schedule Quality Score (0-100)</h3>
+					<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('trends.chart_quality')}</h3>
 					<BarChart data={qualityChart} height={200}/>
 				</div>
 			{/if}
@@ -228,24 +228,24 @@
 		<!-- Data table -->
 		<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
 			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-				Trend Data ({data.point_count} updates)
+				{$t('trends.data_title')} ({data.point_count} {$t('trends.data_updates_suffix')})
 			</summary>
 			<div class="overflow-x-auto">
 				<table class="w-full text-[10px]">
 					<thead class="sticky top-0 bg-gray-50 dark:bg-gray-800">
 						<tr>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Update</th>
-							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">Data Date</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Acts</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Rels</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">WBS</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Done%</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Avg TF</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">CP</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Neg TF</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Near CP</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Density</th>
-							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">Score</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_update')}</th>
+							<th class="text-left py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_data_date')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_acts')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_rels')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_wbs')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_done_pct')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_avg_tf')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_cp')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_neg_tf')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_near_cp')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_density')}</th>
+							<th class="text-right py-1.5 px-2 font-semibold text-gray-500">{$t('trends.col_score')}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -271,8 +271,8 @@
 		</details>
 	{:else}
 		<div class="text-center py-12 text-gray-400 dark:text-gray-600">
-			<p class="text-lg mb-2">Select 2+ schedule updates to analyze trends</p>
-			<p class="text-sm">Choose sequential submissions from the same project to track schedule evolution</p>
+			<p class="text-lg mb-2">{$t('trends.empty_title')}</p>
+			<p class="text-sm">{$t('trends.empty_hint')}</p>
 		</div>
 	{/if}
 </main>
