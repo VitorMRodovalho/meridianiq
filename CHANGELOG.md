@@ -33,6 +33,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **Mobile responsiveness pass** (wave 5) — fixed 9 hot-spot pages where `grid-cols-3` / `grid-cols-4` KPI summaries collapsed into squashed cards on phones. Pattern: `grid-cols-3 → grid-cols-1 sm:grid-cols-3` (or `grid-cols-2 md:grid-cols-4` for 4-card panels). Pages touched: `/forensic/[id]`, `/tia/[id]`, `/builder`, `/contract`, `/risk/[id]`, `/evm`, `/pareto`, `/compare`. Five wide tables on `/projects/[id]` (critical-path / float-distribution / milestones) and `/org/[id]` (members / audit log) gained `overflow-x-auto` so they scroll horizontally instead of clipping. `GanttChart.svelte`'s SVG `min-width` dropped from 500 to 320 px to fit iPhone-SE-class viewports without forcing a large horizontal scroll. Sidebar already had a hamburger off-canvas pattern (no changes there).
 
+### Parsing
+
+- **Structured P6 calendar data parser** (wave 6, BUGS.md #12) — new `src/parser/calendar_data.py` parses the `clndr_data` blob into a `CalendarSchedule` with per-weekday working hours (1=Sunday..7=Saturday per P6 SDK) and a list of `CalendarException` entries that distinguish full holidays (`is_working=False`) from partial-working exception days (`is_working=True, hours=N`). Tolerant of malformed input — returns whatever it could decode without raising. The legacy `parse_calendar_holidays()` regex in `schedule_view.py` continues to work unchanged (only used for Gantt timeline shading). 9 tests cover empty input, weekly schedule extraction, both exception kinds, sort ordering + counters, malformed blobs, and over-large day numbers.
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).
