@@ -104,6 +104,7 @@ from .routers.reports import router as reports_router  # noqa: E402
 from .routers.admin import router as admin_router  # noqa: E402
 from .routers.bi import router as bi_router  # noqa: E402
 from .routers.plugins import router as plugins_router  # noqa: E402
+from .routers.ws import router as ws_router  # noqa: E402
 
 # Discover third-party analysis-engine plugins at startup so the registry
 # is populated by the time the first request hits /api/v1/plugins.
@@ -132,6 +133,7 @@ app.include_router(reports_router)
 app.include_router(admin_router)
 app.include_router(bi_router)
 app.include_router(plugins_router)
+app.include_router(ws_router)
 
 
 @app.exception_handler(Exception)

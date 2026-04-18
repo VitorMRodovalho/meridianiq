@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from collections.abc import Callable
 from typing import Any
 
 import networkx as nx
@@ -293,12 +294,17 @@ class MonteCarloSimulator:
         self,
         duration_risks: list[DurationRisk] | None = None,
         risk_events: list[RiskEvent] | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> SimulationResult:
         """Run the full Monte Carlo simulation.
 
         Args:
             duration_risks: Per-activity duration risk overrides.
             risk_events: Discrete risk events to apply.
+            progress_callback: Optional ``(completed_iterations, total)`` callback
+                fired roughly every 1% of iterations (or every iteration on
+                very small runs). Cheap if omitted — no per-iteration overhead
+                added when ``None``.
 
         Returns:
             A ``SimulationResult`` with P-values, histogram, criticality
@@ -325,6 +331,10 @@ class MonteCarloSimulator:
         orig_dur_days: dict[str, float] = {}
         for node_id in self._topo_order:
             orig_dur_days[node_id] = self._graph.nodes[node_id]["duration"]
+
+        # Emit a progress event roughly every 1% of iterations (or each iteration
+        # for very small runs). Stays cheap when ``progress_callback`` is None.
+        progress_step = max(1, n // 100) if progress_callback else 0
 
         for iteration in range(n):
             # 1. Sample durations for each activity
@@ -391,6 +401,12 @@ class MonteCarloSimulator:
                     key = self._task_id_to_key.get(node_id)
                     if key:
                         cp_counts[key] = cp_counts.get(key, 0) + 1
+
+            if progress_callback and progress_step and (iteration + 1) % progress_step == 0:
+                progress_callback(iteration + 1, n)
+
+        if progress_callback:
+            progress_callback(n, n)
 
         return self._build_results(
             completion_durations,

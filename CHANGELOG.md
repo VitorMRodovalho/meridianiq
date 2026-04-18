@@ -49,6 +49,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **Plugin HTTP surface + startup discovery** (wave 9) — wave 7 shipped the in-process registry; this wave wires it through the API. New `src/api/routers/plugins.py` adds `GET /api/v1/plugins` (list registered) and `POST /api/v1/plugins/{name}/run/{project_id}` (invoke against a stored schedule). `discover_plugins()` is called once at FastAPI module load so the registry is populated before the first request. Plugin exceptions become HTTP 500 with the exception text — never propagate. 6 new HTTP tests. Stats: **115 endpoints** across **21 routers** (was 113 / 20).
 
+### Real-time
+
+- **WebSocket progress streaming for Monte Carlo** (wave 10, BUGS.md #14) — long-running QSRA simulations now emit progress events the frontend (or any MCP client) can subscribe to. New `src/api/progress.py` exposes a tiny per-job `asyncio.Queue` registry with `open_channel` / `publish` / `thread_safe_publisher` (the last bridges sync simulator threads back into the event loop via `loop.call_soon_threadsafe`). New WebSocket endpoint `GET /api/v1/ws/progress/{job_id}` streams `{"type": "progress", "done", "total", "pct"}` events ending with `{"type": "done", "simulation_id"}` (or `{"type": "error", "message"}`). `MonteCarloSimulator.simulate()` accepts an optional `progress_callback` fired roughly every 1 % of iterations — zero per-iteration cost when omitted. The risk endpoint takes a new `?job_id=` query param: open the WS first, then issue the POST with the same id. 5 tests including a full TestClient round-trip with a real Monte Carlo run. Optimizer + report-generation hooks deferred to follow-up waves.
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).

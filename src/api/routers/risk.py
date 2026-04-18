@@ -101,9 +101,10 @@ def _simulation_to_schema(result: Any) -> SimulationResultSchema:
     "/api/v1/risk/simulate/{project_id}",
     response_model=SimulationResultSchema,
 )
-def run_risk_simulation(
+async def run_risk_simulation(
     project_id: str,
     request: RunSimulationRequest,
+    job_id: str | None = None,
     _user: object = Depends(optional_auth),
 ) -> SimulationResultSchema:
     """Run Monte Carlo schedule risk simulation (QSRA) on a project.
@@ -116,10 +117,18 @@ def run_risk_simulation(
     Args:
         project_id: The stored project identifier.
         request: Simulation configuration, duration risks, and risk events.
+        job_id: Optional progress channel id. When set, the client should
+            connect to ``GET /api/v1/ws/progress/{job_id}`` (WebSocket)
+            BEFORE issuing this request to receive ``{"type": "progress",
+            "done", "total", "pct"}`` events plus a final ``{"type": "done"}``.
 
     Raises:
         HTTPException: If the project is not found or simulation fails.
     """
+    import asyncio
+
+    from ..progress import get_channel, publish, thread_safe_publisher
+
     store = get_store()
     risk_store = get_risk_store()
 
@@ -168,14 +177,36 @@ def run_risk_simulation(
         else None
     )
 
+    progress_callback = None
+    if job_id and get_channel(job_id) is not None:
+        publish_event = thread_safe_publisher(job_id)
+
+        def progress_callback(done: int, total: int) -> None:
+            publish_event(
+                {
+                    "type": "progress",
+                    "done": done,
+                    "total": total,
+                    "pct": round(done * 100 / total, 1) if total else 0.0,
+                }
+            )
+
     try:
         simulator = MonteCarloSimulator(schedule, config)
-        result = simulator.simulate(duration_risks, risk_events)
+        result = await asyncio.to_thread(
+            simulator.simulate, duration_risks, risk_events, progress_callback
+        )
         result.project_id = project_id
     except Exception as exc:
+        if job_id:
+            publish(job_id, {"type": "error", "message": str(exc)})
         raise HTTPException(status_code=500, detail=f"Risk simulation failed: {exc}")
 
     risk_store.add(result)
+
+    if job_id:
+        publish(job_id, {"type": "done", "simulation_id": result.simulation_id})
+
     return _simulation_to_schema(result)
 
 
