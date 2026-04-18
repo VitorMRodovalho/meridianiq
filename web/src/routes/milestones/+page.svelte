@@ -9,7 +9,23 @@
 		type ValueMilestoneCreate
 	} from '$lib/api';
 	import { success, error as toastError } from '$lib/toast';
+	import { t, locale } from '$lib/i18n';
 	import type { ProjectListItem } from '$lib/types';
+
+	const TYPE_KEYS: Record<string, string> = {
+		payment: 'milestones.type_payment',
+		contractual: 'milestones.type_contractual',
+		regulatory: 'milestones.type_regulatory',
+		substantial_completion: 'milestones.type_substantial',
+		final_completion: 'milestones.type_final',
+	};
+
+	const STATUS_KEYS: Record<string, string> = {
+		pending: 'milestones.status_pending',
+		at_risk: 'milestones.status_at_risk',
+		achieved: 'milestones.status_achieved',
+		overdue: 'milestones.status_overdue',
+	};
 
 	let projects: ProjectListItem[] = $state([]);
 	let selectedProjectId = $state('');
@@ -51,7 +67,7 @@
 				await loadMilestones();
 			}
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Failed to load projects';
+			error = e instanceof Error ? e.message : $t('milestones.load_projects_failed');
 		} finally {
 			loading = false;
 		}
@@ -64,7 +80,7 @@
 			const res = await getValueMilestones(selectedProjectId);
 			milestones = res.milestones;
 		} catch (e: unknown) {
-			toastError(e instanceof Error ? e.message : 'Failed to load milestones');
+			toastError(e instanceof Error ? e.message : $t('milestones.load_milestones_failed'));
 		} finally {
 			milestonesLoading = false;
 		}
@@ -79,7 +95,7 @@
 
 	async function handleCreate() {
 		if (!formData.task_code.trim()) {
-			toastError('Task code is required');
+			toastError($t('milestones.task_code_required'));
 			return;
 		}
 		saving = true;
@@ -99,12 +115,12 @@
 			if (formData.forecast_date) payload.forecast_date = formData.forecast_date;
 
 			await createValueMilestone(selectedProjectId, payload);
-			success('Value milestone created');
+			success($t('milestones.toast_created'));
 			showForm = false;
 			resetForm();
 			await loadMilestones();
 		} catch (e: unknown) {
-			toastError(e instanceof Error ? e.message : 'Failed to create milestone');
+			toastError(e instanceof Error ? e.message : $t('milestones.create_failed'));
 		} finally {
 			saving = false;
 		}
@@ -136,11 +152,11 @@
 			const updates: { status: string; actual_date?: string } = { status: editStatus };
 			if (editActualDate) updates.actual_date = editActualDate;
 			await updateValueMilestone(id, updates);
-			success('Milestone updated');
+			success($t('milestones.toast_updated'));
 			editingId = null;
 			await loadMilestones();
 		} catch (e: unknown) {
-			toastError(e instanceof Error ? e.message : 'Failed to update milestone');
+			toastError(e instanceof Error ? e.message : $t('milestones.update_failed'));
 		}
 	}
 
@@ -158,12 +174,22 @@
 	}
 
 	function formatCurrency(value: number, currency: string): string {
-		return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value);
+		return new Intl.NumberFormat($locale, { style: 'currency', currency }).format(value);
 	}
 
 	function formatDate(d: string | null): string {
 		if (!d) return '-';
-		return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+		return new Date(d).toLocaleDateString($locale, { year: 'numeric', month: 'short', day: 'numeric' });
+	}
+
+	function milestoneTypeLabel(type: string): string {
+		const key = TYPE_KEYS[type];
+		return key ? $t(key) : type.replace('_', ' ');
+	}
+
+	function statusLabel(status: string): string {
+		const key = STATUS_KEYS[status];
+		return key ? $t(key) : status.replace('_', ' ');
 	}
 
 	const totalValue = $derived(milestones.reduce((sum, m) => sum + (m.commercial_value || 0), 0));
@@ -174,35 +200,35 @@
 </script>
 
 <svelte:head>
-	<title>Value Milestones - MeridianIQ</title>
+	<title>{$t('milestones.title')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-6xl mx-auto">
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Value Milestones</h1>
-			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Link schedule milestones to commercial value, payment triggers, and contract references</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('milestones.title')}</h1>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{$t('milestones.subtitle')}</p>
 		</div>
 		{#if selectedProjectId && !milestonesLoading}
 			<button
 				onclick={() => { showForm = !showForm; if (!showForm) resetForm(); }}
 				class="px-4 py-2 text-sm font-medium rounded-lg transition-colors {showForm ? 'bg-gray-200 text-gray-700 dark:text-gray-300 hover:bg-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'}"
 			>
-				{showForm ? 'Cancel' : 'Add Milestone'}
+				{showForm ? $t('milestones.btn_cancel') : $t('milestones.btn_add')}
 			</button>
 		{/if}
 	</div>
 
 	<!-- Project selector -->
 	<div class="mb-6">
-		<label for="project-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project</label>
+		<label for="project-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_project')}</label>
 		<select
 			id="project-select"
 			bind:value={selectedProjectId}
 			onchange={handleProjectChange}
 			class="w-full max-w-md px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 		>
-			<option value="">Select a project...</option>
+			<option value="">{$t('milestones.select_project')}</option>
 			{#each projects as p}
 				<option value={p.project_id}>{p.name || p.project_id}</option>
 			{/each}
@@ -215,11 +241,11 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading...
+			{$t('milestones.loading')}
 		</div>
 	{:else if !selectedProjectId}
 		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-			<p class="text-gray-500 dark:text-gray-400">Select a project to manage its value milestones.</p>
+			<p class="text-gray-500 dark:text-gray-400">{$t('milestones.select_project_hint')}</p>
 		</div>
 	{:else if milestonesLoading}
 		<div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
@@ -227,26 +253,26 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading milestones...
+			{$t('milestones.loading_milestones')}
 		</div>
 	{:else}
 		<!-- Summary cards -->
 		{#if milestones.length > 0}
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-					<p class="text-sm text-gray-500 dark:text-gray-400">Total Contract Value</p>
+					<p class="text-sm text-gray-500 dark:text-gray-400">{$t('milestones.stat_total')}</p>
 					<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(totalValue, 'USD')}</p>
-					<p class="text-xs text-gray-400 mt-1">{milestones.length} milestone{milestones.length !== 1 ? 's' : ''}</p>
+					<p class="text-xs text-gray-400 mt-1">{milestones.length} {milestones.length === 1 ? $t('milestones.stat_milestone_single') : $t('milestones.stat_milestone_plural')}</p>
 				</div>
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-					<p class="text-sm text-gray-500 dark:text-gray-400">Achieved Value</p>
+					<p class="text-sm text-gray-500 dark:text-gray-400">{$t('milestones.stat_achieved')}</p>
 					<p class="text-2xl font-bold text-green-600">{formatCurrency(achievedValue, 'USD')}</p>
-					<p class="text-xs text-gray-400 mt-1">{totalValue > 0 ? ((achievedValue / totalValue) * 100).toFixed(0) : 0}% earned</p>
+					<p class="text-xs text-gray-400 mt-1">{totalValue > 0 ? ((achievedValue / totalValue) * 100).toFixed(0) : 0}% {$t('milestones.stat_earned_suffix')}</p>
 				</div>
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-					<p class="text-sm text-gray-500 dark:text-gray-400">At Risk / Overdue</p>
+					<p class="text-sm text-gray-500 dark:text-gray-400">{$t('milestones.stat_at_risk')}</p>
 					<p class="text-2xl font-bold {atRiskCount > 0 ? 'text-red-600' : 'text-green-600'}">{atRiskCount}</p>
-					<p class="text-xs text-gray-400 mt-1">{atRiskCount === 0 ? 'All on track' : 'Requires attention'}</p>
+					<p class="text-xs text-gray-400 mt-1">{atRiskCount === 0 ? $t('milestones.stat_on_track') : $t('milestones.stat_attention')}</p>
 				</div>
 			</div>
 		{/if}
@@ -254,28 +280,28 @@
 		<!-- Create form -->
 		{#if showForm}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Value Milestone</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('milestones.form_title')}</h2>
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<div>
-						<label for="task-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Code *</label>
-						<input id="task-code" type="text" bind:value={formData.task_code} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. A1020" />
+						<label for="task-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_task_code')}</label>
+						<input id="task-code" type="text" bind:value={formData.task_code} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_task_code')} />
 					</div>
 					<div>
-						<label for="task-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Task Name</label>
-						<input id="task-name" type="text" bind:value={formData.task_name} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Substantial Completion" />
+						<label for="task-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_task_name')}</label>
+						<input id="task-name" type="text" bind:value={formData.task_name} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_task_name')} />
 					</div>
 					<div>
-						<label for="milestone-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+						<label for="milestone-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_type')}</label>
 						<select id="milestone-type" bind:value={formData.milestone_type} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-							<option value="payment">Payment</option>
-							<option value="contractual">Contractual</option>
-							<option value="regulatory">Regulatory</option>
-							<option value="substantial_completion">Substantial Completion</option>
-							<option value="final_completion">Final Completion</option>
+							<option value="payment">{$t('milestones.type_payment')}</option>
+							<option value="contractual">{$t('milestones.type_contractual')}</option>
+							<option value="regulatory">{$t('milestones.type_regulatory')}</option>
+							<option value="substantial_completion">{$t('milestones.type_substantial')}</option>
+							<option value="final_completion">{$t('milestones.type_final')}</option>
 						</select>
 					</div>
 					<div>
-						<label for="commercial-value" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Commercial Value</label>
+						<label for="commercial-value" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_value')}</label>
 						<div class="flex gap-2">
 							<input id="commercial-value" type="number" bind:value={formData.commercial_value} min="0" step="0.01" class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
 							<select bind:value={formData.currency} class="w-24 px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -287,24 +313,24 @@
 						</div>
 					</div>
 					<div>
-						<label for="payment-trigger" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Trigger</label>
-						<input id="payment-trigger" type="text" bind:value={formData.payment_trigger} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. Certificate of Substantial Completion" />
+						<label for="payment-trigger" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_trigger')}</label>
+						<input id="payment-trigger" type="text" bind:value={formData.payment_trigger} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_trigger')} />
 					</div>
 					<div>
-						<label for="contract-ref" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contract Reference</label>
-						<input id="contract-ref" type="text" bind:value={formData.contract_ref} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. AIA A201 §9.8.1" />
+						<label for="contract-ref" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_contract')}</label>
+						<input id="contract-ref" type="text" bind:value={formData.contract_ref} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_contract')} />
 					</div>
 					<div>
-						<label for="baseline-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline Date</label>
+						<label for="baseline-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_baseline')}</label>
 						<input id="baseline-date" type="date" bind:value={formData.baseline_date} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
 					</div>
 					<div>
-						<label for="forecast-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Forecast Date</label>
+						<label for="forecast-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_forecast')}</label>
 						<input id="forecast-date" type="date" bind:value={formData.forecast_date} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
 					</div>
 					<div class="sm:col-span-2">
-						<label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-						<textarea id="notes" bind:value={formData.notes} rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Additional context..."></textarea>
+						<label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_notes')}</label>
+						<textarea id="notes" bind:value={formData.notes} rows="2" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_notes')}></textarea>
 					</div>
 				</div>
 				<div class="mt-4 flex justify-end">
@@ -313,7 +339,7 @@
 						disabled={saving}
 						class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 					>
-						{saving ? 'Creating...' : 'Create Milestone'}
+						{saving ? $t('milestones.btn_creating') : $t('milestones.btn_create')}
 					</button>
 				</div>
 			</div>
@@ -322,12 +348,12 @@
 		<!-- Milestones table -->
 		{#if milestones.length === 0 && !showForm}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-				<p class="text-gray-500 dark:text-gray-400 mb-4">No value milestones defined for this project.</p>
+				<p class="text-gray-500 dark:text-gray-400 mb-4">{$t('milestones.empty')}</p>
 				<button
 					onclick={() => showForm = true}
 					class="inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
 				>
-					Add First Milestone
+					{$t('milestones.empty_cta')}
 				</button>
 			</div>
 		{:else if milestones.length > 0}
@@ -336,13 +362,13 @@
 					<table class="min-w-full divide-y divide-gray-200">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Task</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-								<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
-								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Baseline</th>
-								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Forecast</th>
-								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_task')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_type')}</th>
+								<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_value')}</th>
+								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_baseline')}</th>
+								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_forecast')}</th>
+								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_status')}</th>
+								<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('milestones.col_actions')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -354,36 +380,36 @@
 											<div class="text-xs text-gray-400">{m.task_name}</div>
 										{/if}
 										{#if m.payment_trigger}
-											<div class="text-xs text-gray-400 mt-0.5">Trigger: {m.payment_trigger}</div>
+											<div class="text-xs text-gray-400 mt-0.5">{$t('milestones.trigger_prefix')} {m.payment_trigger}</div>
 										{/if}
 									</td>
-									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 capitalize">{(m.milestone_type || 'payment').replace('_', ' ')}</td>
+									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{milestoneTypeLabel(m.milestone_type || 'payment')}</td>
 									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">{formatCurrency(m.commercial_value || 0, m.currency || 'USD')}</td>
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">{formatDate(m.baseline_date)}</td>
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">{formatDate(m.forecast_date)}</td>
 									<td class="px-4 py-3 text-center">
 										{#if editingId === m.id}
 											<select bind:value={editStatus} class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
-												<option value="pending">Pending</option>
-												<option value="at_risk">At Risk</option>
-												<option value="achieved">Achieved</option>
-												<option value="overdue">Overdue</option>
+												<option value="pending">{$t('milestones.status_pending')}</option>
+												<option value="at_risk">{$t('milestones.status_at_risk')}</option>
+												<option value="achieved">{$t('milestones.status_achieved')}</option>
+												<option value="overdue">{$t('milestones.status_overdue')}</option>
 											</select>
 										{:else}
 											<span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full border {statusBadge(m.status || 'pending')}">
-												{(m.status || 'pending').replace('_', ' ')}
+												{statusLabel(m.status || 'pending')}
 											</span>
 										{/if}
 									</td>
 									<td class="px-4 py-3 text-center">
 										{#if editingId === m.id}
 											<div class="flex items-center gap-1 justify-center">
-												<input type="date" bind:value={editActualDate} class="text-xs px-1 py-0.5 border border-gray-300 dark:border-gray-600 rounded w-32" placeholder="Actual date" />
-												<button onclick={() => saveEdit(m.id)} class="text-xs text-blue-600 hover:text-blue-800 font-medium">Save</button>
-												<button onclick={() => editingId = null} class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-400">Cancel</button>
+												<input type="date" bind:value={editActualDate} class="text-xs px-1 py-0.5 border border-gray-300 dark:border-gray-600 rounded w-32" placeholder={$t('milestones.placeholder_actual')} />
+												<button onclick={() => saveEdit(m.id)} class="text-xs text-blue-600 hover:text-blue-800 font-medium">{$t('milestones.btn_save')}</button>
+												<button onclick={() => editingId = null} class="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-400">{$t('milestones.btn_cancel')}</button>
 											</div>
 										{:else}
-											<button onclick={() => startEdit(m)} class="text-xs text-blue-600 hover:text-blue-800 font-medium">Edit</button>
+											<button onclick={() => startEdit(m)} class="text-xs text-blue-600 hover:text-blue-800 font-medium">{$t('milestones.btn_edit')}</button>
 										{/if}
 									</td>
 								</tr>
