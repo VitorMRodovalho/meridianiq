@@ -164,6 +164,48 @@ export default {
 	'error.try_again': 'Reintentar',
 	'error.go_home': 'Ir al Inicio',
 
+	// Login page
+	'login.page_title': 'Iniciar Sesion',
+	'login.sign_in_title': 'Inicia sesion en tu cuenta',
+	'login.sign_in_failed': 'Fallo al iniciar sesion',
+	'login.continue_google': 'Continuar con Google',
+	'login.continue_microsoft': 'Continuar con Microsoft',
+	'login.continue_linkedin': 'Continuar con LinkedIn',
+	'login.terms_notice': 'Al iniciar sesion, aceptas los terminos de servicio de MeridianIQ.',
+
+	// Programs page
+	'programs.subtitle': 'Grupos de revisiones de cronograma — sigue actualizaciones del ciclo de vida del proyecto',
+	'programs.empty_title': 'Aun no hay programas',
+	'programs.empty_hint': 'Sube multiples revisiones de cronograma para crear un programa',
+	'programs.upload_cta': 'Subir Cronograma',
+	'programs.unnamed': 'Programa Sin Nombre',
+	'programs.revisions_label': 'revisiones',
+	'programs.load_failed': 'Fallo al cargar programas',
+
+	// Projects page
+	'projects.load_failed': 'Fallo al cargar proyectos',
+	'projects.view_programs': 'Programas',
+	'projects.view_uploads': 'Todas las Subidas',
+	'projects.search_placeholder': 'Buscar por nombre o ID...',
+	'projects.clear_search': 'Limpiar busqueda',
+	'projects.loading': 'Cargando proyectos...',
+	'projects.empty_title': 'Aun no hay proyectos subidos.',
+	'projects.upload_cta': 'Subir Archivo XER',
+	'projects.no_match': 'Ningun proyecto coincide',
+	'projects.no_programs_match': 'Ningun programa coincide',
+	'projects.col_program': 'Nombre del Programa',
+	'projects.col_revisions': 'Revisiones',
+	'projects.col_latest_activities': 'Actividades Recientes',
+	'projects.col_project_name': 'Nombre del Proyecto',
+	'projects.col_project_id': 'ID del Proyecto',
+	'projects.col_activities': 'Actividades',
+	'projects.col_relationships': 'Relaciones',
+	'projects.col_quick_links': 'Enlaces Rapidos',
+	'projects.unnamed': 'Sin Nombre',
+	'projects.quick_gantt': 'Gantt',
+	'projects.quick_score': 'Nota',
+	'projects.quick_anom': 'Anom',
+
 	// Keyboard shortcuts modal
 	'shortcuts.title': 'Atajos de Teclado',
 	'shortcuts.close': 'Cerrar',

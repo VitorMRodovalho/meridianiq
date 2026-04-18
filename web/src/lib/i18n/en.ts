@@ -164,6 +164,48 @@ export default {
 	'error.try_again': 'Try Again',
 	'error.go_home': 'Go Home',
 
+	// Login page
+	'login.page_title': 'Sign In',
+	'login.sign_in_title': 'Sign in to your account',
+	'login.sign_in_failed': 'Sign-in failed',
+	'login.continue_google': 'Continue with Google',
+	'login.continue_microsoft': 'Continue with Microsoft',
+	'login.continue_linkedin': 'Continue with LinkedIn',
+	'login.terms_notice': 'By signing in you agree to the MeridianIQ terms of service.',
+
+	// Programs page
+	'programs.subtitle': 'Schedule revision groups — track updates across the project lifecycle',
+	'programs.empty_title': 'No programs yet',
+	'programs.empty_hint': 'Upload multiple schedule revisions to create a program',
+	'programs.upload_cta': 'Upload Schedule',
+	'programs.unnamed': 'Unnamed Program',
+	'programs.revisions_label': 'revisions',
+	'programs.load_failed': 'Failed to load programs',
+
+	// Projects page
+	'projects.load_failed': 'Failed to load projects',
+	'projects.view_programs': 'Programs',
+	'projects.view_uploads': 'All Uploads',
+	'projects.search_placeholder': 'Search by name or ID...',
+	'projects.clear_search': 'Clear search',
+	'projects.loading': 'Loading projects...',
+	'projects.empty_title': 'No projects uploaded yet.',
+	'projects.upload_cta': 'Upload XER File',
+	'projects.no_match': 'No projects match',
+	'projects.no_programs_match': 'No programs match',
+	'projects.col_program': 'Program Name',
+	'projects.col_revisions': 'Revisions',
+	'projects.col_latest_activities': 'Latest Activities',
+	'projects.col_project_name': 'Project Name',
+	'projects.col_project_id': 'Project ID',
+	'projects.col_activities': 'Activities',
+	'projects.col_relationships': 'Relationships',
+	'projects.col_quick_links': 'Quick Links',
+	'projects.unnamed': 'Unnamed',
+	'projects.quick_gantt': 'Gantt',
+	'projects.quick_score': 'Score',
+	'projects.quick_anom': 'Anom',
+
 	// Keyboard shortcuts modal
 	'shortcuts.title': 'Keyboard Shortcuts',
 	'shortcuts.close': 'Close',

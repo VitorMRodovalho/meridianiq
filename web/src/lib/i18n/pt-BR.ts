@@ -164,6 +164,48 @@ export default {
 	'error.try_again': 'Tentar Novamente',
 	'error.go_home': 'Ir para o Inicio',
 
+	// Login page
+	'login.page_title': 'Entrar',
+	'login.sign_in_title': 'Entre na sua conta',
+	'login.sign_in_failed': 'Falha no login',
+	'login.continue_google': 'Continuar com Google',
+	'login.continue_microsoft': 'Continuar com Microsoft',
+	'login.continue_linkedin': 'Continuar com LinkedIn',
+	'login.terms_notice': 'Ao entrar, voce concorda com os termos de servico do MeridianIQ.',
+
+	// Programs page
+	'programs.subtitle': 'Grupos de revisoes de cronograma — acompanhe atualizacoes ao longo do ciclo de vida',
+	'programs.empty_title': 'Nenhum programa ainda',
+	'programs.empty_hint': 'Faca upload de multiplas revisoes de cronograma para criar um programa',
+	'programs.upload_cta': 'Carregar Cronograma',
+	'programs.unnamed': 'Programa Sem Nome',
+	'programs.revisions_label': 'revisoes',
+	'programs.load_failed': 'Falha ao carregar programas',
+
+	// Projects page
+	'projects.load_failed': 'Falha ao carregar projetos',
+	'projects.view_programs': 'Programas',
+	'projects.view_uploads': 'Todos os Uploads',
+	'projects.search_placeholder': 'Buscar por nome ou ID...',
+	'projects.clear_search': 'Limpar busca',
+	'projects.loading': 'Carregando projetos...',
+	'projects.empty_title': 'Nenhum projeto carregado ainda.',
+	'projects.upload_cta': 'Carregar Arquivo XER',
+	'projects.no_match': 'Nenhum projeto corresponde',
+	'projects.no_programs_match': 'Nenhum programa corresponde',
+	'projects.col_program': 'Nome do Programa',
+	'projects.col_revisions': 'Revisoes',
+	'projects.col_latest_activities': 'Atividades Recentes',
+	'projects.col_project_name': 'Nome do Projeto',
+	'projects.col_project_id': 'ID do Projeto',
+	'projects.col_activities': 'Atividades',
+	'projects.col_relationships': 'Relacionamentos',
+	'projects.col_quick_links': 'Links Rapidos',
+	'projects.unnamed': 'Sem Nome',
+	'projects.quick_gantt': 'Gantt',
+	'projects.quick_score': 'Nota',
+	'projects.quick_anom': 'Anom',
+
 	// Keyboard shortcuts modal
 	'shortcuts.title': 'Atalhos de Teclado',
 	'shortcuts.close': 'Fechar',
