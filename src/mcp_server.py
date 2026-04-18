@@ -30,9 +30,16 @@ Available tools (22):
 - get_schedule_view_tool: Schedule layout data for Gantt visualization
 
 Usage:
+    # stdio (default — Claude Desktop / Claude Code spawns the process)
     python -m src.mcp_server
 
-Or configure in Claude Code settings:
+    # HTTP (streamable-http transport — for cloud-hosted clients)
+    python -m src.mcp_server --transport http --host 0.0.0.0 --port 8765
+
+    # SSE (legacy MCP transport)
+    python -m src.mcp_server --transport sse --host 0.0.0.0 --port 8765
+
+Configure in Claude Code / Claude Desktop:
     {
         "mcpServers": {
             "meridianiq": {
@@ -830,5 +837,55 @@ def get_schedule_view_tool(
 
 # ── Entry point ──
 
+
+def _parse_args(argv: list[str] | None = None) -> Any:
+    """CLI parser for the MCP server entry point.
+
+    Exposed as a function so tests can exercise the parser without invoking
+    ``mcp.run()`` (which would block on a network socket).
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="python -m src.mcp_server",
+        description="MeridianIQ MCP server — schedule intelligence tools for Claude.",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "http", "sse"],
+        default="stdio",
+        help="Transport protocol. Default 'stdio' (Claude Desktop / Code spawns the process). "
+        "Use 'http' for streamable-http (cloud-hosted clients) or 'sse' for legacy SSE.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind host for http / sse transports. Default 127.0.0.1 (localhost only). "
+        "Set to 0.0.0.0 to accept remote connections.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Bind port for http / sse transports. Default 8000.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Run the MCP server with the requested transport."""
+    args = _parse_args(argv)
+
+    # Map our friendly 'http' alias to FastMCP's transport name.
+    transport = "streamable-http" if args.transport == "http" else args.transport
+
+    if transport in ("streamable-http", "sse"):
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+        logger.info("MCP server starting on %s://%s:%s", transport, args.host, args.port)
+
+    mcp.run(transport=transport)
+
+
 if __name__ == "__main__":
-    mcp.run()
+    main()

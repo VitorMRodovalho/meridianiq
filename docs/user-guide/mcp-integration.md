@@ -18,6 +18,24 @@ python -m src.mcp_server
 
 The server reads from the same data store as the web app. If you're using `InMemoryStore` (dev default), only projects uploaded via the MCP server's `upload_xer` tool will be visible — not projects uploaded through the web UI against a separate Python process. For cross-process visibility, point `MCP_ENVIRONMENT=production` and wire it to your Supabase instance.
 
+### Transports
+
+The server supports three transports, chosen by the `--transport` flag:
+
+| Transport | Use case | Command |
+|---|---|---|
+| `stdio` (default) | Claude Desktop / Claude Code spawns the process locally | `python -m src.mcp_server` |
+| `http` (streamable-http) | Cloud-hosted MCP clients, multi-tenant deployments | `python -m src.mcp_server --transport http --host 0.0.0.0 --port 8765` |
+| `sse` | Legacy MCP HTTP transport | `python -m src.mcp_server --transport sse --host 0.0.0.0 --port 8765` |
+
+For `http` and `sse`, additional flags:
+- `--host` (default `127.0.0.1`) — set to `0.0.0.0` to accept remote connections
+- `--port` (default `8000`)
+
+The HTTP transport exposes the MCP endpoint at `/mcp`; an SSE transport exposes `/sse` + `/messages/`. Use `http` for new deployments — `sse` is preserved only for clients that haven't migrated yet.
+
+When running over a network, terminate TLS at a reverse proxy (Caddy, Nginx, Cloudflare) and authenticate via the proxy. The MCP server itself does not enforce auth on the HTTP transport — that's a deliberate separation of concerns.
+
 ## Configure Claude Desktop
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):

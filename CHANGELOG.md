@@ -25,6 +25,10 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **In-memory KPI cache for hot read endpoints** (wave 3) — `/api/v1/programs/{id}/rollup` and `/api/v1/bi/projects` both recomputed `CPMCalculator + DCMA14Analyzer + HealthScoreCalculator` on the latest schedule for every request. Repeated polls from BI dashboards (Power BI, Tableau) and program-director dashboards now coalesce to a single computation per 120 s window via `src/api/cache.py` (namespace-scoped TTL cache, single-process, no Redis). The shared `schedule_kpi_bundle()` helper in `src/api/kpi_helpers.py` collapses three previously-duplicated try/except CPM/DCMA/Health blocks into one. `cache_stats()` exposes per-namespace hit/miss/size for future observability wiring. 8 cache tests + existing 38 programs/bi tests pass.
 
+### Added — Integrations
+
+- **MCP server HTTP / SSE transports** (wave 4) — `python -m src.mcp_server` accepts `--transport stdio | http | sse` plus `--host` / `--port`. Default stays `stdio` (Claude Desktop / Code spawning). The new `http` mode (FastMCP "streamable-http") exposes the MCP endpoint at `/mcp`, enabling cloud-hosted MCP clients to reach the 22 MeridianIQ tools without spawning a local process. `sse` covers legacy MCP HTTP clients. Auth is intentionally not enforced at the MCP layer — terminate TLS + auth at a reverse proxy. New `tests/test_mcp_cli.py` (7 tests) exercises the parser without binding sockets. Closes the v3.9 P3 candidate "MCP over HTTP" from the v4.0 aspirational list.
+
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
 26 waves shipped across a single session on top of v3.7.0. Two tracks: forensic feature expansion (waves 1-9) and frontend hardening (waves 10-26 — P2 tech debt cleared).
