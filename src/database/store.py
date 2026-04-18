@@ -1418,28 +1418,41 @@ class SupabaseStore:
     # -- programs --------------------------------------------------------
 
     def get_or_create_program(self, user_id: str, project_name: str) -> str:
-        """Find or create program. Returns program_id."""
-        result = (
-            self._client.table("programs")
-            .select("id")
-            .eq("user_id", user_id)
-            .eq("name", project_name)
-            .execute()
-        )
-        if result.data:
-            return result.data[0]["id"]
-        new = (
-            self._client.table("programs")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "name": project_name,
-                    "proj_short_name": project_name,
-                }
+        """Atomic upsert of the (user_id, lower(name)) program row.
+
+        Calls Postgres RPC ``upsert_program`` (see migration 022) which
+        performs ``INSERT ... ON CONFLICT (user_id, lower(name)) DO UPDATE``.
+        Under concurrency two callers with the same (user_id, project_name)
+        resolve to the same row — the previous select-then-insert pattern
+        raced and produced duplicates. Case of the first insert is preserved
+        for display; match is case-insensitive.
+
+        Returns:
+            The program UUID as a string.
+
+        Reference: ADR-0009 Wave 0 item #5.
+        """
+        result = self._client.rpc(
+            "upsert_program",
+            {"p_user_id": user_id, "p_name": project_name},
+        ).execute()
+        data = result.data
+        if not data:
+            raise RuntimeError(
+                f"upsert_program returned empty payload for user={user_id}"
             )
-            .execute()
-        )
-        return new.data[0]["id"]
+        # PostgREST serialises a ``RETURNS UUID`` scalar as a bare string.
+        # Older supabase-py versions sometimes wrap it; be defensive.
+        if isinstance(data, str):
+            return data
+        if isinstance(data, list) and data:
+            first = data[0]
+            if isinstance(first, dict):
+                return str(first.get("upsert_program") or first.get("id") or first)
+            return str(first)
+        if isinstance(data, dict):
+            return str(data.get("upsert_program") or data.get("id") or data)
+        return str(data)
 
     def get_next_revision_number(self, program_id: str) -> int:
         """Return the next revision number for a program."""
