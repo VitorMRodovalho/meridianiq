@@ -104,9 +104,7 @@ def open_channel(
             existing.owner_user_id = owner_user_id
         elif existing.owner_user_id is not None and owner_user_id is not None:
             if existing.owner_user_id != owner_user_id:
-                raise ChannelAuthError(
-                    f"job_id {job_id!r} is bound to a different owner"
-                )
+                raise ChannelAuthError(f"job_id {job_id!r} is bound to a different owner")
         # (existing.owner None + caller None is a dev-only no-op; existing
         # already bound + caller None is allowed — the anonymous caller
         # does not attempt to change ownership.)

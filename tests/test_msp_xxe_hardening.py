@@ -70,16 +70,12 @@ _EXTERNAL_DTD = f"""<?xml version="1.0"?>
 class TestMSPParserEntityHardening:
     def test_xxe_file_exfil_is_rejected(self) -> None:
         reader = MSPReader()
-        with pytest.raises(
-            (EntitiesForbidden, ExternalReferenceForbidden, DTDForbidden)
-        ):
+        with pytest.raises((EntitiesForbidden, ExternalReferenceForbidden, DTDForbidden)):
             reader.parse(_XXE_FILE_EXFIL)
 
     def test_xxe_network_exfil_is_rejected(self) -> None:
         reader = MSPReader()
-        with pytest.raises(
-            (EntitiesForbidden, ExternalReferenceForbidden, DTDForbidden)
-        ):
+        with pytest.raises((EntitiesForbidden, ExternalReferenceForbidden, DTDForbidden)):
             reader.parse(_XXE_NETWORK_EXFIL)
 
     def test_billion_laughs_is_rejected(self) -> None:

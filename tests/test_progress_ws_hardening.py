@@ -77,9 +77,7 @@ class TestStaleChannelReaper:
         assert reaped == 0
         assert progress.channel_count() == 1
 
-    def test_opportunistic_reap_on_new_open_channel(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_opportunistic_reap_on_new_open_channel(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """open_channel calls reap_stale_channels internally — a long-idle
         channel should be cleared when a new one is opened."""
         progress.open_channel("stale-2", owner_user_id="u")
@@ -93,9 +91,7 @@ class TestStaleChannelReaper:
 
 
 class TestStartProgressJobEndpoint:
-    def test_unauthenticated_in_production_rejected(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_unauthenticated_in_production_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from src.database import config as cfg
 
         monkeypatch.setattr(cfg.settings, "ENVIRONMENT", "production")
@@ -103,9 +99,7 @@ class TestStartProgressJobEndpoint:
         resp = client.post("/api/v1/jobs/progress/start")
         assert resp.status_code == 401
 
-    def test_authenticated_returns_uuid_and_ws_url(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_authenticated_returns_uuid_and_ws_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """In development environment, ``require_auth`` still enforces; we
         stub it via dependency override."""
         from src.api import auth as auth_module
@@ -142,9 +136,7 @@ class TestWSPathParamValidation:
         from fastapi.websockets import WebSocketDisconnect
 
         with pytest.raises(WebSocketDisconnect) as excinfo:
-            with client.websocket_connect(
-                "/api/v1/ws/progress/not-a-uuid"
-            ) as ws:
+            with client.websocket_connect("/api/v1/ws/progress/not-a-uuid") as ws:
                 ws.receive_json()
         assert excinfo.value.code == 4404
 

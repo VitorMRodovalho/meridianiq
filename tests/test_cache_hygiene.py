@@ -54,7 +54,9 @@ def test_every_cached_namespace_has_matching_invalidate() -> None:
     orphans: list[str] = []
     for ns, sites in declared.items():
         if ns not in invalidated:
-            orphans.append(f"{ns!r} declared at {', '.join(sites)} — no matching invalidate_namespace call")
+            orphans.append(
+                f"{ns!r} declared at {', '.join(sites)} — no matching invalidate_namespace call"
+            )
 
     assert not orphans, (
         "Cache hygiene violated (ADR-0012 Wave 0 #4): "
@@ -86,7 +88,5 @@ def test_schedule_kpis_invalidation_is_wired_to_upload_and_delete_flows() -> Non
 
     assert not missing, (
         "schedule:kpis must be invalidated from every schedule-state-mutating "
-        "path. Missing call sites: "
-        + "; ".join(missing)
-        + f". Found sites: {sites}"
+        "path. Missing call sites: " + "; ".join(missing) + f". Found sites: {sites}"
     )
