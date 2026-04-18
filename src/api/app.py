@@ -26,6 +26,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+# Rate limiting — single Limiter instance lives in deps.py so routers and
+# the exception handler share the same counter state.
+from .deps import limiter
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -33,10 +37,6 @@ app = FastAPI(
     description="The intelligence standard for project schedules",
     version="3.8.0",
 )
-
-# Rate limiting — single Limiter instance lives in deps.py so routers and
-# the exception handler share the same counter state.
-from .deps import limiter
 
 try:
     from slowapi import _rate_limit_exceeded_handler

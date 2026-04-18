@@ -51,9 +51,7 @@ def update_program(program_id: str, body: dict, _user: object = Depends(optional
     return {"program": updated}
 
 
-def _build_rollup(
-    program_id: str, revisions: list[dict], user_id: str | None = None
-) -> dict:
+def _build_rollup(program_id: str, revisions: list[dict], user_id: str | None = None) -> dict:
     """Build the program rollup payload from a revisions list.
 
     Extracted so both the HTTP endpoint and other callers (exec-summary
