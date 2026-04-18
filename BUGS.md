@@ -68,12 +68,12 @@ _No open bugs at v3.6.0-dev. Report new issues via GitHub Issues._
 |------|----------|-------|
 | ~~Large schedule profiling (>5K activities)~~ | ~~P1~~ | Tested with 10K+ activities — virtual scrolling works |
 | ~~Schedule Viewer virtual scrolling~~ | ~~P1~~ | Done — viewport-aware rendering with 20-row buffer |
-| Audit trail IP not populated | P2 | Schema field exists, frontend doesn't send |
+| ~~Audit trail IP not populated~~ | ~~P2~~ | Done v3.8 wave 13 — `_client_ip()` honours XFF leftmost; `_audit()` accepts request |
 | Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
-| slowapi potentially unmaintained | P2 | Evaluate starlette-ratelimit alternative |
+| ~~slowapi potentially unmaintained~~ | ~~P2~~ | Evaluated v3.9 wave 2 — slowapi 0.1.9 active (Aug 2025 commits, 1952 stars), no `starlette-ratelimit` package exists, alternatives need Redis. Stayed and consolidated duplicate Limiter into deps.py |
 | Wire $t() i18n keys to page titles | P3 | Keys exist, most page titles still hardcoded English |
-| Sidebar has 34 links (cognitive load) | P2 | Consider regrouping or adding search |
-| a11y warnings in ScheduleViewer (3) | P3 | SVG `<g>` click without keyboard handler |
+| ~~Sidebar has 34 links (cognitive load)~~ | ~~P2~~ | Done v3.9 wave 1 — regrouped to 8 sections × ≤7 items, added search-icon + `/` kbd hint |
+| ~~a11y warnings in ScheduleViewer (3)~~ | ~~P3~~ | Done v3.8 wave 10 — 12 a11y warnings → 0, including GanttCanvas `<g>` keyboard handlers |
 
 ---
 

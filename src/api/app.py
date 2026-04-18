@@ -34,29 +34,18 @@ app = FastAPI(
     version="3.8.0",
 )
 
-# Rate limiting
-try:
-    from slowapi import Limiter, _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
-    from slowapi.util import get_remote_address
+# Rate limiting — single Limiter instance lives in deps.py so routers and
+# the exception handler share the same counter state.
+from .deps import limiter
 
-    limiter = Limiter(
-        key_func=get_remote_address,
-        default_limits=["60/minute"],
-        enabled=os.getenv("RATE_LIMIT_ENABLED", "true").lower() != "false",
-    )
+try:
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 except ImportError:
-
-    class _NoOpLimiter:
-        def limit(self, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
-            def decorator(func):  # type: ignore[no-untyped-def]
-                return func
-
-            return decorator
-
-    limiter = _NoOpLimiter()  # type: ignore[assignment]
+    pass
 
 # CORS — whitelist known origins (not wildcard)
 _CORS_ORIGINS = [

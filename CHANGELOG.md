@@ -11,10 +11,15 @@ P2 backlog cleanup cycle. Items land wave-by-wave on `main`; cut a release once 
 
 - **Sidebar regroup** (wave 1) — split the two 10-item sections (Risk, Prediction) so no section now exceeds 7 items. Risk drops to 7 (Health/Alerts/Scorecard/Monte Carlo/Risk Register/Contract/Anomalies) by extracting a new **Cost & Earned Value** section (EVM/Cashflow/Cost). Prediction splits into **AI Insights** (Ask/What-If/Delay Prediction/Duration ML/Benchmarks) and **Planning & Optimization** (Optimizer/Pareto/Resources/Builder/4D Visualization). 8 sections × ≤7 items each, in line with Miller's 7±2 chunking.
 - **Sidebar search discoverability** (wave 1) — added a left-side search-icon glyph + a right-side `/` `<kbd>` hint inside the input, bumped to `text-sm` with `py-2` and a focus ring. The hint hides on focus / when text is present, so the affordance announces the existing `/` shortcut without cluttering active use.
+- **Rate-limiter consolidation** (wave 2) — `app.py` no longer creates its own `Limiter` instance; it imports the shared one from `deps.py`. Previously two separate `Limiter` instances existed (one tracked by routers, one by `app.state`), so counter state could diverge. Now there is exactly one `Limiter` for both the `@limiter.limit(...)` decorators and the `RateLimitExceeded` exception handler.
 
 ### Added
 
 - **i18n keys** (wave 1) — `nav.section.cost`, `nav.section.ai_insights`, `nav.section.planning` across en / pt-BR / es. Replaces the now-unused `nav.section.prediction` key. Section labels: "Cost & Earned Value" / "Custo e Valor Agregado" / "Costo y Valor Ganado", "AI Insights" (uniform across locales), "Planning & Optimization" / "Planejamento e Otimizacao" / "Planificacion y Optimizacion".
+
+### Investigated / no-action
+
+- **slowapi vs starlette-ratelimit** (wave 2, BUGS.md ticket #74) — evaluated migrating off `slowapi` after the BUGS.md "possibly unmaintained" flag. Findings: (1) slowapi 0.1.9 is the latest, last commit Aug 2025, repo not archived (1952 stars, 101 open issues — typical "stable enough" library); (2) `starlette-ratelimit` does not exist as a published PyPI package; (3) `fastapi-limiter` is async-Redis-backed (overkill for our 9 rate-limited endpoints, no Redis in stack); (4) rolling our own atop `limits` (the library slowapi already wraps) would duplicate slowapi's API for no gain. Decision: stay on slowapi, close ticket #74. Did consolidate the duplicate `Limiter` instance as a quality improvement (see Changed above).
 
 ## [3.8.0] — 2026-04-18 — Forensic MIP Expansion + Frontend Hardening (26 waves)
 
