@@ -28,7 +28,7 @@
 			provisions = provRes;
 			analyses = tiaRes.analyses;
 		} catch {
-			error = 'Failed to load data';
+			error = $t('contract.load_failed');
 			toastError(error);
 		} finally {
 			loading = false;
@@ -43,7 +43,7 @@
 		try {
 			checkResult = await contractCheck(selectedAnalysisId);
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : 'Compliance check failed';
+			error = e instanceof Error ? e.message : $t('contract.check_failed');
 			toastError(error);
 		} finally {
 			checking = false;
@@ -73,14 +73,14 @@
 </script>
 
 <svelte:head>
-	<title>Contract Compliance - MeridianIQ</title>
+	<title>{$t('page.contract')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Contract Compliance</h1>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.contract')}</h1>
 		<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-			Automated compliance checks against AIA A201, ConsensusDocs, and SCL Delay & Disruption Protocol.
+			{$t('contract.subtitle')}
 		</p>
 	</div>
 
@@ -90,31 +90,30 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading...
+			{$t('common.loading')}
 		</div>
 	{:else if error && !checkResult}
 		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
 	{:else}
 		<!-- Run Compliance Check -->
 		<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Run Compliance Check</h2>
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('contract.run_title')}</h2>
 			<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-				Select a TIA analysis to check against contract provisions. The check evaluates delay fragments
-				against notice requirements, time extension thresholds, and procedural compliance.
+				{$t('contract.run_description')}
 			</p>
 			{#if analyses.length === 0}
 				<div class="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
-					No TIA analyses available. <a href="/tia" class="underline font-medium">Run a TIA analysis</a> first.
+					{$t('contract.no_tia_prefix')} <a href="/tia" class="underline font-medium">{$t('contract.no_tia_link')}</a> {$t('contract.no_tia_suffix')}
 				</div>
 			{:else}
 				<div class="flex items-end gap-4">
 					<label class="flex-1">
-						<span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">TIA Analysis</span>
+						<span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('contract.label_analysis')}</span>
 						<select
 							bind:value={selectedAnalysisId}
 							class="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
 						>
-							<option value="">Select an analysis...</option>
+							<option value="">{$t('contract.select_analysis')}</option>
 							{#each analyses as a}
 								<option value={a.analysis_id}>{a.project_name} ({a.analysis_id})</option>
 							{/each}
@@ -125,7 +124,7 @@
 						disabled={!selectedAnalysisId || checking}
 						class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
-						{checking ? 'Checking...' : 'Run Check'}
+						{checking ? $t('contract.btn_checking') : $t('contract.btn_run')}
 					</button>
 				</div>
 			{/if}
@@ -136,15 +135,15 @@
 			<div class="mb-8">
 				<div class="grid grid-cols-3 gap-4 mb-6">
 					<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
-						<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Checks</p>
+						<p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.stat_total')}</p>
 						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{checkResult.total_checks}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-yellow-200 p-4 text-center">
-						<p class="text-xs font-medium text-yellow-600 uppercase">Warnings</p>
+						<p class="text-xs font-medium text-yellow-600 uppercase">{$t('contract.stat_warnings')}</p>
 						<p class="text-2xl font-bold text-yellow-600 mt-1">{checkResult.warnings}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-red-200 p-4 text-center">
-						<p class="text-xs font-medium text-red-600 uppercase">Failures</p>
+						<p class="text-xs font-medium text-red-600 uppercase">{$t('contract.stat_failures')}</p>
 						<p class="text-2xl font-bold text-red-600 mt-1">{checkResult.failures}</p>
 					</div>
 				</div>
@@ -152,12 +151,12 @@
 				<!-- Compliance Distribution Chart -->
 				<div class="mb-6">
 					<PieChart
-						title="Compliance Check Results"
+						title={$t('contract.chart_title')}
 						size={170}
 						data={[
-							{ label: 'Pass', value: checkResult.total_checks - checkResult.warnings - checkResult.failures, color: '#10b981' },
-							{ label: 'Warning', value: checkResult.warnings, color: '#f59e0b' },
-							{ label: 'Fail', value: checkResult.failures, color: '#ef4444' },
+							{ label: $t('contract.chart_pass'), value: checkResult.total_checks - checkResult.warnings - checkResult.failures, color: '#10b981' },
+							{ label: $t('contract.chart_warning'), value: checkResult.warnings, color: '#f59e0b' },
+							{ label: $t('contract.chart_fail'), value: checkResult.failures, color: '#ef4444' },
 						]}
 					/>
 				</div>
@@ -180,13 +179,13 @@
 											{/if}
 										</div>
 										<p class="text-sm text-gray-600 dark:text-gray-400 mb-1">
-											<span class="font-medium">Fragment:</span> {check.fragment_name} ({check.fragment_id})
+											<span class="font-medium">{$t('contract.fragment_label')}</span> {check.fragment_name} ({check.fragment_id})
 										</p>
 										{#if check.finding}
 											<p class="text-sm mt-1">{check.finding}</p>
 										{/if}
 										{#if check.recommendation}
-											<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">Recommendation: {check.recommendation}</p>
+											<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{$t('contract.recommendation_label')} {check.recommendation}</p>
 										{/if}
 									</div>
 								</div>
@@ -195,7 +194,7 @@
 					</div>
 				{:else}
 					<div class="p-4 bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg text-green-700 text-sm text-center">
-						All checks passed. No compliance issues found.
+						{$t('contract.all_pass')}
 					</div>
 				{/if}
 			</div>
@@ -209,20 +208,20 @@
 		{#if provisions && provisions.provisions.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
 				<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Contract Provisions Reference</h2>
+					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('contract.provisions_title')}</h2>
 					<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-						{provisions.provisions.length} provisions from AIA A201, ConsensusDocs, and SCL Protocol
+						{provisions.provisions.length} {$t('contract.provisions_count_suffix')}
 					</p>
 				</div>
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200">
 						<thead class="bg-gray-50 dark:bg-gray-800">
 							<tr>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Provision</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reference</th>
-								<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Threshold</th>
-								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.col_provision')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.col_category')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.col_reference')}</th>
+								<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.col_threshold')}</th>
+								<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{$t('contract.col_description')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200">
@@ -231,7 +230,7 @@
 									<td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{p.name}</td>
 									<td class="px-4 py-3">
 										<span class="px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
-											{p.category || 'General'}
+											{p.category || $t('contract.category_general')}
 										</span>
 									</td>
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono">{p.reference || '-'}</td>
