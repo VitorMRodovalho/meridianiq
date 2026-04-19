@@ -26,6 +26,7 @@ Medium-sized projects accumulate decisions quickly. Without ADRs, the reasoning 
 | [0013](0013-websocket-progress-hardening.md) | WebSocket progress hardening | accepted |
 | [0014](0014-derived-artifact-provenance-hash.md) | Derived-artifact provenance hash | accepted, amended by 0015 |
 | [0015](0015-async-materialization-state-machine.md) | Async materializer + `projects.status` state machine | accepted |
+| [0016](0016-lifecycle-phase-inference.md) | Lifecycle phase inference + override log + lock-flag | accepted |
 
 ## Adding a new ADR
 
