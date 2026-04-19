@@ -1,6 +1,6 @@
 # 0009. Cycle 1 v4.0 — Lifecycle Intelligence on Materialized Analytics (with pre-committed fallback)
 
-* Status: accepted — §"Wave 4 (deep — calibration + gate)" and §"Decision Outcome → Wave plan → Wave 4" amended by **Amendment 1 (2026-04-19)** at the bottom of this file
+* Status: accepted — §"Wave 4" amended by **Amendment 1 (2026-04-19)** (pre-registration) and **Amendment 2 (2026-04-19)** (outcome + W5/W6 pre-committed fallback activated) at the bottom of this file. Companion artifact: `docs/adr/0009-w4-outcome.md`.
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-18
 * Council review: product-validator, strategist, legal-and-accountability, devils-advocate (see `project_v40_cycle_1.md` for anonymised synthesis). Amendment 1 adds a second round: product-validator + legal-and-accountability + devils-advocate (2026-04-18, anonymised synthesis in `project_v40_cycle_1.md`).
@@ -203,3 +203,54 @@ This three-way distinction is load-bearing: an external forensic reviewer must b
 - **New ADR-0017 that supersedes §Wave 4 of ADR-0009.** Rejected — the chosen option (B) has not changed; only the input dataset and the empirically-observed engine distribution have. A superseding ADR would overstate the delta. Amendment in place with explicit header + pointer is proportionate.
 - **Lower the primary threshold silently to 0.70 before running.** Rejected — post-hoc threshold adjustment is the exact failure mode devils-advocate P1#4 anticipated. Threshold stays at 0.80 for the pre-registered gate; Amendment 2 (post-calibration) may propose a lowered threshold in a distinct new ADR if evidence warrants.
 - **Skip the hysteresis subset.** Rejected — absorbing devils-advocate W3 P2#8 costs nothing and produces falsifiable evidence for a claim ADR-0016 currently punts ("hysteresis deferred to W4+ because no calibration data"). The data exists; compute the answer.
+
+---
+
+## Amendment 2 (2026-04-19) — Wave 4 outcome + pre-committed fallback activated
+
+**Status:** accepted — Wave 4 calibration ran 2026-04-19 against the Amendment 1 pre-registered protocol. The gate fails at every pre-registered threshold. Per ADR-0009 §"Wave 5–6 (conditional branch) — If gate fails", the pre-committed fallback branch is activated. ADR-0010 stays reserved. Companion record: `docs/adr/0009-w4-outcome.md`.
+
+### Outcome — fourth scenario, not pre-registered
+
+Amendment 1 §J anticipated three outcomes. The calibration produced a fourth: the engine runs meaningfully (99% non-`unknown` on n=96 gate subset) but fails every pre-registered threshold for different sub-gate reasons.
+
+| Threshold | Primary pass (≥70%) | Phase-dist (≤60%) | Honesty (≥20% <0.5) | Overall |
+|---|---|---|---|---|
+| 0.80 | FAIL (10.4%, 10/96) | PASS (50.0%) | FAIL (19.8% — 0.2pp tie) | FAIL |
+| 0.70 | PASS (74.0%, 71/96) | FAIL (84.5%) | FAIL (19.8%) | FAIL |
+| 0.60 | PASS (80.2%, 77/96) | FAIL (77.9%) | FAIL (19.8%) | FAIL |
+
+Interpretation: the engine is a reliable **construction-vs-non-construction detector**. The `meaningful_actuals_mid_progress` rule at `lifecycle_phase.py:258-264` supplies the bulk of classifications at confidence 0.74-0.77 — below 0.80 primary gate, but well above 0.60/0.70 lower bands — and those classifications cluster on `construction`, tripping the phase-distribution sub-gate whenever the primary pass-rate is cleared. Devils-advocate W3 end-of-wave P1#2 anticipated this exact failure mode; evidence confirms. Amendment 1 §C sub-gate (no single phase > 60% of numerator) did its job — caught the rubber-stamp behaviour that the primary metric alone would have masked.
+
+### Positive findings
+
+- **Hysteresis excellent (Amendment 1 §A hysteresis subset):** 4 multi-revision programs, **0 phase flips**, 1 confidence-band flip across a 0.5 edge. Engine is stable across consecutive serial updates — a forensic-defensibility asset that closes devils-advocate W3 end-of-wave P2#8 as positive empirical evidence rather than deferred conjecture.
+- **99% classification coverage on real-schedule input.** Unlike prod's 77% `unknown` (22 projects, mostly sparse pre-launch test uploads), the sandbox showed 1% `unknown`. Rich-signal schedules get classified; the engine's reluctance in prod is a signal-sparsity concern, not an engine defect.
+- **Prod operational darkness closed as collateral** (Amendment 1 Finding #2). Backfill CLI run + datetime-serialization P1 bug fix + 22-project re-materialization = 88 derived-artifact rows in prod where there had been zero.
+
+### W5/W6 branch — pre-committed fallback (path A)
+
+Per ADR-0009 §"Wave 5–6 (conditional branch) — If gate fails" and Amendment 1 §J scenario #3 re-interpreted (gate failed on empirical evidence, not on being-never-run):
+
+- **W5/W6 delivers the P3 carry-over from v3.9:**
+  - `progress_callback` wiring in `src/analytics/evolution_optimizer.py` plus the heavy report generators that share the wave-10 pattern.
+  - Svelte composable for the WebSocket progress bar, wired to the risk-simulation page.
+- **ADR-0010 stays reserved.** No `lifecycle_health.py` authorship this cycle. If a future cycle revisits lifecycle intelligence with a ruleset v2 (or a narrower construction-detector engine), it authors a new ADR citing this Amendment rather than reclaiming 0010.
+- **Engine v1 remains in prod as an informative label surface.** UI card continues rendering phase + confidence band per ADR-0016. The Cost Engineer override + sticky lock remains the final answer for users who disagree. Engine version / ruleset version are NOT bumped; no `mark_stale` chain is triggered. Existing 22 prod artifacts remain valid.
+- **Honest framing in user-visible copy.** README, public issue, UI help text document the label as a "preliminary phase indicator" — the `construction` label means "this schedule has the shape of active construction progress"; other labels are best-effort hints whose reliability the calibration did not establish at 0.80. Forensic use case (Consultant / Claims SME persona) MUST treat the label as a hypothesis to verify, not a derivative to cite.
+
+### Rejected alternatives at Amendment 2 (deliberately catalogued — legitimate v4.1+ paths)
+
+- **B. Ruleset v2 with tuned thresholds.** Defensible and evidence-backed — the calibration data is exactly what a v2 design would need. Out of Cycle 1 scope; forcing it into W5/W6 adds a wave and delays v4.0. Preserved as a v4.1 candidate; the data in `meridianiq-private/calibration/cycle1-w4/` is the starting point.
+- **C. Binary construction-detector shipped now + 5+1 full classifier behind a preview flag.** Architecturally the cleanest answer to what the engine actually is — the calibration proved it's a construction detector. Rejected here because it requires a UI split (two surface labels instead of one) and documentation updates beyond W5/W6 fallback scope. Cost Engineer persona already has override authority over the single label; the binary split does not add persona value proportional to the work in this cycle. Kept explicitly in this Amendment as a legitimate v4.1 option — the maintainer's first preference at Amendment 2 synthesis was C; the decision to ship A was a Chairman recommendation, accepted by the maintainer on the argument that A is pre-committed discipline plus W5/W6 closes real v3.9 tail debt.
+
+### Cycle 1 closure
+
+Wave 4 done. Wave 5/6 opens with the P3 carry-over deliverables. Cycle 1 concludes with v4.0 shipping:
+- Lifecycle phase label surface (ADR-0016 shipped at W3, validated as construction-detector at W4).
+- Materialization pipeline (ADR-0015 shipped W2, operationally validated post-W4 via the backfill CLI).
+- Provenance chain (ADR-0014 shipped W1, enforces forensic reproducibility for every derived artifact).
+- WebSocket progress hardening (ADR-0013, shipped W0).
+- Governance artefacts: PRIVACY.md, Amendments 1 + 2, backfill CLI, pre-registered calibration harness.
+
+**No** lifecycle_health.py, no phase-aware analytics beyond the W3 label, no ADR-0010. That deferral is explicit per this Amendment and is the correct outcome of the pre-registered gate discipline — not a scope concession.
