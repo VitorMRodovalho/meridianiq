@@ -283,6 +283,13 @@ class TestOptimizeRateLimit:
         """
         from src.api.deps import limiter as api_limiter
 
+        if not hasattr(api_limiter, "enabled"):
+            # Environment has slowapi uninstalled — `deps._NoOpLimiter`
+            # is active and `@limiter.limit` is a pass-through. There
+            # is nothing to assert 429 against. (Also the state most
+            # CI runners hit since slowapi is not a hard runtime dep.)
+            pytest.skip("slowapi _NoOpLimiter fallback — rate-limit not active")
+
         monkeypatch.setattr(api_limiter, "enabled", True)
         # The limiter shares its in-memory backend across tests —
         # previous successful calls in the session may have consumed
