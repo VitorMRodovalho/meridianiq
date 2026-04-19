@@ -144,18 +144,34 @@ class TestOptimizeWithJobIdStreamsProgress:
         """Open WS, fire optimize with ?job_id=<uuid>, drain WS until
         terminal. Expect at least one `progress` event and a final `done`
         event carrying improvement_pct + improvement_days (the honest
-        terminal contract for optimize — distinct from risk's simulation_id)."""
+        terminal contract for optimize — distinct from risk's simulation_id).
+
+        Channel is created by the WS handler itself via `open_channel`
+        (mirrors tests/test_progress_ws.py::test_websocket_streams_done_event
+        pattern) — no explicit pre-open is needed because the WS
+        handshake completes synchronously within websocket_connect's
+        context manager entry.
+        """
         job_id = str(uuid.uuid4())
-        # Pre-bind the channel to allow the WS to connect before the
-        # endpoint call (mirrors how the frontend composable works:
-        # POST /jobs/progress/start opens the channel, then the heavy
-        # endpoint attaches to it).
-        progress.open_channel(job_id, owner_user_id=None)
+
+        # Use a bigger config so progress emissions have time to flush
+        # through the call_soon_threadsafe queue before the terminal
+        # `done` event. With population=5 * generations=10 = 50 offspring
+        # + 4 greedy rules = 54 evaluations, progress_step = max(1, 54//100) = 1
+        # so every evaluation emits, plus the guaranteed final (total, total)
+        # frame. ~54ms total under CI load — slow enough to yield to the
+        # WS consumer task, fast enough to keep the test under 1s.
+        slow_config = {
+            "population_size": 5,
+            "parent_size": 2,
+            "generations": 10,
+            "resource_limits": [{"rsrc_id": "R1", "max_units": 1.0}],
+        }
 
         with client.websocket_connect(f"/api/v1/ws/progress/{job_id}") as ws:
             resp = client.post(
                 f"/api/v1/projects/{uploaded_project_id}/optimize?job_id={job_id}",
-                json=_fast_config(),
+                json=slow_config,
             )
             assert resp.status_code == 200, resp.text
 
