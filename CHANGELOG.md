@@ -3,6 +3,68 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.0.0] — 2026-04-19 — Materialized Intelligence (Cycle 1, 7 waves)
+
+First release of the v4.0 line. Cycle 1 shipped ingest-time materialization with a full provenance contract, a lifecycle-phase inference surface (calibrated honestly as a preliminary construction-vs-non-construction indicator, not a full 5+1 classifier), WebSocket progress hardening, and governance backfill. Path A pre-committed fallback was activated at Wave 4 after the calibration gate failed at every pre-registered threshold — `src/analytics/lifecycle_health.py` is intentionally NOT shipped this cycle; W5/W6 closed v3.9 tail debt instead (progress_callback wiring + Svelte WebSocket composable on the risk-simulation page).
+
+See `docs/adr/0009-cycle1-lifecycle-intelligence.md` (plus Amendments 1 + 2) for the full decision log, and `docs/adr/0009-w4-outcome.md` for the coarse-banded calibration result.
+
+### Added — Infrastructure
+
+- **`schedule_derived_artifacts` table** (W1, ADR-0014) — per-project cached engine outputs with full provenance (`engine_version`, `ruleset_version`, `input_hash`, `effective_at`, `computed_by`, `stale_reason`). Nine columns, quadruple RLS (SELECT / INSERT / UPDATE / DELETE), `ON DELETE CASCADE` on `project_id`, `UNIQUE NULLS NOT DISTINCT`. Canonical `input_hash` algorithm is the forensic reproducibility contract.
+- **Async materializer pipeline** (W2, ADR-0015) — upload happy-path publishes a background materialization job (`asyncio.Task` + `Semaphore(1)` + `ProcessPoolExecutor` spawn) that writes CPM / DCMA / health / lifecycle artifacts. Project rows carry explicit `status = pending | ready | failed`. Upload returns `202 Accepted { job_id, ws_url }` immediately. Backfill CLI re-materializes existing projects with a shared `backfill_id`.
+- **Lifecycle-phase inference surface** (W3, ADR-0016) — `src/analytics/lifecycle_phase.py` emits one of 5 phases (`planning / design / procurement / construction / closeout`) plus `unknown` with a numeric confidence. UI card in ProjectDetail with override + sticky lock; Cost Engineer persona has final-say authority. Override log is append-only by convention (no DELETE policy).
+- **Server-generated WebSocket job_id** (W0, ADR-0013) — `POST /api/v1/jobs/progress/start` allocates a UUID-v4 bound to the caller. Bearer-JWT auth on the WS handshake in production (`?token=<jwt>`), with dev-mode anonymous fallback intentionally preserved. 15-minute stale-channel reaper invoked opportunistically from `open_channel`. Close codes 4401 / 4403 / 4404 for auth / ownership / invalid id.
+
+### Added — Progress UX (W5/W6 carry-over, path A fallback)
+
+- **`progress_callback`** in `src/analytics/evolution_optimizer.optimize_schedule` — pattern parity with `risk.MonteCarloSimulator.simulate`. Emission cadence `max(1, n // 100)` with final `(total, total)` guarantee. `total = len(priority_rules) + generations * population_size`; bookkeeping re-eval on new best is NOT counted. Future-proof for a router consumer.
+- **`useWebSocketProgress` composable** (`web/src/lib/composables/useWebSocketProgress.ts`, NEW) — owns `POST /jobs/progress/start` + WebSocket lifecycle. Exposes a `Readable<WSProgressState>` store for template auto-subscribe. `markDone` / `markError` are authoritative terminal signals from the caller's HTTP response, eliminating the `close()` / WS race. No auto-reconnect (ADR-0013 missed-events contract — honest UX over pretend-retry). SSR-safe.
+- **`risk/+page.svelte` wire-in** — `runSimulation()` now flows `progress.start()` → `createRiskSimulation(..., jobId)` → `progress.markDone(result.simulation_id)` → `progress.close()`. Inline progress bar with `role=progressbar` + `aria-live=polite` + i18n copy (connection lost vs failure vs cancelled). 7 new keys × 3 locales (en / pt-BR / es).
+
+### Added — Governance
+
+- **Provenance-hash contract** (ADR-0014) — canonical `input_hash` algorithm; every derived artifact reproducible from `(input_hash, engine_version, ruleset_version)`.
+- **PRIVACY.md** — non-binding data-handling disclosure (Supabase region, retention defaults, deletion path).
+- **Pre-registered calibration protocol** (ADR-0009 Amendment 1) — dedup rule pre-registered before engine output observed, unknown-denominator convention, phase-distribution sub-gate (no single phase > 60% of numerator), confidence-honesty sub-gate (≥20% of subset at confidence < 0.5), publication scope (coarse-banded aggregates only), filename leakage guard. W4 executed the protocol against 103 unique-hash XERs.
+- **W4 outcome record** (ADR-0009 Amendment 2 + `docs/adr/0009-w4-outcome.md`) — fourth scenario not pre-registered (gate fails at every threshold for different sub-gate reasons). Engine behaves as a reliable construction-vs-non-construction detector. Hysteresis excellent: 0 phase flips across 4 multi-revision programs. Pre-committed fallback branch (path A) activated; `lifecycle_health.py` stays deferred.
+
+### Added — ADRs this cycle
+
+- ADR-0009 — Cycle 1 design + Amendments 1 and 2.
+- ADR-0012 — derivatives-table specification.
+- ADR-0013 — WebSocket progress authentication + server-generated id + reaper.
+- ADR-0014 — derived-artifact provenance-hash contract.
+- ADR-0015 — async materializer pipeline.
+- ADR-0016 — lifecycle-phase inference rule cascade.
+- ADR-0010 remains reserved, unused this cycle.
+- ADR-0011 — fuzzy-match dependency category for shallow-1 auto-grouping.
+- ADR-0006 / 0007 / 0008 backfilled for v3.9 silent-ship items (plugin architecture, minimum-viable progress WS, MCP HTTP/SSE transport).
+
+### Fixed
+
+- **Datetime JSON serialization at the store boundary** (W4) — engine payloads carrying `datetime` objects were rejected by Supabase PostgREST's `httpx` + stdlib `json` encoder, silently flipping projects to `status='failed'` without writing artifacts. `_json_safe` recursive helper applied at both `SupabaseStore.save_derived_artifact` and `InMemoryStore.save_derived_artifact`. Regression test added.
+- **`defusedxml.ElementTree` swap in `src/parser/msp_reader.py`** (W0) — closes CWE-611 XXE vulnerability before any first-class MSP framing.
+- **UTF-16 BOM detection in `msp_reader.parse`** (W0) — Microsoft tooling commonly emits UTF-16-LE with BOM; previous UTF-8-only path broke PT-BR / ES accented content.
+- **`UNIQUE(user_id, lower(name))` + upsert on `programs`** (W0) — closes the race in `get_or_create_program`; prerequisite for shallow-1 fuzzy grouping.
+- **`audit_log.user_agent` column** (W0, Migration 021) — closes the v3.8 wave-13 silent gap where the column was promised but the migration never shipped.
+- **Prod operational darkness** (W4 collateral) — `schedule_derived_artifacts` was empty across 24 ready projects despite the W2 DDL being applied; the backfill CLI had never been invoked. First invocation surfaced the datetime P1 which flipped 21 projects to `failed`. Post-fix run produced `ok=21 failed=0` and 88 derived-artifact rows (22 projects × 4 kinds) + 88 `action='materialize'` audit rows with a shared `backfill_id`.
+
+### Not shipped this cycle (pre-committed deferral)
+
+- **`src/analytics/lifecycle_health.py`** — the phase-aware analytics engine that would combine `(schedule, baseline, phase)` into phase-aware findings. Deferred per ADR-0009 Amendment 2 path A activation. Revisitable in a future cycle via either (B) ruleset v2 tuning from the calibration dataset (contributor contributions via issue #13), or (C) binary construction-detector + 5+1 preview flag. Either path lands with a new ADR, not by reclaiming ADR-0010.
+
+### Stats
+
+- 47 analysis engines (was 45) + 1 export module
+- 121 API endpoints across 23 routers (was 115 × 21)
+- 25 Supabase migrations (was 24)
+- 1350 backend tests (was 1148) — +202
+- 54 SvelteKit pages (unchanged)
+- 22 MCP tools (unchanged)
+- 11 chart components (unchanged)
+- 15 PDF report types (unchanged)
+
 ## [3.9.0] — 2026-04-18 — Real-Time + Extensibility (10 waves)
 
 10 waves on top of v3.8.0. Three tracks: P2 cleanup (waves 1-3, 5), P3 capability expansion (waves 4, 6-10), and one fix-up. Headline gains: WebSocket progress streaming for long-running ops, third-party plugin architecture, MCP server now reachable over HTTP, activity grouping by any field, structured P6 calendar exception parser, mobile responsiveness pass, in-memory KPI cache for hot endpoints.

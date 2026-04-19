@@ -42,7 +42,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Frontend pages | 52 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, …) |
 | API endpoints | 98 |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | 24 (v0.1.0 → v3.9.0) |
+| Released versions | 25 (v0.1.0 → v4.0.0) |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -213,6 +213,7 @@ flowchart LR
 | v3.7 | **Forensic & Executive Reporting** | CBS compare · Program rollup · Executive Summary PDF · Risk register linkage · SupabaseStore CBS rehydration · BI connector · SCL Protocol + AACE §5.3 PDFs · AIA G703 Excel · Gantt SVG/PNG export | ✅ Released |
 | v3.8 | **Forensic MIP Expansion + Frontend Hardening** | AACE MIPs 3.1/3.2/3.5/3.6/3.7 · AIA G702 PDF · BI templates · per-WBS Gantt print · stats-consistency CI · audit IP/UA · type-safety + i18n sweeps | ✅ Released |
 | v3.9 | **Real-Time + Extensibility** | WebSocket progress (Monte Carlo) · plugin architecture + HTTP surface · MCP HTTP/SSE transports · activity grouping · structured calendar exception parser · mobile responsive · KPI cache · slowapi consolidation | ✅ Released |
+| v4.0 | **Materialized Intelligence** | schedule_derived_artifacts + provenance contract · async materializer pipeline (pending/ready/failed) · lifecycle phase inference (preliminary construction indicator per W4 calibration) · WebSocket progress hardening · evolution_optimizer callback · Svelte WS composable · datetime-safe store boundary · pre-registered calibration protocol | ✅ Released |
 
 See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP_v06_to_v20.md).
 
