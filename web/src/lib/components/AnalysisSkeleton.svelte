@@ -1,16 +1,67 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
+
 	interface Props {
 		cards?: number;
 		showChart?: boolean;
 		showTable?: boolean;
+		// W3: distinguish a generic "loading" pulse from "materializing"
+		// (background analytics) so the user gets honest expectations
+		// about wait time. Existing callers default to 'loading'.
+		mode?: 'loading' | 'materializing';
+		// Optional progress hint when WebSocket progress is available
+		// (Monte Carlo wires this; static analyses leave it undefined).
+		progressPct?: number | null;
 	}
 
 	let {
 		cards = 4,
 		showChart = true,
 		showTable = true,
+		mode = 'loading',
+		progressPct = null,
 	}: Props = $props();
 </script>
+
+{#if mode === 'materializing'}
+	<div
+		role="status"
+		aria-live="polite"
+		class="mb-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-100"
+	>
+		<svg
+			class="w-4 h-4 animate-spin shrink-0"
+			fill="none"
+			stroke="currentColor"
+			viewBox="0 0 24 24"
+			aria-hidden="true"
+		>
+			<circle cx="12" cy="12" r="10" stroke-width="2" class="opacity-25" />
+			<path
+				d="M12 2a10 10 0 0110 10"
+				stroke-width="2"
+				stroke-linecap="round"
+				class="opacity-75"
+			/>
+		</svg>
+		<span class="flex-1">{$t('analysis.materializing_banner')}</span>
+		{#if progressPct !== null && progressPct >= 0 && progressPct <= 100}
+			<div
+				class="w-32 h-1.5 bg-amber-200 dark:bg-amber-800 rounded overflow-hidden"
+				role="progressbar"
+				aria-valuenow={Math.round(progressPct)}
+				aria-valuemin={0}
+				aria-valuemax={100}
+			>
+				<div
+					class="h-full bg-amber-600 dark:bg-amber-400 transition-all"
+					style="width: {Math.round(progressPct)}%"
+				></div>
+			</div>
+			<span class="tabular-nums text-xs">{Math.round(progressPct)}%</span>
+		{/if}
+	</div>
+{/if}
 
 <div class="animate-pulse">
 	<!-- KPI cards skeleton -->

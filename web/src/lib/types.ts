@@ -769,6 +769,74 @@ export interface GeneratedScheduleResponse {
 	summary: Record<string, unknown>;
 }
 
+// ── Lifecycle Phase (W3 of Cycle 1 v4.0 — ADR-0016) ─────
+
+// 5-phase + unknown taxonomy. `unknown` is the explicit guard the engine
+// emits when it cannot classify (e.g. missing data_date) — the UI
+// renders it as the empty / neutral state.
+export type LifecyclePhase =
+	| 'planning'
+	| 'design'
+	| 'procurement'
+	| 'construction'
+	| 'closeout'
+	| 'unknown';
+
+export interface LifecyclePhaseInferenceSchema {
+	phase: LifecyclePhase;
+	confidence: number; // 0.0 – 1.0
+	confidence_band: 'low' | 'medium' | 'high';
+	rationale: Record<string, unknown>;
+	engine_version: string;
+	ruleset_version: string;
+	effective_at: string | null;
+	computed_at: string | null;
+}
+
+export interface LifecycleOverrideSchema {
+	id: string;
+	project_id: string;
+	inferred_phase: LifecyclePhase | null;
+	override_phase: LifecyclePhase;
+	override_reason: string;
+	overridden_by: string | null;
+	overridden_at: string | null;
+	engine_version: string;
+	ruleset_version: string;
+}
+
+export interface LifecyclePhaseSummary {
+	project_id: string;
+	locked: boolean;
+	inference: LifecyclePhaseInferenceSchema | null;
+	latest_override: LifecycleOverrideSchema | null;
+	effective_phase: LifecyclePhase;
+	effective_confidence: number | null;
+	source: 'inferred' | 'manual' | null;
+}
+
+export interface LifecycleOverrideRequest {
+	override_phase: LifecyclePhase;
+	override_reason: string;
+}
+
+export interface LifecycleOverrideListResponse {
+	overrides: LifecycleOverrideSchema[];
+}
+
+// ── Pending statuses aggregator (W3 banner — single poll per user) ─
+
+export interface PendingStatusItem {
+	project_id: string;
+	name: string;
+	status: ProjectStatus;
+}
+
+export interface PendingStatusesResponse {
+	items: PendingStatusItem[];
+	polled_at: string | null;
+}
+
 // ── 4D Visualization ────────────────────────────────────
 
 export interface VisualizationActivity {

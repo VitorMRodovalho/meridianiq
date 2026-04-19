@@ -7,6 +7,7 @@
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
+	import LifecyclePhaseCard from '$lib/components/LifecyclePhaseCard.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 	import type {
 		ProjectDetailResponse,
@@ -400,6 +401,11 @@
 				{/if}
 			</div>
 		</div>
+		</div>
+
+		<!-- Lifecycle Phase (W3 of Cycle 1 v4.0 — ADR-0016) -->
+		<div class="mb-6">
+			<LifecyclePhaseCard {projectId} />
 		</div>
 
 		<!-- Tabs -->

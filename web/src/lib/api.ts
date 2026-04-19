@@ -1226,3 +1226,66 @@ export async function generateSchedule(
 export async function getVisualization(projectId: string): Promise<VisualizationResponse> {
 	return request<VisualizationResponse>(`/api/v1/projects/${projectId}/visualization`);
 }
+
+// ── Lifecycle phase (W3 of Cycle 1 v4.0 — ADR-0016) ──────
+
+import type {
+	LifecyclePhaseSummary,
+	LifecycleOverrideRequest,
+	LifecycleOverrideSchema,
+	LifecycleOverrideListResponse,
+	PendingStatusesResponse,
+} from './types';
+
+export type {
+	LifecyclePhaseSummary,
+	LifecycleOverrideRequest,
+	LifecycleOverrideSchema,
+	LifecycleOverrideListResponse,
+	PendingStatusesResponse,
+};
+
+export async function getLifecycleSummary(projectId: string): Promise<LifecyclePhaseSummary> {
+	return request<LifecyclePhaseSummary>(`/api/v1/projects/${projectId}/lifecycle`);
+}
+
+export async function postLifecycleOverride(
+	projectId: string,
+	body: LifecycleOverrideRequest
+): Promise<LifecycleOverrideSchema> {
+	return request<LifecycleOverrideSchema>(`/api/v1/projects/${projectId}/lifecycle/override`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body),
+	});
+}
+
+export async function deleteLifecycleOverride(projectId: string): Promise<void> {
+	// 204 No Content — request<T>() expects JSON, so we hit fetch directly.
+	const { data: { session } } = await supabase.auth.getSession();
+	const token = session?.access_token;
+	const headers: Record<string, string> = token
+		? { Authorization: `Bearer ${token}` }
+		: {};
+	const res = await fetch(`${BASE}/api/v1/projects/${projectId}/lifecycle/override`, {
+		method: 'DELETE',
+		headers,
+	});
+	if (!res.ok) {
+		const text = await res.text();
+		throw new Error(text || `Revert failed: ${res.status}`);
+	}
+}
+
+export async function getLifecycleOverrides(
+	projectId: string,
+	limit: number = 50
+): Promise<LifecycleOverrideListResponse> {
+	return request<LifecycleOverrideListResponse>(
+		`/api/v1/projects/${projectId}/lifecycle/overrides?limit=${limit}`
+	);
+}
+
+export async function getPendingStatuses(): Promise<PendingStatusesResponse> {
+	return request<PendingStatusesResponse>(`/api/v1/projects/pending-statuses`);
+}
