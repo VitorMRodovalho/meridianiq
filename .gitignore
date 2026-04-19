@@ -55,3 +55,8 @@ STATUS_REPORT.md
 web/test-results/
 web/playwright-report/
 web/blob-report/
+
+# W4 calibration outputs — confidential per ADR-0009 Amendment 1 §G.
+# Local-only runs under scripts/calibration/; real data stays off-Git.
+w4_calibration*.json
+w4_manifest.json
