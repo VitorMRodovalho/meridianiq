@@ -824,6 +824,27 @@ export interface LifecycleOverrideListResponse {
 	overrides: LifecycleOverrideSchema[];
 }
 
+// ── WebSocket progress events (ADR-0013 — risk sim + evolution optimizer) ─
+
+export interface WSProgressRunning {
+	type: 'progress';
+	done: number;
+	total: number;
+	pct: number;
+}
+
+export interface WSProgressDone {
+	type: 'done';
+	simulation_id?: string;
+}
+
+export interface WSProgressError {
+	type: 'error';
+	message: string;
+}
+
+export type WSProgressEvent = WSProgressRunning | WSProgressDone | WSProgressError;
+
 // ── Pending statuses aggregator (W3 banner — single poll per user) ─
 
 export interface PendingStatusItem {

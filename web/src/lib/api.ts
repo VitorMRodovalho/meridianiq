@@ -692,12 +692,28 @@ export async function getRiskSimulations(): Promise<{ simulations: RiskSimulatio
 
 export async function createRiskSimulation(
 	projectId: string,
-	config: RiskSimulationRunConfig
+	config: RiskSimulationRunConfig,
+	jobId?: string
 ): Promise<RiskSimulationResult> {
-	return request<RiskSimulationResult>(`/api/v1/risk/simulate/${projectId}`, {
+	const suffix = jobId ? `?job_id=${encodeURIComponent(jobId)}` : '';
+	return request<RiskSimulationResult>(`/api/v1/risk/simulate/${projectId}${suffix}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(config)
+	});
+}
+
+// ── Progress jobs (ADR-0013 server-generated job_id + ownership) ───────
+
+export interface ProgressJobResponse {
+	job_id: string;
+	ws_url: string;
+}
+
+export async function startProgressJob(): Promise<ProgressJobResponse> {
+	return request<ProgressJobResponse>('/api/v1/jobs/progress/start', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' }
 	});
 }
 

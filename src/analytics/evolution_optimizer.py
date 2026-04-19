@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -130,6 +131,7 @@ def _mutate_limits(
 def optimize_schedule(
     schedule: ParsedSchedule,
     config: EvolutionConfig,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> OptimizationResult:
     """Optimize resource-constrained schedule using Evolution Strategies.
 
@@ -139,6 +141,15 @@ def optimize_schedule(
     Args:
         schedule: The schedule to optimize.
         config: Evolution strategy configuration.
+        progress_callback: Optional ``(completed_evaluations, total)``
+            callback fired roughly every 1% of total evaluations (or
+            every evaluation on very small runs). Total equals
+            ``len(priority_rules) + generations * population_size``;
+            the bookkeeping re-evaluation triggered when a new best is
+            found is NOT counted. Cheap if omitted — no per-iteration
+            overhead added when ``None``. Consumers wire this hook to
+            the WebSocket progress channel (see ADR-0009 Amendment 2
+            W5/W6 carry-over + ADR-0013 publisher pattern).
 
     Returns:
         An ``OptimizationResult`` with best duration, improvement, and
@@ -154,14 +165,19 @@ def optimize_schedule(
     rng = random.Random(config.seed)
 
     if not config.resource_limits:
-        # No resource constraints — just run CPM
+        # No resource constraints — just run CPM. No heavy-work units to
+        # report, so we skip the progress callback entirely.
         cpm = CPMCalculator(schedule).calculate()
         result.best_duration_days = round(cpm.project_duration, 1)
         result.greedy_duration_days = result.best_duration_days
         result.methodology = "No resource limits — unconstrained CPM"
         return result
 
-    # Phase 1: Evaluate all greedy priority rules
+    total_evals = len(config.priority_rules) + config.generations * config.population_size
+    progress_step = max(1, total_evals // 100) if progress_callback else 0
+    done_evals = 0
+
+    # Phase 1: Evaluate all greedy priority rules.
     greedy_results: list[tuple[str, float, LevelingResult]] = []
     for rule in config.priority_rules:
         lconfig = LevelingConfig(
@@ -171,11 +187,15 @@ def optimize_schedule(
         lr = level_resources(schedule, lconfig)
         greedy_results.append((rule, lr.leveled_duration_days, lr))
 
+        done_evals += 1
+        if progress_callback and progress_step and done_evals % progress_step == 0:
+            progress_callback(done_evals, total_evals)
+
     greedy_results.sort(key=lambda x: x[1])
     best_rule, best_greedy_dur, best_greedy_lr = greedy_results[0]
     result.greedy_duration_days = round(best_greedy_dur, 1)
 
-    # Phase 2: Evolution — evolve priority rule + slight limit mutations
+    # Phase 2: Evolution — evolve priority rule + slight limit mutations.
     best_duration = best_greedy_dur
     best_leveling = best_greedy_lr
     best_priority = best_rule
@@ -197,6 +217,10 @@ def optimize_schedule(
             lr = level_resources(schedule, lconfig)
             offspring.append((rule, limits, lr.leveled_duration_days))
 
+            done_evals += 1
+            if progress_callback and progress_step and done_evals % progress_step == 0:
+                progress_callback(done_evals, total_evals)
+
         # Select mu best
         offspring.sort(key=lambda x: x[2])
         parents = offspring[: config.parent_size]
@@ -205,11 +229,19 @@ def optimize_schedule(
         if parents[0][2] < best_duration:
             best_priority = parents[0][0]
             best_duration = parents[0][2]
-            # Re-run to get full LevelingResult
+            # Re-run to get full LevelingResult. This re-evaluation is
+            # bookkeeping (captures the full LevelingResult for the new
+            # incumbent); intentionally NOT counted toward the progress
+            # total so the emission contract stays monotonic and bounded.
             lconfig = LevelingConfig(resource_limits=parents[0][1], priority_rule=best_priority)
             best_leveling = level_resources(schedule, lconfig)
 
         convergence.append(round(best_duration, 1))
+
+    # Final guaranteed (total, total) frame so consumers always see 100%
+    # even when total_evals is not a multiple of progress_step.
+    if progress_callback:
+        progress_callback(total_evals, total_evals)
 
     result.best_duration_days = round(best_duration, 1)
     result.best_priority_rule = best_priority

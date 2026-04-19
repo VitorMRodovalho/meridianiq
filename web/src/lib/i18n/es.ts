@@ -397,6 +397,15 @@ export default {
 	'ips.col_delta': 'Delta',
 	'ips.no_issues': 'No se encontraron problemas',
 
+	// Risk progress (WebSocket live feedback — W5/W6 Cycle 1 v4.0)
+	'risk.progress.label': 'Progreso de la simulacion',
+	'risk.progress.starting': 'Iniciando proceso...',
+	'risk.progress.connecting': 'Conectando al canal de progreso...',
+	'risk.progress.running': 'Ejecutando simulacion',
+	'risk.progress.connection_lost': 'Conexion perdida. La simulacion puede continuar en segundo plano; actualice la lista abajo cuando termine.',
+	'risk.progress.failed': 'La simulacion fallo',
+	'risk.progress.cancelled': 'Seguimiento cancelado',
+
 	// Risk Register page
 	'risk_register.subtitle': 'Gestion de eventos de riesgo discretos (AACE RP 57R-09, ISO 31000)',
 	'risk_register.stat_total': 'Total de Riesgos',

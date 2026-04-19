@@ -202,3 +202,128 @@ class TestEvolutionOptimizer:
         r1 = optimize_schedule(schedule, config)
         r2 = optimize_schedule(schedule, config)
         assert r1.best_duration_days == r2.best_duration_days
+
+
+class TestProgressCallback:
+    """Contract tests for the ``progress_callback`` hook added in W5/W6 of
+    Cycle 1 v4.0 (pre-committed fallback branch per ADR-0009 Amendment 2).
+    """
+
+    def _small_config(self, **overrides: int) -> EvolutionConfig:
+        defaults = {
+            "population_size": 3,
+            "parent_size": 2,
+            "generations": 2,
+            "resource_limits": [ResourceLimit(rsrc_id="R1", max_units=1.0)],
+            "priority_rules": ["late_start", "early_start", "float", "duration"],
+        }
+        defaults.update(overrides)
+        return EvolutionConfig(**defaults)  # type: ignore[arg-type]
+
+    def test_callback_not_invoked_when_none(self, schedule: ParsedSchedule) -> None:
+        """Default omission path MUST NOT raise or change behaviour."""
+        config = self._small_config()
+        result = optimize_schedule(schedule, config, progress_callback=None)
+        assert result.best_duration_days > 0
+
+    def test_callback_total_matches_formula(self, schedule: ParsedSchedule) -> None:
+        """``total`` field equals ``len(priority_rules) + generations * population_size``."""
+        config = self._small_config(generations=2, population_size=3)
+        expected_total = len(config.priority_rules) + config.generations * config.population_size
+
+        events: list[tuple[int, int]] = []
+
+        def cb(done: int, total: int) -> None:
+            events.append((done, total))
+
+        optimize_schedule(schedule, config, progress_callback=cb)
+
+        assert events, "callback never fired"
+        for _, total in events:
+            assert total == expected_total
+
+    def test_callback_monotonic_and_bounded(self, schedule: ParsedSchedule) -> None:
+        """``done`` is non-decreasing and never exceeds ``total``."""
+        config = self._small_config(generations=3, population_size=4)
+        events: list[tuple[int, int]] = []
+
+        def cb(done: int, total: int) -> None:
+            events.append((done, total))
+
+        optimize_schedule(schedule, config, progress_callback=cb)
+
+        assert events
+        last_done = 0
+        for done, total in events:
+            assert done >= last_done, f"progress regressed: {last_done} -> {done}"
+            assert done <= total, f"done {done} exceeded total {total}"
+            last_done = done
+
+    def test_callback_final_call_reaches_total(self, schedule: ParsedSchedule) -> None:
+        """Last emission is exactly ``(total, total)``, even when the per-step
+        cadence would otherwise skip the last frame."""
+        config = self._small_config(generations=2, population_size=3)
+        events: list[tuple[int, int]] = []
+
+        def cb(done: int, total: int) -> None:
+            events.append((done, total))
+
+        optimize_schedule(schedule, config, progress_callback=cb)
+
+        last_done, last_total = events[-1]
+        assert last_done == last_total
+        assert last_total == len(config.priority_rules) + (
+            config.generations * config.population_size
+        )
+
+    def test_callback_no_emission_on_unconstrained_path(self, schedule: ParsedSchedule) -> None:
+        """The early-return branch (no resource_limits) performs no heavy
+        work units, so it MUST NOT fire the callback."""
+        config = EvolutionConfig(population_size=5, parent_size=2, generations=3)
+        events: list[tuple[int, int]] = []
+
+        def cb(done: int, total: int) -> None:
+            events.append((done, total))
+
+        result = optimize_schedule(schedule, config, progress_callback=cb)
+
+        assert events == []
+        assert "unconstrained" in result.methodology.lower()
+
+    def test_callback_result_identical_with_and_without(self, schedule: ParsedSchedule) -> None:
+        """Observing progress MUST NOT alter the optimisation outcome — same
+        seed, same config, same best_duration with or without callback."""
+        config = self._small_config(generations=3, population_size=4)
+
+        r_no_cb = optimize_schedule(schedule, config)
+
+        def cb(_done: int, _total: int) -> None:  # noqa: ARG001
+            pass
+
+        r_cb = optimize_schedule(schedule, config, progress_callback=cb)
+
+        assert r_cb.best_duration_days == r_no_cb.best_duration_days
+        assert r_cb.generations_run == r_no_cb.generations_run
+
+    def test_callback_emits_intermediate_frames(self, schedule: ParsedSchedule) -> None:
+        """The in-loop cadence path MUST fire at least one frame with
+        ``done < total``. Proves the `% progress_step` branch is live code
+        — a regression that silently strips intermediate emissions and
+        only leaves the final `(total, total)` frame would be invisible
+        to the other tests (end-of-wave backend-review P1).
+        """
+        # n=4+3*4=16 → progress_step = max(1, 16//100) = 1 → every eval
+        # emits in the loop AND the final guarantee fires.
+        config = self._small_config(generations=3, population_size=4)
+        events: list[tuple[int, int]] = []
+
+        def cb(done: int, total: int) -> None:
+            events.append((done, total))
+
+        optimize_schedule(schedule, config, progress_callback=cb)
+
+        mid_frames = [e for e in events if e[0] < e[1]]
+        assert mid_frames, "no intermediate cadence frames emitted — in-loop emission is dead"
+        # Bounded: at most one frame per work unit + one final guarantee.
+        expected_total = len(config.priority_rules) + (config.generations * config.population_size)
+        assert len(events) <= expected_total + 1

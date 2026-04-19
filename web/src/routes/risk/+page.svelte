@@ -9,6 +9,7 @@
 	import { error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { useWebSocketProgress } from '$lib/composables/useWebSocketProgress';
 
 	interface ProjectItem {
 		project_id: string;
@@ -28,6 +29,13 @@
 	let distributionType = $state('pert');
 	let uncertainty = $state(20);
 	let seed = $state('');
+
+	// Live progress channel (W5/W6 Cycle 1 v4.0 — ADR-0013 publisher consumed here).
+	// `progressState` is the composable's readable store; the template
+	// auto-subscribes via the `$progressState` sigil so every WebSocket
+	// frame triggers a re-render without manual polling.
+	const progress = useWebSocketProgress();
+	const progressState = progress.state;
 
 	async function loadSimulations() {
 		loading = true;
@@ -54,7 +62,14 @@
 		if (!selectedProject) return;
 		running = true;
 		error = '';
+		progress.reset();
+
 		try {
+			// Start the progress channel first so the backend publishes
+			// into an already-open socket rather than a queue nobody is
+			// draining. `start()` resolves only after the WS accepted.
+			const jobId = await progress.start();
+
 			const body: RiskSimulationRunConfig = {
 				config: {
 					iterations,
@@ -67,12 +82,19 @@
 			};
 			if (seed) body.config.seed = parseInt(seed);
 
-			await createRiskSimulation(selectedProject, body);
+			const result = await createRiskSimulation(selectedProject, body, jobId);
+			// Authoritative completion signal from the HTTP response —
+			// avoids the race where the REST roundtrip finishes before
+			// the terminal WS frame, which would otherwise flip a
+			// successful run to `cancelled` (end-of-wave review P1).
+			progress.markDone(result.simulation_id);
 			await loadSimulations();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Simulation failed';
+			progress.markError(error);
 			toastError(error);
 		} finally {
+			progress.close();
 			running = false;
 		}
 	}
@@ -165,6 +187,50 @@
 					<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium whitespace-nowrap">Schedule</a>
 				{/if}
 			</div>
+
+			{#if $progressState.status !== 'idle'}
+				<div class="md:col-span-2 lg:col-span-5 pt-2">
+					<div
+						class="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded overflow-hidden"
+						role="progressbar"
+						aria-valuenow={Math.round($progressState.pct)}
+						aria-valuemin={0}
+						aria-valuemax={100}
+						aria-label={$t('risk.progress.label')}
+					>
+						<div
+							class="h-full transition-all duration-300 {$progressState.status === 'error'
+								? 'bg-red-500'
+								: $progressState.status === 'done'
+									? 'bg-green-600'
+									: 'bg-blue-600'}"
+							style="width: {$progressState.status === 'done' ? 100 : $progressState.pct}%"
+						></div>
+					</div>
+					<p
+						class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+						aria-live="polite"
+					>
+						{#if $progressState.status === 'starting'}
+							{$t('risk.progress.starting')}
+						{:else if $progressState.status === 'connecting'}
+							{$t('risk.progress.connecting')}
+						{:else if $progressState.status === 'running'}
+							{$t('risk.progress.running')} — {Math.round($progressState.pct)}% ({$progressState.done.toLocaleString()} / {$progressState.total.toLocaleString()})
+						{:else if $progressState.status === 'done'}
+							{$t('risk.progress.running')} — 100%
+						{:else if $progressState.status === 'error'}
+							{#if $progressState.error === 'cancelled'}
+								{$t('risk.progress.cancelled')}
+							{:else if $progressState.error === 'connection_lost' || $progressState.error === 'connection_failed' || $progressState.error === 'auth_expired' || $progressState.error === 'forbidden' || $progressState.error === 'job_not_found'}
+								{$t('risk.progress.connection_lost')}
+							{:else}
+								{$t('risk.progress.failed')}
+							{/if}
+						{/if}
+					</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 
