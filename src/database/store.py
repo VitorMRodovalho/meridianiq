@@ -79,6 +79,10 @@ class InMemoryStore:
         # represents the ADR-0015 sync-fast-path (under-threshold schedules
         # materialise inline). Real async behaviour lives in SupabaseStore.
         self._project_statuses: dict[str, str] = {}
+        # Cycle 1 Wave 3 — lifecycle_phase lock flag + override log (ADR-0016)
+        self._lifecycle_phase_locks: dict[str, bool] = {}
+        self._lifecycle_overrides: list[dict[str, Any]] = []
+        self._lifecycle_override_counter: int = 0
 
     # -- programs --------------------------------------------------------
 
@@ -631,7 +635,16 @@ class InMemoryStore:
     _VALID_STALE_REASONS = frozenset(
         {"input_changed", "engine_upgraded", "ruleset_upgraded", "manual"}
     )
-    _VALID_ARTIFACT_KINDS = frozenset({"dcma", "health", "cpm", "float_trends", "lifecycle_health"})
+    _VALID_ARTIFACT_KINDS = frozenset(
+        {
+            "dcma",
+            "health",
+            "cpm",
+            "float_trends",
+            "lifecycle_health",
+            "lifecycle_phase_inference",
+        }
+    )
 
     def save_derived_artifact(
         self,
@@ -788,6 +801,116 @@ class InMemoryStore:
                 row["stale_reason"] = stale_reason
                 affected += 1
         return affected
+
+    # -- lifecycle phase lock + override log (ADR-0016) -------------------
+
+    def set_lifecycle_phase_lock(self, project_id: str, locked: bool) -> bool:
+        """Flip ``projects.lifecycle_phase_locked``. Returns True if the row exists.
+
+        Used by the API override / revert paths and by tests. Materializer
+        consults :meth:`get_lifecycle_phase_lock` before running the
+        ``lifecycle_phase_inference`` engine so a manual override sticks
+        across subsequent uploads (Cost Engineer JTBD per ADR-0016).
+        """
+        if project_id not in {pid for pid in self._projects.list_ids()}:
+            return False
+        self._lifecycle_phase_locks[project_id] = bool(locked)
+        return True
+
+    def get_lifecycle_phase_lock(self, project_id: str) -> bool:
+        """Return the lock flag (defaults to False for missing rows / pre-W3 rows)."""
+        return bool(self._lifecycle_phase_locks.get(project_id, False))
+
+    def save_lifecycle_override(
+        self,
+        project_id: str,
+        override_phase: str,
+        override_reason: str,
+        *,
+        inferred_phase: str | None = None,
+        overridden_by: str | None = None,
+        engine_version: str,
+        ruleset_version: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict[str, Any]:
+        """Append a ``lifecycle_override_log`` row + flip the lock + audit_log.
+
+        Per ADR-0016 §3 the override row is forensic — append only — and
+        composes with the ``projects.lifecycle_phase_locked`` flag flipped
+        in the same call so the materializer skips re-inference until the
+        user explicitly reverts. The paired ``audit_log`` row uses
+        ``action='lifecycle_override'`` (BR P1#8 council fix).
+
+        Raises:
+            ValueError: if the phase vocabulary or empty reason violate the
+                contract enforced symmetrically in DB CHECK constraints.
+        """
+        from src.analytics.lifecycle_types import LIFECYCLE_PHASES
+
+        if override_phase not in LIFECYCLE_PHASES:
+            raise ValueError(
+                f"invalid override_phase: {override_phase!r}; "
+                f"must be one of {list(LIFECYCLE_PHASES)}"
+            )
+        if inferred_phase is not None and inferred_phase not in LIFECYCLE_PHASES:
+            raise ValueError(
+                f"invalid inferred_phase: {inferred_phase!r}; "
+                f"must be one of {list(LIFECYCLE_PHASES)} or None"
+            )
+        if not override_reason or not override_reason.strip():
+            raise ValueError("override_reason must be non-empty")
+
+        now = datetime.now(UTC)
+        self._lifecycle_override_counter += 1
+        row: dict[str, Any] = {
+            "id": f"lol-{self._lifecycle_override_counter:06d}",
+            "project_id": project_id,
+            "inferred_phase": inferred_phase,
+            "override_phase": override_phase,
+            "override_reason": override_reason,
+            "overridden_by": overridden_by,
+            "overridden_at": now,
+            "engine_version": engine_version,
+            "ruleset_version": ruleset_version,
+        }
+        self._lifecycle_overrides.append(row)
+        # Flip the lock — same logical user action.
+        self._lifecycle_phase_locks[project_id] = True
+        # Audit trail (BR P1#8).
+        self._audit_log.append(
+            {
+                "user_id": overridden_by,
+                "action": "lifecycle_override",
+                "entity_type": "project",
+                "entity_id": project_id,
+                "details": {
+                    "override_id": row["id"],
+                    "inferred_phase": inferred_phase,
+                    "override_phase": override_phase,
+                    "engine_version": engine_version,
+                    "ruleset_version": ruleset_version,
+                    "reason_length": len(override_reason),
+                },
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "created_at": now,
+            }
+        )
+        return row
+
+    def list_lifecycle_overrides(
+        self, project_id: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Return overrides for a project ordered ``overridden_at DESC``."""
+        rows = [r for r in self._lifecycle_overrides if r["project_id"] == project_id]
+        rows.sort(key=lambda r: r["overridden_at"], reverse=True)
+        return rows[: max(0, limit)]
+
+    def get_latest_lifecycle_override(self, project_id: str) -> dict[str, Any] | None:
+        """Return the most-recent override for a project or None."""
+        rows = self.list_lifecycle_overrides(project_id, limit=1)
+        return rows[0] if rows else None
 
 
 # ------------------------------------------------------------------ #
@@ -2491,7 +2614,16 @@ class SupabaseStore:
     _VALID_STALE_REASONS = frozenset(
         {"input_changed", "engine_upgraded", "ruleset_upgraded", "manual"}
     )
-    _VALID_ARTIFACT_KINDS = frozenset({"dcma", "health", "cpm", "float_trends", "lifecycle_health"})
+    _VALID_ARTIFACT_KINDS = frozenset(
+        {
+            "dcma",
+            "health",
+            "cpm",
+            "float_trends",
+            "lifecycle_health",
+            "lifecycle_phase_inference",
+        }
+    )
 
     def save_derived_artifact(
         self,
@@ -2668,6 +2800,158 @@ class SupabaseStore:
                 stale_reason,
             )
         return count
+
+    # -- lifecycle phase lock + override log (ADR-0016) -------------------
+
+    def set_lifecycle_phase_lock(self, project_id: str, locked: bool) -> bool:
+        """Flip ``projects.lifecycle_phase_locked``. Returns True on success.
+
+        Symmetric with :meth:`InMemoryStore.set_lifecycle_phase_lock`.
+        Silent-no-op (RLS denial, row missing, migration 025 not applied)
+        logs at WARNING and returns False.
+        """
+        updated = self._update(
+            "projects",
+            {"lifecycle_phase_locked": bool(locked)},
+            {"id": project_id},
+        )
+        if not updated:
+            logger.warning(
+                "set_lifecycle_phase_lock(%s, %s) affected 0 rows "
+                "(RLS denial, row missing, or migration 025 not applied)",
+                project_id,
+                locked,
+            )
+            return False
+        return True
+
+    def get_lifecycle_phase_lock(self, project_id: str) -> bool:
+        """Return ``projects.lifecycle_phase_locked``; False if row missing."""
+        rows = self._select("projects", {"id": project_id}, columns="lifecycle_phase_locked")
+        if not rows:
+            return False
+        return bool(rows[0].get("lifecycle_phase_locked", False))
+
+    def save_lifecycle_override(
+        self,
+        project_id: str,
+        override_phase: str,
+        override_reason: str,
+        *,
+        inferred_phase: str | None = None,
+        overridden_by: str | None = None,
+        engine_version: str,
+        ruleset_version: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict[str, Any]:
+        """Append a ``lifecycle_override_log`` row + flip lock + audit_log entry.
+
+        Per ADR-0016 §3 the override row is forensic — append-only RLS
+        contract, no UPDATE / no DELETE policies. The lock flip and the
+        audit_log row land via separate writes (best-effort, following
+        the W1 ADR-0014 precedent — atomicity-via-RPC is W4+ scope if
+        operational evidence justifies). The audit row is written under
+        ``action='lifecycle_override'`` per BR P1#8.
+
+        Raises:
+            ValueError: if the phase vocabulary or empty reason violate
+                the contract enforced symmetrically in DB CHECK constraints.
+        """
+        from src.analytics.lifecycle_types import LIFECYCLE_PHASES
+
+        if override_phase not in LIFECYCLE_PHASES:
+            raise ValueError(
+                f"invalid override_phase: {override_phase!r}; "
+                f"must be one of {list(LIFECYCLE_PHASES)}"
+            )
+        if inferred_phase is not None and inferred_phase not in LIFECYCLE_PHASES:
+            raise ValueError(
+                f"invalid inferred_phase: {inferred_phase!r}; "
+                f"must be one of {list(LIFECYCLE_PHASES)} or None"
+            )
+        if not override_reason or not override_reason.strip():
+            raise ValueError("override_reason must be non-empty")
+
+        row = {
+            "project_id": project_id,
+            "inferred_phase": inferred_phase,
+            "override_phase": override_phase,
+            "override_reason": override_reason,
+            "overridden_by": overridden_by,
+            "engine_version": engine_version,
+            "ruleset_version": ruleset_version,
+        }
+        saved = self._insert("lifecycle_override_log", row)
+        # Side-effect: flip the lock so the materializer skips re-inference.
+        # Council end-of-wave (BR P1-3): if the lock flip fails (RLS denial
+        # / row missing / migration drift), the override row is already
+        # written but the lock is not set — Cost Engineer JTBD silently
+        # breaks. Log at ERROR so an operator can reconcile via a periodic
+        # reaper. Mirrors the audit_log try/except pattern below (W1
+        # ADR-0014 precedent).
+        lock_ok = self.set_lifecycle_phase_lock(project_id, True)
+        if not lock_ok:
+            logger.error(
+                "lifecycle_lock_flip_failed override_id=%s project_id=%s "
+                "(override row written but projects.lifecycle_phase_locked NOT set; "
+                "next materializer run will overwrite the override)",
+                saved.get("id"),
+                project_id,
+            )
+        # Audit trail (BR P1#8).
+        try:
+            self._insert(
+                "audit_log",
+                {
+                    "user_id": overridden_by,
+                    "action": "lifecycle_override",
+                    "entity_type": "project",
+                    "entity_id": project_id,
+                    "details": {
+                        "override_id": saved.get("id"),
+                        "inferred_phase": inferred_phase,
+                        "override_phase": override_phase,
+                        "engine_version": engine_version,
+                        "ruleset_version": ruleset_version,
+                        "reason_length": len(override_reason),
+                    },
+                    "ip_address": ip_address,
+                    "user_agent": user_agent,
+                },
+            )
+        except Exception as exc:
+            logger.error(
+                "audit_log_insert_failed action=lifecycle_override project_id=%s "
+                "override_id=%s error=%s",
+                project_id,
+                saved.get("id"),
+                exc,
+            )
+        return saved
+
+    def list_lifecycle_overrides(
+        self, project_id: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Return overrides for a project ordered ``overridden_at DESC``.
+
+        Hits ``idx_lifecycle_override_log_project_recent`` (migration 025).
+        """
+        result = (
+            self._client.table("lifecycle_override_log")
+            .select("*")
+            .eq("project_id", project_id)
+            .order("overridden_at", desc=True)
+            .limit(max(0, limit))
+            .execute()
+        )
+        rows: list[dict[str, Any]] = result.data or []
+        return rows
+
+    def get_latest_lifecycle_override(self, project_id: str) -> dict[str, Any] | None:
+        """Return the most-recent override row for a project or None."""
+        rows = self.list_lifecycle_overrides(project_id, limit=1)
+        return rows[0] if rows else None
 
 
 # ------------------------------------------------------------------ #

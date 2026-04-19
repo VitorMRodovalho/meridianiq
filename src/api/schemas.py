@@ -1597,3 +1597,107 @@ class GenerateReportResponse(BaseModel):
     report_type: str
     project_id: str
     generated_at: str
+
+
+# ── Lifecycle Phase (W3 of Cycle 1 v4.0 — ADR-0016) ─────
+
+
+class LifecyclePhaseInferenceSchema(BaseModel):
+    """One inference output from the W3 ``lifecycle_phase`` engine.
+
+    Mirrors ``src.analytics.lifecycle_types.LifecyclePhaseInference``.
+    The ``rationale`` dict carries the signals and the triggered rule
+    name so a forensic reviewer can reconstruct the decision post-hoc.
+    """
+
+    phase: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    confidence_band: str  # 'low' | 'medium' | 'high' — derived per ADR-0016
+    rationale: dict[str, Any] = Field(default_factory=dict)
+    engine_version: str = ""
+    ruleset_version: str = ""
+    effective_at: Optional[str] = None
+    computed_at: Optional[str] = None
+
+
+class LifecycleOverrideSchema(BaseModel):
+    """One row from ``lifecycle_override_log``."""
+
+    id: str
+    project_id: str
+    inferred_phase: Optional[str] = None
+    override_phase: str
+    override_reason: str
+    overridden_by: Optional[str] = None
+    overridden_at: Optional[str] = None
+    engine_version: str
+    ruleset_version: str
+
+
+class LifecyclePhaseSummary(BaseModel):
+    """Combined view returned by GET /api/v1/projects/{id}/lifecycle.
+
+    ``source`` discriminates the authoritative phase the UI renders:
+
+    - ``'manual'`` when ``locked=true`` AND a latest override exists
+      (Cost Engineer override stickiness per ADR-0016 §2).
+    - ``'inferred'`` when an inference artifact exists and not overridden.
+    - ``null`` when neither exists (pre-materialization or unknown phase).
+
+    ``effective_phase`` and ``effective_confidence`` collapse the
+    decision into a single render-ready pair so the UI does not need
+    to re-implement the precedence rule.
+    """
+
+    project_id: str
+    locked: bool = False
+    inference: Optional[LifecyclePhaseInferenceSchema] = None
+    latest_override: Optional[LifecycleOverrideSchema] = None
+    effective_phase: str = "unknown"
+    effective_confidence: Optional[float] = None
+    source: Optional[str] = None  # 'inferred' | 'manual' | None
+
+
+class LifecycleOverrideRequest(BaseModel):
+    """Request body for POST /api/v1/projects/{id}/lifecycle/override.
+
+    The 10-character minimum on ``override_reason`` is enforced at the
+    API surface per ADR-0016 §3 (the DB CHECK enforces only non-empty
+    so future API policy changes do not require a schema migration).
+    The phase enum is enforced symmetrically by the store and DB layer.
+    """
+
+    override_phase: str = Field(..., description="One of the 5 phases or 'unknown'")
+    override_reason: str = Field(
+        ..., min_length=10, max_length=2000, description="Free-text rationale"
+    )
+
+
+class LifecycleOverrideListResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/lifecycle/overrides."""
+
+    overrides: list[LifecycleOverrideSchema] = Field(default_factory=list)
+
+
+# ── Pending statuses aggregator (W3 banner — FE P1) ─────
+
+
+class PendingStatusItem(BaseModel):
+    """One pending/computing project surfaced by the banner aggregator."""
+
+    project_id: str
+    name: str = ""
+    status: str = "pending"
+
+
+class PendingStatusesResponse(BaseModel):
+    """Response for GET /api/v1/projects/pending-statuses.
+
+    Single aggregate poll endpoint introduced in W3 to avoid the
+    poll-storm risk identified by frontend-ux-reviewer (1 polling per
+    user, not N per project). Returns only rows owned by the caller
+    AND in a non-terminal status.
+    """
+
+    items: list[PendingStatusItem] = Field(default_factory=list)
+    polled_at: Optional[str] = None

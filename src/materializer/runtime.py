@@ -59,6 +59,10 @@ _RULESET_VERSIONS: dict[str, str] = {
     # Reserved: float_trends registers here alongside the Shallow #1-W2
     # baseline-inference work.
     "float_trends": "float_trends-v1",
+    # Cycle 1 v4.0 W3 (ADR-0016) — lifecycle phase label inference. Bump
+    # the version when threshold tuning lands post-W4 calibration; the
+    # bump triggers ``mark_stale(reason='ruleset_upgraded')`` per ADR-0014.
+    "lifecycle_phase_inference": "lifecycle_phase-v1-2026-04",
 }
 
 
@@ -125,16 +129,36 @@ def _run_cpm(schedule: ParsedSchedule) -> dict[str, Any]:
     return _serialise_result(CPMCalculator(schedule).calculate())
 
 
+def _run_lifecycle_phase(schedule: ParsedSchedule) -> dict[str, Any]:
+    """W3 lightweight lifecycle phase label inference (ADR-0016).
+
+    Returns the LifecyclePhaseInference dataclass serialised to a dict.
+    The frozen dataclass is pickleable for ProcessPoolExecutor; the
+    rationale dict is JSON-friendly by construction (only primitives,
+    floats, and strings).
+    """
+    from src.analytics.lifecycle_phase import infer_lifecycle_phase
+
+    return _serialise_result(infer_lifecycle_phase(schedule))
+
+
 # ``float_trends`` requires (baseline, update) — two schedules. Baseline
 # inference ships as Shallow #1-W2 (per ADR-0009); until then the
 # materializer skips this slot. The kind is still present in the
 # ``schedule_derived_artifacts.artifact_kind`` CHECK list (migration 023)
 # so the later addition is a one-line registration here with no schema
 # change.
+#
+# ``lifecycle_phase_inference`` (W3) registers here. The engine is
+# stateless and ProcessPoolExecutor-safe (its inputs are the picklable
+# Pydantic ParsedSchedule). The materializer skips this runner when
+# ``projects.lifecycle_phase_locked = true`` (Cost Engineer JTBD per
+# ADR-0016 §2 — overrides stick across uploads).
 _ENGINE_RUNNERS: list[tuple[str, Any]] = [
     ("dcma", _run_dcma),
     ("health", _run_health),
     ("cpm", _run_cpm),
+    ("lifecycle_phase_inference", _run_lifecycle_phase),
 ]
 
 
@@ -333,9 +357,38 @@ class Materializer:
         effective_at = self._effective_at(schedule)
 
         loop = asyncio.get_running_loop()
-        total = len(_ENGINE_RUNNERS)
 
-        for idx, (kind, runner) in enumerate(_ENGINE_RUNNERS):
+        # Per ADR-0016 §2 the lifecycle_phase_inference engine is skipped
+        # when the project is locked (manual override stickiness). The
+        # other engines (DCMA / health / CPM) always run — the lock only
+        # gates the inference, not the rest of the materialization. We
+        # compute the runner subset upfront so progress percentage stays
+        # accurate.
+        lock_locked = self._lifecycle_phase_locked(project_id)
+        runners_to_run = [
+            (kind, runner)
+            for (kind, runner) in _ENGINE_RUNNERS
+            if not (kind == "lifecycle_phase_inference" and lock_locked)
+        ]
+        total = len(runners_to_run)
+        if lock_locked:
+            # Council P1 (devils-advocate): keep the event payload shape
+            # consistent with engine_done — same keys (type/event/engine
+            # /progress) so frontend ProgressIndicator code that
+            # destructures ``event.progress`` does not crash on the skip
+            # path. ``progress: 0`` because the engine never started.
+            self._publish_event(
+                job_id,
+                {
+                    "type": "progress",
+                    "event": "engine_skipped",
+                    "engine": "lifecycle_phase_inference",
+                    "reason": "lifecycle_phase_locked",
+                    "progress": 0,
+                },
+            )
+
+        for idx, (kind, runner) in enumerate(runners_to_run):
             self._publish_event(
                 job_id,
                 {"type": "progress", "event": "engine_start", "engine": kind},
@@ -432,6 +485,26 @@ class Materializer:
                 setter(project_id, status)
         except Exception:
             logger.exception("Materializer: failed to set status=%s on %s", status, project_id)
+
+    def _lifecycle_phase_locked(self, project_id: str) -> bool:
+        """Return True when the project carries a manual lifecycle_phase override.
+
+        Best-effort: a store that does not implement the W3 lock surface
+        (legacy InMemoryStore in older test fixtures, partial mocks) is
+        treated as unlocked. The lock skip is non-load-bearing if it
+        misses — the inference will run and the override write path
+        re-establishes the lock on the next user action.
+        """
+        try:
+            getter = getattr(self._store, "get_lifecycle_phase_lock", None)
+            if getter is None:
+                return False
+            return bool(getter(project_id))
+        except Exception:
+            logger.exception(
+                "Materializer: failed to read lifecycle_phase_locked for %s", project_id
+            )
+            return False
 
     @staticmethod
     def _publish_event(job_id: str, event: dict[str, Any]) -> None:

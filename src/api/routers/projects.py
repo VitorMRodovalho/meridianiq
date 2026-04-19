@@ -4,15 +4,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
-from ..deps import _sandbox_projects, get_store
+from ..deps import _sandbox_projects, get_store, limiter
 from ..schemas import (
     ActivitySchema,
     ActivityStatusSummary,
+    PendingStatusesResponse,
+    PendingStatusItem,
     ProjectDetailResponse,
     ProjectListItem,
     ProjectListResponse,
@@ -53,6 +55,56 @@ def list_projects(
             )
         )
     return ProjectListResponse(projects=items)
+
+
+@router.get("/api/v1/projects/pending-statuses", response_model=PendingStatusesResponse)
+@limiter.limit("30/minute")
+def list_pending_statuses(
+    request: Request,
+    _user: object = Depends(optional_auth),
+) -> PendingStatusesResponse:
+    """Aggregate banner poll — returns the caller's pending / failed projects.
+
+    Introduced in W3 (ADR-0016) per frontend-ux-reviewer's P1 on poll-storm
+    avoidance: one aggregate endpoint per logged-in user instead of N
+    per-project pollers. The ``ComputingBanner.svelte`` component polls
+    this endpoint every 3s and derives the ``computingProjects`` store
+    from the result.
+
+    Terminal rows (``status='ready'``) are excluded. A user with zero
+    pending / failed rows receives an empty ``items`` list — that is the
+    signal to the banner to render as hidden.
+
+    Council P1 (backend-reviewer P1-4): when ``user_id`` is ``None``
+    (dev path where ``optional_auth`` returns None — production raises
+    401 at the auth layer), short-circuit with an empty list. A
+    ``None`` user_id without short-circuit fans out to a global
+    ``get_projects`` that would leak every tenant's pending rows.
+    """
+    from datetime import UTC, datetime
+
+    user_id: str | None = _user["id"] if isinstance(_user, dict) else None
+    if user_id is None:
+        return PendingStatusesResponse(items=[], polled_at=datetime.now(UTC).isoformat())
+
+    store = get_store()
+    rows = store.get_projects(user_id=user_id, include_all_statuses=True)
+    items: list[PendingStatusItem] = []
+    for row in rows:
+        status = str(row.get("status") or "ready")
+        if status == "ready":
+            continue
+        items.append(
+            PendingStatusItem(
+                project_id=row["project_id"],
+                name=row.get("name") or "",
+                status=status,
+            )
+        )
+    return PendingStatusesResponse(
+        items=items,
+        polled_at=datetime.now(UTC).isoformat(),
+    )
 
 
 @router.put("/api/v1/projects/{project_id}/sandbox")

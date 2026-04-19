@@ -48,28 +48,54 @@ def _candidate_project_ids(
     store: Any,
     limit: int | None,
     explicit_project_id: str | None,
+    kind: str = "dcma",
 ) -> list[str]:
     """Enumerate backfill candidates — projects with status=ready whose
-    ``dcma`` artifact is missing or version-stale.
+    artifact of ``kind`` is missing or version-stale.
 
-    The ``dcma`` slot is used as a proxy for "this project was never
-    materialized by the current engine version"; if dcma is fresh we
-    trust the rest are (or will be re-computed under the same run).
+    Default ``kind='dcma'`` keeps W2 behaviour: DCMA acts as a proxy for
+    "never materialized by the current engine version". When a new
+    artifact kind ships post-W2 (W3 introduces ``'lifecycle_phase_inference'``
+    per ADR-0016), operators can target the specific gap with
+    ``--kind <new_kind>`` so already-materialized projects pick up the
+    new artifact without re-running every other engine's heuristic.
+
+    For ``kind='lifecycle_phase_inference'`` the helper additionally skips
+    projects with ``lifecycle_phase_locked=true`` (Cost Engineer override
+    stickiness per ADR-0016) — the materializer would no-op them anyway,
+    but skipping here avoids per-run reselection noise in the logs.
     """
     if explicit_project_id is not None:
         return [explicit_project_id]
 
+    if kind not in _RULESET_VERSIONS:
+        raise ValueError(
+            f"unknown artifact kind: {kind!r}; "
+            f"must be one of {sorted(_RULESET_VERSIONS)}"
+        )
+
     engine_version = "4.0"
-    dcma_ruleset = _RULESET_VERSIONS["dcma"]
+    ruleset = _RULESET_VERSIONS[kind]
+    skip_locked = kind == "lifecycle_phase_inference"
+    lock_getter = getattr(store, "get_lifecycle_phase_lock", None)
     rows = store.get_projects(include_all_statuses=False)
     out: list[str] = []
     for row in rows:
         pid = row["project_id"]
+        if skip_locked and lock_getter is not None:
+            try:
+                if lock_getter(pid):
+                    continue
+            except Exception:
+                logger.exception(
+                    "Backfill: failed to read lock for %s; treating as unlocked",
+                    pid,
+                )
         latest = store.get_latest_derived_artifact(
             project_id=pid,
-            artifact_kind="dcma",
+            artifact_kind=kind,
             current_engine_version=engine_version,
-            current_ruleset_version=dcma_ruleset,
+            current_ruleset_version=ruleset,
         )
         if latest is None:
             out.append(pid)
@@ -133,6 +159,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print candidate count without running.",
     )
+    parser.add_argument(
+        "--kind",
+        type=str,
+        default="dcma",
+        help=(
+            "Artifact kind used as the missing-proxy for candidate selection. "
+            "Default 'dcma' covers the W2 first-time-materialization case. "
+            "Use 'lifecycle_phase_inference' (ADR-0016) post-W3 to backfill "
+            "the new kind onto already-materialized projects."
+        ),
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -147,8 +184,13 @@ def main(argv: list[str] | None = None) -> int:
     from src.api.deps import get_materializer, get_store
 
     store = get_store()
-    candidates = _candidate_project_ids(store, args.limit, args.project_id)
-    logger.info("Backfill %s → %d candidate project(s)", backfill_id, len(candidates))
+    candidates = _candidate_project_ids(store, args.limit, args.project_id, kind=args.kind)
+    logger.info(
+        "Backfill %s → %d candidate project(s) for kind=%s",
+        backfill_id,
+        len(candidates),
+        args.kind,
+    )
 
     if args.dry_run:
         for pid in candidates:

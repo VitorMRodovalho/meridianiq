@@ -79,14 +79,15 @@ def _drain(job_id: str) -> list[dict[str, Any]]:
 class TestMaterializerHappyPath:
     def test_writes_artifacts_for_each_registered_engine(self) -> None:
         """Wave 2 ships DCMA + health + CPM. ``float_trends`` is reserved
-        (needs baseline-inference, Shallow #1-W2). When that ships the
-        materializer registers one more runner and this assertion grows."""
+        (needs baseline-inference, Shallow #1-W2). Wave 3 (ADR-0016)
+        registers ``lifecycle_phase_inference``. When ``float_trends``
+        ships the assertion grows by one more kind."""
         store = InMemoryStore()
         pid = _seed(store)
         asyncio.run(Materializer(store).materialize(pid))
 
         kinds = {row["artifact_kind"] for row in store._derived_artifacts}
-        assert kinds == {"dcma", "health", "cpm"}
+        assert kinds == {"dcma", "health", "cpm", "lifecycle_phase_inference"}
 
     def test_flips_status_to_ready(self) -> None:
         store = InMemoryStore()
@@ -107,8 +108,9 @@ class TestMaterializerHappyPath:
 
         events = _drain(job_id)
         types = [e["type"] for e in events]
-        # 3 engines × 2 events (start + done) = 6 progress events + 1 done.
-        assert types.count("progress") == 6
+        # W3: 4 engines (DCMA + health + CPM + lifecycle_phase_inference)
+        # × 2 events (engine_start + engine_done) = 8 progress events + 1 done.
+        assert types.count("progress") == 8
         assert types.count("done") == 1
         assert events[-1]["project_id"] == pid
 
@@ -307,7 +309,10 @@ class TestArtifactContent:
         for row in store._derived_artifacts:
             assert row["engine_version"] == "4.0"
             assert row["input_hash"] and len(row["input_hash"]) == 64
-            assert row["ruleset_version"].endswith("-v1")
+            # W3 lifecycle_phase_inference ruleset is 'lifecycle_phase-v1-2026-04';
+            # the W2 engines stay on '<name>-v1'. Both contain '-v1' so the
+            # generic guard accepts either format.
+            assert "-v1" in row["ruleset_version"]
             assert row["project_id"] == pid
             assert row["is_stale"] is False
             assert row["stale_reason"] is None
