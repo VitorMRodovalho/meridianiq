@@ -3,6 +3,45 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.0.1] — 2026-04-19 — Track 1 polish (post-Cycle 1)
+
+Patch release after v4.0.0. Single-wave polish pass addressing deferred items from the W5/W6 end-of-wave devils-advocate round, plus four additional findings surfaced by the pre-commit adversarial review.
+
+### Added — Backend
+
+- **`progress_callback` now reaches `/api/v1/projects/{id}/optimize`** — `optimize_schedule_endpoint` converted `sync → async def`, accepts an optional `?job_id=<uuid>` query param, mirrors `risk.py`'s ownership check (ADR-0013 §auth) and publishes `progress` / `done` / `error` frames on the WS channel. The `done` frame carries `improvement_pct` + `improvement_days` — distinct from risk's `simulation_id` by design (optimize results aren't persisted to an id-addressable store). Closes the "dead callback" state flagged in `project_state.md §Deferred tech-debt`.
+- **`tests/test_whatif_router.py`** (NEW, 5 tests) — regression guard for the dict-response shape without `job_id`, end-to-end WS progress stream with the `job_id` branch, ADR-0013 ownership 403, engine-exception error-publish contract, and a live rate-limit 429 assertion (flips `limiter.enabled=True` for the one run to prove `@limiter.limit` survives the async conversion — conftest disables it for the rest of the suite).
+
+### Added — Frontend
+
+- **Vitest harness** — `web/vitest.config.ts` + `vitest` / `jsdom` devDeps + `test` / `test:watch` scripts. First test suite is `web/src/lib/composables/useWebSocketProgress.test.ts` with 15 tests covering the state machine, `markDone` / `markError` idempotency, `close()`-is-pure-cleanup contract, `reset()`-preserves-listeners invariant, and close-reason mapping. CI wiring parked as a follow-up so this wave stays atomic.
+- **`LifecyclePhaseCard` subtitle** — new `lifecycle.card_subtitle` key in `en` / `pt-BR` / `es`, rendered below the title. Copy reflects the W4 calibration finding honestly: the engine is a reliable construction-vs-non-construction detector, other phase labels are directional. Matches ADR-0009 Amendment 2 "preliminary phase indicator" framing.
+
+### Changed
+
+- **`useWebSocketProgress.reset()` preserves `terminalListeners`** — previously cleared the listener set, silently dropping any `onTerminal(cb)` subscription across a reuse cycle. Fix removes the `.clear()`; JSDoc now documents that caller owns listener lifecycle via the unsubscribe fn.
+- **`useWebSocketProgress._toWsUrl` handles protocol-relative `VITE_API_URL`** — anchored `/^https?:\/\//` match, explicit `//host` branch that resolves the scheme against `window.location.protocol` (SSR-guarded), clear throw on any unsupported prefix. Defensive; production is always absolute HTTPS.
+- **`WSProgressDone` type extended** — `improvement_pct` and `improvement_days` are now declared as optional fields so a future consumer can read the optimize-terminal payload without a TS override.
+- **`thread_safe_publisher` uses `asyncio.get_running_loop()`** — replaces the deprecated `get_event_loop()` which will raise under Python 3.15 when there is no current loop. Defuses a forward-compat trip; the helper is always invoked from an async handler on a running loop.
+
+### Removed
+
+- **Dead `risk.progress.cancelled` branch** — removed the UI hint + the 3-locale i18n key. The composable has no code path that sets `error='cancelled'`; shipping translated copy for an unreachable branch rots the translation surface. Re-add when a consumer lands.
+
+### Known issues
+
+- **`/optimizer` page is broken against its backend contract** (issue #14) — pre-existing regression since v4.0.0, surfaced by this wave's adversarial review. Field names (`original_makespan`, `optimized_makespan`, `convergence.best_fitness` / `mean_fitness`, `shifted_activities`) do not match what the backend returns. NOT fixed in v4.0.1 — scope belongs to Cycle 2. The v4.0.1 backend progress-WS wiring works as a REST-side contract and is ready for a fixed frontend to consume.
+
+### Verification
+
+- `pytest`: 1338 passed, 6 skipped.
+- `ruff check` + `ruff format --check`: PASS.
+- `npm run check`: 0 errors / 0 warnings across 654 files.
+- `npm run test` (Vitest): 15 / 15 passed.
+- `npm run build`: PASS (adapter-static).
+
+---
+
 ## [4.0.0] — 2026-04-19 — Materialized Intelligence (Cycle 1, 7 waves)
 
 First release of the v4.0 line. Cycle 1 shipped ingest-time materialization with a full provenance contract, a lifecycle-phase inference surface (calibrated honestly as a preliminary construction-vs-non-construction indicator, not a full 5+1 classifier), WebSocket progress hardening, and governance backfill. Path A pre-committed fallback was activated at Wave 4 after the calibration gate failed at every pre-registered threshold — `src/analytics/lifecycle_health.py` is intentionally NOT shipped this cycle; W5/W6 closed v3.9 tail debt instead (progress_callback wiring + Svelte WebSocket composable on the risk-simulation page).

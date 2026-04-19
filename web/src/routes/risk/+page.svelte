@@ -220,9 +220,7 @@
 						{:else if $progressState.status === 'done'}
 							{$t('risk.progress.running')} — 100%
 						{:else if $progressState.status === 'error'}
-							{#if $progressState.error === 'cancelled'}
-								{$t('risk.progress.cancelled')}
-							{:else if $progressState.error === 'connection_lost' || $progressState.error === 'connection_failed' || $progressState.error === 'auth_expired' || $progressState.error === 'forbidden' || $progressState.error === 'job_not_found'}
+							{#if $progressState.error === 'connection_lost' || $progressState.error === 'connection_failed' || $progressState.error === 'auth_expired' || $progressState.error === 'forbidden' || $progressState.error === 'job_not_found'}
 								{$t('risk.progress.connection_lost')}
 							{:else}
 								{$t('risk.progress.failed')}

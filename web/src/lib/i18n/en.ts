@@ -404,7 +404,6 @@ export default {
 	'risk.progress.running': 'Running simulation',
 	'risk.progress.connection_lost': 'Connection lost. The simulation may still be running in the background; refresh the list below once it completes.',
 	'risk.progress.failed': 'Simulation failed',
-	'risk.progress.cancelled': 'Tracking cancelled',
 
 	// Risk Register page
 	'risk_register.subtitle': 'Discrete risk event management (AACE RP 57R-09, ISO 31000)',
@@ -865,6 +864,7 @@ export default {
 
 	// Lifecycle phase (ADR-0016 — W3 of Cycle 1 v4.0)
 	'lifecycle.card_title': 'Lifecycle Phase',
+	'lifecycle.card_subtitle': 'Preliminary indicator — reliably flags construction vs non-construction; other phase labels are directional.',
 	'lifecycle.card_empty': 'Inference pending — waiting for analytics',
 	'lifecycle.card_failed': 'Inference unavailable',
 	'lifecycle.card_low_hint': 'Inference has low confidence. Review the rationale or override.',

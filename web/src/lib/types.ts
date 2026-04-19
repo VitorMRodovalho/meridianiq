@@ -835,7 +835,16 @@ export interface WSProgressRunning {
 
 export interface WSProgressDone {
 	type: 'done';
+	// Risk (Monte Carlo) sim terminal — backend publishes the new
+	// simulation record id so the UI can link to results without a
+	// second fetch.
 	simulation_id?: string;
+	// Evolution-optimizer terminal — backend publishes the improvement
+	// summary so future consumers can render a live result without
+	// waiting on the REST response (the fields are also on the REST
+	// body; duplication is intentional parity with risk's simulation_id).
+	improvement_pct?: number;
+	improvement_days?: number;
 }
 
 export interface WSProgressError {

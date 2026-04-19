@@ -113,7 +113,12 @@ export interface WebSocketProgress {
 	 * caught exception). Idempotent. See `markDone`.
 	 */
 	markError(message: string): void;
-	/** Clear error state + go back to `idle`. Does NOT open a new socket. */
+	/**
+	 * Clear error state + reset progress to `idle` so the same composable
+	 * instance can be reused for another `start()`. Does NOT open a new
+	 * socket. Preserves `onTerminal` subscriptions — the caller owns
+	 * listener lifecycle via the unsubscribe fn returned by `onTerminal`.
+	 */
 	reset(): void;
 	/**
 	 * Subscribe to the single terminal transition (done or error).
@@ -125,7 +130,26 @@ export interface WebSocketProgress {
 function _toWsUrl(wsPath: string): string {
 	// wsPath example: "/api/v1/ws/progress/<uuid>"
 	if (BASE) {
-		return BASE.replace(/^http/, 'ws') + wsPath;
+		// Anchored prefix match so `https?:` at a non-scheme position
+		// (e.g. `httpbin.example.com`) cannot mis-trigger.
+		if (/^https?:\/\//.test(BASE)) {
+			return BASE.replace(/^http/, 'ws') + wsPath;
+		}
+		// Protocol-relative (`//host`) — `new WebSocket('//host/...')`
+		// throws SyntaxError. Resolve scheme against the current page
+		// protocol; requires window, so fall through to SSR guard below.
+		if (BASE.startsWith('//')) {
+			if (typeof window === 'undefined') {
+				throw new Error(
+					'VITE_API_URL is protocol-relative; resolution requires window (no SSR support)',
+				);
+			}
+			const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+			return `${scheme}${BASE}${wsPath}`;
+		}
+		throw new Error(
+			`VITE_API_URL must start with http://, https:// or //; got: ${BASE}`,
+		);
 	}
 	// Same-origin fallback for local dev / integration tests.
 	if (typeof window !== 'undefined') {
@@ -305,9 +329,13 @@ export function useWebSocketProgress(): WebSocketProgress {
 	}
 
 	function reset(): void {
+		// Intentionally DOES NOT touch `terminalListeners` — subscriptions
+		// outlive the run so that re-using the composable after a terminal
+		// event does not silently drop already-attached callers. Caller
+		// removes its listener via the unsubscribe fn returned by
+		// `onTerminal`.
 		_closeSocket();
 		terminalFired = false;
-		terminalListeners.clear();
 		state.set({ ..._emptyState });
 	}
 

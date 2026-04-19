@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="4.0.0",
+    version="4.0.1",
 )
 
 try:

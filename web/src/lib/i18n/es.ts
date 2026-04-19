@@ -404,7 +404,6 @@ export default {
 	'risk.progress.running': 'Ejecutando simulacion',
 	'risk.progress.connection_lost': 'Conexion perdida. La simulacion puede continuar en segundo plano; actualice la lista abajo cuando termine.',
 	'risk.progress.failed': 'La simulacion fallo',
-	'risk.progress.cancelled': 'Seguimiento cancelado',
 
 	// Risk Register page
 	'risk_register.subtitle': 'Gestion de eventos de riesgo discretos (AACE RP 57R-09, ISO 31000)',
@@ -863,6 +862,7 @@ export default {
 
 	// Fase del ciclo de vida (ADR-0016 — W3 del Ciclo 1 v4.0)
 	'lifecycle.card_title': 'Fase del Ciclo',
+	'lifecycle.card_subtitle': 'Indicador preliminar — distingue con fiabilidad construcción de no-construcción; las demás fases son direccionales.',
 	'lifecycle.card_empty': 'Inferencia pendiente — esperando el análisis',
 	'lifecycle.card_failed': 'Inferencia no disponible',
 	'lifecycle.card_low_hint': 'La inferencia tiene baja confianza. Revisa el detalle o ajusta manualmente.',

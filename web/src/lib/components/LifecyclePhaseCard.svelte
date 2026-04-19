@@ -111,7 +111,7 @@
 	role="region"
 	aria-label={$t('lifecycle.card_title')}
 >
-	<div class="flex items-start justify-between mb-3">
+	<div class="flex items-start justify-between">
 		<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
 			{$t('lifecycle.card_title')}
 		</h3>
@@ -128,6 +128,9 @@
 			</span>
 		{/if}
 	</div>
+	<p class="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-3 leading-snug">
+		{$t('lifecycle.card_subtitle')}
+	</p>
 
 	{#if loading}
 		<div class="space-y-2 animate-pulse">

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
 from ..deps import get_store, limiter
@@ -333,18 +333,37 @@ def get_scorecard(
 
 @router.post("/api/v1/projects/{project_id}/optimize")
 @limiter.limit("5/minute")
-def optimize_schedule_endpoint(
+async def optimize_schedule_endpoint(
+    request: Request,
     project_id: str,
-    request: dict,
+    body: dict,
+    job_id: str | None = None,
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Optimize a resource-constrained schedule using Evolution Strategies.
 
     Evolves priority rules and resource allocation to minimize makespan.
+    When ``job_id`` is supplied the caller receives live progress events on
+    the WebSocket channel opened via ``POST /api/v1/jobs/progress/start``.
+
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        project_id: The stored project identifier.
+        body: Optimization config (population_size, parent_size, generations,
+            resource_limits).
+        job_id: Optional progress channel id. When set, the client should
+            connect to ``GET /api/v1/ws/progress/{job_id}`` (WebSocket)
+            BEFORE issuing this request to receive ``{"type": "progress",
+            "done", "total", "pct"}`` events plus a final ``{"type": "done",
+            "improvement_pct", "improvement_days"}``.
 
     References:
         Loncar (2023), Beyer & Schwefel (2002), Kolisch (1996).
     """
+    import asyncio
+
+    from ..progress import get_channel, get_channel_owner, publish, thread_safe_publisher
+
     store = get_store()
     schedule = store.get(project_id)
     if schedule is None:
@@ -354,7 +373,7 @@ def optimize_schedule_endpoint(
     from src.analytics.resource_leveling import ResourceLimit
 
     limits = []
-    for rl in request.get("resource_limits", []):
+    for rl in body.get("resource_limits", []):
         limits.append(
             ResourceLimit(
                 rsrc_id=rl.get("rsrc_id", ""),
@@ -363,12 +382,54 @@ def optimize_schedule_endpoint(
         )
 
     config = EvolutionConfig(
-        population_size=request.get("population_size", 20),
-        parent_size=request.get("parent_size", 5),
-        generations=request.get("generations", 30),
+        population_size=body.get("population_size", 20),
+        parent_size=body.get("parent_size", 5),
+        generations=body.get("generations", 30),
         resource_limits=limits,
     )
-    result = optimize_schedule(schedule, config)
+
+    progress_callback = None
+    if job_id:
+        # ADR-0013 ownership check — mirror risk.py:180-191. The caller may
+        # only use a job_id they own; the channel was bound on
+        # POST /api/v1/jobs/progress/start.
+        owner = get_channel_owner(job_id)
+        caller_id = _user["id"] if isinstance(_user, dict) else None
+        if owner is not None and caller_id is not None and owner != caller_id:
+            raise HTTPException(
+                status_code=403,
+                detail="job_id is bound to another user",
+            )
+    if job_id and get_channel(job_id) is not None:
+        publish_event = thread_safe_publisher(job_id)
+
+        def progress_callback(done: int, total: int) -> None:
+            publish_event(
+                {
+                    "type": "progress",
+                    "done": done,
+                    "total": total,
+                    "pct": round(done * 100 / total, 1) if total else 0.0,
+                }
+            )
+
+    try:
+        result = await asyncio.to_thread(optimize_schedule, schedule, config, progress_callback)
+    except Exception as exc:
+        if job_id:
+            publish(job_id, {"type": "error", "message": str(exc)})
+        raise HTTPException(status_code=500, detail=f"Optimization failed: {exc}")
+
+    if job_id:
+        publish(
+            job_id,
+            {
+                "type": "done",
+                "improvement_pct": result.improvement_pct,
+                "improvement_days": result.improvement_days,
+            },
+        )
+
     data = asdict(result)
     data.pop("best_leveling", None)
     return data

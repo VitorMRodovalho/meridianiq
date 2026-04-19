@@ -163,11 +163,14 @@ def publish(job_id: str, event: dict[str, Any]) -> None:
 def thread_safe_publisher(job_id: str) -> Callable[[dict[str, Any]], None]:
     """Return a publisher callable safe to call from a worker thread.
 
-    Captures the current event loop at call time so subsequent ``publish``
+    Captures the running event loop at call time so subsequent ``publish``
     invocations from any thread route their work back into the loop via
-    ``call_soon_threadsafe``.
+    ``call_soon_threadsafe``. ``get_running_loop`` is used (not the
+    deprecated ``get_event_loop``) because this helper is always invoked
+    from an async handler with an active loop; Python 3.15 will make
+    ``get_event_loop`` raise in this context.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _publish(event: dict[str, Any]) -> None:
         loop.call_soon_threadsafe(publish, job_id, event)
