@@ -291,3 +291,65 @@ class TestMarkStale:
         store.mark_stale("P1", stale_reason="engine_upgraded")
         rows = [r for r in _artifact_rows(store) if r["project_id"] == "P1"]
         assert rows[0]["stale_reason"] == "engine_upgraded"
+
+
+# --------------------------------------------------------------------- #
+# JSON-safe payload serialization (regression for prod backfill P1)     #
+# --------------------------------------------------------------------- #
+
+
+class TestJsonSafePayload:
+    """Engines emit payloads with datetime objects (activity dates, computed
+    timestamps). Supabase PostgREST uses httpx + stdlib json which rejects
+    datetime with TypeError. The store layer must sanitize at the boundary.
+
+    Regression for the backfill incident where 20 prod projects flipped to
+    status='failed' because save_derived_artifact upserted a payload dict
+    containing datetime objects.
+    """
+
+    def test_json_safe_helper_converts_datetime(self) -> None:
+        from src.database.store import _json_safe
+
+        d = datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)
+        assert _json_safe(d) == d.isoformat()
+
+    def test_json_safe_helper_recurses_dicts_and_lists(self) -> None:
+        import json
+
+        from src.database.store import _json_safe
+
+        d = datetime(2026, 4, 19, tzinfo=UTC)
+        payload = {
+            "signals": {"planning_activity_count": 12, "data_date": d},
+            "rationale": ["phase_inferred_at", d],
+            "nested": {"inner": {"ts": d}},
+        }
+        safe = _json_safe(payload)
+        # Must be json.dumps-able without TypeError
+        json.dumps(safe)
+        assert safe["signals"]["data_date"] == d.isoformat()
+        assert safe["rationale"][1] == d.isoformat()
+        assert safe["nested"]["inner"]["ts"] == d.isoformat()
+
+    def test_save_derived_artifact_with_datetime_in_payload_is_json_safe(
+        self, store: _ArtifactStore
+    ) -> None:
+        """End-to-end parity: payload with datetime saves without raising, and
+        the stored row is json.dumps-able."""
+        import json
+
+        engine_date = datetime(2026, 4, 19, 0, 0, 0, tzinfo=UTC)
+        args = _base_args()
+        args["payload"] = {
+            "confidence": 0.85,
+            "computed_at": engine_date,
+            "signals": {"data_date": engine_date},
+        }
+        saved = store.save_derived_artifact(**args)
+        assert saved["payload"]["confidence"] == 0.85
+        # datetime values must have been stringified in the payload
+        assert saved["payload"]["computed_at"] == engine_date.isoformat()
+        assert saved["payload"]["signals"]["data_date"] == engine_date.isoformat()
+        # And the whole payload must be JSON-encodable
+        json.dumps(saved["payload"])

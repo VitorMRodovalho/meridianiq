@@ -17,7 +17,7 @@ import json
 import logging
 import tempfile
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,26 @@ from src.analytics.tia import TIAAnalysis
 from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
+
+
+def _json_safe(obj: Any) -> Any:
+    """Recursively convert datetime / date to ISO 8601 strings for JSON encoding.
+
+    Engines in ``src/analytics/`` emit payloads containing Python ``datetime``
+    objects (activity dates from the parser, computed timestamps). Supabase
+    PostgREST uses httpx with the stdlib ``json`` encoder, which rejects
+    datetime objects with ``TypeError: Object of type datetime is not JSON
+    serializable``. Apply this helper at the store boundary so every engine
+    payload + audit_details is JSON-safe without each engine needing to
+    serialize defensively.
+    """
+    if isinstance(obj, datetime | date):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [_json_safe(x) for x in obj]
+    return obj
 
 
 # ------------------------------------------------------------------ #
@@ -688,6 +708,7 @@ class InMemoryStore:
                 f"{sorted(self._VALID_ARTIFACT_KINDS)}"
             )
         now = datetime.now(UTC)
+        safe_payload = _json_safe(payload)
         for row in self._derived_artifacts:
             if (
                 row["project_id"] == project_id
@@ -696,7 +717,7 @@ class InMemoryStore:
                 and row["ruleset_version"] == ruleset_version
                 and row["input_hash"] == input_hash
             ):
-                row["payload"] = payload
+                row["payload"] = safe_payload
                 row["effective_at"] = effective_at
                 row["computed_at"] = now
                 row["computed_by"] = computed_by
@@ -710,7 +731,7 @@ class InMemoryStore:
                 "id": f"sda-{self._derived_artifact_counter:06d}",
                 "project_id": project_id,
                 "artifact_kind": artifact_kind,
-                "payload": payload,
+                "payload": safe_payload,
                 "engine_version": engine_version,
                 "ruleset_version": ruleset_version,
                 "input_hash": input_hash,
@@ -730,7 +751,7 @@ class InMemoryStore:
             "input_hash": input_hash,
         }
         if audit_details_extra:
-            audit_details.update(audit_details_extra)
+            audit_details.update(_json_safe(audit_details_extra))
         self._audit_log.append(
             {
                 "user_id": computed_by,
@@ -2672,7 +2693,7 @@ class SupabaseStore:
         row = {
             "project_id": project_id,
             "artifact_kind": artifact_kind,
-            "payload": payload,
+            "payload": _json_safe(payload),
             "engine_version": engine_version,
             "ruleset_version": ruleset_version,
             "input_hash": input_hash,
@@ -2695,7 +2716,7 @@ class SupabaseStore:
             "input_hash": input_hash,
         }
         if audit_details_extra:
-            audit_details.update(audit_details_extra)
+            audit_details.update(_json_safe(audit_details_extra))
         try:
             self._insert(
                 "audit_log",
