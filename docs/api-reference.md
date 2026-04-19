@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **116 endpoints** across **22 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **121 endpoints** across **23 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -9,7 +9,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 ## Contents
 
 - [Upload](#upload) — 2 endpoints
-- [Projects](#projects) — 3 endpoints
+- [Projects](#projects) — 4 endpoints
 - [Programs](#programs) — 5 endpoints
 - [Comparison](#comparison) — 1 endpoints
 - [Forensics](#forensics) — 10 endpoints
@@ -27,6 +27,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Admin](#admin) — 6 endpoints
 - [Health](#health) — 2 endpoints
 - [Bi](#bi) — 3 endpoints
+- [Lifecycle](#lifecycle) — 4 endpoints
 - [Organizations](#organizations) — 11 endpoints
 - [Plugins](#plugins) — 2 endpoints
 - [Ws](#ws) — 1 endpoints
@@ -47,6 +48,7 @@ _CRUD, detail, activities, validation_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `GET` | `/api/v1/projects` | List all uploaded projects. | `ProjectListResponse` | optional |
+| `GET` | `/api/v1/projects/pending-statuses` | Aggregate banner poll — returns the caller's pending / failed projects. | `PendingStatusesResponse` | optional |
 | `GET` | `/api/v1/projects/{project_id}` | Get full project data for a given project_id. | `ProjectDetailResponse` | optional |
 | `PUT` | `/api/v1/projects/{project_id}/sandbox` | Toggle sandbox mode for a project. | `dict` | optional |
 
@@ -263,6 +265,15 @@ _Readiness and liveness_
 | `GET` | `/api/v1/bi/activities` | Flat activity list — one row per activity with CPM-derived metrics. | `dict` | optional |
 | `GET` | `/api/v1/bi/dcma-metrics` | One row per (project, DCMA metric) — flat pivot-ready surface. | `dict` | optional |
 | `GET` | `/api/v1/bi/projects` | Flat project list with top-level KPIs — one row per project. | `dict` | optional |
+
+## Lifecycle
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `GET` | `/api/v1/projects/{project_id}/lifecycle` | Return the current lifecycle phase view for a project. | `LifecyclePhaseSummary` | optional |
+| `DELETE` | `/api/v1/projects/{project_id}/lifecycle/override` | Revert to the inferred phase (keeps override history). | `—` | optional |
+| `POST` | `/api/v1/projects/{project_id}/lifecycle/override` | Write a manual lifecycle phase override + flip the lock. | `LifecycleOverrideSchema` | optional |
+| `GET` | `/api/v1/projects/{project_id}/lifecycle/overrides` | Return the override history for a project (newest first). | `LifecycleOverrideListResponse` | optional |
 
 ## Organizations
 

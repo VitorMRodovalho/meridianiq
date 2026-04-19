@@ -92,8 +92,7 @@ class LifecyclePhaseInference:
     def __post_init__(self) -> None:
         if self.phase not in LIFECYCLE_PHASES:
             raise ValueError(
-                f"invalid LifecyclePhase: {self.phase!r}; must be one of "
-                f"{list(LIFECYCLE_PHASES)}"
+                f"invalid LifecyclePhase: {self.phase!r}; must be one of {list(LIFECYCLE_PHASES)}"
             )
         # NaN / +Inf / -Inf are not valid confidence — also blocked at the
         # canonical_hash boundary (allow_nan=False) but the engine boundary
@@ -102,13 +101,10 @@ class LifecyclePhaseInference:
             raise ValueError(f"invalid LifecyclePhaseInference.confidence: {self.confidence!r}")
         if not (0.0 <= float(self.confidence) <= 1.0):
             raise ValueError(
-                f"LifecyclePhaseInference.confidence must be in [0.0, 1.0], "
-                f"got {self.confidence}"
+                f"LifecyclePhaseInference.confidence must be in [0.0, 1.0], got {self.confidence}"
             )
         if self.phase == "unknown" and float(self.confidence) != 0.0:
-            raise ValueError(
-                f"phase='unknown' must have confidence=0.0, got {self.confidence}"
-            )
+            raise ValueError(f"phase='unknown' must have confidence=0.0, got {self.confidence}")
 
 
 def confidence_band(confidence: float) -> Literal["low", "medium", "high"]:

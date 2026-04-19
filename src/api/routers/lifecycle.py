@@ -123,9 +123,7 @@ def _build_summary(store: Any, project_id: str) -> LifecyclePhaseSummary:
 
     locked = bool(store.get_lifecycle_phase_lock(project_id))
     latest_override_row = store.get_latest_lifecycle_override(project_id)
-    latest_override = (
-        _override_from_row(latest_override_row) if latest_override_row else None
-    )
+    latest_override = _override_from_row(latest_override_row) if latest_override_row else None
 
     # Precedence rule — ADR-0016 §UX.
     # Council P1 (devils-advocate #5 + backend-reviewer P1-1): only
@@ -341,9 +339,7 @@ def list_lifecycle_overrides(
     _assert_project_access(store, project_id, user_id)
     limit = max(1, min(200, limit))
     rows = store.list_lifecycle_overrides(project_id, limit=limit)
-    return LifecycleOverrideListResponse(
-        overrides=[_override_from_row(r) for r in rows]
-    )
+    return LifecycleOverrideListResponse(overrides=[_override_from_row(r) for r in rows])
 
 
 # Re-export for consistency with the rest of the codebase. Keeps

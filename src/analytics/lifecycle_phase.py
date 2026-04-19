@@ -293,9 +293,7 @@ def _emit(
     return LifecyclePhaseInference(phase=phase, confidence=confidence, rationale=rationale)
 
 
-def _unknown(
-    reason: str, extra: dict[str, Any] | None = None
-) -> LifecyclePhaseInference:
+def _unknown(reason: str, extra: dict[str, Any] | None = None) -> LifecyclePhaseInference:
     rationale: dict[str, Any] = {"rule": "unknown", "reason": reason}
     if extra:
         rationale.update(extra)

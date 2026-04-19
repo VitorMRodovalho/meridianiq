@@ -70,8 +70,7 @@ def _candidate_project_ids(
 
     if kind not in _RULESET_VERSIONS:
         raise ValueError(
-            f"unknown artifact kind: {kind!r}; "
-            f"must be one of {sorted(_RULESET_VERSIONS)}"
+            f"unknown artifact kind: {kind!r}; must be one of {sorted(_RULESET_VERSIONS)}"
         )
 
     engine_version = "4.0"

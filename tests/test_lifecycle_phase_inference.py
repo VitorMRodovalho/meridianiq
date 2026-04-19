@@ -185,11 +185,7 @@ class TestDesignRules:
         # ~10% elapsed
         data_date = plan_start + timedelta(days=36)
         schedule = ParsedSchedule(
-            projects=[
-                _project(
-                    plan_start=plan_start, plan_end=plan_end, data_date=data_date
-                )
-            ],
+            projects=[_project(plan_start=plan_start, plan_end=plan_end, data_date=data_date)],
             activities=_baselined_tasks(5, phys_complete_pct=2.0),
         )
         result = infer_lifecycle_phase(schedule)
@@ -214,11 +210,7 @@ class TestProcurementRules:
         plan_end = datetime(2027, 1, 1)
         data_date = plan_start + timedelta(days=20)
         schedule = ParsedSchedule(
-            projects=[
-                _project(
-                    plan_start=plan_start, plan_end=plan_end, data_date=data_date
-                )
-            ],
+            projects=[_project(plan_start=plan_start, plan_end=plan_end, data_date=data_date)],
             activities=_baselined_tasks(5, phys_complete_pct=0.0),
             activity_codes=[
                 ActivityCode(
@@ -247,11 +239,7 @@ class TestConstructionRules:
         # ~50% elapsed
         data_date = plan_start + timedelta(days=183)
         schedule = ParsedSchedule(
-            projects=[
-                _project(
-                    plan_start=plan_start, plan_end=plan_end, data_date=data_date
-                )
-            ],
+            projects=[_project(plan_start=plan_start, plan_end=plan_end, data_date=data_date)],
             activities=_baselined_tasks(10, phys_complete_pct=50.0),
         )
         result = infer_lifecycle_phase(schedule)
@@ -303,11 +291,7 @@ class TestCloseoutRules:
         # 99% elapsed
         data_date = plan_start + timedelta(days=362)
         schedule = ParsedSchedule(
-            projects=[
-                _project(
-                    plan_start=plan_start, plan_end=plan_end, data_date=data_date
-                )
-            ],
+            projects=[_project(plan_start=plan_start, plan_end=plan_end, data_date=data_date)],
             activities=_baselined_tasks(10, phys_complete_pct=100.0),
         )
         result = infer_lifecycle_phase(schedule)
@@ -321,11 +305,7 @@ class TestCloseoutRules:
         # past plan_end
         data_date = plan_end + timedelta(days=30)
         schedule = ParsedSchedule(
-            projects=[
-                _project(
-                    plan_start=plan_start, plan_end=plan_end, data_date=data_date
-                )
-            ],
+            projects=[_project(plan_start=plan_start, plan_end=plan_end, data_date=data_date)],
             activities=_baselined_tasks(10, phys_complete_pct=92.0),
         )
         result = infer_lifecycle_phase(schedule)
@@ -348,11 +328,7 @@ class TestDeterminism:
         plan_end = datetime(2027, 1, 1)
         data_date = plan_start + timedelta(days=183)
         schedule = ParsedSchedule(
-            projects=[
-                _project(
-                    plan_start=plan_start, plan_end=plan_end, data_date=data_date
-                )
-            ],
+            projects=[_project(plan_start=plan_start, plan_end=plan_end, data_date=data_date)],
             activities=_baselined_tasks(8, phys_complete_pct=40.0),
         )
         a = infer_lifecycle_phase(schedule)

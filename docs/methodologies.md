@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **45 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **47 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -31,6 +31,8 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`half_step`](#half-step--half-step) | Half-Step (Bifurcation) analysis — separating progress from revisions. |
 | [`health_score`](#health-score--health-score) | Composite Schedule Health Score per DCMA + GAO. |
 | [`ips_reconciliation`](#ips-reconciliation--ips-reconciliation) | Integrated Project Schedule (IPS) Reconciliation Engine. |
+| [`lifecycle_phase`](#lifecycle-phase--lifecycle-phase) | Lifecycle phase inference engine (W3 of Cycle 1 v4.0). |
+| [`lifecycle_types`](#lifecycle-types--lifecycle-types) | Shared lifecycle vocabulary used by the W3 inference engine, store, API, |
 | [`lookahead`](#lookahead--lookahead) | Look-ahead schedule — short-term activity window view. |
 | [`mip_additive`](#mip-additive--mip-additive) | AACE RP 29R-03 MIP 3.5 — Modified / Additive Multiple Base. |
 | [`mip_observational`](#mip-observational--mip-observational) | AACE RP 29R-03 observational MIPs — 3.1 (Gross) and 3.2 (As-Is). |
@@ -517,6 +519,82 @@ The IPS reconciliation checks:
 4. Date consistency — do sub completion dates align with master windows?
 5. WBS alignment — do sub WBS elements map to master WBS?
 6. Float consistency — does sub float align with master float allowance?
+
+---
+
+### `lifecycle_phase` — Lifecycle Phase
+
+**Lifecycle phase inference engine (W3 of Cycle 1 v4.0).**
+
+Classifies a parsed P6 XER schedule into one of the canonical lifecycle phases ``planning / design / procurement / construction / closeout`` (or ``unknown`` when the input lacks the minimum signal). Output is a :class:`LifecyclePhaseInference` carrying the phase, a confidence in ``[0.0, 1.0]``, and a JSON-serialisable rationale dict listing the signals and the triggered rule.
+
+Per ADR-0009 §Wave-3 + ADR-0016 the engine is intentionally lightweight —
+the deep phase-aware analytics live in the W5/W6 conditional
+``lifecycle_health.py`` engine. W3 ships only the label inference + a
+confidence score that is honest about uncertainty.
+
+Standards cited:
+
+- AACE RP 14R §3 (planning-phase ownership delineation — anchors the
+  early-phase signal: planning vs design depends on baseline availability
+  and on whether the schedule shows discipline-segregated WBS depth).
+- ISO 21502 §6.3 (project lifecycle as first-class metadata — informs
+  the 5-phase taxonomy choice over a finer-grained PMI-CP mapping).
+- PMI Construction Extension §4 — referenced as "mappable to" in the
+  rationale dict; not claimed as alignment because PMI-CP uses different
+  phase names (initiating / planning / executing / monitoring / closing).
+- W4 calibration gate (ADR-0009 §Gate-criteria): ``confidence >= 0.80``
+  is the gate-passing band. Confidence values returned here MUST be
+  honest about uncertainty so the gate's ``>=80%`` filter is meaningful.
+
+The engine is **stateless** per CLAUDE.md ``Code Standards`` ("Analysis
+engines in src/analytics/ must be stateless — receive data, return
+results"). Hysteresis to suppress phase flip-flops between consecutive
+uploads is a W4+ follow-up that lives at the *materializer* layer
+(which has access to prior artifacts), NOT inside this engine.
+
+Multi-project XER scope: this engine evaluates ``schedule.projects[0]``
+and that project's activities. ADR-0015 §1 acknowledges multi-project
+XERs as Wave 3+ scope — the materializer raises if it encounters one.
+Inference of multi-project rollup phase is out of scope.
+
+---
+
+### `lifecycle_types` — Lifecycle Types
+
+**Shared lifecycle vocabulary used by the W3 inference engine, store, API,**
+
+and (conditional on W4 gate) the W5/W6 ``lifecycle_health.py`` deep engine.
+
+Per ADR-0016 §2 the type live in ``src.analytics.lifecycle_types`` so any
+downstream engine can import the vocabulary without importing the inference
+engine itself — preserving the standalone-engine invariant ADR-0009 §Wave-3
+established for ``src/analytics/`` (no engine imports another engine; the
+materializer is the composition layer).
+
+Phase taxonomy: 5 + ``unknown`` per ADR-0016 §1. The construction
+sub-phase split (early / mid / late) is intentionally NOT a phase value
+in W3 — W4 sandbox calibration would crater on a 9-value classifier with
+the available signal density. ADR-0016 reserves the construction-band
+concept as a *derived dimension* for the W5 ``lifecycle_health.py`` engine
+should the W4 gate pass.
+
+Standards cited:
+
+- AACE RP 14R §3 — planning-phase ownership delineation as the baseline
+  signal that anchors phase inference at the front of the lifecycle.
+- ISO 21502 §6.3 — project lifecycle as first-class metadata.
+- PMI Construction Extension §4 — referenced as "mappable to" in the engine
+  docstring; not claimed as alignment because PMI-CP uses different phase
+  names (initiating / planning / executing / monitoring / closing) and the
+  mapping has not been formally walked.
+
+SCL Protocol §4 is cited on the override-log audit trail (migration 025),
+NOT on the phase taxonomy itself.
+
+**Standards implemented:**
+
+- SCL Delay and Disruption Protocol
 
 ---
 

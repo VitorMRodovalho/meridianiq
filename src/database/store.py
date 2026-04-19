@@ -899,9 +899,7 @@ class InMemoryStore:
         )
         return row
 
-    def list_lifecycle_overrides(
-        self, project_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def list_lifecycle_overrides(self, project_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return overrides for a project ordered ``overridden_at DESC``."""
         rows = [r for r in self._lifecycle_overrides if r["project_id"] == project_id]
         rows.sort(key=lambda r: r["overridden_at"], reverse=True)
@@ -2930,9 +2928,7 @@ class SupabaseStore:
             )
         return saved
 
-    def list_lifecycle_overrides(
-        self, project_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def list_lifecycle_overrides(self, project_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return overrides for a project ordered ``overridden_at DESC``.
 
         Hits ``idx_lifecycle_override_log_project_recent`` (migration 025).
