@@ -1,9 +1,9 @@
 # 0009. Cycle 1 v4.0 — Lifecycle Intelligence on Materialized Analytics (with pre-committed fallback)
 
-* Status: accepted
+* Status: accepted — §"Wave 4 (deep — calibration + gate)" and §"Decision Outcome → Wave plan → Wave 4" amended by **Amendment 1 (2026-04-19)** at the bottom of this file
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-18
-* Council review: product-validator, strategist, legal-and-accountability, devils-advocate (see `project_v40_cycle_1.md` for anonymised synthesis)
+* Council review: product-validator, strategist, legal-and-accountability, devils-advocate (see `project_v40_cycle_1.md` for anonymised synthesis). Amendment 1 adds a second round: product-validator + legal-and-accountability + devils-advocate (2026-04-18, anonymised synthesis in `project_v40_cycle_1.md`).
 
 ## Context and Problem Statement
 
@@ -64,7 +64,7 @@ Two Cycle 1 shallows accompany the deep:
 - Inference heuristic (data_date vs plan_start/plan_end ratio + physical %-complete + S-curve shape) with a confidence score exposed in the UI, not just a label.
 - Manual override with audit trail in a separate `lifecycle_override_log` table (append-only by convention, no DELETE policy).
 
-**Wave 4 (deep — calibration + gate):**
+**Wave 4 (deep — calibration + gate):**  *[AMENDED: see Amendment 1 — n=103 recovered sandbox split into gate subset (n≈23, dedup'd) + hysteresis subset (n≈80); `unknown` denominator convention pre-registered; phase-distribution sub-gate added; publication scope reduced to coarse-banded aggregates.]*
 - Run the inference against the sandbox of 105 XERs (`reference_sandbox_dataset.md`) under confidential off-CI process.
 - Gate criterion: ≥70% of sandbox XERs classified with confidence ≥80%, and manual spot-check of 20 projects shows ≤5% obviously-wrong classifications.
 - Also: open a public GitHub issue titled "Calibration dataset contributions wanted — phase-aware analytics" as the first community-contribution hook. Publish the heuristic methodology and the anonymised confusion matrix from the sandbox so external contributors can extend.
@@ -127,3 +127,79 @@ Two Cycle 1 shallows accompany the deep:
 - Anticipated ADRs authored during Cycle 1: ADR-0010 (lifecycle engine methodology, if W4 gate passes), ADR-0011 (fuzzy-match dep category)
 - Deferred ADRs: dual-licensing of `lifecycle_health.py`, multi-discipline security (§1.8, candidate for Cycle 2 or 3 deep), ERP connectors (§1.9, candidate for Cycle 3)
 - Community hook: public GitHub issue "Calibration dataset contributions wanted — phase-aware analytics" (opens Wave 4)
+
+---
+
+## Amendment 1 (2026-04-19) — Wave 4 calibration protocol pre-registration
+
+**Status:** accepted — pre-registered before any calibration runs, so operator discretion cannot inflate the gate post-hoc. Amends §"Wave 4" and §"Gate criteria" bullets above (which remain unedited per append-only decision-log discipline; the inline *[AMENDED: see Amendment 1]* pointers delegate authority to this section).
+
+**Trigger.** Wave 4 opened with a dataset integrity check that surfaced three findings invalidating the assumptions the original §"Wave 4" encoded. Pre-registration of the revised protocol is required so the gate remains falsifiable.
+
+### Findings
+
+**1. Sandbox recovered to n=103 unique (not 105, not 5, not 23).** The 105-XER sandbox was thought lost after an earlier off-CI cleanup deleted all but 5 files. Recursive extraction of the surviving source zips (`04-Schedule.zip`, `07-Reporting.zip`) produced 106 XERs in staging; sha256 content-hash deduplication (eight near-duplicates collapsed) yielded **103 unique-hash XERs + 5 unique XMLs** at the canonical off-Git path (see `reference_sandbox_dataset.md`, updated 2026-04-19). The 5 XMLs are plausible MSP-XML / P6-XML exports; they are not part of the lifecycle_phase inference corpus but feed the `src/parser/msp_reader.py` surface when §1.6 first-class MSP surfacing ships.
+
+**2. Prod operational darkness closed, not open.** Before the first Wave 2 backfill invocation on 2026-04-19, `schedule_derived_artifacts` in prod was empty across 24 `ready` projects despite the cycle log marking W2 and W3 "APPLIED TO PROD". The DDL was applied; the backfill worker had never been triggered. The first invocation surfaced a P1 bug at the store boundary (engine payloads containing `datetime` objects were passed to Supabase PostgREST which uses httpx + stdlib `json`, raising `TypeError: Object of type datetime is not JSON serializable`) that flipped every touched project to `status='failed'` per ADR-0015 §7 without writing artifacts. All 21 affected projects were restored to `ready` before the bug fix ran; the fix landed as commit `d0df3e3` ("fix(store): datetime-safe payload serialization in save_derived_artifact") with a regression test asserting `json.dumps` of the saved row. Re-run produced `ok=21 failed=0` and 88 artifact rows (22 projects × 4 kinds — CPM / DCMA / health / lifecycle_phase_inference). Two projects with null/empty `storage_path` remain intentionally un-materializable (upload orphans; §"Wave 2" orphan-guard path took effect as designed). Devils-advocate pre-check P1#5 — ADR-0010 authorship blocked on prod darkness — is **closed**.
+
+**3. First empirical phase distribution of the W3 engine (22 prod projects, not the sandbox).**
+
+| Phase | Confidence band | Count | % |
+|---|---|---|---|
+| `unknown` | 0.00 (engine emits when signal absent) | 17 | 77% |
+| `construction` | 0.74–0.77 (ceiling 0.85 at `lifecycle_phase.py:263`) | 4 | 18% |
+| `design` | 0.40 | 1 | 5% |
+
+Under the original §"Gate criteria" wording "≥70% classified at confidence ≥0.80", the empirical pass rate on prod is **0 of 22 (0%)**. The engine is conservative by construction — a forensic-defensibility asset under AACE RP 29R §5 — but the 0.80 bar cannot be cleared even by the highest-confidence band the current rule cascade is capable of emitting. Devils-advocate pre-check P1#2 (construction-rule rubber-stamp risk) inverts: the concern was an over-confident engine; the empirical concern is the opposite.
+
+### Amendments
+
+**A. Dataset split strategy — pre-registered before engine runs.** The 103 XERs include serial updates of the same program (e.g. "UP 03 / UP 04 / UP 05"). Serial updates are **not** independent classification observations (confirms devils-advocate W3 end-of-wave P1#3 selection-effect concern).
+
+- **Gate subset (n≈23):** dedup by program using this **pre-registered rule**, applied mechanically in `scripts/calibration/run_w4_calibration.py` before any engine output is observed:
+  > For each program group, keep the revision with the **largest `activity_count`**. Tie-broken by **most-recent `data_date`**. Top-level standalone XERs (no sibling revisions) each count as their own program.
+  The candidate list MUST be emitted and committed (as a hash-only manifest, no filenames) before the gate runs.
+- **Hysteresis subset (n≈80):** the remaining serial updates, preserved with program-level grouping. The calibration emits a flip-flop-frequency report across consecutive revisions per program — addresses devils-advocate W3 end-of-wave P2#8 ("can't test hysteresis on the same dataset we gate on").
+
+**B. Unknown-phase denominator convention.** `unknown` artifacts count toward the primary-gate **denominator** but cannot contribute to the **numerator** (confidence 0.0 < any positive threshold). This closes devils-advocate W3 end-of-wave P1#1 (denominator ambiguity post-hoc).
+
+**C. Phase-distribution sub-gate.** No single phase may account for more than **60% of the numerator passes**. If 15 of 17 passes are `construction`, the gate fails regardless of the raw ratio. Reframes the gate from "does the engine emit confidence" to "does the engine discriminate" (devils-advocate W3 end-of-wave P1#2).
+
+**D. Confidence-honesty sub-gate (carried forward).** ≥20% of the gate subset must receive confidence <0.5. Prevents over-confident engine from rubber-stamping; devils-advocate W3 end-of-wave P1#4 — original formulation preserved.
+
+**E. Primary threshold — retained formally, recorded at three bands.** The original "≥70% at ≥0.80 confidence" threshold is retained as pre-registered. The calibration MUST ALSO record the pass rate at 0.70 and 0.60 bands in the same run, so the Chairman synthesis can select the effective threshold with evidence rather than post-hoc rationalisation. Any threshold adjustment below 0.80 lands as **a new ADR that cites this Amendment**, not as an edit to this text.
+
+**F. Publication scope — coarse-banded aggregates only.** Public GitHub issue publishes a phase histogram, a confidence histogram bucketed at `[0.0, 0.5, 0.7, 0.8, 1.0]`, and the gate pass/fail boolean per sub-gate. Per-project rows, the 23-program mapping, and the per-observation confusion matrix stay in `meridianiq-private/calibration/cycle1-w4/`. Rationale: legal-and-accountability council synthesis (2026-04-18) flagged re-identification risk on small-n derived statistics through pattern uniqueness (GDPR Recital 26 singling-out analog; LGPD Art.5 VI anonimização) as MEDIUM-HIGH at n=23.
+
+**G. Filename leakage guard — harness contract.** `scripts/calibration/run_w4_calibration.py` MUST read the XER directory via the `XER_SANDBOX_DIR` environment variable. No hardcoded path; no committed file may reference a real project identifier. `/tmp/w4_calibration*.json` goes in `.gitignore`. Any calibration artefact landing in the repo outside `docs/adr/` or `meridianiq-private/` submodule is a governance violation under `feedback_confidentiality.md`.
+
+**H. Execution ordering.** The Wave 4 open-sequence:
+
+1. Commit this Amendment as the **pre-registration artifact** (this commit).
+2. Ship the harness + filename guard + `.gitignore` entry (Task #2).
+3. Run the calibration off-CI against `XER_SANDBOX_DIR` (Task #5).
+4. Land outcome as **Amendment 2** on this file + a committed `docs/adr/0009-w4-outcome.md` calibration_result sibling, recording (phase histogram, confidence histogram, gate pass/fail per sub-gate) in coarse-banded form (Task #6).
+5. Branch W5/W6 scope per the three distinct outcomes documented in (J) below.
+6. Open the public GitHub issue only after (4) — framing depends on (5) (Task #4).
+
+**I. Chairman synthesis (anonymised, 2026-04-18 pre-check round).** Product-validator + legal-and-accountability + devils-advocate converged on:
+
+- Stratified sampling (AACE RP 114R §4) at ≥10/phase × 6 phases is achievable on n=103 but is **not the right gate for the dedup'd n≈23 subset** — acknowledged as a sample-size constraint, not a protocol weakness. Amendment accepts the constraint and handles it with (A) split strategy + (B)(C) sub-gates.
+- Cohen's κ on n≈5 inter-rater subset has CI width ≈ ±0.35; report κ with explicit CI, never a point estimate. W4 executes this discipline.
+- Forensic defensibility bar under AACE RP 29R §5 is sample-representativeness + method-reproducibility, not sample-size alone. The pre-registered dedup rule + the denominator convention + the phase-distribution sub-gate together address both.
+- Prod darkness (finding 2 above) was a **separate P1** that had to close before ADR-0010 could be authored; it is now closed.
+
+**J. W5/W6 branch decision — three distinct outcomes recorded honestly in Amendment 2.**
+
+- **Gate passes at ≥0.80 pre-registered threshold** → W5/W6 ships `lifecycle_health.py` per §"Wave 5–6 (conditional)"; ADR-0010 is authored citing this Amendment.
+- **Gate fails at 0.80 but passes at a lower band (0.70 / 0.60) AND phase-distribution sub-gate passes** → a new ADR (0017 or next available) proposes the lowered threshold with the evidence; ADR-0010 either follows with the lowered threshold or defers to v4.1. Does not silently amend this ADR.
+- **Gate not meaningfully runnable (e.g., >90% `unknown` on the dedup'd subset mirrors prod's 77%)** → pre-committed fallback branch: W5/W6 delivers carry-over P3 items (`progress_callback` wiring + Svelte WS composable). Chairman synthesis records "gate not meaningful" distinctly from "gate failed" — the former is an **engine-signal finding**, the latter is a classifier-performance finding. ADR-0010 stays unused in both sub-cases.
+
+This three-way distinction is load-bearing: an external forensic reviewer must be able to tell, from the committed record, whether the engine discriminated-but-underperformed versus did-not-discriminate-at-all. Devils-advocate W3 end-of-wave P3#12 absorbed — gate-unrun vs gate-failed is now separable in the log.
+
+### Rejected alternatives
+
+- **Silently rewrite §Wave 4 / §Gate criteria bullets above.** Rejected — destroys decision-log append-only integrity. Inline `[AMENDED]` pointers plus this Amendment is the honest discipline (precedent: ADR-0014 header "amended by ADR-0015").
+- **New ADR-0017 that supersedes §Wave 4 of ADR-0009.** Rejected — the chosen option (B) has not changed; only the input dataset and the empirically-observed engine distribution have. A superseding ADR would overstate the delta. Amendment in place with explicit header + pointer is proportionate.
+- **Lower the primary threshold silently to 0.70 before running.** Rejected — post-hoc threshold adjustment is the exact failure mode devils-advocate P1#4 anticipated. Threshold stays at 0.80 for the pre-registered gate; Amendment 2 (post-calibration) may propose a lowered threshold in a distinct new ADR if evidence warrants.
+- **Skip the hysteresis subset.** Rejected — absorbing devils-advocate W3 P2#8 costs nothing and produces falsifiable evidence for a claim ADR-0016 currently punts ("hysteresis deferred to W4+ because no calibration data"). The data exists; compute the answer.
