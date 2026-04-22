@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.half_step import analyze_half_step
@@ -21,7 +21,7 @@ from src.analytics.mip_subtractive import (
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
-from ..deps import get_store, get_timeline_store
+from ..deps import RATE_LIMIT_MODERATE, get_store, get_timeline_store, limiter
 from ..schemas import (
     AppliedAdditiveEventSchema,
     AppliedDelayEventSchema,
@@ -196,8 +196,11 @@ def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> Ti
     "/api/v1/forensic/half-step",
     response_model=HalfStepResponse,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_half_step(
-    request: HalfStepRequest, _user: object = Depends(optional_auth)
+    request: HalfStepRequest,
+    _http_request: Request,
+    _user: object = Depends(optional_auth),
 ) -> HalfStepResponse:
     """Run a half-step (bifurcation) analysis between two schedule updates.
 
@@ -252,8 +255,10 @@ def run_half_step(
     "/api/v1/forensic/mip-3-1",
     response_model=Mip31Response,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_1(
     request: Mip31Request,
+    _http_request: Request,
     _user: object = Depends(optional_auth),
 ) -> Mip31Response:
     """Run MIP 3.1 — Observational Static Logic / Gross comparison.
@@ -317,8 +322,10 @@ def run_mip_3_1(
     "/api/v1/forensic/mip-3-2",
     response_model=Mip32Response,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_2(
     request: Mip32Request,
+    _http_request: Request,
     _user: object = Depends(optional_auth),
 ) -> Mip32Response:
     """Run MIP 3.2 — Observational Dynamic Logic / Contemporaneous As-Is.
@@ -384,8 +391,10 @@ def run_mip_3_2(
     "/api/v1/forensic/mip-3-6",
     response_model=Mip36Response,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_6(
     request: Mip36Request,
+    _http_request: Request,
     _user: object = Depends(optional_auth),
 ) -> Mip36Response:
     """Run MIP 3.6 — Modified / Subtractive Single Simulation (Collapsed As-Built).
@@ -458,8 +467,10 @@ def run_mip_3_6(
     "/api/v1/forensic/mip-3-7",
     response_model=Mip37Response,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_7(
     request: Mip37Request,
+    _http_request: Request,
     _user: object = Depends(optional_auth),
 ) -> Mip37Response:
     """Run MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed).
@@ -553,8 +564,10 @@ def run_mip_3_7(
     "/api/v1/forensic/mip-3-5",
     response_model=Mip35Response,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_5(
     request: Mip35Request,
+    _http_request: Request,
     _user: object = Depends(optional_auth),
 ) -> Mip35Response:
     """Run MIP 3.5 — Modified / Additive Multiple Base (Impacted As-Planned).

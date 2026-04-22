@@ -125,3 +125,16 @@ except ImportError:
             return decorator
 
     limiter = _NoOpLimiter()  # type: ignore[assignment]
+
+
+# Shared rate-limit buckets — use these instead of hard-coding per-router
+# strings so audit (AUDIT-003) stays reviewable in one place.  Tune values
+# here and the whole API moves together.
+#
+#   EXPENSIVE — Monte Carlo, PDF generation, XER round-trip export.
+#   MODERATE  — Forensic window analysis, comparison, explicit reads with
+#               large serialisation (Excel, AIA G703).
+#   READ      — Cached reads, aggregated rollups, search.
+RATE_LIMIT_EXPENSIVE = "3/minute"
+RATE_LIMIT_MODERATE = "10/minute"
+RATE_LIMIT_READ = "30/minute"

@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_risk_store, get_store
+from ..deps import RATE_LIMIT_EXPENSIVE, get_risk_store, get_store, limiter
 from ..schemas import (
     CriticalityEntrySchema,
     CriticalityResponse,
@@ -101,9 +101,11 @@ def _simulation_to_schema(result: Any) -> SimulationResultSchema:
     "/api/v1/risk/simulate/{project_id}",
     response_model=SimulationResultSchema,
 )
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 async def run_risk_simulation(
+    request: Request,
     project_id: str,
-    request: RunSimulationRequest,
+    payload: RunSimulationRequest,
     job_id: str | None = None,
     _user: object = Depends(optional_auth),
 ) -> SimulationResultSchema:
@@ -136,15 +138,15 @@ async def run_risk_simulation(
     if schedule is None:
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
 
-    # Convert request schemas to domain models
+    # Convert payload schemas to domain models
     config = None
-    if request.config:
+    if payload.config:
         config = SimulationConfig(
-            iterations=request.config.iterations,
-            default_distribution=DistributionType(request.config.default_distribution),
-            default_uncertainty=request.config.default_uncertainty,
-            seed=request.config.seed,
-            confidence_levels=request.config.confidence_levels,
+            iterations=payload.config.iterations,
+            default_distribution=DistributionType(payload.config.default_distribution),
+            default_uncertainty=payload.config.default_uncertainty,
+            seed=payload.config.seed,
+            confidence_levels=payload.config.confidence_levels,
         )
 
     duration_risks = (
@@ -156,9 +158,9 @@ async def run_risk_simulation(
                 most_likely=r.most_likely,
                 max_duration=r.max_duration,
             )
-            for r in request.duration_risks
+            for r in payload.duration_risks
         ]
-        if request.duration_risks
+        if payload.duration_risks
         else None
     )
 
@@ -171,9 +173,9 @@ async def run_risk_simulation(
                 impact_hours=e.impact_hours,
                 affected_activities=e.affected_activities,
             )
-            for e in request.risk_events
+            for e in payload.risk_events
         ]
-        if request.risk_events
+        if payload.risk_events
         else None
     )
 

@@ -6,11 +6,19 @@ from __future__ import annotations
 
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from ..auth import optional_auth
-from ..deps import get_evm_store, get_report_store, get_risk_store, get_store, get_tia_store
+from ..deps import (
+    RATE_LIMIT_EXPENSIVE,
+    get_evm_store,
+    get_report_store,
+    get_risk_store,
+    get_store,
+    get_tia_store,
+    limiter,
+)
 from ..schemas import (
     GenerateReportRequest,
     GenerateReportResponse,
@@ -54,8 +62,10 @@ _VALID_REPORT_TYPES = {
     "/api/v1/reports/generate",
     response_model=GenerateReportResponse,
 )
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def generate_report(
     request: GenerateReportRequest,
+    _http_request: Request,
     _user: object = Depends(optional_auth),
 ) -> GenerateReportResponse:
     """Generate a PDF report. Returns report ID for download.

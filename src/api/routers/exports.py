@@ -10,11 +10,11 @@ import json
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 
 from ..auth import optional_auth
-from ..deps import get_store
+from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 
 from src.analytics.float_trends import compute_float_entropy
 from src.parser.models import ParsedSchedule
@@ -172,7 +172,9 @@ def _build_export_data(
 
 
 @router.get("/api/v1/projects/{project_id}/export/xer")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def export_xer(
+    request: Request,
     project_id: str,
     _user: object = Depends(optional_auth),
 ) -> dict:
@@ -202,7 +204,9 @@ def export_xer(
 
 
 @router.get("/api/v1/projects/{project_id}/export/excel")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def export_excel(
+    request: Request,
     project_id: str,
     _user: object = Depends(optional_auth),
 ):
@@ -314,7 +318,9 @@ def export_excel(
 
 
 @router.get("/api/v1/projects/{project_id}/export/aia-g703")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def export_aia_g703(
+    request: Request,
     project_id: str,
     snapshot_id: str,
     retainage_pct: float = 0.10,
