@@ -17,9 +17,11 @@ autocontido — ler em ordem para a leitura completa, ou ir direto ao domínio d
 | **2c — Segurança** | [`04-security.md`](04-security.md) | Security eng. | Rate-limit, auth fallbacks, CORS, env hygiene, LGPD/GDPR |
 | **2d — UX / Frontend** | [`05-ux-frontend.md`](05-ux-frontend.md) | Eng. frontend, design | i18n, a11y, dark mode, páginas órfãs |
 | **2e — Planejado vs. Implementado** | [`06-planned-vs-implemented.md`](06-planned-vs-implemented.md) | Product, tech lead | Roadmap vs. código; features deferidas; doc-drift |
+| **3 — Handoff** | [`HANDOFF.md`](HANDOFF.md) | Todo o time | Ações humanas pendentes (prod apply, revisão de ADR, decisões de produto) |
 
 Issues do GitHub rotuladas com `audit-2026-04-22` apontam cada item acionável de volta
-para uma seção de um destes documentos.
+para uma seção de um destes documentos. Itens que exigem sign-off do time carregam
+também o label `requires-human-decision` e — quando aplicável — `ops`.
 
 ## Metodologia
 
