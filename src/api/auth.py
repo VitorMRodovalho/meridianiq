@@ -240,21 +240,45 @@ def generate_api_key(user_id: str, name: str = "default") -> dict:
 def validate_api_key(raw_key: str) -> Optional[dict]:
     """Validate an API key and return the associated user info.
 
-    Checks Supabase first, then in-memory fallback.
+    In production, Supabase is the sole source of truth.  If the
+    Supabase lookup fails (network, auth service degraded, etc.) we
+    fail-closed with HTTP 503 so the caller can distinguish
+    "key is invalid" from "auth backend is unavailable".
+
+    In development, we fall through to the in-memory ``_api_keys``
+    dict after a Supabase miss / error so local testing works without
+    a Supabase project.
+
+    Per audit AUDIT-002 (issue #17): the prior ``except Exception: pass``
+    silently swallowed Supabase errors AND allowed in-memory keys to
+    be accepted in production.
 
     Args:
         raw_key: The raw API key from the request header.
 
     Returns:
         User dict with id, email, role — or None if invalid.
+
+    Raises:
+        HTTPException(503): In production when the Supabase lookup
+            fails for any reason other than "no matching row".
     """
     key_hash = _hash_key(raw_key)
 
-    # Try Supabase
     sb = _get_supabase_client()
-    if sb:
+    if sb is not None:
         try:
             res = sb.table("api_keys").select("*").eq("key_hash", key_hash).execute()
+        except Exception as exc:  # noqa: BLE001 — we convert to 503 below
+            if settings.ENVIRONMENT == "production":
+                logger.error("api_keys lookup failed: %s", exc)
+                raise HTTPException(
+                    status_code=503,
+                    detail="Auth service degraded",
+                ) from exc
+            # Dev: log and fall through to in-memory so local workflows survive
+            logger.warning("api_keys Supabase lookup failed (dev fallback): %s", exc)
+        else:
             if res.data:
                 entry = res.data[0]
                 return {
@@ -263,10 +287,11 @@ def validate_api_key(raw_key: str) -> Optional[dict]:
                     "role": "api_key",
                     "key_id": entry["key_id"],
                 }
-        except Exception:
-            pass  # Fall through to in-memory
+            # Supabase responded with empty result → key is genuinely invalid
+            if settings.ENVIRONMENT == "production":
+                return None
 
-    # In-memory fallback
+    # Development-only in-memory fallback
     entry = _api_keys.get(key_hash)
     if entry is None:
         return None
@@ -282,15 +307,25 @@ def validate_api_key(raw_key: str) -> Optional[dict]:
 def list_api_keys(user_id: str) -> list[dict]:
     """List all API keys for a user (without raw keys).
 
+    In production, Supabase is the sole source of truth; the
+    in-memory dict is not consulted (a user with zero keys must see
+    an empty list, not dev leftovers).
+
+    Per audit AUDIT-002 follow-up: the prior implementation mixed
+    Supabase data with in-memory entries on error AND on empty
+    result, creating a confusing hybrid.
+
     Args:
         user_id: The user's ID.
 
     Returns:
         List of key metadata (key_id, name, created_at).
+
+    Raises:
+        HTTPException(503): In production when Supabase is degraded.
     """
-    # Try Supabase
     sb = _get_supabase_client()
-    if sb:
+    if sb is not None:
         try:
             res = (
                 sb.table("api_keys")
@@ -298,10 +333,21 @@ def list_api_keys(user_id: str) -> list[dict]:
                 .eq("user_id", user_id)
                 .execute()
             )
+        except Exception as exc:  # noqa: BLE001
+            if settings.ENVIRONMENT == "production":
+                logger.error("api_keys list failed: %s", exc)
+                raise HTTPException(
+                    status_code=503,
+                    detail="Auth service degraded",
+                ) from exc
+            logger.warning("api_keys list Supabase failed (dev fallback): %s", exc)
+        else:
+            # Even when data is empty, this is the authoritative answer in prod.
+            if settings.ENVIRONMENT == "production":
+                return list(res.data) if res.data else []
             if res.data:
-                return res.data
-        except Exception:
-            pass
+                return list(res.data)
+            # Dev: if Supabase returned empty, still show in-memory keys for local testing
 
     return [
         {"key_id": v["key_id"], "name": v["name"], "created_at": v["created_at"]}
@@ -313,7 +359,10 @@ def list_api_keys(user_id: str) -> list[dict]:
 def revoke_api_key(user_id: str, key_id: str) -> bool:
     """Revoke an API key.
 
-    Deletes from Supabase if available, otherwise removes from in-memory.
+    In production, Supabase is the sole source of truth.  A successful
+    DELETE returns True; a miss returns False.  In development, we
+    also check the in-memory dict so local testing works without
+    Supabase.
 
     Args:
         user_id: The user's ID (for ownership check).
@@ -321,21 +370,31 @@ def revoke_api_key(user_id: str, key_id: str) -> bool:
 
     Returns:
         True if revoked, False if not found.
+
+    Raises:
+        HTTPException(503): In production when Supabase is degraded.
     """
-    # Try Supabase
     sb = _get_supabase_client()
-    if sb:
+    if sb is not None:
         try:
             res = (
                 sb.table("api_keys").delete().eq("key_id", key_id).eq("user_id", user_id).execute()
             )
+        except Exception as exc:  # noqa: BLE001
+            if settings.ENVIRONMENT == "production":
+                logger.error("api_keys revoke failed: %s", exc)
+                raise HTTPException(
+                    status_code=503,
+                    detail="Auth service degraded",
+                ) from exc
+            logger.warning("api_keys revoke Supabase failed (dev fallback): %s", exc)
+        else:
             if res.data:
                 logger.info("API key %s revoked for user %s (Supabase)", key_id, user_id)
                 return True
-        except Exception:
-            pass
+            if settings.ENVIRONMENT == "production":
+                return False
 
-    # In-memory fallback
     to_remove = None
     for h, v in _api_keys.items():
         if v["key_id"] == key_id and v["user_id"] == user_id:
