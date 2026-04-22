@@ -14,6 +14,7 @@ on:
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
       - "CLAUDE.md"
+      - "README.md"
       - "web/src/routes/**"
   push:
     branches: [main]
@@ -28,6 +29,7 @@ on:
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
       - "CLAUDE.md"
+      - "README.md"
       - "web/src/routes/**"
 
 jobs:

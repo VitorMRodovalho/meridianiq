@@ -44,6 +44,7 @@ API_MD = ROOT / "docs" / "api-reference.md"
 METH_MD = ROOT / "docs" / "methodologies.md"
 MCP_MD = ROOT / "docs" / "mcp-tools.md"
 CLAUDE_MD = ROOT / "CLAUDE.md"
+README_MD = ROOT / "README.md"
 ROUTES_DIR = ROOT / "web" / "src" / "routes"
 
 
@@ -149,27 +150,80 @@ def find_mismatches(stats: Stats, architecture_block: str) -> list[str]:
     return mismatches
 
 
+def extract_readme_key_numbers(readme: str) -> str:
+    """Pull just the ``## Key Numbers`` section from README.md.
+
+    The surrounding sections (Capabilities, Architecture, Live Demo
+    badges) carry version strings and historical anchors that are
+    intentionally not validated here.
+    """
+    match = re.search(r"## Key Numbers\b(.*?)(?:\n## |\Z)", readme, re.DOTALL)
+    if not match:
+        raise SystemExit("README.md: `## Key Numbers` section not found")
+    return match.group(1)
+
+
+def find_readme_mismatches(stats: Stats, key_numbers_block: str) -> list[str]:
+    """Return mismatch messages for the README §Key Numbers table."""
+    mismatches: list[str] = []
+
+    def _check(pattern: str, expected: int, label: str) -> None:
+        m = re.search(pattern, key_numbers_block)
+        if m is None:
+            return
+        actual = int(m.group(1))
+        if actual != expected:
+            mismatches.append(
+                f"README.md Key Numbers: {label} claims {actual}, canonical is {expected}"
+            )
+
+    # Examples of rows the table uses:
+    #   | Analysis engines | 47 + 1 export module |
+    #   | API endpoints | 121 across 23 routers |
+    #   | Frontend pages | 54 (Schedule Viewer, …) |
+    _check(
+        r"Analysis\s+engines\s*\|\s*(\d+)\s*\+\s*\d+\s*export",
+        stats.engines,
+        "engines",
+    )
+    _check(r"API\s+endpoints\s*\|\s*(\d+)\b", stats.endpoints, "endpoints")
+    _check(r"across\s+(\d+)\s+routers?", stats.routers, "routers")
+    _check(r"Frontend\s+pages\s*\|\s*(\d+)\b", stats.pages, "pages")
+
+    return mismatches
+
+
 def main() -> int:
     stats = canonical_stats()
+
     claude_text = _read(CLAUDE_MD)
     architecture = extract_architecture_block(claude_text)
-    mismatches = find_mismatches(stats, architecture)
+    claude_mismatches = find_mismatches(stats, architecture)
 
-    if mismatches:
-        print("Stats drift detected between CLAUDE.md and the generated catalogs:\n")
-        for msg in mismatches:
+    readme_mismatches: list[str] = []
+    if README_MD.exists():
+        readme_text = _read(README_MD)
+        readme_mismatches = find_readme_mismatches(
+            stats, extract_readme_key_numbers(readme_text)
+        )
+
+    all_mismatches = claude_mismatches + readme_mismatches
+    if all_mismatches:
+        print("Stats drift detected:\n")
+        for msg in all_mismatches:
             print(f"  - {msg}")
         print(
             f"\nCanonical state (from generated catalogs): {stats.describe()}",
             file=sys.stderr,
         )
         print(
-            "\nFix CLAUDE.md to match, or regenerate the catalogs if the code changed.",
+            "\nFix the offending file(s) to match, or regenerate the catalogs if "
+            "the code changed.",
             file=sys.stderr,
         )
         return 1
 
-    print(f"Stats consistent: {stats.describe()}")
+    print(f"Stats consistent across CLAUDE.md and README.md: {stats.describe()}")
     return 0
 
 
