@@ -1,12 +1,21 @@
-# Known Issues & Backlog — v3.6.0-dev
+# Known Issues & Backlog — v4.0.1
 
 Bug tracking and feature backlog for MeridianIQ.
+
+Historical entries (bugs closed before v4.0) live in
+[`docs/archive/BUGS_HISTORY.md`](docs/archive/BUGS_HISTORY.md); this file
+keeps only the active picture plus tech debt and a prioritised forward
+backlog. See [`docs/audit/`](docs/audit/) for the most recent structural
+audit.
 
 ---
 
 ## Active Bugs
 
-_No open bugs at v3.6.0-dev. Report new issues via GitHub Issues._
+_No critical open bugs at v4.0.1. Active security / architectural findings
+from the 2026-04-22 audit are tracked as GitHub issues under the
+[`audit-2026-04-22`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-22)
+label. Report new issues via GitHub Issues._
 
 ---
 

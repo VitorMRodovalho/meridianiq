@@ -26,8 +26,8 @@ MeridianIQ follows a rolling release from `main`. Security fixes land on `main` 
 
 | Version | Supported |
 |---|---|
-| `v3.6.x` | ✅ current stable |
-| `v3.5.x` and earlier | ⚠️ best-effort — upgrade to latest minor |
+| `v4.0.x` | ✅ current stable |
+| `v3.x` and earlier | ⚠️ best-effort — upgrade to latest minor |
 
 ## Scope
 

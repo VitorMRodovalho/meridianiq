@@ -14,12 +14,26 @@ import os
 
 import sentry_sdk
 
+# Read version once from package metadata so Sentry release tagging
+# never drifts from pyproject.toml.  Falls back to "unknown" on any
+# environment where the wheel is not installed (rare in prod; common
+# for ad-hoc scripts).
+try:
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+    try:
+        _RELEASE = f"meridianiq-api@{_pkg_version('meridianiq')}"
+    except PackageNotFoundError:
+        _RELEASE = "meridianiq-api@unknown"
+except Exception:
+    _RELEASE = "meridianiq-api@unknown"
+
 if dsn := os.environ.get("SENTRY_DSN"):
     sentry_sdk.init(
         dsn=dsn,
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
-        release="meridianiq-api@4.0.0",
+        release=_RELEASE,
     )
 
 from fastapi import FastAPI, Request
@@ -35,7 +49,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
-    version="4.0.1",
+    version=_RELEASE.split("@", 1)[1] if "@" in _RELEASE else "unknown",
 )
 
 try:

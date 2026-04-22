@@ -22,11 +22,15 @@ Medium-sized projects accumulate decisions quickly. Without ADRs, the reasoning 
 | [0007](0007-websocket-progress-streaming.md) | Minimum viable WebSocket progress | superseded by 0013 |
 | [0008](0008-mcp-http-sse-transport.md) | MCP HTTP/SSE transport | accepted |
 | [0009](0009-cycle1-lifecycle-intelligence.md) | Cycle 1 v4.0 — Lifecycle Intelligence | accepted |
+| 0010 | _(reserved — lifecycle_health engine methodology)_ | reserved, not authored — see ADR-0009 §"Wave 4 outcome" and [`0009-w4-outcome.md`](0009-w4-outcome.md) |
+| 0011 | _(reserved — fuzzy-match dep category)_ | reserved, not authored — see ADR-0009 §"Wave A" |
 | [0012](0012-schedule-persistence-atomicity.md) | Schedule persistence atomicity (phased) | accepted, phase closed by 0015 |
 | [0013](0013-websocket-progress-hardening.md) | WebSocket progress hardening | accepted |
 | [0014](0014-derived-artifact-provenance-hash.md) | Derived-artifact provenance hash | accepted, amended by 0015 |
 | [0015](0015-async-materialization-state-machine.md) | Async materializer + `projects.status` state machine | accepted |
 | [0016](0016-lifecycle-phase-inference.md) | Lifecycle phase inference + override log + lock-flag | accepted |
+| [0017](0017-deduplicate-api-keys-migration.md) | Deduplicate `api_keys` migration (012 vs 017) | accepted |
+| [0018](0018-cycle-cadence-doc-artifacts.md) | Cycle cadence doc artifacts (roadmap, backlog, audit re-run) | accepted |
 
 ## Adding a new ADR
 

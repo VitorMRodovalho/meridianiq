@@ -12,14 +12,14 @@ python -m uvicorn src.api.app:app --reload --port 8080
 # Frontend
 cd web && npm install && npm run dev -- --port 5173
 
-# Docker (API only — no web/Dockerfile yet)
-docker compose up meridianiq-api
+# Docker (API + web — `web/Dockerfile` builds a static Nginx image)
+docker compose up
 ```
 
 ## Test
 
 ```bash
-# Backend (870+ tests)
+# Backend (1350+ tests)
 python -m pytest tests/ -q
 
 # Frontend type check
@@ -84,6 +84,8 @@ Required in `.env`:
 - WeasyPrint needs system deps: libpango, libcairo (in Dockerfile)
 - Fly.io cold start ~10s causes 502+CORS on first request (BUG-007)
 - `web/src/lib/stores/auth.ts` uses dynamic import to break circular dependency
+- CORS origins are configurable via `ALLOWED_ORIGINS` env (comma-separated); defaults cover localhost + `meridianiq.vitormr.dev`
+- `api_keys` table schema: columns are `id` (bigint), `key_id`, `key_hash`, `user_id`, `name`, `created_at`, `revoked_at`. See ADR-0017 if you find legacy 012-style columns (`key_prefix`, `is_active`, `expires_at`).
 
 ## Workflow
 
@@ -92,4 +94,4 @@ Required in `.env`:
 - See `docs/archive/v06-planning/ROADMAP_v06_to_v20.md` for roadmap context
 - Version: v4.0.1 (released 2026-04-19) — "Track 1 polish" patch over v4.0.0. Adds `progress_callback` wiring into `/api/v1/projects/{id}/optimize` (async conversion + ownership check + WS done with `improvement_pct/_days`), Vitest harness + 15 composable tests, `LifecyclePhaseCard` "preliminary indicator" subtitle in 3 locales, `reset()`-preserves-listeners fix on `useWebSocketProgress`, `_toWsUrl` protocol-relative guard, `thread_safe_publisher` forward-compat with `asyncio.get_running_loop()`, removed dead `risk.progress.cancelled` i18n branch. Issue #14 opened for pre-existing `/optimizer` page field mismatch (NOT fixed this patch). v4.0.0 baseline: "Materialized Intelligence" (47 engines + 1 export module, 22 MCP tools, 1350 tests, 11 chart components, 121 endpoints across 23 routers, 54 pages, 15 PDF report types, 25 Supabase migrations). Cycle 1 delivered in 7 waves: **W0** governance + hardening (migration 021 `audit_log.user_agent`; ADRs 0006–0008 backfilled; `defusedxml` XXE fix + UTF-16 BOM in `msp_reader.py`; `programs UNIQUE(user_id, lower(name))` + upsert; `_persist_schedule_data` transactional `status=pending|ready|failed`; ADR-0013 WebSocket hardening with server-generated `job_id` + 4401/4403/4404 close codes + 15-min reaper). **W1** materialization foundation (migration 023 `schedule_derived_artifacts` with 9-column provenance, quadruple RLS, `UNIQUE NULLS NOT DISTINCT`, `ON DELETE CASCADE`; ADR-0014 `input_hash` canonical contract). **W2** async materializer (asyncio.Task + Semaphore(1) + ProcessPoolExecutor spawn; upload returns `202 { job_id, ws_url }`; ADR-0015). **W3** lifecycle phase inference (`src/analytics/lifecycle_phase.py`, 5+1 taxonomy with numeric confidence; override + sticky lock; ADR-0016). **W4** calibration + gate (ADR-0009 Amendments 1+2 pre-registered + outcome; 103-XER sandbox; gate failed at every threshold for distinct sub-gate reasons; engine characterised as reliable construction-vs-non-construction detector; hysteresis 0 phase flips across 4 multi-revision programs; `docs/adr/0009-w4-outcome.md` published; path A fallback activated per the pre-committed branch). **W4 collateral** — `_json_safe` P1 fix at store boundary (datetime serialization gap that was silently flipping prod projects to `failed`); prod operational darkness closed (88 derived-artifact rows + 88 audit rows). **W5/W6** path A carry-over (v3.9 tail debt) — `progress_callback` wiring in `src/analytics/evolution_optimizer.py` (parity with `risk.MonteCarloSimulator.simulate`) + `web/src/lib/composables/useWebSocketProgress.ts` composable (Readable store + auto-close + `markDone/markError` for race-free terminal signaling) wired into `web/src/routes/risk/+page.svelte` with inline progress bar + 7 new i18n keys × 3 locales. **NOT shipped this cycle (pre-committed deferral)**: `src/analytics/lifecycle_health.py` — revisitable in a future cycle via ruleset v2 tuning (contributor dataset from issue #13) or binary-detector + preview-flag redesign; ADR-0010 stays reserved.
 - CI: Python 3.14, Node 24, Vite 8, TypeScript 6, GitHub Actions v6
-- Dockerfile: Python 3.13-slim (pyiceberg lacks 3.14 wheel)
+- Dockerfile: Python 3.13-slim (historical note — the 3.14-wheel-gated pyiceberg dep is not currently in `pyproject.toml`; safe to bump to 3.14-slim when convenient, tracked in issue #24)

@@ -87,7 +87,7 @@ web/
       stores/        auth (lazy init), theme, i18n
       api.ts         API client
 supabase/
-  migrations/        20 .sql files (RLS enforced on user-owned tables)
+  migrations/        25 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations)
 scripts/
   generate_api_reference.py       → docs/api-reference.md
   generate_mcp_catalog.py         → docs/mcp-tools.md
