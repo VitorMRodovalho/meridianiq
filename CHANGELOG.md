@@ -3,6 +3,53 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+Post-v4.0.1 remediation landing from the 2026-04-22 structural audit.
+Full audit record: [`docs/audit/`](docs/audit/) (8 docs — 6 layer + handoff + closing report).
+Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
+
+### Added
+
+- **`ALLOWED_ORIGINS` env override** for CORS (`src/api/app.py`) — configurable comma-separated list replaces the hard-coded origins, with defaults preserved when unset. Closes [#19](https://github.com/VitorMRodovalho/meridianiq/issues/19).
+- **Shared rate-limit buckets** in `src/api/deps.py` (`RATE_LIMIT_EXPENSIVE` = 3/min, `RATE_LIMIT_MODERATE` = 10/min, `RATE_LIMIT_READ` = 30/min) applied to the previously unprotected compute-heavy endpoints: `risk.py POST /simulate`, `forensics.py` 6 POST MIPs + half-step, `reports.py POST /generate`, `exports.py GET /export/xer, /excel, /aia-g703`. Closes [#18](https://github.com/VitorMRodovalho/meridianiq/issues/18).
+- **Fail-closed API key lookups in production** (`src/api/auth.py`) — `validate_api_key` / `list_api_keys` / `revoke_api_key` now raise HTTP 503 on Supabase errors in `ENVIRONMENT=production` instead of silently falling through to the in-memory dict. In-memory fallback confined to dev. Closes [#17](https://github.com/VitorMRodovalho/meridianiq/issues/17).
+- **Migration `026_api_keys_schema_align.sql`** — idempotent forward-fix reconciling any 012-era `api_keys` schema to the canonical 017 shape (adds `key_id`, translates `is_active → revoked_at`, drops `key_prefix`/`is_active`/`expires_at`, reasserts policies). See ADR-0017. Production apply is tracked as [#26](https://github.com/VitorMRodovalho/meridianiq/issues/26) (P0 ops). Closes code side of [#16](https://github.com/VitorMRodovalho/meridianiq/issues/16).
+- **ADR-0017** — Deduplicate `api_keys` migration. Chooses 012-no-op + 026-align over delete or rewrite.
+- **ADR-0018** — Cycle cadence doc artifacts. Formalizes 5 doc updates required at each cycle close.
+- **`docs/audit/`** — 8 documents (`README.md`, `01-critical-findings.md`, `02-architecture.md`, `03-schema.md`, `04-security.md`, `05-ux-frontend.md`, `06-planned-vs-implemented.md`, `HANDOFF.md`, `CLOSING_REPORT.md`).
+- **19 new regression tests**: `tests/test_cors_config.py` (4), `tests/test_api_keys_fail_closed.py` (7), `tests/test_api_keys_schema.py` (8).
+- **GitHub labels**: `audit-2026-04-22`, `priority:P0..P3`, `area:security`, `area:schema`, `area:architecture`, `area:frontend-ux`, `area:docs`, `area:roadmap`, `requires-human-decision`, `ops`.
+
+### Changed
+
+- **`src/api/app.py`** now reads its version from `importlib.metadata` (`meridianiq` package) instead of hard-coding `"4.0.0"`. Sentry `release=` tag and FastAPI `version=` both follow `pyproject.toml` automatically.
+- **Migration `012_api_keys.sql`** reduced to a `SELECT 1` no-op with pointer to ADR-0017. Historical migration file retained (never rewritten in place) so replay against instances that recorded it stays consistent.
+- **`scripts/check_stats_consistency.py`** extended to validate `README.md §Key Numbers` in addition to `CLAUDE.md §Architecture`; `doc-sync-check.yml` workflow now also watches `README.md` paths.
+- **`README.md §Key Numbers`** aligned to reality: 47 engines, 121 endpoints, 23 routers, 54 pages, 1.337 tests (was 40 / 98 / — / 52 / 870+).
+- **`CLAUDE.md`** removed the stale "no web/Dockerfile yet" note (file exists since v0.9.0 per BUG-011), bumped test count to 1.350+, added CORS and api_keys schema gotchas, annotated the Python 3.13 Dockerfile note as historical (pyiceberg is not in `pyproject.toml`).
+- **`docs/architecture.md`** migration count "20 .sql files" → "25 .sql files" + pointer to ADR-0017.
+- **`docs/adr/README.md`** explicit "reserved" rows for ADR-0010 and ADR-0011 pointing at ADR-0009 §W4 outcome.
+- **`SECURITY.md`** supported versions `v3.6.x` → `v4.0.x`.
+- **`BUGS.md`** header `v3.6.0-dev` → `v4.0.1` + pointer to `docs/audit/`.
+- **`.env.example`** expanded with `SUPABASE_JWT_SECRET`, `ALLOWED_ORIGINS`, `SENTRY_DSN`, `ANTHROPIC_API_KEY`, `PUBLIC_POSTHOG_KEY`, `PORT`, `FLY_API_TOKEN` (annotated required vs optional).
+
+### Moved
+
+- `docs/GAP_ASSESSMENT_v3.3.md` → `docs/archive/v3.3-planning/GAP_ASSESSMENT.md` (stale — predated W0–W6).
+
+### Security / ops pending
+
+- [#26](https://github.com/VitorMRodovalho/meridianiq/issues/26) (**P0 ops**) — apply migration 026 to production Supabase. Diagnostic + backup + apply + verification procedure in [`docs/audit/HANDOFF.md §H-01`](docs/audit/HANDOFF.md#h-01--aplicar-migration-026-em-produção).
+- [#28](https://github.com/VitorMRodovalho/meridianiq/issues/28) — team ratification of ADR-0017 and ADR-0018 (both marked `accepted` by the remediation agent; council review encouraged before next cycle).
+
+### Verification
+
+- `pytest tests/`: **1.337 passed, 5 skipped, 0 failed**.
+- `ruff check src/ tests/ scripts/`: clean.
+- `python3 scripts/check_stats_consistency.py`: "Stats consistent across CLAUDE.md and README.md".
+- Full session: 8 commits, 32 files changed, +2.265 / −96 lines.
+
 ## [4.0.1] — 2026-04-19 — Track 1 polish (post-Cycle 1)
 
 Patch release after v4.0.0. Single-wave polish pass addressing deferred items from the W5/W6 end-of-wave devils-advocate round, plus four additional findings surfaced by the pre-commit adversarial review.
