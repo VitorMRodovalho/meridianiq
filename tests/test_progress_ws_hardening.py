@@ -128,6 +128,68 @@ class TestStartProgressJobEndpoint:
             _ = ws_module
 
 
+class TestStartProgressJobRateLimit:
+    """ADR-0019 §"W0 — D1": ``POST /api/v1/jobs/progress/start`` is
+    decorated with ``@limiter.limit(RATE_LIMIT_READ)`` (30/minute).
+    Without a cap a single client can exhaust memory by allocating
+    channels in a tight loop; the 15-minute reaper bounds long-term
+    leakage but does nothing against burst abuse.
+
+    conftest.py sets ``RATE_LIMIT_ENABLED=false`` for the suite so
+    tests don't fight the limiter accidentally; this test flips it
+    back on for one run, then resets the limiter in finally so it
+    cannot pollute later tests that share the in-memory backend.
+    """
+
+    def test_thirty_first_call_within_minute_returns_429(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.api import auth as auth_module
+        from src.api.deps import limiter as api_limiter
+
+        if not hasattr(api_limiter, "enabled"):
+            # slowapi not installed; ``deps._NoOpLimiter`` is active and
+            # ``@limiter.limit`` is a pass-through. ADR-0019 §"W0 — D10"
+            # adds slowapi to the [dev] extras so this branch goes away
+            # in CI; keep the skip for environments that haven't refreshed.
+            pytest.skip("slowapi _NoOpLimiter fallback — rate-limit not active")
+
+        monkeypatch.setattr(api_limiter, "enabled", True)
+        # Reset the in-memory backend — previous tests may have consumed
+        # part of the per-IP budget already.
+        if hasattr(api_limiter, "reset"):
+            api_limiter.reset()
+
+        def _fake_require_auth() -> dict[str, str]:
+            return {"id": "test-user", "email": "t@x", "role": "authenticated"}
+
+        app.dependency_overrides[auth_module.require_auth] = _fake_require_auth
+        try:
+            client = TestClient(app)
+            tenth_status: int | None = None
+            last_status: int | None = None
+            for i in range(31):
+                resp = client.post("/api/v1/jobs/progress/start")
+                last_status = resp.status_code
+                if i == 9:  # 10th call (0-indexed) — sanity check still allowed
+                    tenth_status = resp.status_code
+            assert tenth_status == 201, (
+                f"10th call should still be allowed under 30/min; got {tenth_status}"
+            )
+            assert last_status == 429, (
+                f"expected 429 on 31st call, got {last_status} "
+                "(RATE_LIMIT_READ=30/min not enforced on jobs/progress/start)"
+            )
+        finally:
+            app.dependency_overrides.pop(auth_module.require_auth, None)
+            # Reset the bucket so this test's 31 entries don't poison
+            # later tests that flip ``enabled=True`` (e.g. the optimize
+            # rate-limit test) — slowapi's in-memory backend is shared
+            # across tests in the same process.
+            if hasattr(api_limiter, "reset"):
+                api_limiter.reset()
+
+
 class TestWSPathParamValidation:
     def test_non_uuid_job_id_closes_with_4404(self) -> None:
         client = TestClient(app)

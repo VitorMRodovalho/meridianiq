@@ -292,6 +292,60 @@ describe('useWebSocketProgress', () => {
 		});
 	});
 
+	describe('destroy() — explicit listener cleanup (ADR-0019 §W0 D11)', () => {
+		it('clears terminalListeners (subscribed callbacks no longer fire)', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const p = useWebSocketProgress();
+			const onTerm = vi.fn();
+			p.onTerminal(onTerm);
+
+			p.destroy();
+
+			// Re-driving after destroy: even if the consumer mistakenly
+			// reuses the instance and the WS fires a done event, the
+			// previously-registered listener must NOT be invoked.
+			const ws = await driveToRunning(p);
+			ws.onmessage?.({ data: JSON.stringify({ type: 'done' }) });
+			expect(onTerm).not.toHaveBeenCalled();
+		});
+
+		it('closes the socket', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const p = useWebSocketProgress();
+			const ws = await driveToRunning(p);
+
+			p.destroy();
+
+			expect(ws.closeCalled).toBe(true);
+		});
+
+		it('is idempotent — calling twice does not throw', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const p = useWebSocketProgress();
+			await driveToRunning(p);
+
+			expect(() => {
+				p.destroy();
+				p.destroy();
+			}).not.toThrow();
+		});
+
+		it('resets state to idle so callers reading state after destroy see empty', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const p = useWebSocketProgress();
+			const ws = await driveToRunning(p);
+			ws.onmessage?.({
+				data: JSON.stringify({ type: 'progress', done: 5, total: 10, pct: 50 }),
+			});
+			expect(get(p.state).status).toBe('running');
+
+			p.destroy();
+
+			expect(get(p.state).status).toBe('idle');
+			expect(get(p.state).pct).toBe(0);
+		});
+	});
+
 	describe('WebSocket close reason mapping (ADR-0013)', () => {
 		it('maps code 4401 to auth_expired', async () => {
 			const { useWebSocketProgress } = await import('./useWebSocketProgress');

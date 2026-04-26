@@ -118,8 +118,30 @@ export interface WebSocketProgress {
 	 * instance can be reused for another `start()`. Does NOT open a new
 	 * socket. Preserves `onTerminal` subscriptions — the caller owns
 	 * listener lifecycle via the unsubscribe fn returned by `onTerminal`.
+	 *
+	 * For explicit teardown (component unmount, instance being thrown
+	 * away) call `destroy()` instead — it additionally clears the
+	 * listener set so closures the caller registered cannot outlive the
+	 * instance.
 	 */
 	reset(): void;
+	/**
+	 * Explicit teardown — closes the socket AND clears `terminalListeners`.
+	 * Use on component unmount or whenever the composable instance is
+	 * being discarded, to break any closure the caller registered via
+	 * `onTerminal()` and avoid the latent listener-leak Track 1 F1
+	 * accepted as deferred. Idempotent: safe to call multiple times.
+	 *
+	 * State is reset to `idle` after teardown, so the instance is
+	 * technically reusable for another `start()`. **Consumers SHOULD NOT
+	 * rely on this** — listeners registered before `destroy()` are gone
+	 * and a subsequent run will not notify them, which is exactly the
+	 * silent-failure mode `destroy()` exists to prevent in unmount
+	 * paths. For re-running the same composable across renders, use
+	 * `reset()` (which preserves listeners). For component teardown,
+	 * use `destroy()` and let the instance go out of scope.
+	 */
+	destroy(): void;
 	/**
 	 * Subscribe to the single terminal transition (done or error).
 	 * Returns an unsubscribe function. Multiple subscribers supported.
@@ -333,8 +355,24 @@ export function useWebSocketProgress(): WebSocketProgress {
 		// outlive the run so that re-using the composable after a terminal
 		// event does not silently drop already-attached callers. Caller
 		// removes its listener via the unsubscribe fn returned by
-		// `onTerminal`.
+		// `onTerminal`. For listener teardown, see `destroy()`.
 		_closeSocket();
+		terminalFired = false;
+		state.set({ ..._emptyState });
+	}
+
+	function destroy(): void {
+		// Counterpart to `reset()`: tears down the listener set so any
+		// closure the caller registered via `onTerminal()` does not
+		// outlive the instance. Caller is expected to discard the
+		// composable after this. Idempotent — `Set.clear()` and the
+		// `_closeSocket` guard tolerate repeated calls. Note: state
+		// is reset to idle so a subsequent `start()` would technically
+		// succeed, but listeners are gone — see the JSDoc on
+		// `WebSocketProgress.destroy` for why we don't poison the
+		// instance instead.
+		_closeSocket();
+		terminalListeners.clear();
 		terminalFired = false;
 		state.set({ ..._emptyState });
 	}
@@ -371,6 +409,7 @@ export function useWebSocketProgress(): WebSocketProgress {
 		markDone,
 		markError,
 		reset,
+		destroy,
 		onTerminal,
 	};
 }

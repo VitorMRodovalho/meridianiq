@@ -43,10 +43,11 @@ import logging
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, status
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, status
 from fastapi.websockets import WebSocketDisconnect
 
 from ..auth import get_current_user, require_auth, validate_api_key
+from ..deps import RATE_LIMIT_READ, limiter
 from ..progress import (
     ChannelAuthError,
     close_channel,
@@ -93,7 +94,11 @@ def _auth_from_ws_query(ws: WebSocket) -> Optional[dict[str, object]]:
 
 
 @router.post("/api/v1/jobs/progress/start", status_code=status.HTTP_201_CREATED)
-def start_progress_job(user: dict[str, object] = Depends(require_auth)) -> dict[str, str]:
+@limiter.limit(RATE_LIMIT_READ)
+def start_progress_job(
+    request: Request,
+    user: dict[str, object] = Depends(require_auth),
+) -> dict[str, str]:
     """Allocate a server-generated ``job_id`` bound to the caller.
 
     Clients must call this before opening a WebSocket or invoking a
@@ -101,6 +106,22 @@ def start_progress_job(user: dict[str, object] = Depends(require_auth)) -> dict[
     supplied ids closes the pre-existing vulnerability where an
     attacker who guessed a victim's id could steal their progress
     events.
+
+    Rate limit: ``RATE_LIMIT_READ`` (30/minute per remote IP). Each
+    successful call allocates an in-memory queue (~20 KB); without a
+    cap a single client could exhaust memory by opening channels in
+    a tight loop. The 15-minute reaper bounds long-term leakage but
+    does nothing against burst abuse — that is this decorator's job.
+
+    Why ``READ`` (30/min) instead of ``MODERATE`` (10/min): slowapi
+    keys on remote IP via ``get_remote_address``, not on
+    authenticated user, and ``startProgressJob()`` is invoked by every
+    page entry that uses the WS progress composable. A small
+    enterprise team behind a single egress NAT can legitimately exceed
+    10/min just from page-loads. Per-user keying (``key_func`` extracting
+    user_id from the JWT) is the proper fix and is tracked as a
+    follow-up; using the lighter bucket here is the W0 hygiene
+    compromise. See ADR-0019 §"W0 — D1".
 
     Returns:
         ``{"job_id": "<uuid>", "ws_url": "/api/v1/ws/progress/<uuid>"}``
