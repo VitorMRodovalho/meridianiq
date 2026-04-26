@@ -901,4 +901,7 @@ export default {
 	'lifecycle.override_cancel': 'Cancelar',
 	'lifecycle.override_by_prefix': 'Ajustado manualmente',
 	'lifecycle.banner_dismiss': 'Ocultar aviso',
+
+	// Optimizer (issue #14 — v4.0.2 honesty leve, mirrors lifecycle framing)
+	'optimizer.advisory_subtitle': 'Apenas indicativo — resultado heurístico de Evolution Strategies, não é um cronograma autoritativo.',
 } as Record<string, string>;

@@ -1372,6 +1372,42 @@ class LevelingResponse(BaseModel):
     summary: dict[str, Any] = Field(default_factory=dict)
 
 
+# ── Schedule Optimizer (issue #14) ─────────────────────
+
+
+class ConvergencePointSchema(BaseModel):
+    """One generation in the Evolution Strategies convergence trace.
+
+    Engine emits only best fitness per generation; mean is intentionally
+    absent (see issue #14 curated 2026-04-26).
+    """
+
+    generation: int = 0
+    best_fitness: float = 0.0
+
+
+class OptimizeResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/optimize.
+
+    Field names align with the UI contract restored by issue #14
+    (v4.0.2-dev). Backed by `OptimizationResult` in
+    `src/analytics/evolution_optimizer.py`; the router maps engine
+    field names (`greedy_duration_days`, `best_duration_days`,
+    `generations_run`) onto the public surface below.
+    """
+
+    original_makespan: float = 0.0
+    optimized_makespan: float = 0.0
+    improvement_days: float = 0.0
+    improvement_pct: float = 0.0
+    generations: int = 0
+    best_priority_rule: str = ""
+    convergence: list[ConvergencePointSchema] = Field(default_factory=list)
+    shifted_activities: list[ActivityShiftSchema] = Field(default_factory=list)
+    methodology: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+
+
 # ── Duration Prediction ────────────────────────────────
 
 

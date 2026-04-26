@@ -38,6 +38,10 @@ Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
 
 - `docs/GAP_ASSESSMENT_v3.3.md` → `docs/archive/v3.3-planning/GAP_ASSESSMENT.md` (stale — predated W0–W6).
 
+### Fixed
+
+- **`/optimizer` page contract restored** ([#14](https://github.com/VitorMRodovalho/meridianiq/issues/14)) — `POST /api/v1/projects/{id}/optimize` now returns the new `OptimizeResponse` Pydantic schema (`src/api/schemas.py`) with UI-aligned field names (`original_makespan`, `optimized_makespan`, `generations`, `convergence`, `shifted_activities`) instead of the raw `OptimizationResult` dataclass dict that left the page rendering `undefined` since v4.0.0. Curated 2026-04-26 surfaced two agravantes the original issue under-stated: (1) `mean_fitness` is not produced by the engine — the dashed UI line is removed, not mapped; (2) `shifted_activities` was deliberately strippped via `data.pop("best_leveling")` in `whatif.py` — the router now serializes `best_leveling.activity_shifts` through `ActivityShiftSchema`. Honesty leve added: page subtitle now reads "Advisory only — heuristic Evolution Strategies result" (3 locales), mirroring the lifecycle phase framing from ADR-0009 W4. New regression class `TestOptimizeResponseContract` (3 tests in `tests/test_whatif_router.py`) hard-locks the surface so the v4.0.0 silent breakage cannot recur.
+
 ### Security / ops pending
 
 - [#26](https://github.com/VitorMRodovalho/meridianiq/issues/26) (**P0 ops**) — apply migration 026 to production Supabase. Diagnostic + backup + apply + verification procedure in [`docs/audit/HANDOFF.md §H-01`](docs/audit/HANDOFF.md#h-01--aplicar-migration-026-em-produção).
@@ -45,10 +49,12 @@ Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
 
 ### Verification
 
-- `pytest tests/`: **1.337 passed, 5 skipped, 0 failed**.
+- `pytest tests/`: **1.370 passed, 6 skipped, 0 failed** (post-#14 fix).
 - `ruff check src/ tests/ scripts/`: clean.
 - `python3 scripts/check_stats_consistency.py`: "Stats consistent across CLAUDE.md and README.md".
-- Full session: 8 commits, 32 files changed, +2.265 / −96 lines.
+- `cd web && npm run check`: 0 errors / 0 warnings.
+- `cd web && npm run build`: clean (adapter-static).
+- Full Unreleased so far: 9 commits, 33 files changed, +2.398 / −105 lines (incl. #14 fix).
 
 ## [4.0.1] — 2026-04-19 — Track 1 polish (post-Cycle 1)
 

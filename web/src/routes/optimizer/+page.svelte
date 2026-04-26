@@ -9,17 +9,24 @@
 	interface ConvergencePoint {
 		generation: number;
 		best_fitness: number;
-		mean_fitness: number;
+	}
+
+	interface ShiftedActivity {
+		task_id: string;
+		task_code: string;
+		task_name: string;
+		shift_days: number;
 	}
 
 	interface OptimizeResult {
 		original_makespan: number;
 		optimized_makespan: number;
 		improvement_pct: number;
+		improvement_days: number;
 		generations: number;
 		convergence: ConvergencePoint[];
 		best_priority_rule: string;
-		shifted_activities: { activity_id: string; activity_name: string; shift_days: number }[];
+		shifted_activities: ShiftedActivity[];
 		methodology: string;
 	}
 
@@ -79,7 +86,7 @@
 	const chartH = $derived(H - PAD.top - PAD.bottom);
 
 	const maxGen = $derived(result ? Math.max(...result.convergence.map(c => c.generation), 1) : 1);
-	const maxFit = $derived(result ? Math.max(...result.convergence.map(c => Math.max(c.best_fitness, c.mean_fitness)), 1) * 1.05 : 1);
+	const maxFit = $derived(result ? Math.max(...result.convergence.map(c => c.best_fitness), 1) * 1.05 : 1);
 
 	function cx(g: number): number { return PAD.left + (g / maxGen) * chartW; }
 	function cy(f: number): number { return PAD.top + chartH - (f / maxFit) * chartH; }
@@ -87,13 +94,10 @@
 	const bestPath = $derived(
 		result ? result.convergence.map((c, i) => `${i === 0 ? 'M' : 'L'}${cx(c.generation)},${cy(c.best_fitness)}`).join(' ') : ''
 	);
-	const meanPath = $derived(
-		result ? result.convergence.map((c, i) => `${i === 0 ? 'M' : 'L'}${cx(c.generation)},${cy(c.mean_fitness)}`).join(' ') : ''
-	);
 
 	const shiftItems = $derived(
 		result ? result.shifted_activities.slice(0, 15).map(a => ({
-			label: a.activity_name || a.activity_id,
+			label: a.task_name || a.task_code || a.task_id,
 			value: a.shift_days,
 		})) : []
 	);
@@ -105,8 +109,9 @@
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Optimizer</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Evolution Strategies for RCPSP optimization (Loncar 2023, Beyer & Schwefel 2002)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.optimizer')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('optimizer.advisory_subtitle')}</p>
+		<p class="text-xs text-gray-400 mt-1">Evolution Strategies for RCPSP optimization (Loncar 2023, Beyer & Schwefel 2002)</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -188,7 +193,6 @@
 					{/each}
 
 					{#if bestPath}<path d={bestPath} fill="none" stroke="#10b981" stroke-width="2.5" />{/if}
-					{#if meanPath}<path d={meanPath} fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4" />{/if}
 
 					<line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
 					<line x1={PAD.left} y1={PAD.top + chartH} x2={W - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
@@ -196,7 +200,6 @@
 				</svg>
 				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
 					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-green-500 rounded"></span> Best Fitness</div>
-					<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-amber-500 rounded border-dashed"></span> Mean Fitness</div>
 				</div>
 			</div>
 		{/if}
@@ -210,7 +213,7 @@
 					<div class="overflow-y-auto max-h-64 space-y-1">
 						{#each result.shifted_activities as a}
 							<div class="flex items-center justify-between py-1.5 border-b border-gray-100">
-								<span class="text-xs text-gray-600 dark:text-gray-400 truncate">{a.activity_name || a.activity_id}</span>
+								<span class="text-xs text-gray-600 dark:text-gray-400 truncate">{a.task_name || a.task_code || a.task_id}</span>
 								<span class="text-xs font-mono font-bold {a.shift_days > 0 ? 'text-amber-600' : 'text-green-600'}">
 									{a.shift_days > 0 ? '+' : ''}{a.shift_days}d
 								</span>

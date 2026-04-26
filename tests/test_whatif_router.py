@@ -2,9 +2,11 @@
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Router-level tests for POST /api/v1/projects/{project_id}/optimize.
 
-Covers the W5/W6 progress_callback wire-in:
-  - default path without job_id keeps the legacy dict response shape
-    (regression guard for non-WS callers)
+Covers the W5/W6 progress_callback wire-in PLUS the issue #14 contract:
+  - response is `OptimizeResponse` Pydantic — UI-aligned field names
+    (regression guard for the v4.0.0 broken contract that #14 closes)
+  - convergence is enumerated from engine `convergence_history`
+  - shifted_activities is populated from `best_leveling.activity_shifts`
   - progress events + final done event reach the WS when a job_id is
     supplied (end-to-end, mirrors test_progress_ws.py pattern)
   - foreign job_id (bound to a different user) is rejected with 403
@@ -31,6 +33,7 @@ from src.parser.models import (
     Project,
     Resource,
     Task,
+    TaskResource,
 )
 
 
@@ -106,30 +109,144 @@ def _fast_config(resource_limits: list[dict] | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Regression: legacy path without job_id
+# Issue #14 regression — OptimizeResponse Pydantic contract
 # ---------------------------------------------------------------------------
 
 
-class TestOptimizeWithoutJobId:
-    def test_returns_dict_with_expected_keys(
+class TestOptimizeResponseContract:
+    """Issue #14: the response must match `OptimizeResponse` (UI-aligned
+    field names), not the v4.0.0 raw dataclass dict. This was the breakage
+    that left /optimizer rendering `undefined` for every result panel from
+    v4.0.0 ship to v4.0.1 release. Hard regression guard going forward."""
+
+    def test_response_carries_ui_aligned_field_names(
         self, client: TestClient, uploaded_project_id: str
     ) -> None:
-        """Callers that don't supply job_id still get the pre-W5/W6 dict
-        response shape with best_leveling stripped."""
+        """Field names match what `web/src/routes/optimizer/+page.svelte`
+        consumes. Renames vs engine: original_makespan ← greedy_duration_days,
+        optimized_makespan ← best_duration_days, generations ← generations_run."""
         resp = client.post(
             f"/api/v1/projects/{uploaded_project_id}/optimize",
             json=_fast_config(),
         )
         assert resp.status_code == 200, resp.text
         data = resp.json()
-        assert "best_duration_days" in data
-        assert "improvement_pct" in data
-        assert "improvement_days" in data
-        assert "best_priority_rule" in data
-        assert "methodology" in data
-        # best_leveling is a dataclass that serialises heavy — the
-        # endpoint intentionally pops it.
-        assert "best_leveling" not in data
+
+        # UI-aligned names present
+        for key in (
+            "original_makespan",
+            "optimized_makespan",
+            "improvement_days",
+            "improvement_pct",
+            "generations",
+            "best_priority_rule",
+            "convergence",
+            "shifted_activities",
+            "methodology",
+            "summary",
+        ):
+            assert key in data, f"missing UI-contract key: {key}"
+
+        # Raw engine names are NOT exposed (they belong to the dataclass)
+        for legacy_key in (
+            "greedy_duration_days",
+            "best_duration_days",
+            "convergence_history",
+            "generations_run",
+            "best_leveling",
+        ):
+            assert legacy_key not in data, (
+                f"raw engine field {legacy_key!r} leaked into public response"
+            )
+
+    def test_convergence_is_enumerated_from_history(
+        self, client: TestClient, uploaded_project_id: str
+    ) -> None:
+        """convergence is `list[{generation, best_fitness}]` derived from
+        `enumerate(convergence_history)`. Mean fitness is intentionally
+        absent (not produced by the engine — see issue #14 curated 2026-04-26)."""
+        resp = client.post(
+            f"/api/v1/projects/{uploaded_project_id}/optimize",
+            json=_fast_config(),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        convergence = data["convergence"]
+        assert isinstance(convergence, list)
+        assert len(convergence) >= 1
+        first = convergence[0]
+        assert set(first.keys()) == {"generation", "best_fitness"}
+        assert first["generation"] == 1  # 1-indexed for UI display
+        # mean_fitness must NOT be present — engine never emits it
+        assert "mean_fitness" not in first
+
+    def test_shifted_activities_populated_from_best_leveling(self, client: TestClient) -> None:
+        """shifted_activities is extracted from
+        `OptimizationResult.best_leveling.activity_shifts`. Each entry
+        carries `task_id`, `task_code`, `task_name`, `shift_days` plus
+        the rest of `ActivityShiftSchema`.
+
+        Uses a local fixture with `task_resources` populated so the
+        leveling step actually detects resource demand and produces
+        shifts (the shared `_tiny_optimizable_schedule()` has bare
+        Tasks + Resources with no TASKRSRC link)."""
+        import src.api.deps as deps_module
+
+        schedule = ParsedSchedule(
+            projects=[
+                Project(
+                    proj_id="P1",
+                    proj_short_name="OptimizeContractTest",
+                    last_recalc_date=datetime(2025, 3, 1),
+                    plan_start_date=datetime(2025, 1, 1),
+                    sum_data_date=datetime(2025, 3, 1),
+                )
+            ],
+            calendars=[Calendar(clndr_id="CAL1", day_hr_cnt=8.0, week_hr_cnt=40.0)],
+            resources=[Resource(rsrc_id="R1", rsrc_name="Crew")],
+            activities=[
+                Task(
+                    task_id=str(i),
+                    task_code=chr(ord("A") + i - 1),
+                    task_name=f"Task {chr(ord('A') + i - 1)}",
+                    status_code="TK_NotStart",
+                    remain_drtn_hr_cnt=16.0,
+                    target_drtn_hr_cnt=16.0,
+                    clndr_id="CAL1",
+                )
+                for i in range(1, 5)
+            ],
+            task_resources=[
+                TaskResource(
+                    taskrsrc_id=f"TR{i}",
+                    task_id=str(i),
+                    rsrc_id="R1",
+                    proj_id="P1",
+                    target_qty=16.0,
+                    remain_qty=16.0,
+                )
+                for i in range(1, 5)
+            ],
+        )
+        pid = deps_module._store.add(schedule, b"raw")
+
+        resp = client.post(
+            f"/api/v1/projects/{pid}/optimize",
+            json=_fast_config(),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        shifts = data["shifted_activities"]
+        assert isinstance(shifts, list)
+        assert len(shifts) >= 1, "expected ≥1 shift on the 4-task / 1-resource fixture"
+        first = shifts[0]
+        # Field names match `ActivityShiftSchema`, NOT the legacy
+        # `{activity_id, activity_name, shift_days}` shape that v4.0.0
+        # frontend incorrectly assumed.
+        for key in ("task_id", "task_code", "task_name", "shift_days", "duration_days"):
+            assert key in first, f"missing ActivityShiftSchema key: {key}"
 
 
 # ---------------------------------------------------------------------------

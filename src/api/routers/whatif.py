@@ -13,9 +13,11 @@ from ..deps import get_store, limiter
 from ..schemas import (
     ActivityImpactSchema,
     ActivityShiftSchema,
+    ConvergencePointSchema,
     DurationPredictionResponse,
     LevelingRequest,
     LevelingResponse,
+    OptimizeResponse,
     ParetoPointSchema,
     ParetoRequest,
     ParetoResponse,
@@ -339,7 +341,7 @@ async def optimize_schedule_endpoint(
     body: dict,
     job_id: str | None = None,
     _user: object = Depends(optional_auth),
-) -> dict:
+) -> OptimizeResponse:
     """Optimize a resource-constrained schedule using Evolution Strategies.
 
     Evolves priority rules and resource allocation to minimize makespan.
@@ -430,9 +432,40 @@ async def optimize_schedule_endpoint(
             },
         )
 
-    data = asdict(result)
-    data.pop("best_leveling", None)
-    return data
+    # Issue #14: explicit mapping engine → public surface (Pydantic).
+    # Engine emits best fitness only; mean is intentionally absent.
+    convergence = [
+        ConvergencePointSchema(generation=i + 1, best_fitness=float(f))
+        for i, f in enumerate(result.convergence_history)
+    ]
+    shifted_activities: list[ActivityShiftSchema] = []
+    if result.best_leveling is not None:
+        shifted_activities = [
+            ActivityShiftSchema(
+                task_id=s.task_id,
+                task_code=s.task_code,
+                task_name=s.task_name,
+                original_start=s.original_start,
+                leveled_start=s.leveled_start,
+                shift_days=s.shift_days,
+                duration_days=s.duration_days,
+                resources=s.resources,
+            )
+            for s in result.best_leveling.activity_shifts
+        ]
+
+    return OptimizeResponse(
+        original_makespan=result.greedy_duration_days,
+        optimized_makespan=result.best_duration_days,
+        improvement_days=result.improvement_days,
+        improvement_pct=result.improvement_pct,
+        generations=result.generations_run,
+        best_priority_rule=result.best_priority_rule,
+        convergence=convergence,
+        shifted_activities=shifted_activities,
+        methodology=result.methodology,
+        summary=result.summary,
+    )
 
 
 @router.get("/api/v1/projects/{project_id}/visualization")

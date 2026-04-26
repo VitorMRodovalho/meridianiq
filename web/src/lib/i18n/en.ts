@@ -903,4 +903,7 @@ export default {
 	'lifecycle.override_cancel': 'Cancel',
 	'lifecycle.override_by_prefix': 'Overridden manually',
 	'lifecycle.banner_dismiss': 'Dismiss banner',
+
+	// Optimizer (issue #14 — v4.0.2 honesty leve, mirrors lifecycle framing)
+	'optimizer.advisory_subtitle': 'Advisory only — heuristic Evolution Strategies result, not an authoritative schedule.',
 } as Record<string, string>;
