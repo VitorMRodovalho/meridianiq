@@ -168,7 +168,7 @@ _Deterministic + probabilistic scenarios, Pareto_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `GET` | `/api/v1/projects/{project_id}/duration-prediction` | Predict project duration using ML trained on benchmark data. | `DurationPredictionResponse` | optional |
-| `POST` | `/api/v1/projects/{project_id}/optimize` | Optimize a resource-constrained schedule using Evolution Strategies. | `dict` | optional |
+| `POST` | `/api/v1/projects/{project_id}/optimize` | Optimize a resource-constrained schedule using Evolution Strategies. | `OptimizeResponse` | optional |
 | `POST` | `/api/v1/projects/{project_id}/pareto` | Run time-cost Pareto analysis across multiple scenarios. | `ParetoResponse` | optional |
 | `POST` | `/api/v1/projects/{project_id}/resource-leveling` | Run resource-constrained scheduling using Serial SGS. | `LevelingResponse` | optional |
 | `GET` | `/api/v1/projects/{project_id}/scorecard` | Get a comprehensive schedule scorecard with letter grades. | `ScorecardResponse` | optional |

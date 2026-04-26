@@ -59,9 +59,7 @@ def test_custom_origins_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_whitespace_is_trimmed(monkeypatch: pytest.MonkeyPatch) -> None:
     """Whitespace around commas is trimmed; empty entries are dropped."""
-    origins = _reload_and_get_origins(
-        monkeypatch, "  https://a.example  ,  , https://b.example  "
-    )
+    origins = _reload_and_get_origins(monkeypatch, "  https://a.example  ,  , https://b.example  ")
     assert origins == ["https://a.example", "https://b.example"]
 
 

@@ -67,11 +67,7 @@ except ImportError:
 # forks, PR preview deploys, and review apps can opt in without a code
 # change (per ADR referenced by audit AUDIT-004).  Default preserves the
 # pre-2026-04-22 behaviour.
-_DEFAULT_CORS_ORIGINS = (
-    "http://localhost:5173,"
-    "http://localhost:4321,"
-    "https://meridianiq.vitormr.dev"
-)
+_DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://localhost:4321,https://meridianiq.vitormr.dev"
 _CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("ALLOWED_ORIGINS", _DEFAULT_CORS_ORIGINS).split(",")
