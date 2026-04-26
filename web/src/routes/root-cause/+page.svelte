@@ -81,13 +81,13 @@
 </script>
 
 <svelte:head>
-	<title>Root Cause Analysis - MeridianIQ</title>
+	<title>{$t('page.root_cause')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Root Cause Analysis</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Backwards network trace to delay origin via NetworkX</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.root_cause')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('root_cause.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -102,15 +102,15 @@
 				</select>
 			</div>
 			<div class="w-48">
-				<label for="activity" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Activity ID (optional)</label>
-				<input id="activity" bind:value={activityId} placeholder="Auto-detect" class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
+				<label for="activity" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('root_cause.activity_id_label')}</label>
+				<input id="activity" bind:value={activityId} placeholder={$t('root_cause.activity_id_placeholder')} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 			<button onclick={analyze} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Tracing...' : 'Trace Root Cause'}
+				{loading ? $t('root_cause.tracing') : $t('root_cause.trace_button')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -127,25 +127,25 @@
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.chain_length}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Chain Length</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('root_cause.kpi_chain_length')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{result.total_delay_days}d</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Total Delay</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('root_cause.kpi_total_delay')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-sm font-bold text-blue-600 truncate" title={result.root_cause_name}>{result.root_cause_name}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Root Cause</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('root_cause.kpi_root_cause')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-sm font-bold text-gray-700 dark:text-gray-300 truncate" title={result.target_name}>{result.target_name}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Target</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('root_cause.kpi_target')}</p>
 			</div>
 		</div>
 
 		<!-- Dependency chain -->
 		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Dependency Chain</h2>
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('root_cause.dep_chain_heading')}</h2>
 			<div class="space-y-2">
 				{#each result.trace as step, i}
 					<div class="flex items-center gap-3">
@@ -156,8 +156,8 @@
 							<div class="flex items-center justify-between">
 								<p class="text-sm font-medium text-gray-900 dark:text-gray-100">{step.activity_name || step.activity_id}</p>
 								<div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-									<span>TF: {step.total_float}d</span>
-									<span>Dur: {step.duration}d</span>
+									<span>{$t('root_cause.tf_label')}: {step.total_float}d</span>
+									<span>{$t('root_cause.dur_label')}: {step.duration}d</span>
 									{#if step.relationship_type}
 										<span class="px-1.5 py-0.5 bg-gray-200 rounded">{step.relationship_type}</span>
 									{/if}
@@ -178,7 +178,7 @@
 
 		{#if timelineItems.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<TimelineChart data={timelineItems} title="Trace Timeline" />
+				<TimelineChart data={timelineItems} title={$t('root_cause.timeline_title')} />
 			</div>
 		{/if}
 	{/if}

@@ -96,13 +96,13 @@
 </script>
 
 <svelte:head>
-	<title>Cash Flow Analysis - MeridianIQ</title>
+	<title>{$t('page.cashflow')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Cash Flow Analysis</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Cost distribution S-Curve (AACE RP 10S-90)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.cashflow')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('cashflow.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -118,10 +118,10 @@
 			</div>
 			<button onclick={loadCashflow} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Loading...' : 'Analyze'}
+				{loading ? $t('common.loading') : $t('common.analyze')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -138,19 +138,19 @@
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCost(result.total_planned_cost)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Planned</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('cashflow.kpi_planned')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{formatCost(result.total_actual_cost)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Actual</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('cashflow.kpi_actual')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{formatCost(result.total_remaining_cost)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Remaining</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('cashflow.kpi_remaining')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold {result.budget_variance >= 0 ? 'text-green-600' : 'text-red-600'}">{formatCost(Math.abs(result.budget_variance))}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{result.budget_variance >= 0 ? 'Under' : 'Over'} Budget</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{result.budget_variance >= 0 ? $t('cashflow.kpi_under_budget') : $t('cashflow.kpi_over_budget')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold {result.cost_performance_index >= 1 ? 'text-green-600' : 'text-red-600'}">{result.cost_performance_index.toFixed(2)}</p>
@@ -160,7 +160,7 @@
 
 		<!-- S-Curve -->
 		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-			<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Cumulative Cost S-Curve</p>
+			<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('cashflow.chart_title')}</p>
 			<svg viewBox="0 0 {W} {H}" class="w-full">
 				<!-- Grid -->
 				{#each [0, 0.25, 0.5, 0.75, 1] as pct}
@@ -190,12 +190,12 @@
 				<line x1={PAD.left} y1={PAD.top + chartH} x2={W - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
 
 				<!-- Labels -->
-				<text x={W / 2} y={H - 5} text-anchor="middle" class="text-[9px] fill-gray-400">Project Duration (days)</text>
+				<text x={W / 2} y={H - 5} text-anchor="middle" class="text-[9px] fill-gray-400">{$t('cashflow.chart_x_axis')}</text>
 			</svg>
 
 			<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-				<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-blue-500 rounded"></span> Planned (BCWS)</div>
-				<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-green-500 rounded"></span> Actual (ACWP)</div>
+				<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-blue-500 rounded"></span> {$t('cashflow.legend_planned')}</div>
+				<div class="flex items-center gap-1"><span class="w-4 h-0.5 bg-green-500 rounded"></span> {$t('cashflow.legend_actual')}</div>
 				<div class="ml-auto text-gray-400">{result.methodology}</div>
 			</div>
 		</div>

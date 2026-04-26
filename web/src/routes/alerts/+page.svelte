@@ -70,25 +70,25 @@
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
 		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.alerts')}</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">12-rule early warning engine based on GAO Schedule Assessment Guide</p>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('alerts.subtitle')}</p>
 	</div>
 
 	<!-- Controls -->
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4 flex-wrap">
 			<div class="flex-1 min-w-[200px]">
-				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline Schedule</label>
+				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('alerts.baseline_label')}</label>
 				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 px-3 py-2 text-sm">
-					<option value="">Select baseline...</option>
+					<option value="">{$t('alerts.baseline_placeholder')}</option>
 					{#each projects.filter(p => p.project_id !== selectedProject) as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
 				</select>
 			</div>
 			<div class="flex-1 min-w-[200px]">
-				<label for="update" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Update Schedule</label>
+				<label for="update" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('alerts.update_label')}</label>
 				<select id="update" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 px-3 py-2 text-sm">
-					<option value="">Select update...</option>
+					<option value="">{$t('alerts.update_placeholder')}</option>
 					{#each projects.filter(p => p.project_id !== baselineProject) as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
@@ -96,7 +96,7 @@
 			</div>
 			<button onclick={analyze} disabled={!selectedProject || !baselineProject || loading}
 				class="px-6 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Scanning...' : 'Run Early Warning'}
+				{loading ? $t('alerts.scanning') : $t('alerts.run_button')}
 			</button>
 		</div>
 	</div>
@@ -114,30 +114,30 @@
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.total_alerts}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Total Alerts</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('alerts.kpi_total')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-red-600">{result.critical_count}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Critical</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('common.critical')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-amber-600">{result.warning_count}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Warning</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('common.warning')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold text-blue-600">{result.info_count}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Info</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('common.info')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-2xl font-bold {result.aggregate_score > 70 ? 'text-red-600' : result.aggregate_score > 40 ? 'text-amber-600' : 'text-green-600'}">{result.aggregate_score.toFixed(0)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Risk Score</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('alerts.kpi_risk_score')}</p>
 			</div>
 		</div>
 
 		<!-- Impact Chart -->
 		{#if impactChart.length > 0}
 			<div class="mb-6">
-				<BarChart data={impactChart} title="Projected Impact (days)" horizontal height={Math.max(180, impactChart.length * 32)} />
+				<BarChart data={impactChart} title={$t('alerts.impact_chart_title')} horizontal height={Math.max(180, impactChart.length * 32)} />
 			</div>
 		{/if}
 
@@ -158,12 +158,12 @@
 								</div>
 								<p class="text-sm text-gray-600 dark:text-gray-400">{alert.description}</p>
 								<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-									<span>{alert.affected_activities.length} activities affected</span>
+									<span>{alert.affected_activities.length} {$t('alerts.activities_affected_suffix')}</span>
 									{#if alert.projected_impact_days > 0}
-										<span class="text-red-500 font-semibold">+{alert.projected_impact_days}d projected impact</span>
+										<span class="text-red-500 font-semibold">+{alert.projected_impact_days}d {$t('alerts.projected_impact_suffix')}</span>
 									{/if}
-									<span>Confidence: {(alert.confidence * 100).toFixed(0)}%</span>
-									<span>Score: {alert.alert_score.toFixed(1)}</span>
+									<span>{$t('alerts.confidence_label')}: {(alert.confidence * 100).toFixed(0)}%</span>
+									<span>{$t('alerts.score_label')}: {alert.alert_score.toFixed(1)}</span>
 								</div>
 							</div>
 						</div>
@@ -172,8 +172,8 @@
 			</div>
 		{:else}
 			<div class="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
-				<p class="text-green-700 dark:text-green-300 font-semibold">No alerts detected</p>
-				<p class="text-sm text-green-600 dark:text-green-400 mt-1">The schedule comparison shows no early warning indicators</p>
+				<p class="text-green-700 dark:text-green-300 font-semibold">{$t('alerts.no_alerts_heading')}</p>
+				<p class="text-sm text-green-600 dark:text-green-400 mt-1">{$t('alerts.no_alerts_subtitle')}</p>
 			</div>
 		{/if}
 	{/if}

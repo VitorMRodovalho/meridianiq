@@ -123,36 +123,36 @@
 </script>
 
 <svelte:head>
-	<title>Benchmarks - MeridianIQ</title>
+	<title>{$t('page.benchmarks')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Benchmark Comparison</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Anonymized cross-project percentile ranking</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.benchmarks')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('benchmarks.subtitle')}</p>
 	</div>
 
 	{#if summary}
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{summary.total_projects}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Projects in DB</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('benchmarks.kpi_projects_db')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{Math.round(summary.avg_activity_count)}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg Activities</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('benchmarks.kpi_avg_activities')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{Math.round(summary.avg_duration_days)}d</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg Duration</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('benchmarks.kpi_avg_duration')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-green-600">{summary.avg_dcma_score?.toFixed(1) ?? 'N/A'}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg DCMA</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('benchmarks.kpi_avg_dcma')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{summary.avg_critical_pct?.toFixed(1) ?? 'N/A'}%</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Avg Critical</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('benchmarks.kpi_avg_critical')}</p>
 			</div>
 		</div>
 	{/if}
@@ -170,14 +170,14 @@
 			</div>
 			<button onclick={compare} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Comparing...' : 'Compare'}
+				{loading ? $t('benchmarks.comparing') : $t('benchmarks.compare_button')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 			<button onclick={contribute} disabled={!selectedProject || contributing}
 				class="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-				{contributing ? 'Contributing...' : 'Contribute'}
+				{contributing ? $t('benchmarks.contributing') : $t('benchmarks.contribute_button')}
 			</button>
 		</div>
 	</div>
@@ -192,15 +192,15 @@
 
 	{#if compareResult}
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-			<BarChart data={rankingItems} title="Percentile Rankings" />
+			<BarChart data={rankingItems} title={$t('benchmarks.bar_title')} />
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Sample: {compareResult.sample_size} projects</p>
+				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('benchmarks.sample_prefix')}: {compareResult.sample_size} {$t('benchmarks.sample_suffix')}</p>
 				{#each compareResult.rankings as r}
 					<div class="flex items-center justify-between py-2 border-b border-gray-100">
 						<span class="text-sm text-gray-600 dark:text-gray-400">{r.metric_name}</span>
 						<div class="flex items-center gap-3">
-							<span class="text-xs text-gray-400">Yours: {r.project_value.toFixed(1)}</span>
-							<span class="text-xs text-gray-400">Median: {r.benchmark_median.toFixed(1)}</span>
+							<span class="text-xs text-gray-400">{$t('benchmarks.yours_label')}: {r.project_value.toFixed(1)}</span>
+							<span class="text-xs text-gray-400">{$t('benchmarks.median_label')}: {r.benchmark_median.toFixed(1)}</span>
 							<span class="text-sm font-bold {percentileColor(r.percentile)}">P{Math.round(r.percentile)}</span>
 						</div>
 					</div>
@@ -209,17 +209,17 @@
 		</div>
 
 		<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Detailed Rankings</h2>
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('benchmarks.detail_heading')}</h2>
 			<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
 						<tr class="border-b border-gray-200 dark:border-gray-700">
-							<th class="text-left py-2 px-3">Metric</th>
-							<th class="text-right py-2 px-3">Your Value</th>
-							<th class="text-right py-2 px-3">Mean</th>
-							<th class="text-right py-2 px-3">Median</th>
-							<th class="text-right py-2 px-3">Percentile</th>
-							<th class="text-left py-2 px-3">Interpretation</th>
+							<th class="text-left py-2 px-3">{$t('benchmarks.col_metric')}</th>
+							<th class="text-right py-2 px-3">{$t('benchmarks.col_your_value')}</th>
+							<th class="text-right py-2 px-3">{$t('benchmarks.col_mean')}</th>
+							<th class="text-right py-2 px-3">{$t('benchmarks.col_median')}</th>
+							<th class="text-right py-2 px-3">{$t('benchmarks.col_percentile')}</th>
+							<th class="text-left py-2 px-3">{$t('benchmarks.col_interpretation')}</th>
 						</tr>
 					</thead>
 					<tbody>

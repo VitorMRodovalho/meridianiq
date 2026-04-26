@@ -85,13 +85,13 @@
 </script>
 
 <svelte:head>
-	<title>Anomaly Detection - MeridianIQ</title>
+	<title>{$t('page.anomalies')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Anomaly Detection</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Statistical outlier detection using IQR and z-score methods</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.anomalies')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('anomalies.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -107,10 +107,10 @@
 			</div>
 			<button onclick={analyze} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Scanning...' : 'Detect Anomalies'}
+				{loading ? $t('anomalies.scanning') : $t('anomalies.detect_button')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -127,19 +127,19 @@
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.total_activities}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Activities Scanned</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_activities_scanned')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{result.anomalies.length}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Anomalies Found</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_anomalies_found')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{result.anomalies.filter(a => a.severity === 'high').length}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">High Severity</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_high_severity')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{Object.keys(result.summary).length}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Anomaly Types</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_anomaly_types')}</p>
 			</div>
 		</div>
 
@@ -147,28 +147,28 @@
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 				<ScatterChart
 					data={scatterData}
-					title="Anomaly Value vs Z-Score"
-					xLabel="Value"
-					yLabel="|Z-Score|"
+					title={$t('anomalies.scatter_chart_title')}
+					xLabel={$t('anomalies.scatter_x_label')}
+					yLabel={$t('anomalies.scatter_y_label')}
 				/>
 				<BarChart
 					data={typeCounts}
-					title="Anomalies by Type"
+					title={$t('anomalies.bar_chart_title')}
 				/>
 			</div>
 
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Anomalies ({result.anomalies.length})</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('anomalies.table_heading')} ({result.anomalies.length})</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
 							<tr class="border-b border-gray-200 dark:border-gray-700">
-								<th class="text-left py-2 px-3">Activity</th>
-								<th class="text-left py-2 px-3">Type</th>
-								<th class="text-left py-2 px-3">Severity</th>
-								<th class="text-right py-2 px-3">Value</th>
-								<th class="text-right py-2 px-3">Z-Score</th>
-								<th class="text-left py-2 px-3">Description</th>
+								<th class="text-left py-2 px-3">{$t('anomalies.col_activity')}</th>
+								<th class="text-left py-2 px-3">{$t('anomalies.col_type')}</th>
+								<th class="text-left py-2 px-3">{$t('anomalies.col_severity')}</th>
+								<th class="text-right py-2 px-3">{$t('anomalies.col_value')}</th>
+								<th class="text-right py-2 px-3">{$t('anomalies.col_z_score')}</th>
+								<th class="text-left py-2 px-3">{$t('anomalies.col_description')}</th>
 							</tr>
 						</thead>
 						<tbody>

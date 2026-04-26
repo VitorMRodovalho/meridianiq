@@ -105,19 +105,19 @@
 </script>
 
 <svelte:head>
-	<title>Delay Attribution - MeridianIQ</title>
+	<title>{$t('page.delay_attribution')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Delay Attribution Summary</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Aggregate delay by responsible party (AACE RP 29R-03, SCL Protocol)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.delay_attribution')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('delay_attribution.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
 		<div class="flex items-end gap-4 flex-wrap">
 			<div class="flex-1 min-w-48">
-				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')} (Update)</label>
+				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('common.project')} ({$t('delay_attribution.update_label')})</label>
 				<select id="project" bind:value={selectedProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
 					<option value="">{$t('common.choose_project')}</option>
 					{#each projects as p}
@@ -126,9 +126,9 @@
 				</select>
 			</div>
 			<div class="flex-1 min-w-48">
-				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline (optional)</label>
+				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('delay_attribution.baseline_label')}</label>
 				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
-					<option value="">None — use heuristics</option>
+					<option value="">{$t('delay_attribution.baseline_placeholder')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}</option>
 					{/each}
@@ -136,10 +136,10 @@
 			</div>
 			<button onclick={analyze} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Analyzing...' : 'Compute Attribution'}
+				{loading ? $t('delay_attribution.analyzing') : $t('delay_attribution.compute_button')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -157,30 +157,30 @@
 		<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.total_delay_days}d</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Total Delay</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_attribution.kpi_total_delay')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600">{result.excusable_days}d</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Excusable</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_attribution.kpi_excusable')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{result.non_excusable_days}d</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Non-Excusable</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_attribution.kpi_non_excusable')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{result.concurrent_days}d</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Concurrent</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_attribution.kpi_concurrent')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-600 dark:text-gray-400 capitalize">{result.data_source}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Data Source</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_attribution.kpi_data_source')}</p>
 			</div>
 		</div>
 
 		<!-- Excusable vs Non-excusable bar -->
 		{#if result.total_delay_days > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Excusable vs Non-Excusable</p>
+				<p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">{$t('delay_attribution.split_chart_title')}</p>
 				<div class="h-8 rounded-lg overflow-hidden flex">
 					{#if result.excusable_days > 0}
 						<div
@@ -208,9 +208,9 @@
 					{/if}
 				</div>
 				<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500"></span> Excusable</div>
-					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-500"></span> Non-Excusable</div>
-					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500"></span> Concurrent</div>
+					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500"></span> {$t('delay_attribution.kpi_excusable')}</div>
+					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-500"></span> {$t('delay_attribution.kpi_non_excusable')}</div>
+					<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500"></span> {$t('delay_attribution.kpi_concurrent')}</div>
 				</div>
 			</div>
 		{/if}
@@ -218,10 +218,10 @@
 		<!-- Charts -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 			{#if pieData.length > 0}
-				<PieChart data={pieData} title="Delay by Party" size={180} />
+				<PieChart data={pieData} title={$t('delay_attribution.pie_chart_title')} size={180} />
 			{/if}
 			{#if barData.length > 0}
-				<BarChart data={barData} title="Delay Days by Party" />
+				<BarChart data={barData} title={$t('delay_attribution.bar_chart_title')} />
 			{/if}
 		</div>
 
@@ -241,7 +241,7 @@
 							</div>
 						</div>
 						{#if party.activity_count > 0}
-							<p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{party.activity_count} driving activities</p>
+							<p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{party.activity_count} {$t('delay_attribution.activities_suffix')}</p>
 						{/if}
 						{#if party.top_activities.length > 0}
 							<div class="flex flex-wrap gap-1">
@@ -255,7 +255,7 @@
 			</div>
 		{:else}
 			<div class="bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg p-4">
-				<p class="text-green-700 text-sm font-medium">No delay detected. Schedule is on track.</p>
+				<p class="text-green-700 text-sm font-medium">{$t('delay_attribution.no_delay_message')}</p>
 			</div>
 		{/if}
 

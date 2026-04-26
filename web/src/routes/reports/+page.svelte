@@ -97,13 +97,13 @@
 </script>
 
 <svelte:head>
-	<title>Reports - MeridianIQ</title>
+	<title>{$t('page.reports')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Reports Hub</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Generate and download PDF reports for your project</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.reports')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('reports.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -119,7 +119,7 @@
 			</div>
 			<button onclick={loadReports} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Loading...' : 'Check Reports'}
+				{loading ? $t('common.loading') : $t('reports.check_button')}
 			</button>
 		</div>
 	</div>
@@ -162,12 +162,12 @@
 									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 								</svg>
-								Downloading...
+								{$t('reports.downloading')}
 							{:else}
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 								</svg>
-								Download PDF
+								{$t('reports.download_pdf')}
 							{/if}
 						</button>
 					{:else}

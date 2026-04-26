@@ -83,13 +83,13 @@
 </script>
 
 <svelte:head>
-	<title>What-If Simulator - MeridianIQ</title>
+	<title>{$t('page.whatif')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">What-If Simulator</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Explore schedule scenarios with CPM re-analysis</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.whatif')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('whatif.subtitle')}</p>
 	</div>
 
 	<!-- Config -->
@@ -105,11 +105,11 @@
 				</select>
 			</div>
 			<div>
-				<label for="target" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target</label>
-				<input id="target" bind:value={targetCode} placeholder="* or task_code or WBS:1.2" class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
+				<label for="target" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('whatif.target_label')}</label>
+				<input id="target" bind:value={targetCode} placeholder={$t('whatif.target_placeholder')} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 			<div>
-				<label for="pct" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adjustment (%)</label>
+				<label for="pct" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('whatif.adjustment_label')}</label>
 				<input id="pct" type="number" bind:value={pctChange} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 		</div>
@@ -117,16 +117,16 @@
 		<div class="mt-4 flex items-center gap-4">
 			<label class="flex items-center gap-2 text-sm">
 				<input type="checkbox" bind:checked={useProbabilistic} class="rounded" />
-				Probabilistic mode
+				{$t('whatif.probabilistic_label')}
 			</label>
 			{#if useProbabilistic}
 				<div class="flex items-center gap-2">
 					<input type="number" bind:value={minPct} class="w-20 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm" />
-					<span class="text-sm text-gray-500 dark:text-gray-400">to</span>
+					<span class="text-sm text-gray-500 dark:text-gray-400">{$t('whatif.range_to')}</span>
 					<input type="number" bind:value={maxPct} class="w-20 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm" />
-					<span class="text-sm text-gray-500 dark:text-gray-400">% range,</span>
+					<span class="text-sm text-gray-500 dark:text-gray-400">{$t('whatif.range_pct')}</span>
 					<input type="number" bind:value={iterations} class="w-20 rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm" />
-					<span class="text-sm text-gray-500 dark:text-gray-400">iterations</span>
+					<span class="text-sm text-gray-500 dark:text-gray-400">{$t('whatif.range_iterations')}</span>
 				</div>
 			{/if}
 		</div>
@@ -137,10 +137,10 @@
 				disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
 			>
-				{loading ? 'Running...' : 'Run Scenario'}
+				{loading ? $t('whatif.running') : $t('whatif.run_button')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -157,23 +157,23 @@
 		<!-- Summary Cards -->
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Base Duration</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('whatif.kpi_base_duration')}</p>
 				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.base_duration_days}d</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Adjusted Duration</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('whatif.kpi_adjusted_duration')}</p>
 				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.adjusted_duration_days}d</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Delta</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('whatif.kpi_delta')}</p>
 				<p class="text-2xl font-bold {result.delta_days > 0 ? 'text-red-600' : result.delta_days < 0 ? 'text-green-600' : 'text-gray-600 dark:text-gray-400'}">
 					{result.delta_days > 0 ? '+' : ''}{result.delta_days}d ({result.delta_pct}%)
 				</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Critical Path</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('whatif.kpi_critical_path')}</p>
 				<p class="text-2xl font-bold {result.critical_path_changed ? 'text-amber-600' : 'text-green-600'}">
-					{result.critical_path_changed ? 'Changed' : 'Unchanged'}
+					{result.critical_path_changed ? $t('whatif.cp_changed') : $t('whatif.cp_unchanged')}
 				</p>
 			</div>
 		</div>
@@ -181,7 +181,7 @@
 		<!-- P-values (probabilistic) -->
 		{#if Object.keys(result.p_values).length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">P-Value Distribution ({result.iterations} iterations)</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('whatif.pvalue_heading')} ({result.iterations} {$t('whatif.iterations_suffix')})</h2>
 				<div class="grid grid-cols-4 md:grid-cols-7 gap-3">
 					{#each Object.entries(result.p_values) as [p, val]}
 						<div class="text-center">
@@ -196,24 +196,24 @@
 		<!-- Histogram (probabilistic) -->
 		{#if histogramData().length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
-				<BarChart data={histogramData()} title="Duration Distribution" height={200} />
+				<BarChart data={histogramData()} title={$t('whatif.histogram_title')} height={200} />
 			</div>
 		{/if}
 
 		<!-- Activity Impacts -->
 		{#if result.activity_impacts.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Activity Impacts (top 20)</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('whatif.activity_impacts_heading')}</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
 							<tr class="border-b border-gray-200 dark:border-gray-700">
-								<th class="text-left py-2 px-3">Code</th>
-								<th class="text-left py-2 px-3">Name</th>
-								<th class="text-right py-2 px-3">Original</th>
-								<th class="text-right py-2 px-3">Adjusted</th>
-								<th class="text-right py-2 px-3">Delta</th>
-								<th class="text-center py-2 px-3">CP</th>
+								<th class="text-left py-2 px-3">{$t('whatif.col_code')}</th>
+								<th class="text-left py-2 px-3">{$t('whatif.col_name')}</th>
+								<th class="text-right py-2 px-3">{$t('whatif.col_original')}</th>
+								<th class="text-right py-2 px-3">{$t('whatif.col_adjusted')}</th>
+								<th class="text-right py-2 px-3">{$t('whatif.col_delta')}</th>
+								<th class="text-center py-2 px-3">{$t('whatif.col_cp')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -228,7 +228,7 @@
 									</td>
 									<td class="py-2 px-3 text-center">
 										{#if impact.is_critical}
-											<span class="text-red-600 font-bold">CP</span>
+											<span class="text-red-600 font-bold">{$t('whatif.col_cp')}</span>
 										{/if}
 									</td>
 								</tr>
