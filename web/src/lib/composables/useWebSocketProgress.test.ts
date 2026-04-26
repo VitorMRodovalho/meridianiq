@@ -346,6 +346,136 @@ describe('useWebSocketProgress', () => {
 		});
 	});
 
+	describe('auth_check heartbeat (ADR-0019 §W1 D3)', () => {
+		it('silently drops auth_check frames without flipping state', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const p = useWebSocketProgress();
+			const ws = await driveToRunning(p);
+
+			// Send a few auth_check heartbeats — state must stay running.
+			ws.onmessage?.({ data: JSON.stringify({ type: 'auth_check', ts: 1000 }) });
+			ws.onmessage?.({ data: JSON.stringify({ type: 'auth_check', ts: 1030 }) });
+
+			expect(get(p.state).status).toBe('running');
+			// done counter should not have advanced — auth_check is not progress.
+			expect(get(p.state).done).toBe(0);
+		});
+	});
+
+	describe('recoveryPoller (ADR-0019 §W1 D4)', () => {
+		it('without poller, connection_lost flips straight to error (v4.0.1 parity)', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const p = useWebSocketProgress();
+			const ws = await driveToRunning(p);
+
+			ws.onclose?.({ code: 1006 });
+
+			expect(get(p.state).status).toBe('error');
+			expect(get(p.state).error).toBe('connection_lost');
+		});
+
+		it('with poller, connection_lost enters recovering and resolves done when poller returns id', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const poller = vi.fn(async () => 'risk-0042');
+			const p = useWebSocketProgress({
+				recoveryPoller: poller,
+				recoveryIntervalMs: 1, // tight loop for the test
+				recoveryTimeoutMs: 1000,
+			});
+			const ws = await driveToRunning(p);
+
+			ws.onclose?.({ code: 1006 });
+
+			// Recovery enters; let microtasks drain
+			await new Promise((r) => setTimeout(r, 20));
+
+			expect(poller).toHaveBeenCalled();
+			expect(get(p.state).status).toBe('done');
+			expect(get(p.state).simulationId).toBe('risk-0042');
+		});
+
+		it('with poller returning null, stays in recovering and keeps polling until timeout', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const poller = vi.fn(async () => null);
+			const p = useWebSocketProgress({
+				recoveryPoller: poller,
+				recoveryIntervalMs: 1,
+				recoveryTimeoutMs: 30,
+			});
+			const ws = await driveToRunning(p);
+
+			ws.onclose?.({ code: 1006 });
+
+			// During recovery window, status is 'recovering'
+			await new Promise((r) => setTimeout(r, 5));
+			expect(get(p.state).status).toBe('recovering');
+
+			// After window elapses, declares failure.
+			await new Promise((r) => setTimeout(r, 50));
+			expect(get(p.state).status).toBe('error');
+			expect(get(p.state).error).toBe('connection_lost');
+			expect(poller.mock.calls.length).toBeGreaterThanOrEqual(2);
+		});
+
+		it('with poller throwing, gives up immediately with error', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const poller = vi.fn(async () => {
+				throw new Error('REST is also down');
+			});
+			const p = useWebSocketProgress({
+				recoveryPoller: poller,
+				recoveryIntervalMs: 1,
+				recoveryTimeoutMs: 1000,
+			});
+			const ws = await driveToRunning(p);
+
+			ws.onclose?.({ code: 1006 });
+			await new Promise((r) => setTimeout(r, 20));
+
+			expect(get(p.state).status).toBe('error');
+			expect(get(p.state).error).toBe('connection_lost');
+			// Poller called once and rejected — no more attempts.
+			expect(poller).toHaveBeenCalledTimes(1);
+		});
+
+		it('destroy() during recovery aborts the poll loop (no phantom polls)', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const poller = vi.fn(async () => null);
+			const p = useWebSocketProgress({
+				recoveryPoller: poller,
+				recoveryIntervalMs: 5,
+				recoveryTimeoutMs: 1000,
+			});
+			const ws = await driveToRunning(p);
+
+			ws.onclose?.({ code: 1006 });
+
+			// Let recovery enter and fire at least one poll.
+			await new Promise((r) => setTimeout(r, 20));
+			const callsBeforeDestroy = poller.mock.calls.length;
+			expect(callsBeforeDestroy).toBeGreaterThanOrEqual(1);
+
+			p.destroy();
+
+			// Wait past several would-be poll intervals; no further polls.
+			await new Promise((r) => setTimeout(r, 50));
+			expect(poller.mock.calls.length).toBe(callsBeforeDestroy);
+		});
+
+		it('authoritative close codes (4401) bypass recovery even with poller', async () => {
+			const { useWebSocketProgress } = await import('./useWebSocketProgress');
+			const poller = vi.fn(async () => 'should-not-be-called');
+			const p = useWebSocketProgress({ recoveryPoller: poller });
+			const ws = await driveToRunning(p);
+
+			ws.onclose?.({ code: 4401 });
+
+			expect(get(p.state).status).toBe('error');
+			expect(get(p.state).error).toBe('auth_expired');
+			expect(poller).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('WebSocket close reason mapping (ADR-0013)', () => {
 		it('maps code 4401 to auth_expired', async () => {
 			const { useWebSocketProgress } = await import('./useWebSocketProgress');

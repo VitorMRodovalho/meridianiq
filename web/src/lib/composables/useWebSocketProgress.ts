@@ -45,6 +45,7 @@ export type WSProgressStatus =
 	| 'starting'
 	| 'connecting'
 	| 'running'
+	| 'recovering'
 	| 'done'
 	| 'error';
 
@@ -65,6 +66,41 @@ const _emptyState: WSProgressState = {
 	error: null,
 	simulationId: null,
 };
+
+/**
+ * Optional configuration for `useWebSocketProgress`.
+ *
+ * `recoveryPoller` — ADR-0019 §"W1 — D4". Frontend mitigation for the
+ * transient-disconnect-equals-permanent-failure problem inherited from
+ * v4.0.0: when the WS closes with a generic `connection_lost` (TLS
+ * hiccup, Fly.io single-instance restart blip, ~5–15s) AFTER the
+ * composable reached `running` state, the heavy job on the backend is
+ * usually still executing. Instead of immediately flipping to `error`,
+ * the composable enters `recovering` and polls this caller-provided
+ * function on `recoveryIntervalMs` cadence. The poller returns:
+ *   - a non-null id  → recovery succeeded; status flips to `done` with
+ *     that id as `simulationId` and `onTerminal('done')` fires.
+ *   - `null`         → still running, keep polling.
+ *   - throws         → give up; status flips to `error` with
+ *     `connection_lost`.
+ * If `recoveryTimeoutMs` elapses without success, status flips to
+ * `error`. Authoritative close codes (4401/4403/4404) bypass recovery
+ * — they signal a deliberate server decision, not a transient blip.
+ *
+ * If `recoveryPoller` is not supplied, the composable's behavior is
+ * unchanged from v4.0.1 — `connection_lost` flips straight to `error`.
+ * The risk page passes a poller that hits
+ * `GET /api/v1/risk/simulations`. Optimize callers don't pass one
+ * because optimize results aren't persisted to an id-addressable store
+ * (CLAUDE.md known gotcha).
+ */
+export interface UseWebSocketProgressOptions {
+	recoveryPoller?: (jobId: string) => Promise<string | null>;
+	/** Total recovery window in ms. Default 60_000 (1 minute). */
+	recoveryTimeoutMs?: number;
+	/** Poll interval in ms. Default 5_000 (5 seconds). */
+	recoveryIntervalMs?: number;
+}
 
 export interface WebSocketProgress {
 	/** Current status — `idle` before `start()`, `done` / `error` after terminal. */
@@ -194,11 +230,18 @@ function _mapCloseReason(code: number): string {
  * returns an isolated instance — two pages running simulations in
  * parallel get independent sockets and independent state.
  */
-export function useWebSocketProgress(): WebSocketProgress {
+export function useWebSocketProgress(
+	opts: UseWebSocketProgressOptions = {},
+): WebSocketProgress {
 	const state = writable<WSProgressState>({ ..._emptyState });
 	let socket: WebSocket | null = null;
 	let terminalFired = false;
+	let currentJobId: string | null = null;
+	let recoveryAborted = false;
 	const terminalListeners = new Set<(status: 'done' | 'error') => void>();
+	const recoveryPoller = opts.recoveryPoller;
+	const recoveryTimeoutMs = opts.recoveryTimeoutMs ?? 60_000;
+	const recoveryIntervalMs = opts.recoveryIntervalMs ?? 5_000;
 
 	function _patch(next: Partial<WSProgressState>): void {
 		state.update((s) => ({ ...s, ...next }));
@@ -241,10 +284,58 @@ export function useWebSocketProgress(): WebSocketProgress {
 			_closeSocket();
 			return;
 		}
+		if (event.type === 'auth_check') {
+			// ADR-0019 §"W1 — D3" heartbeat — server is checking that
+			// our JWT is still valid AND keeping the WS alive across
+			// idle timeouts. The frame contains no actionable payload
+			// for the client; silently drop without flipping state.
+			return;
+		}
 		// `error` event from the producer side.
 		_patch({ status: 'error', error: event.message || 'simulation_failed' });
 		_fireTerminal('error');
 		_closeSocket();
+	}
+
+	async function _attemptRecovery(jobId: string): Promise<void> {
+		// ADR-0019 §"W1 — D4". Caller has not registered a poller →
+		// preserve v4.0.1 behavior (connection_lost → error).
+		if (!recoveryPoller) {
+			_patch({ status: 'error', error: 'connection_lost' });
+			_fireTerminal('error');
+			return;
+		}
+		_patch({ status: 'recovering' });
+		const startTs = Date.now();
+		while (Date.now() - startTs < recoveryTimeoutMs) {
+			// Cancellation: `destroy()` / `reset()` flip `recoveryAborted`
+			// to break out of an in-flight loop, preventing phantom polls
+			// after component unmount or instance reuse.
+			if (recoveryAborted) return;
+			if (terminalFired) return; // Caller may have called markDone/markError mid-recovery
+			let result: string | null;
+			try {
+				result = await recoveryPoller(jobId);
+			} catch {
+				// Poller rejected → give up; the caller's REST surface
+				// is unhealthy enough that polling won't recover.
+				if (recoveryAborted) return;
+				_patch({ status: 'error', error: 'connection_lost' });
+				_fireTerminal('error');
+				return;
+			}
+			if (recoveryAborted) return;
+			if (result) {
+				_patch({ status: 'done', pct: 100, simulationId: result });
+				_fireTerminal('done');
+				return;
+			}
+			await new Promise<void>((r) => setTimeout(r, recoveryIntervalMs));
+		}
+		if (recoveryAborted) return;
+		// Window elapsed — declare failure.
+		_patch({ status: 'error', error: 'connection_lost' });
+		_fireTerminal('error');
 	}
 
 	async function _openSocket(wsPath: string): Promise<void> {
@@ -253,7 +344,15 @@ export function useWebSocketProgress(): WebSocketProgress {
 		}
 		const { data } = await supabase.auth.getSession();
 		const token = data.session?.access_token;
-		const wsUrl = _toWsUrl(wsPath) + (token ? `?token=${encodeURIComponent(token)}` : '');
+		// ADR-0019 §"W1 — D3" — opt the connection into the
+		// server-initiated `auth_check` heartbeat. Backend keeps the
+		// v4.0.1 silent-streaming behavior for clients that don't
+		// signal `hb=1`, so cached/legacy frontend bundles continue to
+		// work after a backend deploy without seeing the new frame.
+		const params = new URLSearchParams();
+		params.set('hb', '1');
+		if (token) params.set('token', token);
+		const wsUrl = `${_toWsUrl(wsPath)}?${params.toString()}`;
 
 		return new Promise<void>((resolve, reject) => {
 			let opened = false;
@@ -292,6 +391,17 @@ export function useWebSocketProgress(): WebSocketProgress {
 				// the generic `_mapCloseReason(evt.code)` here.
 				if (openErrored || terminalFired) return;
 				const reason = _mapCloseReason(evt.code);
+				// ADR-0019 §"W1 — D4". `connection_lost` (unknown close
+				// code) is the only reason eligible for recovery — it
+				// indicates a transient transport blip. Authoritative
+				// close codes (4401/4403/4404) signal deliberate server
+				// decisions and bypass the recovery branch. Recovery
+				// only runs when we made it to `running`; pre-open
+				// failures already short-circuited via `openErrored`.
+				if (reason === 'connection_lost' && currentJobId) {
+					void _attemptRecovery(currentJobId);
+					return;
+				}
 				_patch({ status: 'error', error: reason });
 				_fireTerminal('error');
 			};
@@ -314,6 +424,7 @@ export function useWebSocketProgress(): WebSocketProgress {
 			throw e;
 		}
 		_patch({ status: 'connecting' });
+		currentJobId = job.job_id;
 		try {
 			await _openSocket(job.ws_url);
 		} catch (e) {
@@ -356,9 +467,16 @@ export function useWebSocketProgress(): WebSocketProgress {
 		// event does not silently drop already-attached callers. Caller
 		// removes its listener via the unsubscribe fn returned by
 		// `onTerminal`. For listener teardown, see `destroy()`.
+		// `recoveryAborted` flip aborts any in-flight `_attemptRecovery`
+		// loop so it doesn't keep polling for the previous run.
+		recoveryAborted = true;
 		_closeSocket();
 		terminalFired = false;
+		currentJobId = null;
 		state.set({ ..._emptyState });
+		// Re-enable for the next run. ``start()`` doesn't read this
+		// flag — it's purely the recovery-loop opt-out signal.
+		recoveryAborted = false;
 	}
 
 	function destroy(): void {
@@ -371,9 +489,14 @@ export function useWebSocketProgress(): WebSocketProgress {
 		// succeed, but listeners are gone — see the JSDoc on
 		// `WebSocketProgress.destroy` for why we don't poison the
 		// instance instead.
+		// Like `reset()`, flip `recoveryAborted` so any in-flight
+		// recovery loop stops polling against a torn-down component
+		// (phantom-fetch + log-noise prevention).
+		recoveryAborted = true;
 		_closeSocket();
 		terminalListeners.clear();
 		terminalFired = false;
+		currentJobId = null;
 		state.set({ ..._emptyState });
 	}
 

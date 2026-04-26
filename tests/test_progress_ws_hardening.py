@@ -216,6 +216,205 @@ class TestWSPathParamValidation:
             ws.close()
 
 
+class TestHeartbeatAndTokenExpiry:
+    """ADR-0019 §"W1 — D3" — server-initiated heartbeat that re-checks
+    JWT ``exp`` and emits an ``auth_check`` keepalive frame every
+    ``HEARTBEAT_INTERVAL_SECONDS``. On expiry the WS closes 4401.
+    """
+
+    def test_decode_exp_unverified_extracts_exp_claim(self) -> None:
+        from src.api.routers import ws as ws_module
+
+        import jwt as _jwt
+        import time as _time
+
+        future_exp = int(_time.time()) + 3600
+        token = _jwt.encode(
+            {"sub": "u", "aud": "authenticated", "exp": future_exp},
+            "test-secret",
+            algorithm="HS256",
+        )
+        decoded_exp = ws_module._decode_exp_unverified(token)
+        assert decoded_exp == float(future_exp)
+
+    def test_decode_exp_unverified_returns_none_for_no_exp(self) -> None:
+        from src.api.routers import ws as ws_module
+
+        import jwt as _jwt
+
+        token = _jwt.encode(
+            {"sub": "u", "aud": "authenticated"},
+            "test-secret",
+            algorithm="HS256",
+        )
+        assert ws_module._decode_exp_unverified(token) is None
+
+    def test_decode_exp_unverified_returns_none_for_malformed(self) -> None:
+        from src.api.routers import ws as ws_module
+
+        assert ws_module._decode_exp_unverified("not-a-jwt") is None
+        assert ws_module._decode_exp_unverified(None) is None
+        assert ws_module._decode_exp_unverified("") is None
+
+    def test_heartbeat_emits_auth_check_frame_when_hb_opted_in(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With a fast heartbeat interval AND ``?hb=1`` opt-in, the
+        first frame on an authenticated WS with no progress event in
+        flight is the server-initiated ``auth_check`` keepalive."""
+        from src.api.routers import ws as ws_module
+
+        import jwt as _jwt
+        import time as _time
+        import uuid as _uuid
+
+        # Drop heartbeat to a value the test harness can wait on.
+        monkeypatch.setattr(ws_module, "HEARTBEAT_INTERVAL_SECONDS", 0.05)
+
+        future_exp = int(_time.time()) + 3600
+        token = _jwt.encode(
+            {"sub": "u", "aud": "authenticated", "exp": future_exp},
+            "test-secret",
+            algorithm="HS256",
+        )
+        jid = str(_uuid.uuid4())
+        client = TestClient(app)
+
+        with client.websocket_connect(
+            f"/api/v1/ws/progress/{jid}?token={token}&hb=1"
+        ) as ws:
+            event = ws.receive_json()
+            assert event["type"] == "auth_check", (
+                f"first server-initiated frame should be auth_check; got {event}"
+            )
+            assert "ts" in event
+
+    def test_no_hb_query_param_silences_heartbeat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Legacy frontend bundles (no ``?hb=1``) must keep the v4.0.1
+        silent-streaming behavior — no ``auth_check`` frames. Otherwise
+        a stale tab cached before this deploy would mis-classify the
+        unknown frame as ``error`` and fail every long-running job 30s
+        in. We assert the silence by waiting one heartbeat interval and
+        verifying the queue is empty (no frame was sent)."""
+        from src.api.routers import ws as ws_module
+
+        import jwt as _jwt
+        import time as _time
+        import uuid as _uuid
+
+        monkeypatch.setattr(ws_module, "HEARTBEAT_INTERVAL_SECONDS", 0.05)
+
+        future_exp = int(_time.time()) + 3600
+        token = _jwt.encode(
+            {"sub": "u", "aud": "authenticated", "exp": future_exp},
+            "test-secret",
+            algorithm="HS256",
+        )
+        jid = str(_uuid.uuid4())
+        client = TestClient(app)
+
+        with client.websocket_connect(
+            f"/api/v1/ws/progress/{jid}?token={token}"
+        ) as ws:
+            # Without ``hb=1``, no heartbeat. Use a tiny receive timeout
+            # to confirm silence; ``starlette`` TestClient surfaces no
+            # native non-blocking receive, so we sleep past one
+            # heartbeat interval and try a non-blocking read.
+            _time.sleep(0.15)
+            # A clean way to assert "nothing sent" via TestClient is
+            # send a producer event and verify it's the FIRST thing
+            # received (no auth_check ahead of it).
+            from src.api import progress as _progress
+
+            _progress.publish(jid, {"type": "done", "simulation_id": "sim-test"})
+            event = ws.receive_json()
+            assert event["type"] == "done", (
+                f"expected first frame to be the producer ``done`` (no heartbeat ahead); got {event}"
+            )
+
+    def test_revoked_api_key_closes_with_4401_on_heartbeat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """API-key sessions don't have a JWT ``exp`` — they need
+        revocation re-checks. Flip ``validate_api_key`` to return
+        ``None`` (revoked) and confirm the heartbeat closes 4401."""
+        from fastapi.websockets import WebSocketDisconnect
+
+        from src.api.routers import ws as ws_module
+
+        import uuid as _uuid
+
+        monkeypatch.setattr(ws_module, "HEARTBEAT_INTERVAL_SECONDS", 0.05)
+
+        # Stub validate_api_key: first call (handshake) returns a user;
+        # subsequent calls (heartbeat re-check) return None (revoked).
+        call_count = {"n": 0}
+
+        def _stub_validate(key: str) -> dict | None:
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return {"id": "key-user", "email": "k@x", "role": "authenticated"}
+            return None
+
+        monkeypatch.setattr(ws_module, "validate_api_key", _stub_validate)
+
+        jid = str(_uuid.uuid4())
+        client = TestClient(app)
+
+        with pytest.raises(WebSocketDisconnect) as excinfo:
+            with client.websocket_connect(
+                f"/api/v1/ws/progress/{jid}?api_key=fake-key&hb=1"
+            ) as ws:
+                ws.receive_json()
+        assert excinfo.value.code == 4401, (
+            f"expected close 4401 on heartbeat with revoked api_key; got {excinfo.value.code}"
+        )
+
+    def test_expired_token_closes_with_4401_on_heartbeat(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Token that becomes expired between handshake and the first
+        heartbeat tick is detected by ``_decode_exp_unverified`` ≥
+        ``time.time()`` and triggers a 4401 close. We monkey-patch the
+        unverified-decode helper to short-circuit the fixture to an
+        already-past exp, since making the real JWT validate-at-handshake
+        and then expire-by-tick is racy at sub-second timing.
+        """
+        from fastapi.websockets import WebSocketDisconnect
+
+        from src.api.routers import ws as ws_module
+
+        import jwt as _jwt
+        import time as _time
+        import uuid as _uuid
+
+        monkeypatch.setattr(ws_module, "HEARTBEAT_INTERVAL_SECONDS", 0.05)
+        # Force the heartbeat helper to report an exp in the past.
+        monkeypatch.setattr(
+            ws_module, "_decode_exp_unverified", lambda token: _time.time() - 1
+        )
+
+        future_exp = int(_time.time()) + 3600
+        token = _jwt.encode(
+            {"sub": "u", "aud": "authenticated", "exp": future_exp},
+            "test-secret",
+            algorithm="HS256",
+        )
+        jid = str(_uuid.uuid4())
+        client = TestClient(app)
+
+        with pytest.raises(WebSocketDisconnect) as excinfo:
+            with client.websocket_connect(
+                f"/api/v1/ws/progress/{jid}?token={token}&hb=1"
+            ) as ws:
+                ws.receive_json()
+        assert excinfo.value.code == 4401, (
+            f"expected close 4401 on heartbeat with expired token; got {excinfo.value.code}"
+        )
+
+
 class TestSourceGuards:
     """Static guards that the hardened symbols are imported by the router
     — regression-proofs against a refactor that drops them."""

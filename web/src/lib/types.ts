@@ -852,7 +852,21 @@ export interface WSProgressError {
 	message: string;
 }
 
-export type WSProgressEvent = WSProgressRunning | WSProgressDone | WSProgressError;
+// ADR-0019 §"W1 — D3" — server-initiated heartbeat frame. The backend
+// emits one of these every HEARTBEAT_INTERVAL_SECONDS to (a) keep the
+// WS connection alive across NAT / proxy idle-timeouts and (b) re-check
+// the JWT ``exp`` claim. Frontend silently drops these — they exist to
+// trigger the server-side check, not to ask the client for anything.
+export interface WSProgressAuthCheck {
+	type: 'auth_check';
+	ts: number;
+}
+
+export type WSProgressEvent =
+	| WSProgressRunning
+	| WSProgressDone
+	| WSProgressError
+	| WSProgressAuthCheck;
 
 // ── Pending statuses aggregator (W3 banner — single poll per user) ─
 

@@ -39,10 +39,13 @@ progress events drop silently; the reaper sweeps the channel later.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 import uuid
 from typing import Optional
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, status
 from fastapi.websockets import WebSocketDisconnect
 
@@ -63,6 +66,46 @@ logger = logging.getLogger(__name__)
 # of ``uuid.uuid4()`` output. The WebSocket path param uses this at router
 # level so non-UUID ids are rejected before reaching the handler.
 _UUID_RE = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+
+# ADR-0019 §"W1 — D3" — heartbeat cadence. Every HEARTBEAT_INTERVAL
+# seconds the WS handler ticks: re-checks the JWT ``exp`` claim and
+# emits an ``auth_check`` keepalive frame. If the token has expired
+# the handler closes with 4401 (frontend composable maps this to
+# ``'auth_expired'`` per ADR-0013). The constant is module-scope so
+# tests can monkeypatch it down to a fast value.
+HEARTBEAT_INTERVAL_SECONDS = 30.0
+
+
+def _decode_exp_unverified(token: Optional[str]) -> Optional[float]:
+    """Extract the ``exp`` claim from a JWT without verifying signature.
+
+    Safety: ``get_current_user`` already verified the signature at
+    handshake, and the heartbeat re-reads the SAME ``?token=`` query
+    param (the URL doesn't change mid-stream) — so this helper cannot
+    be tricked into trusting a different payload via swap. A future
+    refresh-token mechanism would need a different code path; do not
+    reuse this helper for tokens that have NOT been signature-verified
+    upstream. Audience and ``nbf`` re-checks are intentionally skipped
+    for the same reason.
+
+    Returns ``None`` if the token is missing, malformed, or has no
+    ``exp`` claim.
+
+    ADR-0019 §"W1 — D3": this powers the heartbeat-side token-validity
+    check that triggers a 4401 close when the JWT expires mid-stream.
+    """
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(
+            token,
+            options={"verify_signature": False, "verify_aud": False},
+        )
+        exp = payload.get("exp")
+        return float(exp) if exp is not None else None
+    except (jwt.DecodeError, jwt.InvalidTokenError, ValueError, TypeError) as exc:
+        logger.warning("Could not decode JWT exp claim: %s", exc)
+        return None
 
 
 def _auth_from_ws_query(ws: WebSocket) -> Optional[dict[str, object]]:
@@ -182,9 +225,74 @@ async def progress_socket(websocket: WebSocket, job_id: str) -> None:
         return
 
     await websocket.accept()
+
+    # ADR-0019 §"W1 — D3" — heartbeat is opt-in via ``?hb=1`` so that
+    # frontend bundles cached before this deploy (which have no
+    # ``auth_check`` branch in ``_handleEvent`` and would mis-classify
+    # the frame as ``error``) keep the v4.0.1 silent-streaming behavior
+    # unchanged. The current frontend always sends ``hb=1``; legacy
+    # tabs do not.
+    heartbeat_enabled = websocket.query_params.get("hb") == "1"
+
+    # Capture handshake-time auth state once. The heartbeat tick uses
+    # these to re-validate the principal:
+    #   - JWT token: re-check the (same) token's ``exp`` claim.
+    #   - API key: re-validate the (same) key against the revocation
+    #     surface. Without this, a key revoked mid-stream would
+    #     continue receiving real-time progress until the producer
+    #     terminates.
+    # Dev-mode anonymous handshake (``user is None`` and not prod) is
+    # deliberately skipped — there's nothing to re-check.
+    token_query = websocket.query_params.get("token")
+    api_key_query = websocket.query_params.get("api_key")
+    token_exp: Optional[float] = None
+    if token_query and user is not None:
+        token_exp = _decode_exp_unverified(token_query)
+
     try:
         while True:
-            event = await queue.get()
+            try:
+                event = await asyncio.wait_for(
+                    queue.get(), timeout=HEARTBEAT_INTERVAL_SECONDS
+                )
+            except asyncio.TimeoutError:
+                # Defensive: if a producer published RIGHT as the
+                # ``wait_for`` cancellation fired, the item may be in
+                # the queue. Drain non-blockingly so we don't sandwich
+                # a heartbeat between the producer's ``done`` event and
+                # the next-iteration ``get()``. CPython 3.10+
+                # ``asyncio.Queue.get`` cancellation is item-safe
+                # (Python issue #46622 family fixed) but the explicit
+                # drain costs nothing and makes the contract obvious.
+                try:
+                    pending_event = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pending_event = None
+                if pending_event is not None:
+                    await websocket.send_json(pending_event)
+                    if pending_event.get("type") in ("done", "error"):
+                        break
+                    continue
+
+                if not heartbeat_enabled:
+                    # Legacy client (no ``hb=1``) — preserve v4.0.1
+                    # behavior: just block on the next event.
+                    continue
+
+                # Heartbeat tick — re-check the principal.
+                if token_exp is not None and time.time() >= token_exp:
+                    await websocket.close(code=4401, reason="Token expired")
+                    return
+                if api_key_query and validate_api_key(api_key_query) is None:
+                    await websocket.close(code=4401, reason="API key revoked")
+                    return
+                # Server-initiated keepalive. Schema:
+                #   ``{"type": "auth_check", "ts": <unix-seconds-float>}``.
+                await websocket.send_json(
+                    {"type": "auth_check", "ts": time.time()}
+                )
+                continue
+
             await websocket.send_json(event)
             if event.get("type") in ("done", "error"):
                 break
