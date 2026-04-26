@@ -38,11 +38,11 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 47 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 1350 backend + Vitest composables + Playwright E2E |
+| Tests passing | 1376 backend + 15 Vitest composables + Playwright E2E |
 | Frontend pages | 54 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, …) |
 | API endpoints | 121 across 23 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | v0.1.0 → v4.0.1 |
+| Released versions | v0.1.0 → v4.0.2 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 

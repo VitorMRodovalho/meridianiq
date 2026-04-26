@@ -3,9 +3,10 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [4.0.2] — 2026-04-26 — Audit remediation
 
-Post-v4.0.1 remediation landing from the 2026-04-22 structural audit.
+Post-v4.0.1 remediation landing from the 2026-04-22 structural audit, plus full
+internationalization closure (#22) and a current-stable dependency refresh.
 Full audit record: [`docs/audit/`](docs/audit/) (8 docs — 6 layer + handoff + closing report).
 Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
 
@@ -20,6 +21,20 @@ Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
 - **`docs/audit/`** — 8 documents (`README.md`, `01-critical-findings.md`, `02-architecture.md`, `03-schema.md`, `04-security.md`, `05-ux-frontend.md`, `06-planned-vs-implemented.md`, `HANDOFF.md`, `CLOSING_REPORT.md`).
 - **19 new regression tests**: `tests/test_cors_config.py` (4), `tests/test_api_keys_fail_closed.py` (7), `tests/test_api_keys_schema.py` (8).
 - **GitHub labels**: `audit-2026-04-22`, `priority:P0..P3`, `area:security`, `area:schema`, `area:architecture`, `area:frontend-ux`, `area:docs`, `area:roadmap`, `requires-human-decision`, `ops`.
+
+### Added — Internationalization (closes [#22](https://github.com/VitorMRodovalho/meridianiq/issues/22))
+
+- **All 15 previously under-i18n pages now fully translated across `en` / `pt-BR` / `es`** — 6 batches (A1–A6) shipped 2026-04-26 in two commits:
+  - **Commit `576416f`** (batches A1+A2+A3, 9 pages): reports, cashflow, root-cause; duration-prediction, delay-attribution, alerts; anomalies, whatif, benchmarks. New `page.delay_attribution`, `common.view_schedule` keys; existing `common.loading` / `common.analyze` / `common.critical` / `common.warning` / `common.info` reused.
+  - **Commit `f24aed9`** (batches A4+A5+A6, 6 pages): optimizer, resources, delay-prediction; float-trends, tia; schedule. New `page.schedule` key.
+- **~402 translation keys × 3 locales added** total. Schedule page got a small refactor — `ColDef.label` → `ColDef.labelKey` so the columns array (kept in `$state` for visibility-toggle) defers translation to render time via `{$t(col.labelKey)}`. TIA's `responsibleParties` array switched from plain `const` to `$derived()` for the same reason. `exportCSV()` reads `$t()` at click time, so the downloaded CSV reflects the user's current locale.
+- **Out-of-scope (deferred)**: dynamic toast strings with template interpolation (`toastSuccess(\`Found ${n}…\`)`) stay in English — the `t()` helper is dict-only by design; templating is a separate concern.
+
+### Changed — Dependencies
+
+- **Python deps refreshed to current latest stable** (commit `ed74420`): `networkx` 3.4→3.6, `numpy` 2.0→2.4, `supabase` 2.10→2.29, `sentry-sdk` 2.20→2.58, `fastapi` 0.115→0.136, `uvicorn` pinned at 0.46, `anthropic` 0.85→0.97, `scikit-learn` 1.6→1.8, `pytest` 9.0→9.0.3, `pytest-cov` added 7.1, `ruff` 0.8→0.15.12, `mypy` 1.15→1.20, `pydantic` 2.10→2.13. `tests/test_canonical_hash.py::TestByteExactPin` validated against pydantic 2.13 — both `EXPECTED_PIN_MINIMAL` and `EXPECTED_PIN_RICH` held; ADR-0015 P2#9 satisfied without amendment.
+- **Frontend deps refreshed** (commit `338f08e`): `vitest` ^3→^4 (resolved 4.1.5), `jsdom` ^26→^29 (resolved 29.0.2). `npm update` applied (caret-respecting) to `@supabase/supabase-js`, `@sveltejs/kit`, `tailwindcss`, `posthog-js`, `svelte`, `typescript`, `vite`.
+- **Hard upstream blocks documented**: Python 3.14 Dockerfile bump blocked by `supabase ≥ 2.10 → storage3 → pyiceberg` transitive chain (no 3.14 wheels for Debian slim as of 2026-04-26). `websockets` major 16 blocked by `realtime 2.29` pin.
 
 ### Changed
 
@@ -41,6 +56,22 @@ Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
 ### Fixed
 
 - **`/optimizer` page contract restored** ([#14](https://github.com/VitorMRodovalho/meridianiq/issues/14)) — `POST /api/v1/projects/{id}/optimize` now returns the new `OptimizeResponse` Pydantic schema (`src/api/schemas.py`) with UI-aligned field names (`original_makespan`, `optimized_makespan`, `generations`, `convergence`, `shifted_activities`) instead of the raw `OptimizationResult` dataclass dict that left the page rendering `undefined` since v4.0.0. Curated 2026-04-26 surfaced two agravantes the original issue under-stated: (1) `mean_fitness` is not produced by the engine — the dashed UI line is removed, not mapped; (2) `shifted_activities` was deliberately strippped via `data.pop("best_leveling")` in `whatif.py` — the router now serializes `best_leveling.activity_shifts` through `ActivityShiftSchema`. Honesty leve added: page subtitle now reads "Advisory only — heuristic Evolution Strategies result" (3 locales), mirroring the lifecycle phase framing from ADR-0009 W4. New regression class `TestOptimizeResponseContract` (3 tests in `tests/test_whatif_router.py`) hard-locks the surface so the v4.0.0 silent breakage cannot recur.
+- **WS optimize test stabilized** (commit `28da1fd`) — dropped a racy "progress event arrived" assertion in `tests/test_whatif_router.py` that depended on async-task ordering and flapped on slower CI runners. The four remaining assertions in the same test (job started, terminal frame received, ownership 403, error-publish contract) cover the same surface deterministically.
+
+### Reverted
+
+- **Dockerfile `python:3.13-slim` retained** (commit `df672d9` reverts `f1bd4e2`) — `supabase` chain pulls `pyiceberg` transitively, which has no Python 3.14 wheel for Debian slim and fails build-from-source on missing system C headers. Dockerfile pinned at 3.13 until pyiceberg ships 3.14 wheels OR storage3 drops the dep. CLAUDE.md Known Gotchas updated with the diagnostic chain.
+
+### Housekeeping (closes [#24](https://github.com/VitorMRodovalho/meridianiq/issues/24))
+
+- **AUDIT-012** — Dockerfile 3.14 attempt rolled back per Reverted above.
+- **AUDIT-013** — 4 stale branches deleted from origin (post-merge cleanup).
+- **AUDIT-014** — already done in commit `a97be36` (no-op verification).
+- **AUDIT-018** — Dependabot PRs #11 (actions/upload-artifact 6→7) and #15 (frontend-minor-patch group) merged.
+
+### Closed alongside
+
+- **[#8](https://github.com/VitorMRodovalho/meridianiq/issues/8)** — 17 TS errors (closed `not_planned`). All resolved implicitly by v3.8 waves 10/14/15; `npm run check` 0/0 confirmed on `f24aed9`.
 
 ### Security / ops pending
 
@@ -49,12 +80,14 @@ Meta-issue: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25).
 
 ### Verification
 
-- `pytest tests/`: **1.370 passed, 6 skipped, 0 failed** (post-#14 fix).
+- `pytest tests/`: **1370 passed, 6 skipped, 0 failed** (1376 collected; `v4.0.1` baseline 1338 → +19 audit regression suite + 3 `TestOptimizeResponseContract` + 16 net after dep refresh / WS test hardening).
 - `ruff check src/ tests/ scripts/`: clean.
 - `python3 scripts/check_stats_consistency.py`: "Stats consistent across CLAUDE.md and README.md".
-- `cd web && npm run check`: 0 errors / 0 warnings.
-- `cd web && npm run build`: clean (adapter-static).
-- Full Unreleased so far: 9 commits, 33 files changed, +2.398 / −105 lines (incl. #14 fix).
+- `cd web && npm run check`: **0 errors / 0 warnings** across 637 files.
+- `cd web && npm run build`: clean (`adapter-static`, ~4.3s).
+- `cd web && npm test` (Vitest): **15 / 15 passed**.
+- CI on `f24aed9` (final pre-release): all 4 jobs green (CI / Doc sync / Secret scan / Push on main).
+- Full release surface: 13 commits across the v4.0.2 window — 9 audit-remediation commits (already counted at #14-fix) + `28da1fd` (WS test) + `df672d9` (Dockerfile revert) + `ed74420` (Python deps) + `338f08e` (frontend deps) + `576416f` (i18n A1+A2+A3) + `f24aed9` (i18n A4+A5+A6) + `fd0a018` (doc sync).
 
 ## [4.0.1] — 2026-04-19 — Track 1 polish (post-Cycle 1)
 
