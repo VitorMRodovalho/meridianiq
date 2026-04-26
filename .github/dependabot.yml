@@ -23,7 +23,13 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      # Pin pyiceberg while 3.14 wheel is missing (see CLAUDE.md gotcha)
+      # pyiceberg is a TRANSITIVE dep (supabase → storage3 → pyiceberg).
+      # The pin-major rule below is defensive: a major bump arriving via
+      # transitive resolution can break Docker deploy if the new pyiceberg
+      # major drops Python 3.13 wheel support OR adds incompatible C-ext
+      # build requirements (see commit df672d9 for history). Patches/minors
+      # of pyiceberg flow through normally — only majors require manual
+      # eval against the Dockerfile Python pin.
       - dependency-name: "pyiceberg"
         update-types: ["version-update:semver-major"]
 

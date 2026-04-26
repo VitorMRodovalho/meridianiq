@@ -26,25 +26,28 @@ dependencies = [
     # follow-up): a silent 2.x-minor ``model_dump`` change would shift the
     # ADR-0014 byte-exact input_hash pins. Lock the minor range until a
     # conscious bump is audited against the pinned fixtures.
-    "pydantic>=2.10,<3.0",
-    "networkx>=3.4",
-    "numpy>=2.0",
-    "supabase>=2.10",
+    # Floor bumped 2026-04-26: pydantic 2.13 audited against
+    # tests/test_canonical_hash.py::TestByteExactPin (both minimal + rich
+    # fixtures held). Safe within 2.x.
+    "pydantic>=2.13,<3.0",
+    "networkx>=3.6",
+    "numpy>=2.4",
+    "supabase>=2.29",
     "python-dotenv>=1.0",
     "python-multipart",
-    "sentry-sdk[fastapi]>=2.20",
+    "sentry-sdk[fastapi]>=2.58",
     "PyJWT[crypto]>=2.12",
     "defusedxml>=0.7",
 ]
 
 [project.optional-dependencies]
-api = ["fastapi>=0.115", "uvicorn[standard]", "slowapi>=0.1.9"]
+api = ["fastapi>=0.136", "uvicorn[standard]>=0.46", "slowapi>=0.1.9"]
 export = ["pandas>=2.2", "openpyxl>=3.1"]
 reports = ["weasyprint>=62.0"]
-ai = ["anthropic>=0.85"]
-ml = ["scikit-learn>=1.6"]
+ai = ["anthropic>=0.97"]
+ml = ["scikit-learn>=1.8"]
 mcp = ["mcp>=1.20"]
-dev = ["pytest>=9.0", "pytest-cov", "ruff>=0.8", "mypy>=1.15", "httpx>=0.27"]
+dev = ["pytest>=9.0.3", "pytest-cov>=7.1", "ruff>=0.15.12", "mypy>=1.20", "httpx>=0.27"]
 all = ["meridianiq[api,export,reports,ai,ml,mcp,dev]"]
 
 [tool.hatch.build.targets.wheel]
