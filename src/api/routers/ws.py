@@ -252,9 +252,7 @@ async def progress_socket(websocket: WebSocket, job_id: str) -> None:
     try:
         while True:
             try:
-                event = await asyncio.wait_for(
-                    queue.get(), timeout=HEARTBEAT_INTERVAL_SECONDS
-                )
+                event = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_INTERVAL_SECONDS)
             except asyncio.TimeoutError:
                 # Defensive: if a producer published RIGHT as the
                 # ``wait_for`` cancellation fired, the item may be in
@@ -288,9 +286,7 @@ async def progress_socket(websocket: WebSocket, job_id: str) -> None:
                     return
                 # Server-initiated keepalive. Schema:
                 #   ``{"type": "auth_check", "ts": <unix-seconds-float>}``.
-                await websocket.send_json(
-                    {"type": "auth_check", "ts": time.time()}
-                )
+                await websocket.send_json({"type": "auth_check", "ts": time.time()})
                 continue
 
             await websocket.send_json(event)

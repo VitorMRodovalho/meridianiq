@@ -280,18 +280,14 @@ class TestHeartbeatAndTokenExpiry:
         jid = str(_uuid.uuid4())
         client = TestClient(app)
 
-        with client.websocket_connect(
-            f"/api/v1/ws/progress/{jid}?token={token}&hb=1"
-        ) as ws:
+        with client.websocket_connect(f"/api/v1/ws/progress/{jid}?token={token}&hb=1") as ws:
             event = ws.receive_json()
             assert event["type"] == "auth_check", (
                 f"first server-initiated frame should be auth_check; got {event}"
             )
             assert "ts" in event
 
-    def test_no_hb_query_param_silences_heartbeat(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_no_hb_query_param_silences_heartbeat(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Legacy frontend bundles (no ``?hb=1``) must keep the v4.0.1
         silent-streaming behavior — no ``auth_check`` frames. Otherwise
         a stale tab cached before this deploy would mis-classify the
@@ -315,9 +311,7 @@ class TestHeartbeatAndTokenExpiry:
         jid = str(_uuid.uuid4())
         client = TestClient(app)
 
-        with client.websocket_connect(
-            f"/api/v1/ws/progress/{jid}?token={token}"
-        ) as ws:
+        with client.websocket_connect(f"/api/v1/ws/progress/{jid}?token={token}") as ws:
             # Without ``hb=1``, no heartbeat. Use a tiny receive timeout
             # to confirm silence; ``starlette`` TestClient surfaces no
             # native non-blocking receive, so we sleep past one
@@ -364,9 +358,7 @@ class TestHeartbeatAndTokenExpiry:
         client = TestClient(app)
 
         with pytest.raises(WebSocketDisconnect) as excinfo:
-            with client.websocket_connect(
-                f"/api/v1/ws/progress/{jid}?api_key=fake-key&hb=1"
-            ) as ws:
+            with client.websocket_connect(f"/api/v1/ws/progress/{jid}?api_key=fake-key&hb=1") as ws:
                 ws.receive_json()
         assert excinfo.value.code == 4401, (
             f"expected close 4401 on heartbeat with revoked api_key; got {excinfo.value.code}"
@@ -392,9 +384,7 @@ class TestHeartbeatAndTokenExpiry:
 
         monkeypatch.setattr(ws_module, "HEARTBEAT_INTERVAL_SECONDS", 0.05)
         # Force the heartbeat helper to report an exp in the past.
-        monkeypatch.setattr(
-            ws_module, "_decode_exp_unverified", lambda token: _time.time() - 1
-        )
+        monkeypatch.setattr(ws_module, "_decode_exp_unverified", lambda token: _time.time() - 1)
 
         future_exp = int(_time.time()) + 3600
         token = _jwt.encode(
@@ -406,9 +396,7 @@ class TestHeartbeatAndTokenExpiry:
         client = TestClient(app)
 
         with pytest.raises(WebSocketDisconnect) as excinfo:
-            with client.websocket_connect(
-                f"/api/v1/ws/progress/{jid}?token={token}&hb=1"
-            ) as ws:
+            with client.websocket_connect(f"/api/v1/ws/progress/{jid}?token={token}&hb=1") as ws:
                 ws.receive_json()
         assert excinfo.value.code == 4401, (
             f"expected close 4401 on heartbeat with expired token; got {excinfo.value.code}"
