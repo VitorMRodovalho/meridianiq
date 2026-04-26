@@ -29,14 +29,14 @@
     "svelte": "^5.55.1",
     "svelte-check": "^4.4.6",
     "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.9",
     "vitest": "^3.2.4"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",
-    "@supabase/supabase-js": "^2.101.1",
-    "posthog-js": "^1.364.7"
+    "@supabase/supabase-js": "^2.104.0",
+    "posthog-js": "^1.369.3"
   },
   "overrides": {
     "cookie": "^0.7.0"
