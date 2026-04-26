@@ -1,11 +1,11 @@
-<!-- Last updated: 2026-04-19 (v4.0.0-dev) -->
+<!-- Last updated: 2026-04-26 (v4.0.1) -->
 # MeridianIQ — System Architecture
 
 ## System Overview
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **Cycle 1 v4.0.0-dev**: 47 analysis engines + 1 export module, 121 API endpoints across 23 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 25 Supabase migrations, 22 MCP tools, 15 PDF report types, 1350 tests.
+As of **v4.0.1**: 47 analysis engines + 1 export module, 121 API endpoints across 23 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 25 Supabase migrations, 22 MCP tools, 15 PDF report types, 1376 tests.
 
 ```mermaid
 graph TB
