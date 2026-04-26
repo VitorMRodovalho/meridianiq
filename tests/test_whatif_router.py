@@ -255,30 +255,39 @@ class TestOptimizeResponseContract:
 
 
 class TestOptimizeWithJobIdStreamsProgress:
-    def test_ws_receives_progress_then_done_with_improvement_fields(
+    def test_ws_receives_done_with_improvement_fields(
         self, client: TestClient, uploaded_project_id: str
     ) -> None:
         """Open WS, fire optimize with ?job_id=<uuid>, drain WS until
-        terminal. Expect at least one `progress` event and a final `done`
-        event carrying improvement_pct + improvement_days (the honest
-        terminal contract for optimize — distinct from risk's simulation_id).
+        terminal. Assert the `done` event carries improvement_pct +
+        improvement_days (the honest terminal contract for optimize —
+        distinct from risk's simulation_id).
 
         Channel is created by the WS handler itself via `open_channel`
         (mirrors tests/test_progress_ws.py::test_websocket_streams_done_event
         pattern) — no explicit pre-open is needed because the WS
         handshake completes synchronously within websocket_connect's
         context manager entry.
+
+        Coverage split (intentional, post-2026-04-26 hardening):
+          - Engine `progress_callback` emission rate is covered by
+            `test_evolution_optimizer.py::TestProgressCallback`.
+          - Wire transit (publish → channel → WS frame) is covered by
+            `tests/test_progress_ws.py`.
+          - This test only locks the router-level terminal contract
+            (`done` event + improvement fields), which is deterministic.
+          - The earlier "at least one progress event arrives via WS"
+            assertion was racy on CI: TestClient runs sync, and a small
+            optimization can complete before the asyncio WS consumer
+            yields, so progress frames published into the queue can be
+            in-flight at receive time. Dropped per ruling the contract
+            (terminal event) is what matters at the router boundary.
         """
         job_id = str(uuid.uuid4())
 
-        # Use a bigger config so progress emissions have time to flush
-        # through the call_soon_threadsafe queue before the terminal
-        # `done` event. With population=5 * generations=10 = 50 offspring
-        # + 4 greedy rules = 54 evaluations, progress_step = max(1, 54//100) = 1
-        # so every evaluation emits, plus the guaranteed final (total, total)
-        # frame. ~54ms total under CI load — slow enough to yield to the
-        # WS consumer task, fast enough to keep the test under 1s.
-        slow_config = {
+        # Modest config — only needs to make the engine produce non-zero
+        # convergence_history so improvement fields are well-defined.
+        config = {
             "population_size": 5,
             "parent_size": 2,
             "generations": 10,
@@ -288,7 +297,7 @@ class TestOptimizeWithJobIdStreamsProgress:
         with client.websocket_connect(f"/api/v1/ws/progress/{job_id}") as ws:
             resp = client.post(
                 f"/api/v1/projects/{uploaded_project_id}/optimize?job_id={job_id}",
-                json=slow_config,
+                json=config,
             )
             assert resp.status_code == 200, resp.text
 
@@ -300,7 +309,6 @@ class TestOptimizeWithJobIdStreamsProgress:
 
         types = [e.get("type") for e in events]
         assert "done" in types, f"no done event in {types}"
-        assert any(t == "progress" for t in types), f"no progress events in {types}"
 
         done = next(e for e in events if e["type"] == "done")
         assert "improvement_pct" in done
