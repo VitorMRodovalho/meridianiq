@@ -51,13 +51,13 @@
 </script>
 
 <svelte:head>
-	<title>Resource Leveling - MeridianIQ</title>
+	<title>{$t('page.resources')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Resource Leveling</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Resource-constrained scheduling via Serial SGS (AACE RP 46R-11)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.resources')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('resources.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -72,27 +72,27 @@
 				</select>
 			</div>
 			<div>
-				<label for="rsrc" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Resource ID</label>
-				<input id="rsrc" bind:value={rsrcId} placeholder="e.g. CRANE01" class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
+				<label for="rsrc" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('resources.rsrc_id_label')}</label>
+				<input id="rsrc" bind:value={rsrcId} placeholder={$t('resources.rsrc_id_placeholder')} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 			<div>
-				<label for="units" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Units</label>
+				<label for="units" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('resources.max_units_label')}</label>
 				<input id="units" type="number" min="1" bind:value={maxUnits} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm" />
 			</div>
 			<div>
-				<label for="rule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority Rule</label>
+				<label for="rule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('resources.priority_rule_label')}</label>
 				<select id="rule" bind:value={priorityRule} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
-					<option value="late_start">Late Start</option>
-					<option value="early_start">Early Start</option>
-					<option value="float">Float</option>
-					<option value="duration">Duration</option>
+					<option value="late_start">{$t('resources.rule_late_start')}</option>
+					<option value="early_start">{$t('resources.rule_early_start')}</option>
+					<option value="float">{$t('resources.rule_float')}</option>
+					<option value="duration">{$t('resources.rule_duration')}</option>
 				</select>
 			</div>
 		</div>
 		<div class="mt-4">
 			<button onclick={runLeveling} disabled={!selectedProject || !rsrcId || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Leveling...' : 'Run Resource Leveling'}
+				{loading ? $t('resources.leveling') : $t('resources.run_button')}
 			</button>
 		</div>
 	</div>
@@ -108,21 +108,21 @@
 	{#if result}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Original</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('resources.kpi_original')}</p>
 				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.original_duration_days}d</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Leveled</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('resources.kpi_leveled')}</p>
 				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{result.leveled_duration_days}d</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Extension</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('resources.kpi_extension')}</p>
 				<p class="text-2xl font-bold {result.extension_days > 0 ? 'text-amber-600' : 'text-green-600'}">
 					+{result.extension_days}d ({result.extension_pct}%)
 				</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Priority Rule</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('resources.kpi_priority_rule')}</p>
 				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{result.priority_rule}</p>
 			</div>
 		</div>
@@ -133,7 +133,7 @@
 					<ResourceChart
 						demandByDay={profile.demand_by_day}
 						maxUnits={profile.max_units}
-						title="Resource Demand Profile"
+						title={$t('resources.profile_chart_title')}
 						rsrcName={profile.rsrc_name || profile.rsrc_id}
 						height={240}
 					/>
@@ -143,16 +143,16 @@
 
 		{#if result.activity_shifts.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Activity Shifts ({result.activity_shifts.filter(s => s.shift_days > 0).length} shifted)</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('resources.shifts_heading')} ({result.activity_shifts.filter(s => s.shift_days > 0).length} {$t('resources.shifts_suffix_shifted')})</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
 							<tr class="border-b border-gray-200 dark:border-gray-700">
-								<th class="text-left py-2 px-3">Code</th>
-								<th class="text-left py-2 px-3">Name</th>
-								<th class="text-right py-2 px-3">Original Start</th>
-								<th class="text-right py-2 px-3">Leveled Start</th>
-								<th class="text-right py-2 px-3">Shift</th>
+								<th class="text-left py-2 px-3">{$t('resources.col_code')}</th>
+								<th class="text-left py-2 px-3">{$t('resources.col_name')}</th>
+								<th class="text-right py-2 px-3">{$t('resources.col_original_start')}</th>
+								<th class="text-right py-2 px-3">{$t('resources.col_leveled_start')}</th>
+								<th class="text-right py-2 px-3">{$t('resources.col_shift')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -160,8 +160,8 @@
 								<tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 									<td class="py-2 px-3 font-mono text-xs">{shift.task_code}</td>
 									<td class="py-2 px-3">{shift.task_name}</td>
-									<td class="py-2 px-3 text-right">Day {shift.original_start}</td>
-									<td class="py-2 px-3 text-right">Day {shift.leveled_start}</td>
+									<td class="py-2 px-3 text-right">{$t('resources.day_prefix')} {shift.original_start}</td>
+									<td class="py-2 px-3 text-right">{$t('resources.day_prefix')} {shift.leveled_start}</td>
 									<td class="py-2 px-3 text-right {shift.shift_days > 0 ? 'text-amber-600 font-semibold' : ''}">
 										{shift.shift_days > 0 ? '+' : ''}{shift.shift_days}d
 									</td>

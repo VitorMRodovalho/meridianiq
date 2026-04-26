@@ -126,7 +126,7 @@
 	// Column configuration
 	interface ColDef {
 		id: string;
-		label: string;
+		labelKey: string;
 		sortKey: string;
 		align: string;
 		visible: boolean;
@@ -134,29 +134,29 @@
 	}
 
 	let columns = $state<ColDef[]>([
-		{ id: 'code', label: 'Code', sortKey: 'code', align: 'text-left', visible: true, render: a => a.task_code },
-		{ id: 'name', label: 'Name', sortKey: 'name', align: 'text-left', visible: true, render: a => a.task_name },
-		{ id: 'wbs', label: 'WBS', sortKey: '', align: 'text-left', visible: true, render: a => a.wbs_path?.split('/').pop() || '' },
-		{ id: 'status', label: 'Status', sortKey: 'status', align: 'text-left', visible: true, render: a => a.status },
-		{ id: 'type', label: 'Type', sortKey: '', align: 'text-left', visible: false, render: a => a.task_type },
-		{ id: 'od', label: 'OD', sortKey: 'duration', align: 'text-right', visible: true, render: a => a.duration_days + 'd' },
-		{ id: 'rd', label: 'RD', sortKey: '', align: 'text-right', visible: true, render: a => a.remaining_days > 0 ? a.remaining_days + 'd' : '' },
-		{ id: 'tf', label: 'TF', sortKey: 'float', align: 'text-right', visible: true, render: a => a.total_float_days + 'd' },
-		{ id: 'ff', label: 'FF', sortKey: '', align: 'text-right', visible: true, render: a => a.free_float_days !== 0 ? a.free_float_days + 'd' : '' },
-		{ id: 'pct', label: '%', sortKey: 'progress', align: 'text-right', visible: true, render: a => a.progress_pct > 0 ? a.progress_pct + '%' : '' },
-		{ id: 'es', label: 'ES', sortKey: 'start', align: 'text-left', visible: true, render: a => a.early_start },
-		{ id: 'ef', label: 'EF', sortKey: 'finish', align: 'text-left', visible: true, render: a => a.early_finish },
-		{ id: 'ls', label: 'LS', sortKey: '', align: 'text-left', visible: false, render: a => (a as any).late_start || '' },
-		{ id: 'lf', label: 'LF', sortKey: '', align: 'text-left', visible: false, render: a => (a as any).late_finish || '' },
-		{ id: 'as', label: 'AS', sortKey: '', align: 'text-left', visible: true, render: a => a.actual_start || '' },
-		{ id: 'af', label: 'AF', sortKey: '', align: 'text-left', visible: true, render: a => a.actual_finish || '' },
-		{ id: 'bs', label: 'BL Start', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_start || '' },
-		{ id: 'bf', label: 'BL Finish', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_finish || '' },
-		{ id: 'cp', label: 'CP', sortKey: '', align: 'text-center', visible: true, render: a => a.is_critical ? '●' : '' },
-		{ id: 'constraint', label: 'Constr.', sortKey: '', align: 'text-left', visible: false, render: a => a.constraint_type && a.constraint_type !== 'CS_MEO' ? a.constraint_type : '' },
-		{ id: 'sv', label: 'Start Var', sortKey: '', align: 'text-right', visible: false, render: a => a.start_variance_days != null && a.start_variance_days !== 0 ? `${a.start_variance_days > 0 ? '+' : ''}${a.start_variance_days}d` : '' },
-		{ id: 'fv', label: 'Finish Var', sortKey: '', align: 'text-right', visible: false, render: a => a.finish_variance_days != null && a.finish_variance_days !== 0 ? `${a.finish_variance_days > 0 ? '+' : ''}${a.finish_variance_days}d` : '' },
-		{ id: 'alerts', label: 'Alerts', sortKey: '', align: 'text-left', visible: true, render: _ => '' },
+		{ id: 'code', labelKey: 'schedule.col_code', sortKey: 'code', align: 'text-left', visible: true, render: a => a.task_code },
+		{ id: 'name', labelKey: 'schedule.col_name', sortKey: 'name', align: 'text-left', visible: true, render: a => a.task_name },
+		{ id: 'wbs', labelKey: 'schedule.col_wbs', sortKey: '', align: 'text-left', visible: true, render: a => a.wbs_path?.split('/').pop() || '' },
+		{ id: 'status', labelKey: 'schedule.col_status', sortKey: 'status', align: 'text-left', visible: true, render: a => a.status },
+		{ id: 'type', labelKey: 'schedule.col_type', sortKey: '', align: 'text-left', visible: false, render: a => a.task_type },
+		{ id: 'od', labelKey: 'schedule.col_od', sortKey: 'duration', align: 'text-right', visible: true, render: a => a.duration_days + 'd' },
+		{ id: 'rd', labelKey: 'schedule.col_rd', sortKey: '', align: 'text-right', visible: true, render: a => a.remaining_days > 0 ? a.remaining_days + 'd' : '' },
+		{ id: 'tf', labelKey: 'schedule.col_tf', sortKey: 'float', align: 'text-right', visible: true, render: a => a.total_float_days + 'd' },
+		{ id: 'ff', labelKey: 'schedule.col_ff', sortKey: '', align: 'text-right', visible: true, render: a => a.free_float_days !== 0 ? a.free_float_days + 'd' : '' },
+		{ id: 'pct', labelKey: 'schedule.col_pct', sortKey: 'progress', align: 'text-right', visible: true, render: a => a.progress_pct > 0 ? a.progress_pct + '%' : '' },
+		{ id: 'es', labelKey: 'schedule.col_es', sortKey: 'start', align: 'text-left', visible: true, render: a => a.early_start },
+		{ id: 'ef', labelKey: 'schedule.col_ef', sortKey: 'finish', align: 'text-left', visible: true, render: a => a.early_finish },
+		{ id: 'ls', labelKey: 'schedule.col_ls', sortKey: '', align: 'text-left', visible: false, render: a => (a as any).late_start || '' },
+		{ id: 'lf', labelKey: 'schedule.col_lf', sortKey: '', align: 'text-left', visible: false, render: a => (a as any).late_finish || '' },
+		{ id: 'as', labelKey: 'schedule.col_as', sortKey: '', align: 'text-left', visible: true, render: a => a.actual_start || '' },
+		{ id: 'af', labelKey: 'schedule.col_af', sortKey: '', align: 'text-left', visible: true, render: a => a.actual_finish || '' },
+		{ id: 'bs', labelKey: 'schedule.col_bs', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_start || '' },
+		{ id: 'bf', labelKey: 'schedule.col_bf', sortKey: '', align: 'text-left', visible: false, render: a => a.baseline_finish || '' },
+		{ id: 'cp', labelKey: 'schedule.col_cp', sortKey: '', align: 'text-center', visible: true, render: a => a.is_critical ? '●' : '' },
+		{ id: 'constraint', labelKey: 'schedule.col_constraint', sortKey: '', align: 'text-left', visible: false, render: a => a.constraint_type && a.constraint_type !== 'CS_MEO' ? a.constraint_type : '' },
+		{ id: 'sv', labelKey: 'schedule.col_sv', sortKey: '', align: 'text-right', visible: false, render: a => a.start_variance_days != null && a.start_variance_days !== 0 ? `${a.start_variance_days > 0 ? '+' : ''}${a.start_variance_days}d` : '' },
+		{ id: 'fv', labelKey: 'schedule.col_fv', sortKey: '', align: 'text-right', visible: false, render: a => a.finish_variance_days != null && a.finish_variance_days !== 0 ? `${a.finish_variance_days > 0 ? '+' : ''}${a.finish_variance_days}d` : '' },
+		{ id: 'alerts', labelKey: 'schedule.col_alerts', sortKey: '', align: 'text-left', visible: true, render: _ => '' },
 	]);
 
 	const visibleColumns = $derived(columns.filter(c => c.visible));
@@ -243,14 +243,24 @@
 
 	function exportCSV() {
 		if (!data) return;
-		const headers = ['Code', 'Name', 'WBS', 'Status', 'Type', 'Duration', 'Total Float', 'Free Float', 'Progress', 'Early Start', 'Early Finish', 'Actual Start', 'Actual Finish', 'Late Start', 'Late Finish', 'Critical', 'Constraint', 'WBS Path', 'Alerts'];
+		const headers = [
+			$t('schedule.col_code'), $t('schedule.col_name'), $t('schedule.col_wbs'),
+			$t('schedule.col_status'), $t('schedule.col_type'),
+			$t('schedule.detail_duration'), $t('schedule.detail_total_float'), $t('schedule.detail_free_float'),
+			$t('schedule.detail_progress'),
+			$t('schedule.detail_early_start'), $t('schedule.detail_early_finish'),
+			$t('schedule.detail_actual_start'), $t('schedule.detail_actual_finish'),
+			$t('schedule.detail_late_start'), $t('schedule.detail_late_finish'),
+			$t('schedule.detail_critical'), $t('schedule.detail_constraint'), 'WBS Path',
+			$t('schedule.col_alerts'),
+		];
 		const rows = data.activities.map(a => [
 			a.task_code, a.task_name, a.wbs_path?.split('/').pop() || '', a.status, a.task_type,
 			a.duration_days, a.total_float_days, a.free_float_days, a.progress_pct,
 			a.early_start, a.early_finish,
 			a.actual_start || '', a.actual_finish || '',
 			a.late_start, a.late_finish,
-			a.is_critical ? 'Yes' : 'No', a.constraint_type || '', a.wbs_path,
+			a.is_critical ? $t('schedule.csv_critical_yes') : $t('schedule.csv_critical_no'), a.constraint_type || '', a.wbs_path,
 			a.alerts.join('; '),
 		]);
 		const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
@@ -265,20 +275,20 @@
 </script>
 
 <svelte:head>
-	<title>Schedule Viewer - MeridianIQ</title>
+	<title>{$t('page.schedule')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-[1400px] mx-auto px-4 py-6">
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Schedule Viewer</h1>
-			<p class="text-gray-500 dark:text-gray-400 mt-1">Interactive Gantt chart with WBS hierarchy, progress bars, and critical path</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.schedule')}</h1>
+			<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('schedule.subtitle')}</p>
 		</div>
 		{#if selectedProject}
 			<div class="flex items-center gap-2">
-				<a href="/projects/{selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">Project Detail</a>
-				<a href="/scorecard?project={selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">Scorecard</a>
-				<a href="/anomalies?project={selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">Anomalies</a>
+				<a href="/projects/{selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">{$t('schedule.nav_project_detail')}</a>
+				<a href="/scorecard?project={selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">{$t('schedule.nav_scorecard')}</a>
+				<a href="/anomalies?project={selectedProject}" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">{$t('schedule.nav_anomalies')}</a>
 			</div>
 		{/if}
 	</div>
@@ -295,69 +305,69 @@
 				</select>
 			</div>
 			<div class="flex-1 min-w-48">
-				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Baseline (optional)</label>
+				<label for="baseline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('schedule.baseline_label')}</label>
 				<select id="baseline" bind:value={baselineProject} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
-					<option value="">None</option>
+					<option value="">{$t('schedule.baseline_none')}</option>
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}{p.tags?.length ? ` [${p.tags.slice(0, 3).join(', ')}]` : ''}</option>
 					{/each}
 				</select>
 			</div>
 			<div class="min-w-44">
-				<label for="groupBy" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group by</label>
+				<label for="groupBy" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('schedule.group_by_label')}</label>
 				<select id="groupBy" bind:value={groupBy} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
-					<option value="wbs">WBS (default)</option>
-					<option value="status">Status</option>
-					<option value="critical">Critical / Non-Critical</option>
-					<option value="task_type">Task type</option>
-					<option value="calendar">Calendar</option>
-					<option value="float_bucket">Float bucket</option>
+					<option value="wbs">{$t('schedule.group_wbs')}</option>
+					<option value="status">{$t('schedule.group_status')}</option>
+					<option value="critical">{$t('schedule.group_critical')}</option>
+					<option value="task_type">{$t('schedule.group_task_type')}</option>
+					<option value="calendar">{$t('schedule.group_calendar')}</option>
+					<option value="float_bucket">{$t('schedule.group_float_bucket')}</option>
 				</select>
 			</div>
 			<button onclick={loadSchedule} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Loading...' : 'View Schedule'}
+				{loading ? $t('schedule.loading') : $t('schedule.view_button')}
 			</button>
 			{#if data}
 				<button onclick={exportCSV}
 					class="px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700">
-					Export CSV
+					{$t('schedule.export_csv')}
 				</button>
 				<span class="w-px h-6 bg-gray-200 dark:bg-gray-700"></span>
-				<a href="/scorecard?project={selectedProject}" class="text-[10px] px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-medium">Scorecard</a>
-				<a href="/compare" class="text-[10px] px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-medium">Compare</a>
-				<a href="/trends" class="text-[10px] px-2 py-1.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-100 font-medium">Trends</a>
+				<a href="/scorecard?project={selectedProject}" class="text-[10px] px-2 py-1.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 hover:bg-amber-100 font-medium">{$t('schedule.nav_scorecard')}</a>
+				<a href="/compare" class="text-[10px] px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-medium">{$t('schedule.link_compare')}</a>
+				<a href="/trends" class="text-[10px] px-2 py-1.5 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-100 font-medium">{$t('schedule.link_trends')}</a>
 			{/if}
 		</div>
 		{#if data}
 			<div class="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
 				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
 					<input type="checkbox" bind:checked={showBaseline} class="w-3.5 h-3.5 rounded" />
-					Show Baseline
+					{$t('schedule.show_baseline')}
 				</label>
 				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
 					<input type="checkbox" bind:checked={showFloat} class="w-3.5 h-3.5 rounded" />
-					Show Float
+					{$t('schedule.show_float')}
 				</label>
 				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
 					<input type="checkbox" bind:checked={showDependencies} class="w-3.5 h-3.5 rounded" />
-					Dependencies
+					{$t('schedule.show_dependencies')}
 				</label>
 				<label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
 					<input type="checkbox" bind:checked={criticalOnly} class="w-3.5 h-3.5 rounded" />
-					Critical Path Only
+					{$t('schedule.critical_only')}
 				</label>
 				<span class="w-px h-4 bg-gray-200 dark:bg-gray-700"></span>
 				<select bind:value={statusFilter} class="text-xs rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 px-2 py-0.5">
-					<option value="all">All Status</option>
-					<option value="active">Active</option>
-					<option value="not_started">Not Started</option>
-					<option value="complete">Complete</option>
-					<option value="critical">Critical</option>
-					<option value="near_critical">Near-Critical (TF 1-10)</option>
-					<option value="negative_float">Negative Float</option>
-					<option value="milestones">Milestones</option>
-					<option value="constrained">Constrained</option>
+					<option value="all">{$t('schedule.status_all')}</option>
+					<option value="active">{$t('schedule.status_active')}</option>
+					<option value="not_started">{$t('schedule.status_not_started')}</option>
+					<option value="complete">{$t('schedule.status_complete')}</option>
+					<option value="critical">{$t('schedule.status_critical')}</option>
+					<option value="near_critical">{$t('schedule.status_near_critical')}</option>
+					<option value="negative_float">{$t('schedule.status_negative_float')}</option>
+					<option value="milestones">{$t('schedule.status_milestones')}</option>
+					<option value="constrained">{$t('schedule.status_constrained')}</option>
 				</select>
 			</div>
 		{/if}
@@ -376,18 +386,18 @@
 		{#if statusCounts}
 		<div class="flex items-center gap-2 mb-4 flex-wrap">
 			{#each [
-				['All', 'all', 'bg-gray-600'],
-				['Active', 'active', 'bg-blue-500'],
-				['Not Started', 'not_started', 'bg-gray-400'],
-				['Complete', 'complete', 'bg-green-500'],
-				['Critical', 'critical', 'bg-red-500'],
-				['Near-Crit', 'near_critical', 'bg-orange-400'],
-				['Neg Float', 'negative_float', 'bg-red-400'],
-				['Milestones', 'milestones', 'bg-amber-500'],
-			] as [label, key, color]}
+				['schedule.pill_all', 'all', 'bg-gray-600'],
+				['schedule.pill_active', 'active', 'bg-blue-500'],
+				['schedule.pill_not_started', 'not_started', 'bg-gray-400'],
+				['schedule.pill_complete', 'complete', 'bg-green-500'],
+				['schedule.pill_critical', 'critical', 'bg-red-500'],
+				['schedule.pill_near_crit', 'near_critical', 'bg-orange-400'],
+				['schedule.pill_neg_float', 'negative_float', 'bg-red-400'],
+				['schedule.pill_milestones', 'milestones', 'bg-amber-500'],
+			] as [labelKey, key, color]}
 				<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
 					<span class="w-2 h-2 rounded-full {color}"></span>
-					{label}: {statusCounts[key as keyof typeof statusCounts]}
+					{$t(labelKey)}: {statusCounts[key as keyof typeof statusCounts]}
 				</span>
 			{/each}
 		</div>
@@ -396,7 +406,7 @@
 		<!-- Progress bar -->
 		<div class="mb-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
 			<div class="flex items-center justify-between mb-1">
-				<span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Overall Progress</span>
+				<span class="text-xs font-semibold text-gray-700 dark:text-gray-300">{$t('schedule.overall_progress')}</span>
 				<span class="text-xs font-bold {data.summary.complete_pct >= 90 ? 'text-green-600' : data.summary.complete_pct >= 50 ? 'text-blue-600' : 'text-amber-600'}">{data.summary.complete_pct.toFixed(1)}%</span>
 			</div>
 			<div class="h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
@@ -412,44 +422,44 @@
 		<div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{data.summary.total_activities.toLocaleString()}</p>
-				<p class="text-[9px] text-gray-500 uppercase">Activities</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_activities')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-green-600">{data.summary.complete_pct.toFixed(0)}%</p>
-				<p class="text-[9px] text-gray-500 uppercase">Complete</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_complete')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-red-600">{data.summary.critical_count}</p>
-				<p class="text-[9px] text-gray-500 uppercase">Critical</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_critical')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-orange-500">{data.summary.near_critical_count || 0}</p>
-				<p class="text-[9px] text-gray-500 uppercase">Near-Crit</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_near_crit')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-amber-600">{data.summary.negative_float_count}</p>
-				<p class="text-[9px] text-gray-500 uppercase">Neg Float</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_neg_float')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold {(data.summary.avg_float_days ?? 0) < 0 ? 'text-red-600' : 'text-blue-600'}">{data.summary.avg_float_days ?? '—'}d</p>
-				<p class="text-[9px] text-gray-500 uppercase">Avg Float</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_avg_float')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-purple-600">{data.summary.constraint_count ?? 0}</p>
-				<p class="text-[9px] text-gray-500 uppercase">Constraints</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_constraints')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-2.5 text-center">
 				<p class="text-lg font-bold text-gray-700 dark:text-gray-300">{data.summary.milestones_count}</p>
-				<p class="text-[9px] text-gray-500 uppercase">Milestones</p>
+				<p class="text-[9px] text-gray-500 uppercase">{$t('schedule.kpi_milestones')}</p>
 			</div>
 		</div>
 
 		<!-- Float distribution -->
 		{#if floatDistribution.length > 0}
 			<details class="mb-4">
-				<summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700">Float Distribution (non-complete activities)</summary>
+				<summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700">{$t('schedule.float_dist_summary')}</summary>
 				<div class="mt-2">
-					<BarChart data={floatDistribution} title="Float Distribution (days)" height={140} />
+					<BarChart data={floatDistribution} title={$t('schedule.float_dist_title')} height={140} />
 				</div>
 			</details>
 		{/if}
@@ -474,37 +484,37 @@
 						<h3 class="text-sm font-bold text-gray-900 dark:text-gray-100">{a.task_code} — {a.task_name}</h3>
 						<p class="text-[10px] text-gray-500">{a.wbs_path}</p>
 					</div>
-					<button onclick={() => selectedActivity = null} aria-label="Close detail" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+					<button onclick={() => selectedActivity = null} aria-label={$t('schedule.close_detail')} class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
 					</button>
 				</div>
 				<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
 					<div>
-						<p class="text-gray-500">Status</p>
+						<p class="text-gray-500">{$t('schedule.detail_status')}</p>
 						<p class="font-semibold capitalize {a.status === 'complete' ? 'text-green-600' : a.status === 'active' ? 'text-blue-600' : 'text-gray-600'}">{a.status}</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Type</p>
+						<p class="text-gray-500">{$t('schedule.detail_type')}</p>
 						<p class="font-semibold capitalize text-gray-700 dark:text-gray-300">{a.task_type}</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Duration</p>
+						<p class="text-gray-500">{$t('schedule.detail_duration')}</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.duration_days}d</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Remaining</p>
+						<p class="text-gray-500">{$t('schedule.detail_remaining')}</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.remaining_days}d</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Total Float</p>
+						<p class="text-gray-500">{$t('schedule.detail_total_float')}</p>
 						<p class="font-semibold {a.total_float_days < 0 ? 'text-red-600' : a.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">{a.total_float_days}d</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Free Float</p>
+						<p class="text-gray-500">{$t('schedule.detail_free_float')}</p>
 						<p class="font-semibold text-gray-500">{a.free_float_days}d</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Progress</p>
+						<p class="text-gray-500">{$t('schedule.detail_progress')}</p>
 						<div class="flex items-center gap-1.5">
 							<div class="w-12 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
 								<div class="h-full rounded-full {a.is_critical ? 'bg-red-500' : 'bg-blue-500'}" style="width: {a.progress_pct}%"></div>
@@ -513,67 +523,67 @@
 						</div>
 					</div>
 					<div>
-						<p class="text-gray-500">Critical</p>
-						<p class="font-semibold {a.is_critical ? 'text-red-600' : 'text-gray-400'}">{a.is_critical ? 'YES' : 'No'}</p>
+						<p class="text-gray-500">{$t('schedule.detail_critical')}</p>
+						<p class="font-semibold {a.is_critical ? 'text-red-600' : 'text-gray-400'}">{a.is_critical ? $t('schedule.detail_yes') : $t('schedule.detail_no')}</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Early Start</p>
+						<p class="text-gray-500">{$t('schedule.detail_early_start')}</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.early_start}</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Early Finish</p>
+						<p class="text-gray-500">{$t('schedule.detail_early_finish')}</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.early_finish}</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Late Start</p>
+						<p class="text-gray-500">{$t('schedule.detail_late_start')}</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.late_start || '—'}</p>
 					</div>
 					<div>
-						<p class="text-gray-500">Late Finish</p>
+						<p class="text-gray-500">{$t('schedule.detail_late_finish')}</p>
 						<p class="font-semibold text-gray-700 dark:text-gray-300">{a.late_finish || '—'}</p>
 					</div>
 					{#if a.actual_start}
 						<div>
-							<p class="text-gray-500">Actual Start</p>
+							<p class="text-gray-500">{$t('schedule.detail_actual_start')}</p>
 							<p class="font-semibold text-green-600">{a.actual_start}</p>
 						</div>
 					{/if}
 					{#if a.actual_finish}
 						<div>
-							<p class="text-gray-500">Actual Finish</p>
+							<p class="text-gray-500">{$t('schedule.detail_actual_finish')}</p>
 							<p class="font-semibold text-green-600">{a.actual_finish}</p>
 						</div>
 					{/if}
 					{#if a.baseline_start}
 						<div>
-							<p class="text-gray-500">Baseline Start</p>
+							<p class="text-gray-500">{$t('schedule.detail_baseline_start')}</p>
 							<p class="font-semibold text-gray-500">{a.baseline_start}</p>
 						</div>
 						<div>
-							<p class="text-gray-500">Baseline Finish</p>
+							<p class="text-gray-500">{$t('schedule.detail_baseline_finish')}</p>
 							<p class="font-semibold text-gray-500">{a.baseline_finish}</p>
 						</div>
 					{/if}
 					{#if a.start_variance_days !== null && a.start_variance_days !== undefined}
 						<div>
-							<p class="text-gray-500">Start Variance</p>
+							<p class="text-gray-500">{$t('schedule.detail_start_variance')}</p>
 							<p class="font-semibold {a.start_variance_days > 0 ? 'text-red-600' : a.start_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{a.start_variance_days > 0 ? '+' : ''}{a.start_variance_days}d</p>
 						</div>
 					{/if}
 					{#if a.finish_variance_days !== null && a.finish_variance_days !== undefined}
 						<div>
-							<p class="text-gray-500">Finish Variance</p>
-							<p class="font-semibold {a.finish_variance_days > 0 ? 'text-red-600' : a.finish_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{a.finish_variance_days > 0 ? '+' : ''}{a.finish_variance_days}d {a.finish_variance_days > 0 ? '(late)' : a.finish_variance_days < 0 ? '(early)' : ''}</p>
+							<p class="text-gray-500">{$t('schedule.detail_finish_variance')}</p>
+							<p class="font-semibold {a.finish_variance_days > 0 ? 'text-red-600' : a.finish_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{a.finish_variance_days > 0 ? '+' : ''}{a.finish_variance_days}d {a.finish_variance_days > 0 ? $t('schedule.detail_late_suffix') : a.finish_variance_days < 0 ? $t('schedule.detail_early_suffix') : ''}</p>
 						</div>
 					{/if}
 					{#if a.constraint_type && a.constraint_type !== 'CS_MEO'}
 						<div>
-							<p class="text-gray-500">Constraint</p>
+							<p class="text-gray-500">{$t('schedule.detail_constraint')}</p>
 							<p class="font-semibold text-purple-600">{a.constraint_type} {a.constraint_date || ''}</p>
 						</div>
 					{/if}
 					<div>
-						<p class="text-gray-500">Calendar</p>
+						<p class="text-gray-500">{$t('schedule.detail_calendar')}</p>
 						<p class="font-semibold text-gray-500">{a.calendar_id || '—'}</p>
 					</div>
 				</div>
@@ -585,7 +595,7 @@
 						<div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
 							{#if preds.length > 0}
 								<div>
-									<p class="text-[9px] text-gray-500 mb-1">Predecessors ({preds.length})</p>
+									<p class="text-[9px] text-gray-500 mb-1">{$t('schedule.detail_predecessors')} ({preds.length})</p>
 									<div class="space-y-0.5">
 										{#each preds as rel}
 											{@const predAct = data.activities.find(a2 => a2.task_id === rel.from_id)}
@@ -602,7 +612,7 @@
 							{/if}
 							{#if succs.length > 0}
 								<div>
-									<p class="text-[9px] text-gray-500 mb-1">Successors ({succs.length})</p>
+									<p class="text-[9px] text-gray-500 mb-1">{$t('schedule.detail_successors')} ({succs.length})</p>
 									<div class="space-y-0.5">
 										{#each succs as rel}
 											{@const succAct = data.activities.find(a2 => a2.task_id === rel.to_id)}
@@ -638,7 +648,7 @@
 					{@const leftPct = ((actStart - projStart) / projSpan) * 100}
 					{@const widthPct = Math.max(0.5, ((actEnd - actStart) / projSpan) * 100)}
 					<div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-						<p class="text-[9px] text-gray-500 mb-1">Activity Timeline</p>
+						<p class="text-[9px] text-gray-500 mb-1">{$t('schedule.activity_timeline')}</p>
 						<div class="relative h-6 bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
 							{#if a.baseline_start && a.baseline_finish}
 								{@const blStart = new Date(a.baseline_start + 'T00:00:00').getTime()}
@@ -662,14 +672,14 @@
 		<!-- Activity data table -->
 		<details class="mt-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
 			<summary class="px-4 py-3 cursor-pointer text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between">
-				<span>Activity Table ({sortedActivities.length}{wbsFilter ? `/${data.activities.length}` : ''} activities)</span>
+				<span>{$t('schedule.activity_table')} ({sortedActivities.length}{wbsFilter ? `/${data.activities.length}` : ''} {$t('schedule.activities_suffix')})</span>
 				<span class="flex items-center gap-2">
 					<select
 						onclick={(e: MouseEvent) => e.stopPropagation()}
 						bind:value={wbsFilter}
 						class="text-[9px] rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 px-1.5 py-0.5 max-w-40"
 					>
-						<option value="">All WBS</option>
+						<option value="">{$t('schedule.all_wbs')}</option>
 						{#each uniqueWbsPaths as path}
 							<option value={path}>{path.split('/').pop()}</option>
 						{/each}
@@ -678,9 +688,9 @@
 						type="button"
 						onclick={(e: MouseEvent) => { e.stopPropagation(); showColumnConfig = !showColumnConfig; }}
 						class="text-[9px] px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-						title="Configure columns"
+						title={$t('schedule.columns_tooltip')}
 					>
-						Columns ({visibleColumns.length}/{columns.length})
+						{$t('schedule.columns_button')} ({visibleColumns.length}/{columns.length})
 					</button>
 				</span>
 			</summary>
@@ -691,7 +701,7 @@
 					{#each columns as col}
 						<label class="flex items-center gap-1 text-[9px] text-gray-600 dark:text-gray-400 cursor-pointer">
 							<input type="checkbox" checked={col.visible} onchange={() => toggleColumn(col.id)} class="w-3 h-3 rounded" />
-							{col.label}
+							{$t(col.labelKey)}
 						</label>
 					{/each}
 				</div>
@@ -705,7 +715,7 @@
 								<th class="{col.align} py-1.5 px-2 font-semibold text-gray-500 {col.sortKey ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-300 select-none' : ''}"
 									onclick={() => col.sortKey && toggleSort(col.sortKey)}
 								>
-									{col.label}{#if sortCol === col.sortKey}<span class="ml-0.5">{sortAsc ? '▲' : '▼'}</span>{/if}
+									{$t(col.labelKey)}{#if sortCol === col.sortKey}<span class="ml-0.5">{sortAsc ? '▲' : '▼'}</span>{/if}
 								</th>
 							{/each}
 						</tr>

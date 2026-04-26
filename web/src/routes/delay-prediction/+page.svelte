@@ -102,13 +102,13 @@
 </script>
 
 <svelte:head>
-	<title>Delay Prediction - MeridianIQ</title>
+	<title>{$t('page.delay_prediction')} - MeridianIQ</title>
 </svelte:head>
 
 <main class="max-w-6xl mx-auto px-4 py-8">
 	<div class="mb-8">
-		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Delay Prediction</h1>
-		<p class="text-gray-500 dark:text-gray-400 mt-1">Activity-level risk scoring with explainable factors (Gondia et al. 2021)</p>
+		<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.delay_prediction')}</h1>
+		<p class="text-gray-500 dark:text-gray-400 mt-1">{$t('delay_prediction.subtitle')}</p>
 	</div>
 
 	<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -123,18 +123,18 @@
 				</select>
 			</div>
 			<div class="w-36">
-				<label for="model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+				<label for="model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('delay_prediction.model_label')}</label>
 				<select id="model" bind:value={modelType} class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
-					<option value="rules">Rule-Based</option>
-					<option value="ml">ML Ensemble</option>
+					<option value="rules">{$t('delay_prediction.model_rules')}</option>
+					<option value="ml">{$t('delay_prediction.model_ml')}</option>
 				</select>
 			</div>
 			<button onclick={analyze} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-				{loading ? 'Predicting...' : 'Predict Delays'}
+				{loading ? $t('delay_prediction.predicting') : $t('delay_prediction.predict_button')}
 			</button>
 			{#if selectedProject}
-				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProject}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -151,47 +151,47 @@
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{totalActivities}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Activities</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_prediction.kpi_activities')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-amber-600">{atRiskCount}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">At Risk</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_prediction.kpi_at_risk')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-red-600">{result.high_risk_count}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">High Risk</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_prediction.kpi_high_risk')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
 				<p class="text-lg font-bold text-blue-600 capitalize">{modelType}</p>
-				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">Model</p>
+				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('delay_prediction.kpi_model')}</p>
 			</div>
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
 			<ScatterChart
 				data={scatterPoints}
-				title="Delay Risk Scatter"
-				xLabel="Predicted Delay (days)"
-				yLabel="Risk Score"
+				title={$t('delay_prediction.scatter_title')}
+				xLabel={$t('delay_prediction.scatter_x')}
+				yLabel={$t('delay_prediction.scatter_y')}
 			/>
 			<HeatMapChart
 				items={heatItems}
-				title="Risk Heat Map (Medium + High)"
+				title={$t('delay_prediction.heat_title')}
 			/>
 		</div>
 
 		{#if result.activity_risks.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Predictions ({result.activity_risks.length})</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('delay_prediction.predictions_heading')} ({result.activity_risks.length})</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
 							<tr class="border-b border-gray-200 dark:border-gray-700">
-								<th class="text-left py-2 px-3">Activity</th>
-								<th class="text-left py-2 px-3">Risk Level</th>
-								<th class="text-right py-2 px-3">Score</th>
-								<th class="text-right py-2 px-3">Predicted Delay</th>
-								<th class="text-left py-2 px-3">Top Factors</th>
+								<th class="text-left py-2 px-3">{$t('delay_prediction.col_activity')}</th>
+								<th class="text-left py-2 px-3">{$t('delay_prediction.col_risk_level')}</th>
+								<th class="text-right py-2 px-3">{$t('delay_prediction.col_score')}</th>
+								<th class="text-right py-2 px-3">{$t('delay_prediction.col_predicted_delay')}</th>
+								<th class="text-left py-2 px-3">{$t('delay_prediction.col_top_factors')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -213,7 +213,7 @@
 						</tbody>
 					</table>
 					{#if result.activity_risks.length > 50}
-						<p class="text-xs text-gray-400 mt-2">Showing top 50 of {result.activity_risks.length}</p>
+						<p class="text-xs text-gray-400 mt-2">{$t('delay_prediction.showing_prefix')} {result.activity_risks.length}</p>
 					{/if}
 				</div>
 				<p class="text-xs text-gray-400 mt-3">{result.methodology}</p>

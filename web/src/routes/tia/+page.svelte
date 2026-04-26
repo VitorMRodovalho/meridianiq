@@ -30,13 +30,13 @@
 	let fragments: DelayFragmentSchema[] = $state([]);
 	let activityCodes: string[] = $state([]);
 
-	const responsibleParties = [
-		{ value: 'owner', label: 'Owner' },
-		{ value: 'contractor', label: 'Contractor' },
-		{ value: 'shared', label: 'Shared' },
-		{ value: 'third_party', label: 'Third Party' },
-		{ value: 'force_majeure', label: 'Force Majeure' }
-	];
+	const responsibleParties = $derived([
+		{ value: 'owner', label: $t('tia.party_owner') },
+		{ value: 'contractor', label: $t('tia.party_contractor') },
+		{ value: 'shared', label: $t('tia.party_shared') },
+		{ value: 'third_party', label: $t('tia.party_third_party') },
+		{ value: 'force_majeure', label: $t('tia.party_force_majeure') }
+	]);
 
 	onMount(async () => {
 		try {
@@ -113,15 +113,15 @@
 </script>
 
 <svelte:head>
-	<title>Time Impact Analysis - MeridianIQ</title>
+	<title>{$t('page.tia')} - MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-7xl mx-auto">
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Time Impact Analysis</h1>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{$t('page.tia')}</h1>
 			<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-				Prospective delay analysis per AACE RP 52R-06
+				{$t('tia.subtitle')}
 			</p>
 		</div>
 		<div class="flex items-center gap-2">
@@ -129,10 +129,10 @@
 				onclick={() => (showCreate = !showCreate)}
 				class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
 			>
-				{showCreate ? 'Cancel' : 'New Analysis'}
+				{showCreate ? $t('tia.cancel_button') : $t('tia.new_button')}
 			</button>
 			{#if selectedProjectId}
-				<a href="/schedule?project={selectedProjectId}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">View Schedule</a>
+				<a href="/schedule?project={selectedProjectId}" class="px-3 py-2 text-xs text-teal-600 hover:text-teal-800 font-medium">{$t('common.view_schedule')}</a>
 			{/if}
 		</div>
 	</div>
@@ -147,19 +147,18 @@
 
 	{#if showCreate}
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Create TIA Analysis</h2>
+			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('tia.create_heading')}</h2>
 			<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-				Select a base schedule and define delay fragments. Each fragment represents a
-				discrete delay event that will be inserted into the schedule network.
+				{$t('tia.create_help')}
 			</p>
 
 			<!-- Project Selection -->
 			<div class="mb-4">
 				<label for="project" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-					>Base Schedule</label
+					>{$t('tia.base_schedule_label')}</label
 				>
 				{#if projectsLoading}
-					<p class="text-gray-500 dark:text-gray-400 text-sm">Loading projects...</p>
+					<p class="text-gray-500 dark:text-gray-400 text-sm">{$t('tia.loading_projects')}</p>
 				{:else}
 					<select
 						id="project"
@@ -169,7 +168,7 @@
 					>
 						<option value="">{$t('common.choose_project')}</option>
 						{#each projects as p}
-							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} activities)</option>
+							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} {$t('tia.activities_suffix')})</option>
 						{/each}
 					</select>
 				{/if}
@@ -178,18 +177,18 @@
 			<!-- Fragments -->
 			<div class="mb-4">
 				<div class="flex items-center justify-between mb-2">
-					<span class="block text-sm font-medium text-gray-700 dark:text-gray-300">Delay Fragments</span>
+					<span class="block text-sm font-medium text-gray-700 dark:text-gray-300">{$t('tia.delay_fragments_label')}</span>
 					<button
 						onclick={addFragment}
 						class="text-sm text-blue-600 hover:text-blue-800 font-medium"
 					>
-						+ Add Fragment
+						{$t('tia.add_fragment_button')}
 					</button>
 				</div>
 
 				{#if fragments.length === 0}
 					<p class="text-sm text-gray-400 italic">
-						No fragments added. Click "+ Add Fragment" to begin.
+						{$t('tia.no_fragments')}
 					</p>
 				{/if}
 
@@ -197,27 +196,27 @@
 					<div class="border border-gray-200 dark:border-gray-700 rounded-md p-4 mb-3 bg-gray-50 dark:bg-gray-800">
 						<div class="flex items-center justify-between mb-3">
 							<span class="text-sm font-medium text-gray-800"
-								>Fragment {fi + 1}: {frag.fragment_id}</span
+								>{$t('tia.fragment_label')} {fi + 1}: {frag.fragment_id}</span
 							>
 							<button
 								onclick={() => removeFragment(fi)}
 								class="text-xs text-red-500 hover:text-red-700"
 							>
-								Remove
+								{$t('tia.remove_button')}
 							</button>
 						</div>
 						<div class="grid grid-cols-2 gap-3 mb-3">
 							<label class="block">
-								<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Name</span>
+								<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.fragment_name_label')}</span>
 								<input
 									type="text"
 									bind:value={frag.name}
-									placeholder="e.g., Permit Delay"
+									placeholder={$t('tia.fragment_name_placeholder')}
 									class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 								/>
 							</label>
 							<label class="block">
-								<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Responsible Party</span>
+								<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.responsible_party_label')}</span>
 								<select
 									bind:value={frag.responsible_party}
 									class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
@@ -229,11 +228,11 @@
 							</label>
 						</div>
 						<label class="block mb-3">
-							<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Description</span>
+							<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.description_label')}</span>
 							<input
 								type="text"
 								bind:value={frag.description}
-								placeholder="Description of the delay event"
+								placeholder={$t('tia.description_placeholder')}
 								class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 							/>
 						</label>
@@ -242,11 +241,11 @@
 						{#each frag.activities as act, ai}
 							<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-3 mb-2">
 								<div class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-									Activity: {act.fragment_activity_id}
+									{$t('tia.activity_label')}: {act.fragment_activity_id}
 								</div>
 								<div class="grid grid-cols-3 gap-2 mb-2">
 									<label class="block">
-										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Activity Name</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.activity_name_label')}</span>
 										<input
 											type="text"
 											bind:value={act.name}
@@ -254,7 +253,7 @@
 										/>
 									</label>
 									<label class="block">
-										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Duration (hours)</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.duration_hours_label')}</span>
 										<input
 											type="number"
 											bind:value={act.duration_hours}
@@ -265,50 +264,50 @@
 								</div>
 								<div class="grid grid-cols-2 gap-2">
 									<div>
-										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Predecessor Activity Code</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.predecessor_code_label')}</span>
 										{#if selectedProjectId}
 											<ActivityPicker
 												projectId={selectedProjectId}
 												selected={act.predecessors[0].activity_code
 													? [{ task_code: act.predecessors[0].activity_code, task_name: '' }]
 													: []}
-												placeholder="Search predecessor…"
+												placeholder={$t('tia.search_predecessor')}
 												onchange={(sel) => {
 													act.predecessors[0].activity_code = sel.length > 0 ? sel[sel.length - 1].task_code : '';
 												}}
 											/>
 										{:else}
 											<label class="block">
-												<span class="sr-only">Predecessor Activity Code</span>
+												<span class="sr-only">{$t('tia.predecessor_code_label')}</span>
 												<input
 													type="text"
 													bind:value={act.predecessors[0].activity_code}
-													placeholder="e.g., A3050"
+													placeholder={$t('tia.predecessor_placeholder')}
 													class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 												/>
 											</label>
 										{/if}
 									</div>
 									<div>
-										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Successor Activity Code</span>
+										<span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{$t('tia.successor_code_label')}</span>
 										{#if selectedProjectId}
 											<ActivityPicker
 												projectId={selectedProjectId}
 												selected={act.successors[0].activity_code
 													? [{ task_code: act.successors[0].activity_code, task_name: '' }]
 													: []}
-												placeholder="Search successor…"
+												placeholder={$t('tia.search_successor')}
 												onchange={(sel) => {
 													act.successors[0].activity_code = sel.length > 0 ? sel[sel.length - 1].task_code : '';
 												}}
 											/>
 										{:else}
 											<label class="block">
-												<span class="sr-only">Successor Activity Code</span>
+												<span class="sr-only">{$t('tia.successor_code_label')}</span>
 												<input
 													type="text"
 													bind:value={act.successors[0].activity_code}
-													placeholder="e.g., A4010"
+													placeholder={$t('tia.successor_placeholder')}
 													class="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
 												/>
 											</label>
@@ -327,7 +326,7 @@
 					disabled={loading || !selectedProjectId || fragments.length === 0}
 					class="bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 				>
-					{loading ? 'Analyzing...' : `Analyze ${fragments.length} Fragments`}
+					{loading ? $t('tia.analyzing') : `${$t('tia.analyze_button_prefix')} ${fragments.length} ${$t('tia.analyze_button_suffix')}`}
 				</button>
 			</div>
 		</div>
@@ -337,29 +336,29 @@
 	{#if analyses.length > 0}
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
 			<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">TIA Analyses</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('tia.analyses_heading')}</h2>
 			</div>
 			<div class="overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200 text-sm">
 					<thead class="bg-gray-50 dark:bg-gray-800">
 						<tr>
 							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-								>Analysis</th
+								>{$t('tia.col_analysis')}</th
 							>
 							<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-								>Project</th
+								>{$t('tia.col_project')}</th
 							>
 							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-								>Fragments</th
+								>{$t('tia.col_fragments')}</th
 							>
 							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-								>Owner Delay</th
+								>{$t('tia.col_owner_delay')}</th
 							>
 							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-								>Contractor Delay</th
+								>{$t('tia.col_contractor_delay')}</th
 							>
 							<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"
-								>Net Delay</th
+								>{$t('tia.col_net_delay')}</th
 							>
 							<th class="px-4 py-3"></th>
 						</tr>
@@ -390,7 +389,7 @@
 										href="/tia/{a.analysis_id}"
 										class="text-blue-600 hover:underline text-sm"
 									>
-										View
+										{$t('tia.view_link')}
 									</a>
 								</td>
 							</tr>
@@ -414,9 +413,9 @@
 					d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No TIA analyses yet</h3>
+			<h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">{$t('tia.empty_title')}</h3>
 			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-				Click "New Analysis" to create your first Time Impact Analysis.
+				{$t('tia.empty_help')}
 			</p>
 		</div>
 	{/if}
