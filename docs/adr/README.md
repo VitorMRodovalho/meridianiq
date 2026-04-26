@@ -31,6 +31,8 @@ Medium-sized projects accumulate decisions quickly. Without ADRs, the reasoning 
 | [0016](0016-lifecycle-phase-inference.md) | Lifecycle phase inference + override log + lock-flag | accepted |
 | [0017](0017-deduplicate-api-keys-migration.md) | Deduplicate `api_keys` migration (012 vs 017) | accepted |
 | [0018](0018-cycle-cadence-doc-artifacts.md) | Cycle cadence doc artifacts (roadmap, backlog, audit re-run) | accepted |
+| [0019](0019-cycle-2-entry-consolidation-primitive.md) | Cycle 2 entry — Consolidation + Primitive (Option 4) | accepted |
+| 0020 | _(reserved — calibration harness as reusable primitive, lands in W3)_ | reserved, not authored — see ADR-0019 §"W3" |
 
 ## Adding a new ADR
 
