@@ -3,8 +3,8 @@
 * Status: accepted
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-27
-* Cites template: [ADR-0019](0019-cycle-2-entry-consolidation-primitive.md) §"Process" (council protocol) and §"Cycle 3 status" (pre-committed candidates)
-* Cites primitive: [ADR-0020](0020-calibration-harness-primitive.md) (the harness that opened the §"Cycle 3 status" gates)
+* Cites template: [ADR-0019](0019-cycle-2-entry-consolidation-primitive.md) §"Reversibility" + §"Scope of what this ADR does NOT do" (the gating language for the two pre-committed Cycle 3 deep candidates) and the 4-agent council protocol established in Cycle 2 (recorded in `project_v40_cycle_2.md` §"Roles + councils for Cycle 2"; the protocol itself is not yet in-repo — see §"Open process gap" below)
+* Cites primitive: [ADR-0020](0020-calibration-harness-primitive.md) (the harness that opened the candidate-deep gates ADR-0019 §"Reversibility" pre-committed)
 
 ## Context and Problem Statement
 
@@ -17,16 +17,21 @@ devils-advocate-as-second-reviewer protocol, and PR #37 appended five
 close-arc lessons to `docs/LESSONS_LEARNED.md`. Cycle 3 opens against
 this state.
 
-ADR-0019 §"Cycle 3 status" pre-committed two candidate deeps gated on
+ADR-0019 §"Reversibility" pre-committed two candidate deeps gated on
 the calibration harness landing first — A1+A2 (auto-grouping +
-baseline inference) and E1 (multi-discipline forensic methodology).
-The harness shipped in Cycle 2 W3 (`tools/calibration_harness.py`,
-ADR-0020). Both gates are formally open. The maintainer can also
-choose Schedule Viewer Wave 7 (#23 sub-issues #29-#32), Option 4
-redux (no deep), or any hybrid.
+baseline inference) and E1 (multi-discipline forensic methodology) —
+and §"Scope of what this ADR does NOT do" explicitly deferred Cycle 3
+deep selection to "the W3 calibration harness outputs as evidence
+input." The harness shipped in Cycle 2 W3 (`tools/calibration_harness.py`,
+ADR-0020). Both candidate-deep gates are formally open. The
+maintainer can also choose Schedule Viewer Wave 7 (#23 sub-issues
+#29-#32), Option 4 redux (no deep), or any hybrid.
 
-This ADR records the Cycle 3 council round (4 agents over 2 rounds
-per ADR-0019 §"Process"), the synthesis that rejected both
+This ADR records the Cycle 3 council round (4 agents over 2 rounds —
+PV + strategist parallel in round 1, devils-advocate + investor-view
+paired adversarially in round 2 per the protocol established in
+Cycle 2 and documented in memory `project_v40_cycle_2.md` §"Roles +
+councils for Cycle 2"), the synthesis that rejected both
 pre-committed candidates plus the strategist-proposed hybrid, and the
 chairman recommendation the maintainer accepted: **Option α — floor
 work + a single Field-surface shallow at W5**.
@@ -101,7 +106,13 @@ work + a single Field-surface shallow at W5**.
    in 12 months." Cycle 2 explicitly accepted it as a deferred
    negative. A 3rd cycle of total absence on field surface forecloses
    the largest pricing tier in construction software. A 1-2 wave
-   shallow at W5 addresses it without overclaiming.
+   shallow at W5 addresses **the Field Engineer surface specifically**
+   (responsive Gantt OR 3-week look-ahead OR offline cache —
+   Field-Engineer-primary JTBDs); the **Subcontractor surface**
+   (AIA G702/G703 generation, sub workflow handoffs) is explicitly
+   accepted as continuing under-service with a Cycle 5+ commitment
+   per §"Considered Options" Option 6 deferral. Decision Driver 7
+   addresses the bundle's Field-Engineer half, not both halves.
 
 8. **Solo-maintainer reversibility maximum.** Cycle 1 was 7 waves at
    1.5× scope ratio; Cycle 2 was 4 planned + ~4.5 actual + 4
@@ -211,9 +222,10 @@ instead.
 ## Decision
 
 **Cycle 3 enters as Option α — Floor + Field-surface shallow.** Plan:
-5+1 waves, no deep, with a graceful per-wave landing pattern matching
-Cycle 2. Each wave independently valuable; cycle ships a tagged
-release at whatever state lands at the buffer point.
+**5 mandatory waves + 1 optional (W5)**, no deep, with a graceful
+per-wave landing pattern matching Cycle 2. Each wave independently
+valuable; cycle ships a tagged release at whatever state lands at the
+buffer point.
 
 ### Wave plan
 
@@ -232,6 +244,15 @@ release at whatever state lands at the buffer point.
 
 W0 budget: ~1-1.5 waves (entry docs + audit run + finding triage).
 
+**W0 fallback if audit re-run slips past W0 close:** ADR-0018
+amendment authored at the slip moment — NOT at cycle close — honestly
+disclosing the slip + committing to a new date (W3.5 contingency wave
+or Cycle 3.5 patch). Pre-committing the slip-handling protocol here
+prevents the next devils-advocate review from finding a fresh
+honesty-debt accumulation; the "scheduled — Cycle 3 W0" wording in
+ROADMAP §"Cadence" is a date-pegged contract, not an open obligation,
+and this clause is its escape hatch.
+
 **W1 — `#26` prod migration apply**
 
 - Apply migration `026_api_keys_schema_align.sql` to production
@@ -246,13 +267,21 @@ W1 budget: ~0.5-1 wave (operator-paced).
 - Re-read ADR-0017 (api_keys dedup), ADR-0018 (cycle cadence),
   ADR-0019 (Cycle 2 entry), ADR-0020 (calibration harness primitive).
   Record ratifications via issue #28 closure.
-- W4 manifest archive: move `/tmp/w4_*.json` artifacts (if extant) to
+- W4 manifest archive: move `/tmp/w4_*.json` artifacts to
   `meridianiq-private/calibration/cycle1-w4/` with content-hash
-  verification. **If `/tmp` was rotated and the manifest is gone**:
-  re-run W4 protocol against the harness as the archive material, then
-  archive.
+  verification. **Pre-W2 verification step**: as of 2026-04-27 ADR
+  authoring time, `ls /tmp/w4_*.json` confirms the manifest +
+  private + public payloads still exist (Apr 19 02:55, 8 days old,
+  pre-`tmpfiles.d` rotation window). **If verification fails before
+  W2 starts** (host reboot / `/tmp` rotation between ADR commit and
+  W2 wave start), W2 must be re-budgeted to ~1.5-2 waves with the
+  re-run W4 protocol as named W2.5 contingency wave — NOT a
+  parenthetical clause. The re-run is itself one wave + a fresh
+  `0009-w4-outcome.md` reauthorship cycle.
 
-W2 budget: ~0.5-1 wave + operator coordination.
+W2 budget: ~0.5-1 wave + operator coordination IF verification holds;
+~1.5-2 waves IF re-run is needed. The contingency is a budget
+expansion, not a hidden cost.
 
 **W3 — W4 reproduction regression test**
 
@@ -298,14 +327,50 @@ W5 budget: 1-2 waves.
 
 ### Total Cycle 3 budget
 
-**Plan: 5-6 waves.** With the observed 1.5× scope ratio,
-**~7-9 waves realistic** including operator coordination overhead and
-post-tag close-arc PRs (Cycle 2 close-arc was 4 PRs over 1 day per
-LESSONS_LEARNED 2026-04-27 entry).
+**Plan: 5 mandatory waves + 1 optional (W5).** With the observed 1.5×
+scope ratio, **~7-9 waves realistic** including operator coordination
+overhead and post-tag close-arc PRs (Cycle 2 close-arc was 4 PRs over
+1 day per LESSONS_LEARNED 2026-04-27 entry).
 
-**Buffer:** if W5 cannot fit, the cycle ships v4.2.0 at W4 close. The
-Field-surface shallow can re-slot into any Cycle 3.5 patch or Cycle 4
-W0. The cycle has no must-ship bundle.
+**Buffer + tag-target SemVer rationale:**
+
+- If W0-W5 all ship: tag **v4.2.0** — minor bump justified by the new
+  Field-surface route (W5 sub-pick (b) 3-week look-ahead view) OR new
+  responsive Schedule Viewer mode (W5 sub-pick (a)) OR new offline
+  cache surface (W5 sub-pick (c)) — all three sub-picks add
+  user-visible additive surface.
+- If W5 drops and cycle ships at W4 close: tag **v4.1.1** — patch
+  bump is the honest SemVer label for a consolidation-only cycle
+  (audit re-run is docs; #26 prod migration is ops; W3 regression
+  test is internal CI; W4 `_ENGINE_VERSION` migration is bug-fix-class
+  per ADR-0014 divergence). Pre-asserting v4.2.0 for a docs+bug-fix
+  cycle would be a wrong external SemVer signal.
+- The Field-surface W5 shallow can re-slot into any Cycle 3.5 patch
+  or Cycle 4 W0 with v4.2.0 tagged then. The cycle has no must-ship
+  bundle.
+
+### Round 2 devils-advocate preconditions adopted
+
+Round 2 DA's adversarial review (2026-04-27, dispatched against the
+chairman synthesis) named 5 non-negotiable preconditions before any
+Cycle 3 deep should open. Cycle 3 enters as Option α specifically
+*because* a deep was rejected, but the floor work itself must satisfy
+these to avoid replaying the engine_version-style multi-cycle drift.
+Mapped to wave / success-criterion adoption:
+
+| # | DA precondition | Cycle 3 wave | Success criterion |
+|---|-----------------|--------------|-------------------|
+| DA-1 | 2026-04-26 audit re-run completed and triaged, OR ADR-0018 amendment authored honestly disclosing the slip | W0 | #1 |
+| DA-2 | W4 manifest archived AND `tests/test_w4_reproduction.py` in CI green (proves harness reproduces W4 outcome byte-identically) | W2 (archive) + W3 (test) | #4 + #5 |
+| DA-3 | `#26` prod migration applied + post-apply verification (audit count, sample row inspection, RLS verification) | W1 | #2 |
+| DA-4 | ADR-0021 (Cycle 3 entry strategic decision) authored BEFORE Cycle 3 W0 — citing this round's adversarial output and PV's revised position | W0 | #8 (this ADR) |
+| DA-5 | Pre-allocated ADR-0022 + ADR-0023 — prevents collision with audit-spawned ADRs (the ADR-0019 §"Numbering note" lesson) | W0 | tracked in `docs/adr/README.md` index + ROADMAP §"Engineering reservations" |
+
+All 5 are explicitly adopted as Cycle 3 floor work. Rephrasing
+the success criteria in §"Pre-registered success criteria" below to
+DA-1 through DA-5 enumeration would close the audit-transparency gap
+DA's process meta-finding flagged; for now the cross-reference table
+above is the primary record.
 
 ### Pre-registered success criteria
 
@@ -323,8 +388,13 @@ Cycle 3 ships successfully if at close:
    `meridianiq-private/calibration/cycle1-w4/` with content-hash
    verification. (W2)
 5. **`tests/test_w4_reproduction.py` in CI green** — proves the
-   harness reproduces the W4 outcome byte-identically. **This is the
-   load-bearing primitive of the cycle.** (W3)
+   harness reproduces the W4 outcome byte-identically. **This closes
+   the ADR-0020 §"Decision" caveat outstanding since 2026-04-26 (the
+   harness ships pipeline-shape but does NOT reproduce W4 numbers
+   authoritatively until the regression test passes).** It is *a*
+   load-bearing primitive of the cycle, not *the* one — Decision
+   Driver 1 establishes that the multi-wave operator block is the
+   actual cycle centre. (W3)
 6. **`src/__about__.py::__version__` exists; `_ENGINE_VERSION` sourced
    from it; existing prod artifacts re-materialized OR explicitly
    marked-stale**. Closes the ADR-0014 multi-cycle divergence. (W4)
@@ -334,9 +404,10 @@ Cycle 3 ships successfully if at close:
    surface OR by user-acceptance smoke test. (W5; OPTIONAL — cycle
    passes without it if W0-W4 close)
 8. **ADR-0021 + ADR-0024 (audit-spawned, if any P0/P1 finding warrants
-   one) committed** with cross-link to ADR-0019 §"Cycle 3 status" + the
-   2026-04-27 council round adversarial output (this ADR §Considered
-   Options).
+   one) committed** with cross-link to ADR-0019 §"Reversibility" +
+   §"Scope of what this ADR does NOT do" + the 2026-04-27 council
+   round adversarial output (this ADR §"Considered Options" + the
+   memory `project_v40_cycle_3.md` for the round-by-round detail).
 9. **v4.2.0 tagged + GitHub release + CI green.**
 
 Cycle 3 fails *gracefully* if ≥5 of the 9 criteria close and the rest
@@ -369,11 +440,15 @@ are cleanly documented for Cycle 3.5 or Cycle 4.
 - Three consolidation-flavoured cycles in a row (Cycle 1 was feature,
   Cycle 2 was Option 4, Cycle 3 is Option α). Round 2 IV explicitly
   flagged this as "velocity problem signal" to acquirer-class
-  observers. Mitigation: ADR-0021 explicitly commits Cycle 4 to the
-  calibration-gated A2 OR E1 deep on the verified harness + corpus
-  preconditions; the cycle's external story is "shipping the
+  observers. Mitigation: ADR-0021 frames Cycle 4 candidate deeps as
+  the calibration-gated A2 (corpus-conditional) AND E1
+  (corpus-conditional) on the verified harness + corpus preconditions;
+  selection happens at Cycle 4 W0 with its own council round, NOT
+  pre-committed here. The cycle's external story is "shipping the
   apparatus + corpus + verification so the next moat play can't
-  repeat W4 publicly".
+  repeat W4 publicly". (Reconciles with §"Reversibility" framing
+  below — Cycle 4 is candidate-shaped, not committed to a specific
+  deep.)
 - A1+A2 personas (Owner / Program Director / Cost Engineer) stay
   under-served for one more cycle. The Field-surface W5 partially
   addresses Cost Engineer if the W5 sub-pick is responsive Gantt;
@@ -401,6 +476,25 @@ are cleanly documented for Cycle 3.5 or Cycle 4.
   procurement progress, contributor signal on issue #13) reframes the
   strategic question, Cycle 4 chooses freely.
 
+### Open process gap
+
+The 4-agent council protocol (PV + strategist round 1 parallel;
+devils-advocate + investor-view round 2 paired adversarially per
+the documented sycophancy-counter pairing) is only documented in
+maintainer memory `project_v40_cycle_2.md` §"Roles + councils for
+Cycle 2" — not in any in-repo ADR or process doc. ADR-0019 followed
+the same protocol but did not codify it; ADR-0021 follows the same
+protocol but does not codify it either. **Future contributors
+reading ADR-0021 cannot verify the "chairman synthesis was faithful
+to the round outputs" claim without access to the maintainer's
+memory directory.** This is the same opacity trade-off ADR-0019 made
+silently. Addressing it would require either (a) a separate ADR
+codifying the council protocol as part of the cycle-cadence cadence
+(extending ADR-0018), or (b) committing the council outputs of each
+cycle into `docs/adr/cycles/cycle-N/` as audit-grade record. Neither
+is in Cycle 3 scope; flagged here as a known structural gap that a
+future cycle should close.
+
 ## Scope of what this ADR does NOT do
 
 - Does not assign a Cycle 4 deep. That decision waits for the W3
@@ -424,13 +518,18 @@ are cleanly documented for Cycle 3.5 or Cycle 4.
 
 ## Related
 
-- [ADR-0019](0019-cycle-2-entry-consolidation-primitive.md) §"Cycle 3
-  status" + §"Process" — the gating language and council protocol
-  this ADR honors.
+- [ADR-0019](0019-cycle-2-entry-consolidation-primitive.md)
+  §"Reversibility" + §"Scope of what this ADR does NOT do" — the
+  gating language for the two pre-committed Cycle 3 candidate deeps
+  (E1 + A1+A2). The 4-agent council protocol is documented in memory
+  `project_v40_cycle_2.md` §"Roles + councils for Cycle 2"; ADR-0021
+  honors the same protocol but does not codify it in-repo (open
+  process gap — see §"Open process gap" below).
 - [ADR-0020](0020-calibration-harness-primitive.md) — the harness
-  primitive that opened the §"Cycle 3 status" gates; W3 reproduction
-  regression test in this cycle finishes ADR-0020's work by closing
-  its §"Decision" caveat.
+  primitive that opened the candidate-deep gates ADR-0019
+  §"Reversibility" pre-committed; W3 reproduction regression test
+  in this cycle finishes ADR-0020's work by closing its §"Decision"
+  caveat.
 - [ADR-0018](0018-cycle-cadence-doc-artifacts.md) §5 — audit re-run
   cycle-close mandate; W0 honors it.
 - [ADR-0017](0017-deduplicate-api-keys-migration.md) — migration #26

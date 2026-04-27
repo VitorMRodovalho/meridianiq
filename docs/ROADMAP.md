@@ -38,9 +38,10 @@ archived (see "Operator actions" below).
 **Theme:** Floor + Field-surface shallow ([ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md), Option α).
 **Tag target:** `v4.2.0` — "Governance + Corpus Foundation".
 
-The 2026-04-27 council round (4 agents over 2 rounds per ADR-0019
-§"Process") rejected both ADR-0019 §"Cycle 3 status" pre-committed
-deeps and the strategist-proposed hybrid. Round 2 devils-advocate
+The 2026-04-27 council round (4 agents over 2 rounds per the protocol
+established in Cycle 2 and documented in memory `project_v40_cycle_2.md`
+§"Roles + councils for Cycle 2") rejected both ADR-0019 §"Reversibility"
+pre-committed candidate deeps and the strategist-proposed hybrid. Round 2 devils-advocate
 verified A2 baseline inference is **not separable** from A1 grouping
 in the current codebase (`src/database/store.py:252-260` — `save_project`
 auto-creates programs from `proj_short_name` exact-match with no
@@ -62,7 +63,7 @@ ADR-0023 reserved for whichever Cycle 4 deep ships.
 | W0 | This ROADMAP refresh + ADR-0021 + ADR-0022/0023 reservations + 2026-04-26 audit re-run published as `docs/audit/2026-04-26/` (6-layer per ADR-0018 §5) with findings as `audit-2026-04-26`-labeled issues. |
 | W1 | Migration `026_api_keys_schema_align.sql` applied in production per `docs/audit/HANDOFF.md §H-01` (backup, apply, sample-row inspection, RLS verification, audit-log entry). Closes `#26` (P0). |
 | W2 | `#28` ratifications of ADR-0017/0018/0019/0020 (re-read + recorded). W4 manifest archive into `meridianiq-private/calibration/cycle1-w4/` with content-hash verification (re-run W4 protocol against the harness if `/tmp` was rotated). |
-| W3 | `tests/test_w4_reproduction.py` — pins equivalence between `scripts/calibration/run_w4_calibration.py` and `tools/calibration_harness.py` on the same input. Asserts byte-identical aggregate numbers. **Load-bearing primitive of the cycle.** |
+| W3 | `tests/test_w4_reproduction.py` — pins equivalence between `scripts/calibration/run_w4_calibration.py` and `tools/calibration_harness.py` on the same input. Asserts byte-identical aggregate numbers. **Closes the [ADR-0020](adr/0020-calibration-harness-primitive.md) §"Decision" caveat outstanding since 2026-04-26.** (One of two load-bearing items in the cycle alongside the multi-wave operator block per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision Drivers" #1.) |
 | W4 | `_ENGINE_VERSION` → `src/__about__.py::__version__` per [ADR-0014](adr/0014-derived-artifact-provenance-hash.md). Operator decision required on re-materialize event (88 prod rows). Closes the multi-cycle divergence documented in [`LESSONS_LEARNED.md` Cycle 2 §"The ADR-0014 implementation has been diverged for multiple cycles"](LESSONS_LEARNED.md). |
 | W5 (optional) | Field Engineer mobile look-ahead spike. Sub-pick (deferred to W4 close based on remaining capacity): (a) responsive Schedule Viewer pass, OR (b) 3-week look-ahead view, OR (c) lighter offline cache for already-loaded schedules. Addresses 2-cycle-deep Field/Sub under-service. |
 
