@@ -62,6 +62,7 @@ class TestFindMismatches:
             export_modules=1,
             mcp_tools=22,
             pages=54,
+            migrations=23,
         )
 
     def test_all_match_returns_empty(self, stats) -> None:
