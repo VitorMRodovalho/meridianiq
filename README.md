@@ -11,11 +11,11 @@ Open-source schedule intelligence platform — from validation to prediction to 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.56-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/Tests-870%2B%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-1435%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
-[**User Guide**](docs/user-guide/) · [**API Reference**](docs/api-reference.md) · [**Methodologies**](docs/methodologies.md) · [**MCP Tools**](docs/mcp-tools.md) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](CHANGELOG.md) · [**Latest Audit**](docs/audit/)
+[**User Guide**](docs/user-guide/) · [**API Reference**](docs/api-reference.md) · [**Methodologies**](docs/methodologies.md) · [**MCP Tools**](docs/mcp-tools.md) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](CHANGELOG.md) · [**Roadmap**](docs/ROADMAP.md) · [**Latest Audit**](docs/audit/)
 
 </div>
 

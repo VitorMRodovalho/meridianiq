@@ -8,6 +8,8 @@ An ADR records the **context**, **decision**, and **consequences** of an archite
 
 Medium-sized projects accumulate decisions quickly. Without ADRs, the reasoning behind "why FastAPI instead of Django?" or "why Fly.io instead of AWS?" lives only in commit messages and the maintainer's memory. Both decay.
 
+For the **active forward plan** (committed cycle scope, queued tech-debt, deferred items), see [`docs/ROADMAP.md`](../ROADMAP.md). This index records *architectural decisions*; the roadmap records *what is being worked on next*.
+
 ## Index
 
 | # | Title | Status |

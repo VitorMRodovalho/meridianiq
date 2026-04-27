@@ -1,21 +1,24 @@
-# Known Issues & Backlog — v4.0.1
+# Known Issues & Backlog — v4.1.0
 
 Bug tracking and feature backlog for MeridianIQ.
 
-Historical entries (bugs closed before v4.0) live in
-[`docs/archive/BUGS_HISTORY.md`](docs/archive/BUGS_HISTORY.md); this file
-keeps only the active picture plus tech debt and a prioritised forward
-backlog. See [`docs/audit/`](docs/audit/) for the most recent structural
-audit.
+The forward plan lives in [`docs/ROADMAP.md`](docs/ROADMAP.md); active
+pre-Cycle-3 tech-debt items are tracked there under "Pre-Cycle-3 hygiene"
+and "Deferred technical follow-ups". This file keeps the historical
+bug index, cross-cutting tech debt, and a prioritised feature backlog.
+Historical entries closed before v4.0 live in
+[`docs/archive/BUGS_HISTORY.md`](docs/archive/BUGS_HISTORY.md). See
+[`docs/audit/`](docs/audit/) for structural audits.
 
 ---
 
 ## Active Bugs
 
-_No critical open bugs at v4.0.1. Active security / architectural findings
+_No critical open bugs at v4.1.0. Active security / architectural findings
 from the 2026-04-22 audit are tracked as GitHub issues under the
 [`audit-2026-04-22`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-22)
-label. Report new issues via GitHub Issues._
+label (umbrella: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25)).
+Report new issues via GitHub Issues._
 
 ---
 
@@ -80,7 +83,7 @@ label. Report new issues via GitHub Issues._
 | ~~Audit trail IP not populated~~ | ~~P2~~ | Done v3.8 wave 13 — `_client_ip()` honours XFF leftmost; `_audit()` accepts request |
 | Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
 | ~~slowapi potentially unmaintained~~ | ~~P2~~ | Evaluated v3.9 wave 2 — slowapi 0.1.9 active (Aug 2025 commits, 1952 stars), no `starlette-ratelimit` package exists, alternatives need Redis. Stayed and consolidated duplicate Limiter into deps.py |
-| Wire $t() i18n keys to page titles | P3 | Keys exist, most page titles still hardcoded English |
+| ~~Wire $t() i18n keys to page titles~~ | ~~P3~~ | Done v4.0.2 #22 — 15/15 pages translated across en/pt-BR/es (~402 keys × 3 locales) |
 | ~~Sidebar has 34 links (cognitive load)~~ | ~~P2~~ | Done v3.9 wave 1 — regrouped to 8 sections × ≤7 items, added search-icon + `/` kbd hint |
 | ~~a11y warnings in ScheduleViewer (3)~~ | ~~P3~~ | Done v3.8 wave 10 — 12 a11y warnings → 0, including GanttCanvas `<g>` keyboard handlers |
 
@@ -105,7 +108,7 @@ label. Report new issues via GitHub Issues._
 |---|---------|----------|--------|
 | 7 | Add /programs to sidebar + program-level dashboard | Program Director | Medium |
 | 8 | Resource histogram below Gantt | Scheduler, PM | High |
-| 9 | EVM S-Curve inline visualization | Cost Engineer | Medium |
+| ~~9~~ | ~~EVM S-Curve inline visualization~~ — done v3.6.0-dev: chart component #11 with schedule + cost S-curve overlay and forecast scenarios | Cost Engineer | ~~Medium~~ |
 | ~~10~~ | ~~Sidebar search/filter for 34+ links~~ — done: / to focus search | All | ~~Low~~ |
 
 ### Medium Impact
@@ -115,7 +118,7 @@ label. Report new issues via GitHub Issues._
 | ~~11~~ | ~~Drag-to-pan on Gantt timeline~~ — done: mouse drag scrolls both axes | All | ~~Medium~~ |
 | 12 | Calendar exception parsing (CALEXCEPTION table) | Scheduler | Medium |
 | 13 | Activity grouping by any field | All | Medium |
-| 14 | WebSocket for Monte Carlo/optimizer progress | All | Medium |
+| ~~14~~ | ~~WebSocket for Monte Carlo/optimizer progress~~ — done v3.9 + v4.0.1 + v4.1.0 W1 (heartbeat + token-expiry close + recovery hook composable) | All | ~~Medium~~ |
 | 15 | Earned value overlay on timeline | Cost Engineer | High |
 
 ### Future / Research
@@ -152,3 +155,7 @@ label. Report new issues via GitHub Issues._
 - [ ] Dark mode — verify all 42 pages render correctly
 - [ ] Print — verify schedule page prints with correct layout
 - [ ] XER Export — round-trip fidelity with real P6 import
+
+---
+
+*Last refreshed: 2026-04-26 (Cycle 2 close, v4.1.0).*
