@@ -138,17 +138,25 @@ como precisando do gap fechado). Sem codificação in-repo:
 ADR-0021 self-flagged. Não-prioritário porque o protocol funciona por convenção,
 mas sustentabilidade exige codificação.
 
+**Disclosure (auto-disclosure conflict):** este finding foi confirmado pela DA
+review de PR #39 (este audit). Há conflito-de-interesse circular — o protocol
+está sendo afirmado pela mesma ferramenta que o protocol invoca. A justificativa
+"5 PRs amostrados pegaram 2 blocking + 4 non-blocking on average" cita os outputs
+do próprio protocol como evidência de seu valor. **Mantido como P2** porque o gap
+é estrutural (zero codificação in-repo) independentemente da fonte que confirma —
+mas leitor crítico deve considerar a auto-pressure-test bias e ponderar.
+
 ---
 
-## AUDIT-2026-04-26-007 · P3 · `_ENGINE_VERSION` hardcoded — multi-cycle ADR-0014 drift
+## AUDIT-2026-04-26-007 · P2 · `_ENGINE_VERSION` hardcoded — multi-cycle ADR-0014 drift (load-bearing forensic provenance)
 
 **Arquivo:** `src/materializer/runtime.py:54`.
 
 ```python
-_ENGINE_VERSION = "4.0"  # hardcoded — ADR-0014 §Decision says: "Source: src/__about__.py::__version__"
+_ENGINE_VERSION = "4.0"  # hardcoded — ADR-0014 §"Decision Outcome" says: "Source: src/__about__.py::__version__"
 ```
 
-**Evidência ADR:** [ADR-0014 §"Decisions" tabela](../../adr/0014-derived-artifact-provenance-hash.md#decision):
+**Evidência ADR:** [ADR-0014 §"Decision Outcome" tabela (linha 44)](../../adr/0014-derived-artifact-provenance-hash.md#decision-outcome):
 > | `engine_version` | `TEXT NOT NULL` | Source: `src/__about__.py::__version__`. |
 
 **Histórico:** PR #36 (`086911c` em 2026-04-27) deduplicou a constante (de 2 sites
@@ -156,12 +164,58 @@ para 1) mas **não migrou para `__about__.py`** — o trabalho foi parcial. PR #
 LESSONS append marca isso como "ADR pin → regression test" lesson. ADR-0021
 §"Wave plan" W4 commits to closing.
 
-**Risco:** baixo P3 — atualmente `4.0` é literal-igual ao `__version__`
-em `__about__.py` por feliz coincidência. Quando `__version__` virar `4.2.0`
-no Cycle 3 close, `_ENGINE_VERSION` ficará dessincronizado e novos artifacts
-materializados serão rotulados `engine_version="4.0"` mesmo o engine sendo `4.2.0`.
+**Por que P2 e NÃO P3** (severidade reescalada vs draft inicial pós-DA review):
+`engine_version` é parte do `UNIQUE NULLS NOT DISTINCT (project_id, artifact_kind,
+engine_version, ruleset_version, input_hash)` (ADR-0014 §"Decision Outcome" linha
+~52). É **load-bearing para o contrato forense de reprodutibilidade**: quando
+`__version__` virar `4.2.0` no Cycle 3 close, novos artifacts ficarão com
+`engine_version="4.0"` enquanto o engine real é `4.2.0` — provenance silenciosamente
+divergente. Esta é exatamente a classe de drift que ADR-0014 §"Decision Outcome"
+foi escrita para prevenir. Tratar como P3 ("feliz coincidência" enquanto literal
+bate) underweighta a criticidade do contract; o draft original errou nessa.
 
-**Ação:** já pré-committed para Cycle 3 W4 — confirmação em audit, não nova ação.
+**Ação:** já pré-committed para Cycle 3 W4 — confirmação em audit, severidade
+reescalada para P2 + ver AUDIT-2026-04-26-011 abaixo (file que ADR cita não existe).
+
+---
+
+## AUDIT-2026-04-26-011 · P2 · ADR-0014 cita `src/__about__.py` que NUNCA existiu no repo
+
+**Evidência:** `ls src/__about__.py` retorna `No such file or directory`. Verificado
+2026-04-26.
+
+**Por que isto é finding distinto de AUDIT-2026-04-26-007:** o 007 é "constante
+hardcoded ao invés de sourcing"; o 011 é "ADR aceita em 2026-04-18 (Cycle 1 W1)
+cita um arquivo que nunca existiu". 007 fala sobre `runtime.py:54`; 011 fala
+sobre o **contrato ADR estar non-implementable as-written desde 2026-04-18**.
+
+**Verificação grep:**
+
+```bash
+$ ls src/__about__.py
+ls: cannot access 'src/__about__.py': No such file or directory
+
+$ grep -rE "__version__" src/ --include="*.py"
+(no output — version constant not anywhere in src/)
+```
+
+**Risco:** P2. Multi-cycle invisible structural drift. Future maintainer re-lendo
+ADR-0014 para implementar 007's fix vai precisar **criar `src/__about__.py`** —
+não é um simples sourcing, é primeiro a criação do single-source-of-truth. ADR-0021
+§"Wave plan" W4 deveria explicitar este passo.
+
+**Ação:**
+
+1. **Cycle 3 W4 amendment** ao plano: explicitar que o trabalho é (a) criar
+   `src/__about__.py` com `__version__ = "4.2.0"` (ou similar), (b) refatorar
+   `pyproject.toml` para sourcing dele, (c) MIGRAR `_ENGINE_VERSION` para sourcing
+   dele.
+2. **OR ADR-0014 amendment**: se a decisão estrutural for sourcing-from-pyproject
+   ao invés de `__about__.py`, autorar amendment 1 explicitando o desvio (com
+   referência cruzada para que futuros readers do 0014 não se confundam).
+3. **Test de regressão**: `tests/test_engine_version_source.py` que importa
+   `src.__about__.__version__` E `src.materializer.runtime._ENGINE_VERSION` E
+   exige igualdade — falha se a constante derivar.
 
 ---
 

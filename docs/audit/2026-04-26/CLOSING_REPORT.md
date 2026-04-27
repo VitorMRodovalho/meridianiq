@@ -26,11 +26,11 @@ ainda em flight (`#26` prod migration, `#28` ratificação).
 | Carry-over baseline com regressão / sub-finding | 3 (AUDIT-006, 009, 010) |
 | Carry-over baseline reaffirmed | 1 (AUDIT-012) |
 | Carry-over baseline ainda em flight (operator) | 3 (#26 P0, #28 P2, #25 meta) |
-| Achados novos desta rodada | 10 |
+| Achados novos desta rodada | **11** (10 inicial + AUDIT-2026-04-26-011 surgido na DA review) |
 | P0 novos | **0** |
 | P1 novos | **0** |
-| P2 novos | 2 (001 README mermaid; 003 DA-protocol gap) |
-| P3 novos | 8 (002, 004, 005, 006, 007, 008, 009, 010) |
+| P2 novos | **4** (001 README mermaid; 003 DA-protocol gap; 007 _ENGINE_VERSION reescalado P3→P2; 011 ADR-0014 cita arquivo inexistente) |
+| P3 novos | 7 (002, 004, 005, 006, 008, 009, 010) |
 | Docs de auditoria | 9 (este + 8 layer/handoff/closing) |
 | Tests baseline → 2026-04-26 | 1337 → **1449** (+112) |
 | Migrations baseline → 2026-04-26 | 25 → **26** (+1: 026 api_keys align) |
@@ -99,12 +99,13 @@ discipline** que ficou owed por ~5 dias.
 | AUDIT-2026-04-26-002 | P3 | architecture.md + CLAUDE.md count drift | Mesmo PR |
 | AUDIT-2026-04-26-003 | P2 | DA-as-second-reviewer protocol codify | Cycle 3 close OR Cycle 4 W0 |
 | AUDIT-2026-04-26-004 | P3 | Migration 024 ALTER discipline gap | Discretionary |
-| AUDIT-2026-04-26-005 | P3 | Rate-limit policy contract | Cycle 4 |
+| AUDIT-2026-04-26-005 | P3 | Rate-limit policy contract (buckets já existem) | Cycle 4 |
 | AUDIT-2026-04-26-006 | P3 | RATE_LIMIT_ENABLED docs | Mesmo PR de 001-002 |
-| AUDIT-2026-04-26-007 | P3 | _ENGINE_VERSION → __about__ | **Cycle 3 W4** (já pre-committed) |
+| AUDIT-2026-04-26-007 | **P2** | _ENGINE_VERSION → __about__ (load-bearing forensic provenance) | **Cycle 3 W4** (já pre-committed) |
 | AUDIT-2026-04-26-008 | P3 | Detail page i18n | Cycle 4 W5 ou Cycle 5 |
 | AUDIT-2026-04-26-009 | P3 | Issue #28 body update | Junto com H-02-carryover |
 | AUDIT-2026-04-26-010 | P3 | Meta-issue #25 exit policy | Discretionary |
+| AUDIT-2026-04-26-011 | **P2** | `src/__about__.py` nunca existiu — ADR-0014 non-implementable as-written | **Cycle 3 W4** (combine com 007) |
 
 ## Onde tudo vive (índice único)
 

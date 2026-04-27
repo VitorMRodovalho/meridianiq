@@ -52,34 +52,46 @@ generate, XER write). O resto não foi tocado. **NÃO É** bug runtime — o lim
 está ativo no slowapi `[dev]` extras (ADR-0019 §W0 D10) e CI exercita os
 decorators existentes.
 
-**O que está faltando:** **policy contract** explícito. ADR-0017 cita "rate-limit
-applied to high-cost compute paths" mas não diz qual % de endpoints, qual heurística
-("write+expensive=EXPENSIVE, read+heavy=MODERATE, read+light=READ ou nenhuma"),
-nem qual é o contract teste.
+**O que está faltando:** **discipline / enforcement**, não buckets. **Os 3 buckets
+existem** em `src/api/deps.py:138-140`:
 
-**Risco:** baixo P3. **Discipline gap:** existe.
+```python
+RATE_LIMIT_EXPENSIVE = "3/minute"   # Monte Carlo, MIP windows, PDF generate
+RATE_LIMIT_MODERATE = "10/minute"   # XER round-trip, batch CRUD
+RATE_LIMIT_READ = "30/minute"       # single-resource GETs
+```
+
+ADR-0017 §"Decision Outcome" + ADR-0019 §"W0 — D1" estabelecem policy
+implicit (Cycle 2 W0 commit `b924b93` aplicou `RATE_LIMIT_READ` em
+`POST /api/v1/jobs/progress/start`). **O que falta** é:
+
+1. **ADR-pinned matriz** que lista cada router-endpoint pair → bucket
+   esperado. Sem isso, gap detection é manual.
+2. **Test de regressão `tests/test_rate_limit_policy.py`** que falha se:
+   - Endpoint contendo `simulate|monte_carlo|generate_pdf|forensic_window` está sem `@limiter.limit(RATE_LIMIT_EXPENSIVE)`.
+   - Endpoint contendo `write|create|update|upload` (ex-`/health|status`) está sem qualquer `@limiter.limit`.
+
+**Risco:** baixo P3. **Discipline gap:** documental + falta de test enforcement,
+não falta de buckets.
 
 **Ação:**
 
-1. Considerar amendment a ADR-0017 §"Decision drivers" — adicionar política:
-   - `EXPENSIVE` (3/min) — endpoints que iniciam Monte Carlo, MIP windows, PDF generate.
-   - `MODERATE` (10/min) — XER round-trip, batch CRUD, queries N+1 pesadas.
-   - `READ` (30/min) — single-resource GETs, healthchecks excetuados.
-   - **No-limit** — `/health`, `/openapi.json`, `/docs`.
-2. Test de regressão `tests/test_rate_limit_policy.py` que falha se:
-   - Endpoint contendo `simulate|monte_carlo|generate_pdf|forensic_window` está sem `@limiter.limit("3/minute")`.
-   - Endpoint contendo `write|create|update|upload` mas não `health|status` está sem qualquer `@limiter.limit`.
+1. Amendment a ADR-0017 ou ADR-0019: adicionar §"Rate-limit policy matrix"
+   listando cada router → bucket.
+2. Test de regressão (acima).
 3. Atualizar matrix em `04-security.md` desta auditoria + matrix paralela em
    ADR amendment.
 
 **Por que P3 e não P2:** o gap é discipline, não falha runtime — operação atual
-não foi DOS-ada porque os engines mais caros estão cobertos.
+não foi DOS-ada porque os engines mais caros estão cobertos com decorators
+ad-hoc, e os buckets corretos já existem. Faltam apenas (a) o ADR matrix
++ (b) o test que enforça.
 
 ---
 
 ## AUDIT-2026-04-26-006 · P3 · `RATE_LIMIT_ENABLED` undocumented em `.env.example`
 
-**Arquivo runtime:** `src/api/deps.py:71`:
+**Arquivo runtime:** `src/api/deps.py:116`:
 
 ```python
 enabled=os.getenv("RATE_LIMIT_ENABLED", "true").lower() != "false"
