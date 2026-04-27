@@ -60,3 +60,9 @@ web/blob-report/
 # Local-only runs under scripts/calibration/; real data stays off-Git.
 w4_calibration*.json
 w4_manifest.json
+
+# Generic calibration-harness private payloads (ADR-0020 §"Publication-scope").
+# The harness emits ``<protocol_name>_private.json`` containing per-observation
+# detail (program-key hashes + label + confidence + rules_fired). NEVER commit;
+# operator archives to ``meridianiq-private/calibration/<cycle>-<wave>/``.
+*_private.json

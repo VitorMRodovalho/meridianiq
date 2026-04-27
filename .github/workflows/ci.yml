@@ -23,8 +23,8 @@ jobs:
       - name: Lint
         run: |
           pip install ruff
-          ruff check src/ tests/
-          ruff format --check src/ tests/
+          ruff check src/ tests/ tools/
+          ruff format --check src/ tests/ tools/
 
       - name: Test
         run: python -m pytest tests/ -q --tb=short
