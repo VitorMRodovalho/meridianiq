@@ -71,7 +71,7 @@ Verificado por grep `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY`:
 **Por que isto NÃO é bug:** Postgres ALTER TABLE preserva `enable row security`
 flag — RLS continua ON. Migration 001 + 002 já habilitaram RLS em `projects`.
 
-**Por que MERECE flag:** doc discipline. ADR-0014 §"Decision" estabelece que
+**Por que MERECE flag:** doc discipline. ADR-0014 §"Decision Outcome" estabelece que
 "toda migration que toca tabela user-owned deve emitir RLS guard como exercício
 de revisão" (paráfrase). 024 toca `projects` (user-owned) e não emite explicit
 re-assertion. Migration 023 emite `ENABLE ROW LEVEL SECURITY` mesmo sendo CREATE
@@ -97,7 +97,7 @@ UNIQUE NULLS NOT DISTINCT (project_id, artifact_kind, engine_version, ruleset_ve
 ```
 
 `ON DELETE CASCADE` é semanticamente correto — derived artifact não deve sobreviver
-ao project pai. **MAS:** ADR-0014 §"Decision drivers" #5 nota que cascade
+ao project pai. **MAS:** ADR-0014 §"Decision Drivers" #5 nota que cascade
 "propaga deleção silenciosamente" — futuro auto-grouping (Cycle 5+ A1+A2 deferido)
 precisará de migration de mitigação (ex: tombstone column, soft-delete) antes de
 mexer com merge-cascade. ADR-0021 §"Why NOT the PV deep" item #2 cita exatamente

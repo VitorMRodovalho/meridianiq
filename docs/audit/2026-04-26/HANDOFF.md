@@ -26,10 +26,11 @@ exigem 2+ revisores antes de fechar.
 | **H-07-new** | Migration 024 ALTER discipline gap — review | P3 | Maintainer | AUDIT-2026-04-26-004 ([03-schema.md](03-schema.md#audit-2026-04-26-004)) | Discretionary |
 | **H-08-new** | Rate-limit policy contract — amendment a ADR | P3 | Maintainer | AUDIT-2026-04-26-005 ([04-security.md](04-security.md#audit-2026-04-26-005)) | Cycle 3 W4 ou Cycle 4 |
 | **H-09-new** | `RATE_LIMIT_ENABLED` doc em `.env.example` | P3 | Maintainer | AUDIT-2026-04-26-006 | Mesmo PR de H-03/H-04/H-05 |
-| **H-10-new** | `_ENGINE_VERSION` → `__about__.py` (já pre-committed Cycle 3 W4) | P3 | Maintainer | AUDIT-2026-04-26-007 | Cycle 3 W4 |
+| **H-10-new** | `_ENGINE_VERSION` → `__about__.py` (já pre-committed Cycle 3 W4) — escalada a P2 | **P2** | Maintainer | AUDIT-2026-04-26-007 | Cycle 3 W4 |
 | **H-11-new** | Detail page i18n carry-over | P3 | Frontend eng | AUDIT-2026-04-26-008 ([05-ux-frontend.md](05-ux-frontend.md#audit-2026-04-26-008)) | Cycle 4 W5 ou Cycle 5 |
 | **H-12-new** | Issue #28 body update + título extension | P3 | Maintainer | AUDIT-2026-04-26-009 | Junto com H-02-carryover |
 | **H-13-new** | Meta-issue #25 exit policy clarification | P3 | Maintainer | AUDIT-2026-04-26-010 | Discretionary |
+| **H-14-new** | Criar `src/__about__.py` com `__version__` (combina com H-10-new como pré-requisito) | **P2** | Maintainer | AUDIT-2026-04-26-011 | Cycle 3 W4 |
 
 ---
 
@@ -219,17 +220,22 @@ ADR amendment.
 
 ---
 
-## H-08-new · Rate-limit policy contract
+## H-08-new · Rate-limit policy contract (buckets existem; falta enforcement + matrix doc)
 
-**Recomendação:** amendment a ADR-0017 (api_keys) ou ADR-0018 (cycle cadence)
-documentando heurística:
+**Buckets já existem** em `src/api/deps.py:138-140`:
 
-- `RATE_LIMIT_EXPENSIVE` (3/min) — endpoints que iniciam Monte Carlo, MIP windows, PDF generate.
-- `RATE_LIMIT_MODERATE` (10/min) — XER round-trip, batch CRUD, queries N+1 pesadas.
-- `RATE_LIMIT_READ` (30/min) — single-resource GETs, healthchecks excetuados.
-- **Nenhum decorator** — `/health`, `/openapi.json`, `/docs`.
+```python
+RATE_LIMIT_EXPENSIVE = "3/minute"
+RATE_LIMIT_MODERATE = "10/minute"
+RATE_LIMIT_READ = "30/minute"
+```
 
-Test de regressão `tests/test_rate_limit_policy.py` que falha se contract violado.
+**O que falta:**
+
+1. **ADR amendment matrix** listando cada router-endpoint pair → bucket esperado.
+2. **Test de regressão** `tests/test_rate_limit_policy.py` que falha se:
+   - Endpoint contendo `simulate|monte_carlo|generate_pdf|forensic_window` está sem `@limiter.limit(RATE_LIMIT_EXPENSIVE)`.
+   - Endpoint contendo `write|create|update|upload` (mas não `health|status`) está sem qualquer `@limiter.limit`.
 
 **Pode aguardar Cycle 4** — não bloqueante.
 
@@ -247,16 +253,50 @@ Test de regressão `tests/test_rate_limit_policy.py` que falha se contract viola
 
 ---
 
-## H-10-new · `_ENGINE_VERSION` migration
+## H-10-new · `_ENGINE_VERSION` migration (P2 escalada — load-bearing forensic provenance)
 
-**Já pre-committed Cycle 3 W4** per ADR-0021 §"Wave plan" W4. Sem ação adicional
-do handoff — execução wave-time:
+**Já pre-committed Cycle 3 W4** per ADR-0021 §"Wave plan" W4. **Severidade
+reescalada P3→P2 pós-DA review** porque `engine_version` é parte do
+`UNIQUE NULLS NOT DISTINCT` constraint em `schedule_derived_artifacts` —
+silent drift quando `__version__` virar 4.2.0 propaga provenance falso para
+todos os novos artifacts.
 
-1. Editar `src/materializer/runtime.py:54`: `_ENGINE_VERSION = "4.0"` →
+**Execução wave-time** (combine com H-14-new):
+
+1. **Pré-requisito (H-14-new):** criar `src/__about__.py` com:
+   ```python
+   __version__ = "4.2.0"  # ou versão correta
+   ```
+2. Editar `src/materializer/runtime.py:54`: `_ENGINE_VERSION = "4.0"` →
    `from src.__about__ import __version__ as _ENGINE_VERSION`.
-2. Re-materialize event para 88 derived artifact rows (decisão operator: aceitar
+3. Re-materialize event para 88 derived artifact rows (decisão operator: aceitar
    re-mat OR migration de tombstone).
-3. Test de regressão pinning sourcing-from-__about__.
+4. Test de regressão `tests/test_engine_version_source.py` pinning sourcing-from-__about__.
+
+---
+
+## H-14-new · Criar `src/__about__.py` (pré-requisito de H-10-new)
+
+**Per AUDIT-2026-04-26-011:** ADR-0014 cita arquivo que nunca existiu. Antes
+de migrar `_ENGINE_VERSION`, criar o source-of-truth:
+
+```python
+# src/__about__.py
+"""Single-source-of-truth for the package version.
+
+Sourced by:
+- src/materializer/runtime.py::_ENGINE_VERSION (ADR-0014 §"Decision Outcome")
+- src/api/app.py if version reading shifts here from importlib.metadata
+- pyproject.toml [project.dynamic] = ["version"] OR mirror
+
+Per ADR-0014 §"Decision Outcome" provenance contract.
+"""
+
+__version__ = "4.2.0"  # bump per release
+```
+
+**OR alternativa:** se a decisão estrutural for sourcing-from-pyproject + importlib.metadata
+ao invés de `__about__.py`, autorar amendment 1 a ADR-0014 explicitando o desvio.
 
 ---
 

@@ -81,11 +81,12 @@ Numeração date-namespaced (`AUDIT-2026-04-26-NNN`) para evitar colisão com ba
 | AUDIT-2026-04-26-003 | Arch/Process | **P2** | Devils-advocate-as-second-reviewer protocol — open process gap (auto-disclosure em ADR-0021 §"Open process gap" — confirma) | [02-architecture.md](02-architecture.md#audit-2026-04-26-003) |
 | AUDIT-2026-04-26-004 | Schema | **P3** | Migration `024_projects_status_state.sql` altera tabela existente sem re-emitir `ENABLE ROW LEVEL SECURITY` (RLS herdada de migration 001 — verificar não-degradação) | [03-schema.md](03-schema.md#audit-2026-04-26-004) |
 | AUDIT-2026-04-26-005 | Security | **P3** | Rate-limit coverage matrix tem ≥9 routers com < metade dos endpoints limitados; falta política documentada no ADR de qual endpoint precisa de qual bucket | [04-security.md](04-security.md#audit-2026-04-26-005) |
-| AUDIT-2026-04-26-006 | Security | **P3** | `.env.example` não documenta `RATE_LIMIT_ENABLED` (variável real consumida em `src/api/deps.py:71`) | [04-security.md](04-security.md#audit-2026-04-26-006) |
-| AUDIT-2026-04-26-007 | Arch | **P3** | `_ENGINE_VERSION = "4.0"` hardcoded em `src/materializer/runtime.py:54` — ADR-0014 §Decision sources from `src/__about__.py::__version__` (multi-cycle drift; ADR-0021 §"Wave plan" W4 commits to closing) | [02-architecture.md](02-architecture.md#audit-2026-04-26-007) |
+| AUDIT-2026-04-26-006 | Security | **P3** | `.env.example` não documenta `RATE_LIMIT_ENABLED` (variável real consumida em `src/api/deps.py:116`) | [04-security.md](04-security.md#audit-2026-04-26-006) |
+| AUDIT-2026-04-26-007 | Arch | **P2** | `_ENGINE_VERSION = "4.0"` hardcoded em `src/materializer/runtime.py:54` — ADR-0014 §"Decision Outcome" sources from `src/__about__.py::__version__` (load-bearing forensic provenance — parte do UNIQUE constraint em `schedule_derived_artifacts`; reescalado P3→P2 pós-DA review) | [02-architecture.md](02-architecture.md#audit-2026-04-26-007) |
 | AUDIT-2026-04-26-008 | UX | **P3** | Detail pages (`[id]/+page.svelte`) + `cost/g702`, `cost/compare`, `auth/callback` têm `$t() = 0` — out-of-scope de #22 mas blockam i18n end-to-end | [05-ux-frontend.md](05-ux-frontend.md#audit-2026-04-26-008) |
 | AUDIT-2026-04-26-009 | Planned | **P3** | Issue #28 ADR ratification escopo agora inclui ADR-0019/0020/0021 (3 ADRs adicionais sobre os 2 originais 0017+0018) — atualizar issue body | [06-planned-vs-implemented.md](06-planned-vs-implemented.md#audit-2026-04-26-009) |
 | AUDIT-2026-04-26-010 | Planned | **P3** | Issue #25 (meta-tracking) ainda aberta; checklist de exit ainda tem 2 unchecked (#26 prod apply, #28 ratificação). Considerar amendar ADR-0018 §5 explicitando que meta-issue só fecha após apply+ratificação | [06-planned-vs-implemented.md](06-planned-vs-implemented.md#audit-2026-04-26-010) |
+| AUDIT-2026-04-26-011 | Arch | **P2** | ADR-0014 §"Decision Outcome" cita `src/__about__.py::__version__` como source-of-truth de `engine_version` — **arquivo nunca existiu no repo** (verificado via `ls`). ADR aceito 2026-04-18 (Cycle 1 W1) é non-implementable as-written desde então; multi-cycle invisible structural drift | [02-architecture.md](02-architecture.md#audit-2026-04-26-011) |
 
 **P0 = perda de integridade / bloqueio de produção; P1 = mitigar ≤ 30 dias; P2 = mitigar ≤ 90 dias; P3 = higiene contínua.**
 
@@ -110,6 +111,9 @@ Numeração date-namespaced (`AUDIT-2026-04-26-NNN`) para evitar colisão com ba
 - Revisão linha-a-linha dos 47 engines.
 - Revisão jurídica binding (LGPD/GDPR/LICENSE — `legal-and-accountability` agent só hipóteses).
 - Re-verificação numérica de W4 calibration (depende de `/tmp/w4_*.json` que estão extant em 2026-04-26 mas não pertencem a este audit).
+- **Materializer state machine ADR-0015 runtime behavior** — verificação estática (RLS coverage de migrations 022-026) feita; mas comportamento `pending → ready → failed` em cold-start cascade + StaleMaterializationError recovery não foi exercitado nesta rodada. Considerar contract test em rodada futura.
+- **Sentry / observability event-flow** — `SENTRY_DSN` documentado, init em `src/api/app.py`, mas se eventos chegam corretamente em produção não foi verificado nesta rodada (presume-se OK; `04-security.md` walks past).
+- **Issue #28 body atual** — assertiva "ainda lista só 0017+0018" inferida via `gh issue view 28 --json body` (verificada em pre-flight). Estado pode mudar até este PR mergear.
 
 ## Quando re-rodar
 
