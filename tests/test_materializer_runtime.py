@@ -316,3 +316,48 @@ class TestArtifactContent:
             assert row["project_id"] == pid
             assert row["is_stale"] is False
             assert row["stale_reason"] is None
+
+
+class TestEngineVersionSingleSource:
+    """Regression: backfill must read the engine version from the same
+    constant the write path uses, otherwise a future bump in
+    ``runtime.py`` silently leaves backfill querying for the old
+    version. See ADR-0014 — the engine_version is part of the
+    derived-artifact provenance contract.
+    """
+
+    def test_backfill_imports_from_runtime(self) -> None:
+        """``materializer.backfill`` must source the engine version from
+        ``materializer.runtime``, not duplicate the literal."""
+        import inspect
+
+        from src.materializer import backfill, runtime
+
+        backfill_source = inspect.getsource(backfill)
+        # The dedup post-fix uses ``from .runtime import _ENGINE_VERSION``.
+        # If a future refactor reintroduces a hardcoded literal like
+        # ``engine_version = "4.0"`` AT MODULE TOP-LEVEL OR INSIDE
+        # ``run_backfill``, this test catches the drift risk.
+        assert "from .runtime import _ENGINE_VERSION" in backfill_source, (
+            "backfill.py must import _ENGINE_VERSION from runtime — see ADR-0014. "
+            "If you intentionally need to pin a different version, document the "
+            "reason (e.g. cross-version compaction sweep) and update this test."
+        )
+        # Sanity check: the runtime constant is a non-empty string. The
+        # actual value drifts on legitimate engine bumps; this test does
+        # NOT pin it to '4.0' — that is the engine author's call.
+        assert isinstance(runtime._ENGINE_VERSION, str)
+        assert runtime._ENGINE_VERSION
+
+    def test_lifecycle_router_imports_from_runtime(self) -> None:
+        """Same source-of-truth check for the lifecycle router that
+        compares ``current_engine_version`` against stored artifacts."""
+        import inspect
+
+        from src.api.routers import lifecycle
+
+        router_source = inspect.getsource(lifecycle)
+        assert "from src.materializer.runtime import _ENGINE_VERSION" in router_source, (
+            "lifecycle.py must import _ENGINE_VERSION from materializer.runtime — "
+            "do not hardcode a version literal in the API router."
+        )

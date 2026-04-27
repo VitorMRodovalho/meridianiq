@@ -73,7 +73,16 @@ def _candidate_project_ids(
             f"unknown artifact kind: {kind!r}; must be one of {sorted(_RULESET_VERSIONS)}"
         )
 
-    engine_version = "4.0"
+    # Single-source the engine version from runtime so a future bump
+    # cannot silently drift between the producer (runtime.py write
+    # path) and the backfill consumer (this module, which queries
+    # existing rows for staleness against ``current_engine_version``).
+    # Pre-dedup the literal was duplicated here as ``"4.0"``; the
+    # write-side value lives at ``src/materializer/runtime.py`` and
+    # is the canonical contract per ADR-0014.
+    from .runtime import _ENGINE_VERSION
+
+    engine_version = _ENGINE_VERSION
     ruleset = _RULESET_VERSIONS[kind]
     skip_locked = kind == "lifecycle_phase_inference"
     lock_getter = getattr(store, "get_lifecycle_phase_lock", None)
