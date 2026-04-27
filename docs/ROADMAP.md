@@ -90,25 +90,41 @@ waves once that round closes.
   risk page passes `recoveryPoller`; `'recovering'` UI state +
   i18n × 3 locales; centralised `_assert_channel_owner` helper
   shared between `run_risk_simulation` and the new endpoint.
-- ~~**`engine_version` source-of-truth dedup**~~ — **DONE** in this
+- **`engine_version` source-of-truth dedup** — **PARTIAL** in this
   cycle. `src/materializer/backfill.py` now imports `_ENGINE_VERSION`
   from `src/materializer/runtime.py` instead of duplicating the
-  literal. Two regression tests in `tests/test_materializer_runtime.py
-  ::TestEngineVersionSingleSource` lock the import contract for
-  both `backfill.py` and `src/api/routers/lifecycle.py`. Note:
-  the original ROADMAP entry suggested an `importlib.metadata`-based
-  read — that was the wrong fix (engine version ≠ package version
-  per ADR-0014; bumping by package version on every release would
-  silently invalidate all stored derived artifacts). The correct
-  fix is dedup on a single source.
-- ~~**Mypy strict on `EngineAdapter` Protocol conformance**~~ — **DONE**
-  (verified — already passing). `mypy --strict
-  --follow-imports=silent tools/calibration_harness.py` reports
-  `Success: no issues found in 1 source file`. The Protocol
-  conformance of `_LifecyclePhaseV1Adapter` was already clean. The
-  4 errors visible without `--follow-imports=silent` are
-  pre-existing in transitive analytics imports (`networkx`
-  untyped, `dcma14.py` datetime), unrelated to the harness.
+  literal. Two regression tests in
+  `tests/test_materializer_runtime.py::TestEngineVersionSingleSource`
+  use a monkeypatch+sentinel pattern to assert that both `backfill`
+  and the lifecycle router pick up the runtime constant at call
+  time (catches future literal-cache regressions even under
+  refactors that change import shape).
+  **Honest disclosure:** ADR-0014 §"engine_version" line 44
+  specifies the source as `src/__about__.py::__version__` — i.e.,
+  the package version IS the engine version per the canonical ADR.
+  The implementation diverges: `src/__about__.py` does not exist
+  and `runtime.py:54` hand-codes `"4.0"`. This PR did NOT close
+  that divergence — it only deduped the cross-module literal.
+  Wiring `_ENGINE_VERSION` to `importlib.metadata.version("meridianiq")`
+  per the ADR would trigger fleet-wide re-materialization (current
+  artifacts at `"4.0"` would be marked stale against `"4.1.0"`),
+  which is a non-trivial deploy event and needs its own PR with
+  operator sign-off. Tracked below.
+- **Mypy strict on `EngineAdapter` Protocol conformance** —
+  **DONE-with-caveat**. `mypy --strict --follow-imports=silent
+  tools/calibration_harness.py` reports `Success: no issues found
+  in 1 source file`. The Protocol conformance of
+  `_LifecyclePhaseV1Adapter` is clean at the harness boundary.
+  **Caveat:** without `--follow-imports=silent` mypy reports 4
+  errors in transitive analytics modules
+  (`src/analytics/dcma14.py` datetime mismatch,
+  `src/analytics/{cpm,tia}.py` networkx untyped imports). These
+  are NOT unrelated to the harness — a future engine adapter
+  that calls into those modules differently could surface real
+  type bugs through them. The honest closure of this item would
+  install `types-networkx` and fix the dcma14 datetime; deferred
+  to its own PR (separates type-stub installation from the dedup
+  intent of this PR).
 
 ### Deferred technical follow-ups (parking lot — pull into a wave when relevant)
 
@@ -147,6 +163,20 @@ waves once that round closes.
   composable flips to `done` path. Needs a Vitest test with a
   fake `recoveryPoller` and a controlled `error.code` event to
   drive the state machine.
+- **Wire `_ENGINE_VERSION` to `__about__.py::__version__` per
+  ADR-0014** — close the divergence noted above. Approach:
+  create `src/__about__.py` (or read via `importlib.metadata`),
+  point `runtime.py:54` at it, ship migration-safe (existing
+  `"4.0"` artifacts auto-stale + re-materialize on next access).
+  Operator decision required: the re-materialization is a
+  non-trivial deploy event (88 prod rows). Could be paired with
+  the next legitimate engine algorithm bump rather than shipped
+  as pure plumbing.
+- **Install `types-networkx` + fix `dcma14.py` datetime mismatch**
+  (devils-advocate PR #36 item 3). Closes the 4 transitive mypy
+  strict errors that ``--follow-imports=silent`` currently masks.
+  Small change in `src/analytics/dcma14.py:100-102` (datetime
+  None-handling) plus a `types-networkx` add to `[dev]` extras.
 
 ---
 

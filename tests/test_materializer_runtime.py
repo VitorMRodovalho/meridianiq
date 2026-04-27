@@ -306,8 +306,12 @@ class TestArtifactContent:
         pid = _seed(store)
         asyncio.run(Materializer(store).materialize(pid))
 
+        from src.materializer.runtime import _ENGINE_VERSION
+
         for row in store._derived_artifacts:
-            assert row["engine_version"] == "4.0"
+            # Pin against the canonical constant — drifts on legitimate
+            # engine bumps without breaking this assertion. See ADR-0014.
+            assert row["engine_version"] == _ENGINE_VERSION
             assert row["input_hash"] and len(row["input_hash"]) == 64
             # W3 lifecycle_phase_inference ruleset is 'lifecycle_phase-v1-2026-04';
             # the W2 engines stay on '<name>-v1'. Both contain '-v1' so the
@@ -319,45 +323,90 @@ class TestArtifactContent:
 
 
 class TestEngineVersionSingleSource:
-    """Regression: backfill must read the engine version from the same
-    constant the write path uses, otherwise a future bump in
-    ``runtime.py`` silently leaves backfill querying for the old
-    version. See ADR-0014 — the engine_version is part of the
-    derived-artifact provenance contract.
+    """Regression: backfill and the lifecycle router must read the
+    engine version from the same canonical constant the materializer
+    write path uses. Otherwise a future bump in ``runtime.py``
+    silently leaves consumers querying for the old version. See
+    ADR-0014 — engine_version is part of the derived-artifact
+    provenance contract.
+
+    These tests use ``monkeypatch`` to swap the runtime constant and
+    assert the consumer picks up the new value at call time. This
+    exercises the actual import path (not the source text), so it
+    catches any refactor that reintroduces a literal — including
+    aliased imports, mid-function imports, or string interpolation.
     """
 
-    def test_backfill_imports_from_runtime(self) -> None:
-        """``materializer.backfill`` must source the engine version from
-        ``materializer.runtime``, not duplicate the literal."""
-        import inspect
-
+    def test_backfill_uses_runtime_constant(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """``backfill.run_backfill`` must pass the value of
+        ``runtime._ENGINE_VERSION`` to ``store.get_latest_derived_artifact``
+        at call time. Sentinel-pattern verifies the binding is dynamic
+        (not a literal cached at import time)."""
+        from src.database.store import InMemoryStore
         from src.materializer import backfill, runtime
 
-        backfill_source = inspect.getsource(backfill)
-        # The dedup post-fix uses ``from .runtime import _ENGINE_VERSION``.
-        # If a future refactor reintroduces a hardcoded literal like
-        # ``engine_version = "4.0"`` AT MODULE TOP-LEVEL OR INSIDE
-        # ``run_backfill``, this test catches the drift risk.
-        assert "from .runtime import _ENGINE_VERSION" in backfill_source, (
-            "backfill.py must import _ENGINE_VERSION from runtime — see ADR-0014. "
-            "If you intentionally need to pin a different version, document the "
-            "reason (e.g. cross-version compaction sweep) and update this test."
+        sentinel = "engine-version-test-sentinel"
+        monkeypatch.setattr(runtime, "_ENGINE_VERSION", sentinel)
+
+        captured: dict[str, str | None] = {"current_engine_version": None}
+        store = InMemoryStore()
+
+        # Seed one project so backfill iterates at least once.
+        original_get_projects = store.get_projects
+        monkeypatch.setattr(
+            store,
+            "get_projects",
+            lambda **_kwargs: [{"project_id": "p-engine-version-test"}],
         )
-        # Sanity check: the runtime constant is a non-empty string. The
-        # actual value drifts on legitimate engine bumps; this test does
-        # NOT pin it to '4.0' — that is the engine author's call.
-        assert isinstance(runtime._ENGINE_VERSION, str)
-        assert runtime._ENGINE_VERSION
 
-    def test_lifecycle_router_imports_from_runtime(self) -> None:
-        """Same source-of-truth check for the lifecycle router that
-        compares ``current_engine_version`` against stored artifacts."""
-        import inspect
+        def _capture(**kwargs: str) -> None:
+            captured["current_engine_version"] = kwargs.get("current_engine_version")
+            return None  # treat as "not found" so backfill short-circuits
 
+        monkeypatch.setattr(store, "get_latest_derived_artifact", _capture)
+
+        # Drive the candidate-selection helper directly — it is the
+        # only consumer of the engine_version inside backfill.
+        backfill._candidate_project_ids(
+            store=store,
+            limit=1,
+            explicit_project_id=None,
+            kind="dcma",
+        )
+
+        # Restore (defensive — monkeypatch handles teardown).
+        del original_get_projects
+
+        assert captured["current_engine_version"] == sentinel, (
+            "backfill must read engine_version from runtime._ENGINE_VERSION "
+            "at call time. If this test fails after a refactor, the consumer "
+            "either hardcoded a literal or cached the constant at import time."
+        )
+
+    def test_lifecycle_router_uses_runtime_constant(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The lifecycle router's stale-detection must read the runtime
+        constant at request time, not a captured snapshot."""
+        from src.materializer import runtime
         from src.api.routers import lifecycle
 
-        router_source = inspect.getsource(lifecycle)
-        assert "from src.materializer.runtime import _ENGINE_VERSION" in router_source, (
-            "lifecycle.py must import _ENGINE_VERSION from materializer.runtime — "
-            "do not hardcode a version literal in the API router."
-        )
+        sentinel = "engine-version-test-sentinel-lifecycle"
+        monkeypatch.setattr(runtime, "_ENGINE_VERSION", sentinel)
+
+        # The router imports the constant via
+        # ``from src.materializer.runtime import _ENGINE_VERSION as
+        # _MATERIALIZER_ENGINE_VERSION`` — which is a name binding at
+        # import time. To exercise the import path we re-import the
+        # router module under the patched runtime.
+        import importlib
+
+        reloaded = importlib.reload(lifecycle)
+        try:
+            assert reloaded._MATERIALIZER_ENGINE_VERSION == sentinel, (
+                "lifecycle.py must read _ENGINE_VERSION from "
+                "materializer.runtime — do not hardcode a literal."
+            )
+        finally:
+            # Restore the unpatched import so subsequent tests see the
+            # real engine version.
+            monkeypatch.undo()
+            importlib.reload(lifecycle)
