@@ -381,10 +381,13 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
 
 ### Empirical state at amendment time (2026-04-27)
 
-- **112 total endpoints** across 23 routers
-- **38 write endpoints**: 28 with `@limiter.limit` after the #45 fix-up commits, 4 admin-auth-gated exceptions, 6 deferred for `request: <Pydantic>` body parameter rename (tracked as #45 follow-up — mechanically safe but touches every call-site)
-- **0 EXPENSIVE-pattern endpoints** without rate-limit (after #45 fix-up applied to plugins.run_plugin, plus deferred entries in APPROVED_EXCEPTIONS)
-- Mix of constants (~12 callsites) and literals (~14 callsites) — mid-state during convention adoption
+- **112 total endpoints** across 23 routers (floor — adds-only over time)
+- **38 write endpoints**: 30 with `@limiter.limit` after the #45 + DA-review fix-up commits, 2 user-self-action exceptions (`require_auth`-gated; per-JWT auth-throttle), 6 deferred for `request: <Pydantic>` body parameter rename (the rename is mechanically safe but touches every call-site and benefits from focused review — tracked as a separate rename-PR follow-up)
+- **EXPENSIVE-pattern coverage** (after DA-review fix-up):
+  - `plugins.run_plugin` → `RATE_LIMIT_EXPENSIVE` (added in #45)
+  - `admin.reconcile_ips` + `admin.validate_recovery` → `RATE_LIMIT_EXPENSIVE` (DA caught: these were `optional_auth` — anonymous-callable + compute-heavy; now properly limited)
+  - 4 EXPENSIVE-pattern matches in `whatif.py` (`run_what_if`, `run_pareto_analysis`, `run_resource_leveling`) + `schedule_ops.build_schedule_endpoint` are **deferred via APPROVED_EXCEPTIONS** pending the parameter rename PR. **They are NOT decorated yet — Rule 2 does not apply because Rule 1 exception bypasses Rule 2.** This is a known gap, scoped to the rename PR; the test will fail loud once the rename lands but the decorator doesn't get added.
+- Mix of constants (~14 callsites) and literals (~14 callsites) — mid-state during convention adoption
 
 ### Enforcement
 

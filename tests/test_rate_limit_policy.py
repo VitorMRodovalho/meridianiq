@@ -83,13 +83,25 @@ EXPENSIVE_PATTERNS: tuple[str, ...] = (
 #
 # Format: (router_module_name, function_name): rationale
 APPROVED_EXCEPTIONS: dict[tuple[str, str], str] = {
-    # Admin endpoints — admin-scope auth-gated; auth IS the throttle.
-    # The `require_admin` dependency rejects non-admin requests at the
-    # router-deps layer; rate-limiting on top would be redundant.
-    ("admin", "revoke_api_key_endpoint"): "admin-scope auth gated",
-    ("admin", "delete_user_data"): "admin-scope auth gated; LGPD/GDPR right-to-erasure",
-    ("admin", "reconcile_ips"): "admin-scope auth gated; manual reconciliation operation",
-    ("admin", "validate_recovery"): "admin-scope auth gated; recovery validation tool",
+    # ─────────────────────────────────────────────────────────────────
+    # User self-action endpoints — `require_auth`-gated (any logged-in
+    # user). Auth subsystem rate-limits per-JWT; explicit @limiter on
+    # top would be defensive duplicate protection. The narrow surface
+    # (one user touching their own data) is acceptable without rate-
+    # limit. Was incorrectly labeled "admin-scope auth gated" pre-DA-
+    # review; corrected per AUDIT-2026-04-26-005 follow-up.
+    # ─────────────────────────────────────────────────────────────────
+    ("admin", "revoke_api_key_endpoint"): (
+        "require_auth gated; user revokes own key (per-JWT auth-throttled)"
+    ),
+    ("admin", "delete_user_data"): (
+        "require_auth gated; LGPD/GDPR right-to-erasure (per-JWT auth-throttled)"
+    ),
+    # NOTE: `reconcile_ips` and `validate_recovery` are NOT in this list.
+    # DA-review caught: both use `optional_auth` (anonymous-callable!) +
+    # are compute-heavy (IPSReconciler, RecoveryValidator). They MUST
+    # have `@limiter.limit(RATE_LIMIT_EXPENSIVE)` — applied in
+    # `src/api/routers/admin.py` per the DA-review fix-up commit.
     # ─────────────────────────────────────────────────────────────────
     # Deferred — request parameter collision with Pydantic body model.
     # ─────────────────────────────────────────────────────────────────
@@ -99,28 +111,33 @@ APPROVED_EXCEPTIONS: dict[tuple[str, str], str] = {
     # `body: <Pydantic>` AND adding a separate `request: Request` parameter.
     # The rename is mechanically safe (FastAPI auto-detects body via type
     # annotation, parameter name is irrelevant for routing) but touches every
-    # call-site and benefits from focused review. Tracked as #45 follow-up.
+    # call-site and benefits from focused review. Tracked as a fresh issue
+    # because #45 itself closes when this PR merges (DA-review correction:
+    # parking the deferral on a closed-issue pointer would rot).
     (
         "analysis",
         "contract_check",
-    ): "deferred — request: ContractCheckRequest body collision; #45 follow-up",
+    ): "deferred — request: ContractCheckRequest body collision; tracked in #57",
     (
         "forensics",
         "create_timeline",
-    ): "deferred — request: CreateTimelineRequest body collision; #45 follow-up",
+    ): "deferred — request: CreateTimelineRequest body collision; tracked in #57",
     (
         "schedule_ops",
         "build_schedule_endpoint",
-    ): "deferred — request: dict body collision; #45 follow-up",
-    ("whatif", "run_what_if"): "deferred — request: WhatIfRequest body collision; #45 follow-up",
+    ): "deferred — request: dict body collision; tracked in #57",
+    (
+        "whatif",
+        "run_what_if",
+    ): "deferred — request: WhatIfRequest body collision; tracked in #57",
     (
         "whatif",
         "run_pareto_analysis",
-    ): "deferred — request: ParetoRequest body collision; #45 follow-up",
+    ): "deferred — request: ParetoRequest body collision; tracked in #57",
     (
         "whatif",
         "run_resource_leveling",
-    ): "deferred — request: LevelingRequest body collision; #45 follow-up",
+    ): "deferred — request: LevelingRequest body collision; tracked in #57",
 }
 
 
@@ -348,7 +365,13 @@ class TestPolicyMatrixSnapshot:
         # Pin current state — bump deliberately when adding endpoints.
         # If a future refactor changes these numbers without an obvious
         # cause, the test points at where to look.
-        assert len(endpoints) == 112, f"Total endpoint count drifted: {len(endpoints)} (was 112)"
+        # Floor (not exact-equality) — adding a new endpoint passes if a write
+        # is properly Rule-1-decorated; new GETs never break this assertion.
+        # The 112 number is a low-watermark from 2026-04-27.
+        assert len(endpoints) >= 112, (
+            f"Total endpoint count {len(endpoints)} fell below floor (112). "
+            "Did a router file get deleted?"
+        )
         assert write_total >= 30, f"Write endpoint count {write_total} below floor (30)"
         # After #45 fix-up: every write is either limited or excepted.
         excepted_writes = sum(
