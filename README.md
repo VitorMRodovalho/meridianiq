@@ -277,7 +277,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (870+ passing) · Playwright E2E (70+ passing) |
+| **Testing** | pytest (1435+ passing) · Vitest (26 composables) · Playwright E2E |
 
 ---
 
@@ -326,10 +326,10 @@ meridianiq/
 │       ├── app.py        # FastAPI entry point
 │       ├── routers/      # 98 endpoints across modular routers
 │       └── schemas.py    # Request/response models
-├── web/                  # SvelteKit + Tailwind (52 pages)
-├── tests/                # 870+ backend tests
+├── web/                  # SvelteKit + Tailwind (54 pages)
+├── tests/                # 1435+ backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations (20 files)
+│   └── migrations/       # PostgreSQL schema migrations (26 files)
 ├── .github/
 │   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents
