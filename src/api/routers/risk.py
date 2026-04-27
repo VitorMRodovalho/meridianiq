@@ -18,6 +18,7 @@ from ..schemas import (
     PValueSchema,
     RiskSCurvePointSchema,
     RiskSCurveResponse,
+    RiskSimulationByJobResponse,
     RunSimulationRequest,
     SensitivityEntrySchema,
     SimulationListResponse,
@@ -218,6 +219,10 @@ async def run_risk_simulation(
     risk_store.add(result)
 
     if job_id:
+        # ADR-0019 §"W1 — D4" — bind job_id → simulation_id so the
+        # WS-recovery poller can recover the result if the WS dropped
+        # before the terminal `done` frame arrived.
+        risk_store.bind_job(job_id, result.simulation_id)
         publish(job_id, {"type": "done", "simulation_id": result.simulation_id})
 
     return _simulation_to_schema(result)
@@ -231,6 +236,47 @@ def list_risk_simulations(
     risk_store = get_risk_store()
     items = [SimulationSummarySchema(**s) for s in risk_store.list_all()]
     return SimulationListResponse(simulations=items)
+
+
+@router.get(
+    "/api/v1/risk/simulations/by-job/{job_id}",
+    response_model=RiskSimulationByJobResponse,
+)
+def get_risk_simulation_by_job(
+    job_id: str,
+    _user: object = Depends(optional_auth),
+) -> RiskSimulationByJobResponse:
+    """Look up a risk simulation by its progress channel job_id.
+
+    Per ADR-0019 §"W1 — D4". Used by the WebSocket-progress recovery
+    poller (frontend ``recoveryPoller``) to determine whether a
+    Monte Carlo simulation completed after a transient WS disconnect.
+
+    Returns 200 in both states — the poller's contract distinguishes
+    completion via the ``simulation_id`` value (string → done, null →
+    still running or never bound).
+
+    Args:
+        job_id: Progress channel id allocated by
+            ``POST /api/v1/jobs/progress/start``.
+
+    Raises:
+        HTTPException: 403 when the channel is bound to a different
+            user (matches ``run_risk_simulation`` ownership check).
+    """
+    from ..progress import get_channel_owner
+
+    owner = get_channel_owner(job_id)
+    caller_id = _user["id"] if isinstance(_user, dict) else None
+    if owner is not None and caller_id is not None and owner != caller_id:
+        raise HTTPException(
+            status_code=403,
+            detail="job_id is bound to another user",
+        )
+
+    risk_store = get_risk_store()
+    sid = risk_store.get_simulation_id_by_job(job_id)
+    return RiskSimulationByJobResponse(simulation_id=sid)
 
 
 @router.get(

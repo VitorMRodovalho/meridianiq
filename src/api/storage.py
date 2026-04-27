@@ -356,6 +356,7 @@ class RiskStore:
     def __init__(self) -> None:
         """Initialise an empty store."""
         self._simulations: dict[str, SimulationResult] = {}
+        self._jobs: dict[str, str] = {}
         self._counter: int = 0
         self._lock = threading.Lock()
 
@@ -374,6 +375,41 @@ class RiskStore:
             result.simulation_id = sid
             self._simulations[sid] = result
         return sid
+
+    def bind_job(self, job_id: str, simulation_id: str) -> None:
+        """Index a completed simulation by its progress channel job_id.
+
+        Per ADR-0019 §"W1 — D4". The risk page WebSocket-progress flow
+        allocates a ``job_id`` before invoking ``POST
+        /api/v1/risk/simulate``; on completion the result is stored via
+        ``add()`` and the job_id is bound here so a subsequent
+        ``GET /api/v1/risk/simulations/by-job/{job_id}`` lookup can
+        recover the simulation_id even if the WebSocket disconnected
+        before the terminal frame arrived. Closes the W1 dormancy.
+
+        Args:
+            job_id: Progress channel id from ``POST /jobs/progress/start``.
+            simulation_id: Identifier returned by ``add()``.
+        """
+        with self._lock:
+            self._jobs[job_id] = simulation_id
+
+    def get_simulation_id_by_job(self, job_id: str) -> str | None:
+        """Look up the simulation_id bound to a progress channel job_id.
+
+        Used by the WebSocket recovery poller (frontend composable
+        ``recoveryPoller``) to determine whether a simulation completed
+        after a transient WS disconnect.
+
+        Args:
+            job_id: Progress channel id.
+
+        Returns:
+            The bound simulation_id, or ``None`` if no result has been
+            stored for that job_id (still running, never started, or
+            store was cleared).
+        """
+        return self._jobs.get(job_id)
 
     def get(self, simulation_id: str) -> SimulationResult | None:
         """Retrieve a simulation result by simulation_id.
@@ -419,6 +455,7 @@ class RiskStore:
         """Remove all stored simulations."""
         with self._lock:
             self._simulations.clear()
+            self._jobs.clear()
             self._counter = 0
 
 
