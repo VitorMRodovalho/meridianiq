@@ -703,6 +703,21 @@ export async function createRiskSimulation(
 	});
 }
 
+/**
+ * ADR-0019 §"W1 — D4". Look up a completed risk simulation by its
+ * progress channel job_id. Returns `simulation_id: null` while the
+ * simulation is still running OR was never bound — the
+ * `useWebSocketProgress` recovery poller polls until a non-null id
+ * appears or the recovery window times out.
+ */
+export async function getRiskSimulationByJob(
+	jobId: string
+): Promise<{ simulation_id: string | null }> {
+	return request<{ simulation_id: string | null }>(
+		`/api/v1/risk/simulations/by-job/${encodeURIComponent(jobId)}`
+	);
+}
+
 // ── Progress jobs (ADR-0013 server-generated job_id + ownership) ───────
 
 export interface ProgressJobResponse {

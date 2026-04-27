@@ -1072,6 +1072,29 @@ class SimulationListResponse(BaseModel):
     simulations: list[SimulationSummarySchema] = Field(default_factory=list)
 
 
+class RiskSimulationByJobResponse(BaseModel):
+    """Response for GET /api/v1/risk/simulations/by-job/{job_id}.
+
+    Per ADR-0019 §"W1 — D4". Used by the WebSocket-progress recovery
+    poller (frontend ``recoveryPoller`` in ``useWebSocketProgress``):
+    on transient WS disconnect after the run was accepted, the
+    poller calls this endpoint to learn whether the simulation
+    actually completed. The endpoint always returns 200 — semantic
+    distinction is in the ``simulation_id`` value:
+
+    * ``simulation_id`` is a string → simulation completed; the
+      poller flips the composable to ``done`` with this id.
+    * ``simulation_id`` is ``null`` → simulation still running OR
+      the job_id was never bound; the poller keeps polling until
+      the recovery window expires.
+
+    Authorisation matches the WebSocket channel's owner (see
+    ``get_channel_owner``). Cross-user job_id lookups return 403.
+    """
+
+    simulation_id: str | None = None
+
+
 class HistogramResponse(BaseModel):
     """Response for GET /api/v1/risk/simulations/{id}/histogram."""
 

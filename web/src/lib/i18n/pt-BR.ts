@@ -404,6 +404,7 @@ export default {
 	'risk.progress.starting': 'Iniciando processamento...',
 	'risk.progress.connecting': 'Conectando ao canal de progresso...',
 	'risk.progress.running': 'Executando simulacao',
+	'risk.progress.recovering': 'Conexao caiu — simulacao provavelmente ainda em execucao. Verificando conclusao...',
 	'risk.progress.connection_lost': 'Conexao perdida. A simulacao pode continuar em segundo plano; atualize a lista abaixo quando ela terminar.',
 	'risk.progress.failed': 'Simulacao falhou',
 

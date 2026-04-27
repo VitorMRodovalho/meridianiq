@@ -2,6 +2,7 @@
 	import {
 		getRiskSimulations,
 		createRiskSimulation,
+		getRiskSimulationByJob,
 		getProjects,
 		type RiskSimulationSummary,
 		type RiskSimulationRunConfig
@@ -34,7 +35,21 @@
 	// `progressState` is the composable's readable store; the template
 	// auto-subscribes via the `$progressState` sigil so every WebSocket
 	// frame triggers a re-render without manual polling.
-	const progress = useWebSocketProgress();
+	//
+	// ADR-0019 §"W1 — D4" recoveryPoller — on transient WS disconnect
+	// (TLS hiccup, Fly.io single-instance restart blip, ~5–15s) the
+	// composable enters `recovering` state and polls this function on
+	// 5s cadence within a 60s window. The poller hits the by-job
+	// endpoint that resolves to `simulation_id` once the backend has
+	// stored the result, OR returns null while still running. A
+	// non-null result flips the composable to `done` without spurious
+	// `error`. Authoritative close codes (4401/4403/4404) bypass the
+	// recovery — those are deliberate server decisions, not blips.
+	async function riskRecoveryPoller(jobId: string): Promise<string | null> {
+		const result = await getRiskSimulationByJob(jobId);
+		return result.simulation_id;
+	}
+	const progress = useWebSocketProgress({ recoveryPoller: riskRecoveryPoller });
 	const progressState = progress.state;
 
 	async function loadSimulations() {
@@ -203,7 +218,9 @@
 								? 'bg-red-500'
 								: $progressState.status === 'done'
 									? 'bg-green-600'
-									: 'bg-blue-600'}"
+									: $progressState.status === 'recovering'
+										? 'bg-amber-500 animate-pulse'
+										: 'bg-blue-600'}"
 							style="width: {$progressState.status === 'done' ? 100 : $progressState.pct}%"
 						></div>
 					</div>
@@ -217,6 +234,8 @@
 							{$t('risk.progress.connecting')}
 						{:else if $progressState.status === 'running'}
 							{$t('risk.progress.running')} — {Math.round($progressState.pct)}% ({$progressState.done.toLocaleString()} / {$progressState.total.toLocaleString()})
+						{:else if $progressState.status === 'recovering'}
+							{$t('risk.progress.recovering')}
 						{:else if $progressState.status === 'done'}
 							{$t('risk.progress.running')} — 100%
 						{:else if $progressState.status === 'error'}
