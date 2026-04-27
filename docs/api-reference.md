@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **121 endpoints** across **23 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **122 endpoints** across **23 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -15,7 +15,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Forensics](#forensics) — 10 endpoints
 - [TIA](#tia) — 4 endpoints
 - [EVM](#evm) — 6 endpoints
-- [Risk](#risk) — 8 endpoints
+- [Risk](#risk) — 9 endpoints
 - [Analysis](#analysis) — 11 endpoints
 - [Intelligence](#intelligence) — 8 endpoints
 - [What-If](#what-if) — 7 endpoints
@@ -121,6 +121,7 @@ _Monte Carlo QSRA per AACE RP 57R-09_
 |---|---|---|---|---|
 | `POST` | `/api/v1/risk/simulate/{project_id}` | Run Monte Carlo schedule risk simulation (QSRA) on a project. | `SimulationResultSchema` | optional |
 | `GET` | `/api/v1/risk/simulations` | List all risk simulations. | `SimulationListResponse` | optional |
+| `GET` | `/api/v1/risk/simulations/by-job/{job_id}` | Look up a risk simulation by its progress channel job_id. | `RiskSimulationByJobResponse` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}` | Get full risk simulation result with all analysis data. | `SimulationResultSchema` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/criticality` | Get criticality index data for a risk simulation. | `CriticalityResponse` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/histogram` | Get histogram data for a risk simulation. | `HistogramResponse` | optional |

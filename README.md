@@ -40,7 +40,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 1435 backend + 26 Vitest composables + Playwright E2E |
 | Frontend pages | 54 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, …) |
-| API endpoints | 121 across 23 routers |
+| API endpoints | 122 across 23 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.1.0 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
