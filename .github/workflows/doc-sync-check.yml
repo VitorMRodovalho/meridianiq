@@ -13,9 +13,11 @@ on:
       - "docs/api-reference.md"
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
+      - "docs/architecture.md"
       - "CLAUDE.md"
       - "README.md"
       - "web/src/routes/**"
+      - "supabase/migrations/**"
   push:
     branches: [main]
     paths:
@@ -28,9 +30,11 @@ on:
       - "docs/api-reference.md"
       - "docs/methodologies.md"
       - "docs/mcp-tools.md"
+      - "docs/architecture.md"
       - "CLAUDE.md"
       - "README.md"
       - "web/src/routes/**"
+      - "supabase/migrations/**"
 
 jobs:
   check:

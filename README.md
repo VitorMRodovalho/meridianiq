@@ -11,7 +11,7 @@ Open-source schedule intelligence platform — from validation to prediction to 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.56-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/Tests-1435%2B%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-1473%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -38,7 +38,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 47 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 1435 backend + 26 Vitest composables + Playwright E2E |
+| Tests passing | 1473 backend + 26 Vitest composables + Playwright E2E |
 | Frontend pages | 54 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, …) |
 | API endpoints | 122 across 23 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (40)<br/>98 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (47)<br/>122 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -277,7 +277,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (1435+ passing) · Vitest (26 composables) · Playwright E2E |
+| **Testing** | pytest (1473+ passing) · Vitest (26 composables) · Playwright E2E |
 
 ---
 
@@ -320,14 +320,14 @@ meridianiq/
 │   │   ├── cost_integration.py # CBS/WBS cost correlation
 │   │   ├── schedule_trends.py  # Period-over-period evolution
 │   │   ├── narrative_report.py # Structured claim narratives
-│   │   └── ...                 # 40 engines total + 1 export
+│   │   └── ...                 # 47 engines total + 1 export
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
 │       ├── app.py        # FastAPI entry point
-│       ├── routers/      # 98 endpoints across modular routers
+│       ├── routers/      # 122 endpoints across modular routers
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind (54 pages)
-├── tests/                # 1435+ backend tests
+├── tests/                # 1473+ backend tests
 ├── supabase/
 │   └── migrations/       # PostgreSQL schema migrations (26 files)
 ├── .github/
