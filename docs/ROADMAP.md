@@ -6,7 +6,7 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-04-27 (Cycle 3 W0 entry, ADR-0021 — see "Next — Cycle 3" below)**.
+> Last refreshed: **2026-04-27 (Cycle 3 W0 close — audit re-run merged at PR #39 `0524db7`; success criterion #1 closed)**.
 
 ---
 
@@ -58,14 +58,14 @@ A1+A2 deferred to Cycle 5+ with corpus-build preconditions; E1
 deferred to Cycle 4 with the corpus-precondition gate. ADR-0022 and
 ADR-0023 reserved for whichever Cycle 4 deep ships.
 
-| Wave | Delivers |
-|------|----------|
-| W0 | This ROADMAP refresh + ADR-0021 + ADR-0022/0023 reservations + 2026-04-26 audit re-run published as `docs/audit/2026-04-26/` (6-layer per ADR-0018 §5) with findings as `audit-2026-04-26`-labeled issues. |
-| W1 | Migration `026_api_keys_schema_align.sql` applied in production per `docs/audit/HANDOFF.md §H-01` (backup, apply, sample-row inspection, RLS verification, audit-log entry). Closes `#26` (P0). |
-| W2 | `#28` ratifications of ADR-0017/0018/0019/0020 (re-read + recorded). W4 manifest archive into `meridianiq-private/calibration/cycle1-w4/` with content-hash verification (re-run W4 protocol against the harness if `/tmp` was rotated). |
-| W3 | `tests/test_w4_reproduction.py` — pins equivalence between `scripts/calibration/run_w4_calibration.py` and `tools/calibration_harness.py` on the same input. Asserts byte-identical aggregate numbers. **Closes the [ADR-0020](adr/0020-calibration-harness-primitive.md) §"Decision" caveat outstanding since 2026-04-26.** (One of two load-bearing items in the cycle alongside the multi-wave operator block per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision Drivers" #1.) |
-| W4 | `_ENGINE_VERSION` → `src/__about__.py::__version__` per [ADR-0014](adr/0014-derived-artifact-provenance-hash.md). Operator decision required on re-materialize event (88 prod rows). Closes the multi-cycle divergence documented in [`LESSONS_LEARNED.md` Cycle 2 §"The ADR-0014 implementation has been diverged for multiple cycles"](LESSONS_LEARNED.md). |
-| W5 (optional) | Field Engineer mobile look-ahead spike. Sub-pick (deferred to W4 close based on remaining capacity): (a) responsive Schedule Viewer pass, OR (b) 3-week look-ahead view, OR (c) lighter offline cache for already-loaded schedules. Addresses 2-cycle-deep Field/Sub under-service. |
+| Wave | Delivers | Status |
+|------|----------|--------|
+| W0 | This ROADMAP refresh + ADR-0021 + ADR-0022/0023 reservations + 2026-04-26 audit re-run published as `docs/audit/2026-04-26/` (6-layer per ADR-0018 §5) with findings as `audit-2026-04-26`-labeled issues. | **DONE** — ADR-0021 + ROADMAP merged in PR #38 (`ea4ee4d`); audit re-run merged in PR #39 (`0524db7`); 7 issues created (`#40` meta + `#41`–`#46` individual). [`docs/audit/2026-04-26/`](audit/2026-04-26/) shipped 11 new findings (4 P2, 7 P3, zero P0/P1). |
+| W1 | Migration `026_api_keys_schema_align.sql` applied in production per `docs/audit/HANDOFF.md §H-01` (backup, apply, sample-row inspection, RLS verification, audit-log entry). Closes `#26` (P0). | OPEN — operator-paced |
+| W2 | `#28` ratifications of ADR-0017/0018/0019/0020/0021 (escopo ampliado per audit-2026-04-26 AUDIT-009 — body update needed). W4 manifest archive into `meridianiq-private/calibration/cycle1-w4/` with content-hash verification (re-run W4 protocol against the harness if `/tmp` was rotated). | OPEN — operator-paced |
+| W3 | `tests/test_w4_reproduction.py` — pins equivalence between `scripts/calibration/run_w4_calibration.py` and `tools/calibration_harness.py` on the same input. Asserts byte-identical aggregate numbers. **Closes the [ADR-0020](adr/0020-calibration-harness-primitive.md) §"Decision" caveat outstanding since 2026-04-26.** (One of two load-bearing items in the cycle alongside the multi-wave operator block per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision Drivers" #1.) | NOT STARTED |
+| W4 | `_ENGINE_VERSION` → `src/__about__.py::__version__` per [ADR-0014 §"Decision Outcome"](adr/0014-derived-artifact-provenance-hash.md#decision-outcome). **Pré-requisito (per audit-2026-04-26 AUDIT-011, P2):** criar `src/__about__.py` (file nunca existiu — ADR não-implementable as-written desde 2026-04-18). Operator decision required on re-materialize event (88 prod rows). Closes the multi-cycle divergence documented in [`LESSONS_LEARNED.md` Cycle 2 §"The ADR-0014 implementation has been diverged for multiple cycles"](LESSONS_LEARNED.md) + `#43`. | NOT STARTED |
+| W5 (optional) | Field Engineer mobile look-ahead spike. Sub-pick (deferred to W4 close based on remaining capacity): (a) responsive Schedule Viewer pass, OR (b) 3-week look-ahead view, OR (c) lighter offline cache for already-loaded schedules. Addresses 2-cycle-deep Field/Sub under-service. | NOT STARTED |
 
 Pre-registered success criteria: see [ADR-0021 §"Pre-registered
 success criteria"](adr/0021-cycle-3-entry-floor-plus-field-shallow.md).
@@ -98,12 +98,15 @@ each closes.
   rotated and the manifest is gone, re-run the W4 protocol against
   the harness as the archive material. Pre-condition for the W3
   reproduction regression test. **Cycle 3 W2.**
-- **2026-04-26 audit re-run** — owed per
-  [ADR-0018 §5](adr/0018-cycle-cadence-doc-artifacts.md), which states
-  the audit re-run is *cycle-close mandatory*, not opportunistic.
-  Output: `docs/audit/2026-04-26/` following the 6-layer structure of
-  the 2026-04-22 baseline; findings become GitHub issues with the
-  `audit-2026-04-26` label. **Cycle 3 W0.**
+- ~~**2026-04-26 audit re-run**~~ — **DONE** at PR #39 (commits `7bfc334` +
+  `0524db7`). 9 layer docs published in `docs/audit/2026-04-26/` following
+  the 6-layer baseline structure. **0 P0 / 0 P1 new**, 4 P2 new (001 README
+  mermaid, 003 DA-protocol gap, 007 `_ENGINE_VERSION` reescalada P3→P2,
+  011 `__about__.py` missing), 7 P3 new. 11 of 18 baseline AUDIT-NNN
+  resolved clean; 3 with regression sub-finding; 1 reaffirmed.
+  Pre-registered Cycle 3 success criterion #1 — **CLOSED**. Findings
+  tracked under label [`audit-2026-04-26`](https://github.com/VitorMRodovalho/meridianiq/issues?q=label%3Aaudit-2026-04-26)
+  (meta #40 + individual #41-#46). **Cycle 3 W0.**
 
 ### Pre-Cycle-3 hygiene (Claude-doable, status)
 
@@ -266,7 +269,7 @@ close updates five artifacts. The Cycle 2 close did:
 | [`BUGS.md`](../BUGS.md) header + pruning | refreshed at Cycle 2 close |
 | [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) Cycle 2 entry | appended at Cycle 2 close + 5 close-arc lessons appended in PR #37 (2026-04-27) |
 | Catalog regen via `scripts/generate_*.py` | done at `6be1ec8` (pre-bump) + `dfcc0bd` (post-by-job endpoint, 2026-04-27) |
-| `docs/audit/2026-04-26/` re-run | **scheduled — Cycle 3 W0** per ADR-0021 §"Wave plan" |
+| `docs/audit/2026-04-26/` re-run | **DONE — Cycle 3 W0** at PR #39 (`0524db7`); 11 findings (4 P2 + 7 P3, zero P0/P1 new); meta-issue `#40` |
 
 Cycle 3 also implements the Cycle 2 §"What we would do differently"
 lesson — this ROADMAP refresh + ADR-0021 land at Cycle 3 W0 (kickoff),
