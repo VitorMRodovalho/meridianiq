@@ -14,7 +14,15 @@ architectural decisions in [`docs/adr/`](adr/); structural audits in
 
 **Theme:** Consolidation + Primitive ([ADR-0019](adr/0019-cycle-2-entry-consolidation-primitive.md), Option 4).
 **Released as:** [`v4.1.0`](https://github.com/VitorMRodovalho/meridianiq/releases/tag/v4.1.0)
-at commit `aae1bb1`. **7/7** pre-registered success criteria closed.
+at commit `aae1bb1`. **6 of 7** pre-registered success criteria closed
+wave-by-wave; the 7th = this release tag itself (per
+[CHANGELOG.md §v4.1.0 → "Pre-registered success criteria"](../CHANGELOG.md)).
+Criterion 5 (`python -m tools.calibration_harness` reproduces a
+coarse-banded report shape) is met with an honest caveat —
+[ADR-0020 §"Decision"](adr/0020-calibration-harness-primitive.md)
+explicitly notes the pipeline ships but does NOT reproduce the W4
+outcome numbers authoritatively until the W4 private manifest is
+archived (see "Operator actions" below).
 
 | Wave | Delivers |
 |------|----------|
@@ -61,11 +69,17 @@ waves once that round closes.
   `/tmp/w4_calibration_private.json` + `/tmp/w4_calibration_public.json`
   into `meridianiq-private/calibration/cycle1-w4/`. Pre-condition for
   the W4-reproduction regression test.
-- **2026-04-26 audit re-run** — per ADR-0018 §5, every cycle close
-  produces a new `docs/audit/YYYY-MM-DD/` directory following the
-  6-layer structure of the 2026-04-22 baseline. Findings become GitHub
-  issues with the `audit-2026-04-26` label. Tracked as a separate work
-  item; not blocking Cycle 3.
+- **2026-04-26 audit re-run** — owed per
+  [ADR-0018 §5](adr/0018-cycle-cadence-doc-artifacts.md), which states
+  the audit re-run is *cycle-close mandatory*, not opportunistic. The
+  Cycle 2 close ships only 4 of the 5 ADR-0018 artifacts in this
+  refresh; this 5th is tracked as a separate operator work item to be
+  executed before Cycle 3 W0 opens. Output: a new
+  `docs/audit/YYYY-MM-DD/` directory following the 6-layer structure
+  of the 2026-04-22 baseline; findings become GitHub issues with the
+  `audit-YYYY-MM-DD` label. If pragmatically deferred past Cycle 3 W0,
+  authoring an ADR-0018 amendment (rather than silently slipping the
+  contract) is the honest move.
 
 ### Pre-Cycle-3 hygiene (Claude-doable, queued)
 
@@ -149,7 +163,7 @@ close updates five artifacts. The Cycle 2 close did:
 | [`BUGS.md`](../BUGS.md) header + pruning | refreshed in this commit |
 | [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) cycle entry | appended in this commit |
 | Catalog regen via `scripts/generate_*.py` | done in `6be1ec8` (pre-bump) |
-| `docs/audit/2026-04-26/` re-run | **pending** (operator action) |
+| `docs/audit/2026-04-26/` re-run | **owed** per ADR-0018 §5 (deferred to a separate operator work item — see "Operator actions" follow-ups) |
 
 ---
 

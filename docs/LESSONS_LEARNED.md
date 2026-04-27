@@ -106,11 +106,11 @@ in later cycles.
 **What shipped:** 7 waves delivering ingest-time materialization, derived-artifact provenance, lifecycle-phase inference, and WebSocket progress hardening. Tag `v4.0.0` at commit `7262253`. v4.0.1 followed 2026-04-19 with Track 1 polish.
 
 #### Calibration before claiming a behavior
-ADR-0009 W4 pre-committed a 5+1 lifecycle phase classifier (deg / cont / closure / …) with a thresholded protocol. The gate **failed at every threshold for distinct sub-gate reasons**. Engine v1 was characterized as a reliable construction-vs-non-construction detector, not a 5+1 classifier; hysteresis was 0 phase flips across 4 multi-revision programs. The W4 outcome (`docs/adr/0009-w4-outcome.md`) is the canonical record.
+ADR-0009 W4 pre-committed a 5+1 lifecycle phase classifier (deg / cont / closure / …) with a thresholded protocol. The gate **failed at every threshold for distinct sub-gate reasons**. Engine v1 was characterized as a reliable construction-vs-non-construction detector, not a 5+1 classifier; hysteresis was 0 phase flips across 4 multi-revision programs (with 1 confidence-band crossing — see [`docs/adr/0009-w4-outcome.md` §"Hysteresis report"](adr/0009-w4-outcome.md) line 72 for the band-flip count). The W4 outcome ADR is the canonical record.
 **Lesson:** Pre-registered calibration before product claim is the only honest path. The protocol failing is a feature of pre-registration, not a bug.
 
 #### Operational darkness lasts longer than you think
-v4.0.0 RC-state had 88 prod projects with no derived-artifact rows — async materializer existed but `_json_safe` at the store boundary silently failed on `datetime` serialization, flipping projects to `failed` status. Discovered during the W4 backfill audit, not during regular monitoring.
+v4.0.0 RC-state had 24 ready prod projects with empty `schedule_derived_artifacts` despite the W2 DDL being applied — the backfill CLI had never been invoked. The first invocation surfaced a `_json_safe` regression at the store boundary (silent `datetime` serialization failure), which flipped 21 of those projects to `failed`. The post-fix run produced 88 derived-artifact rows (22 projects × 4 kinds) + 88 `action='materialize'` audit rows with a shared `backfill_id` (per [CHANGELOG v4.0.0 §"Prod operational darkness"](../CHANGELOG.md)). Discovered during the W4 backfill audit, not during regular monitoring.
 **Lesson:** "Healthy in dev, silent in prod" is the worst failure mode. Dev fixtures are too clean — verify boundary serialization with prod-shape data, not curated samples.
 
 #### `_json_safe` at the store boundary
@@ -132,7 +132,7 @@ Before ADR-0013: client-generated job IDs and undifferentiated WS closures. Afte
 
 ### Cycle 2 — v4.1 Consolidation + Primitive (closed 2026-04-26)
 
-**What shipped:** 4 waves per ADR-0019 (Option 4 — no deep, three primitives every future deep depends on). Tag `v4.1.0` at commit `aae1bb1`. 7/7 pre-registered success criteria closed.
+**What shipped:** 4 waves per ADR-0019 (Option 4 — no deep, three primitives every future deep depends on). Tag `v4.1.0` at commit `aae1bb1`. **6 of 7** pre-registered success criteria closed wave-by-wave; the 7th = the release tag itself (per [CHANGELOG.md §v4.1.0](../CHANGELOG.md)). Criterion 5 carries an honest caveat — [ADR-0020 §"Decision"](adr/0020-calibration-harness-primitive.md) explicitly notes the harness ships end-to-end but does NOT reproduce the W4 outcome numbers authoritatively until the private manifest is archived. Cycle close ships **4 of the 5** ADR-0018 artifacts; the 2026-04-26 audit re-run is owed and tracked as a separate operator work item before Cycle 3 W0 opens.
 
 #### Wave-level honesty contract — the council pair pays for itself
 Every wave's exit council pair (backend + frontend + devils-advocate) caught load-bearing P1s. W3 council found 3 P1s the implementation alone missed (`Observation` boundary validation, CLI default footgun, protocol drift hash-pin). W0 entry council was skipped — right call there because W0 was hygiene-only, but skipping it on substantive waves would have shipped real bugs.
