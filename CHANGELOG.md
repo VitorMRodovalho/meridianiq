@@ -3,6 +3,88 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.1.0] — 2026-04-26 — Consolidation + Primitive (Cycle 2 close)
+
+Cycle 2 close. Per [ADR-0019](docs/adr/0019-cycle-2-entry-consolidation-primitive.md), the cycle did NOT commit to a deep — it shipped the three primitives every future deep depends on: (1) security hygiene that any enterprise conversation requires; (2) honesty-debt closure on the v4.0.0 lifecycle classifier; (3) a reusable calibration harness future probabilistic-heuristic engines pre-register against. 4 waves planned, 4 waves landed.
+
+**Strategic frame**: A1+A2 auto-grouping (PV deep), E3 plugin marketplace (strategist deep), and E1 multi-discipline forensic methodology (strategist alternative) were all rejected by the adversarial round; A1+A2 and E1 are explicitly gated on this cycle's calibration harness landing first. See ADR-0019 for the full Considered-Options record.
+
+### Added — W0 hygiene + decisions (`b924b93`)
+
+- **Rate limit on `POST /api/v1/jobs/progress/start`** — `@limiter.limit(RATE_LIMIT_READ)` (30/minute per remote IP) on `src/api/routers/ws.py:start_progress_job`. Each successful call allocates a ~20 KB in-memory queue; the 15-minute reaper bounds long-term leakage but did nothing against burst abuse. Bumped from `MODERATE` (10/min) to `READ` (30/min) per devils-advocate finding — IP-keyed at 10/min would lock out enterprise teams behind a single egress NAT (5 PMs × 2 analyses/min = 10, at the edge). Per-user keying via custom `key_func` is documented as follow-up. Closes [ADR-0019 §"W0 — D1"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md).
+- **`slowapi>=0.1.9` in `[dev]` extras** — `pyproject.toml`. Until now slowapi was only declared under `[api]`, so CI's `pip install -e ".[dev]"` left `@limiter.limit` as a `_NoOpLimiter` pass-through. CI now exercises the real limiter surface, which regression-locks every rate-limit decorator added since v4.0.0. Closes [ADR-0019 §"W0 — D10"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md).
+- **`useWebSocketProgress.destroy()`** helper — counterpart to `reset()` (which preserves `terminalListeners` per Track-1 v4.0.1 fix). `destroy()` additionally `terminalListeners.clear()` so closures the caller registered cannot outlive the instance — the latent listener-leak F1 v4.0.1 devils-advocate accepted as deferred. Idempotent. Closes [ADR-0019 §"W0 — D11"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md).
+
+### Added — W1 WS re-auth + recovery hook (`567a604`, `eb0ca3b` ruff-format catch-up)
+
+- **Server-initiated WS heartbeat** (`src/api/routers/ws.py`) — `HEARTBEAT_INTERVAL_SECONDS = 30.0`. On each idle tick: re-checks the JWT `exp` claim (via the new `_decode_exp_unverified` helper — signature already verified at handshake; the heartbeat re-reads the SAME query-string token, no swap risk) AND re-validates API keys via `validate_api_key()` (closes a perpetual-keepalive gap on revoked keys flagged by devils-advocate). On expiry / revocation closes 4401. Defensive `queue.get_nowait()` drain after `asyncio.wait_for` timeout protects against the producer-publishes-at-cancellation race. Closes [ADR-0019 §"W1 — D3"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md).
+- **Heartbeat opt-in via `?hb=1`** — backend gates the heartbeat behind a query-param flag so frontend bundles cached pre-W1 (no `auth_check` branch in `_handleEvent`) keep the v4.0.1 silent-streaming behavior. The current frontend always sends `hb=1`; legacy tabs do not. Backend safe to deploy before frontend rollout.
+- **`useWebSocketProgress` recoveryPoller hook** (`web/src/lib/composables/useWebSocketProgress.ts`) — new optional config `{ recoveryPoller, recoveryTimeoutMs=60000, recoveryIntervalMs=5000 }`. New `'recovering'` status. On WS close with `'connection_lost'` (unknown close code, e.g. 1006) when a poller is configured and the composable made it to `running`, polls the caller-provided fn for up to 60s before declaring failure. Authoritative close codes (4401/4403/4404) bypass recovery — they're deliberate server decisions, not transient blips. `recoveryAborted` flag lets `destroy()` and `reset()` cancel an in-flight recovery loop (no phantom-fetches against torn-down components). Closes [ADR-0019 §"W1 — D4"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md) at the composable contract level (backend `job_id` index on `RiskStore` + `GET /risk/simulations/by-job/{id}` endpoint + risk-page wiring deferred — composable hook is dormant for real users until that lands).
+- **`WSProgressAuthCheck`** type added to `web/src/lib/types.ts`; `_handleEvent` silently drops `auth_check` frames.
+
+### Added — W2 honesty-debt closure (`b40d184`)
+
+- **Authoritative `is_construction_active: bool | None`** field on `LifecyclePhaseInferenceSchema` and `effective_is_construction_active: bool | None` on `LifecyclePhaseSummary`. Tri-state contract: `construction → True`, any other resolved phase → `False`, `phase=='unknown' → None`. Never coerce "we don't know" into "not in construction".
+- **Wire-level honesty markers** — `Field(description=...)` on the new fields AND the legacy `phase` / `effective_phase` so non-UI consumers (MCP tools, OpenAPI clients, CLI integrations) see "preview, prefer is_construction_active" in the schema. Closes the devils-advocate finding that the structural fix was UI-only.
+- **`LifecyclePhaseCard.svelte` split UI** — authoritative chip (3 visual states: emerald `Construction active`, gray `Not in construction`, outlined `Phase unknown`) ABOVE the phase label. Strict `=== true / === false` preserves `null` in the catch-all. Phase label demoted from `text-2xl/gray-900` to `text-xl/gray-700` to de-emphasize against the chip; small `(preview)` caption above. ARIA uses a separate `lifecycle.preview_aria` key ("preliminary classification") so screen-readers don't say "open paren preview close paren". 7 new i18n keys × 3 locales (`authoritative_label`, `is_construction_active_yes/no/unknown`, `preview_label`, `preview_marker`, `preview_aria`); `(preview)` translated to `(prévia)` (pt-BR) and `(vista previa)` (es).
+- **W4 calibration post-mortem** — public-facing companion at [`docs/calibration/lifecycle-phase-w4-postmortem.md`](docs/calibration/lifecycle-phase-w4-postmortem.md). Sections: pre-registered protocol, what the calibration found (with §C ceiling failure 62.5% vs 60%, §D confidence-honesty failure 19.8% vs 20.0%, per-phase N counts including closeout=0), what v1 reliably does, what ruleset v2 would need (3 priorities anchored on issue #13), how to contribute (LGPD/GDPR anonymization checklist), warranty / expert-testimony disclaimer. Council additions in-wave (legal-and-accountability): §D failure was silently omitted in the v0 draft; per-phase N counts disclosed; LGPD/GDPR contributor guidance expanded.
+- Closes [ADR-0019 §"W2"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md).
+
+### Added — W3 calibration harness primitive (`0fbe31e`)
+
+- **`tools/calibration_harness.py`** (~470 LoC) — reusable apparatus generalising the one-off Wave-4 calibration script (`scripts/calibration/run_w4_calibration.py`). Three abstractions: `Observation` (engine-agnostic per-fixture row, with `__post_init__` validating `confidence ∈ [0.0, 1.0]`), `EngineAdapter` (Protocol engines implement), `CalibrationProtocol` (frozen dataclass with §B-§E parameters; defaults match ADR-0009 Amendment 1's W4 numbers). Pure-function helpers (`evaluate_sub_gates`, `split_gate_and_hysteresis`, `hysteresis_report`, `label_histogram`, `confidence_histogram`, `_bucket_confidence`) + `run_calibration()` library entry returning `CalibrationOutputs(manifest_payload, public_payload, private_payload)`. Built-in `_LifecyclePhaseV1Adapter` registered as a worked example. Two registries — `_REGISTRY` (engines), `_PROTOCOLS` (protocols).
+- **CLI** at `python -m tools.calibration_harness --engine=… --protocol=… --fixtures=… --output-dir=…`. `--protocol` is REQUIRED — no default per W3 council finding (defaulting to `lifecycle_phase-w4-v1` would silently use the wrong protocol on a future engine).
+- **[ADR-0020](docs/adr/0020-calibration-harness-primitive.md)** — Cycle 2 W3 canonical decision record. Cites ADR-0009 Amendments 1+2 as template. Pre-registers the engine-author 5-step contract (LGPD/GDPR anonymization warning included). Honest §"Decision" caveat that this commit ships the pipeline end-to-end but does NOT reproduce the W4 outcome authoritatively — the private manifest archive is a pending operator action carried over from W4 closure.
+- **`*_private.json` glob** added to `.gitignore` so an operator running the CLI inside the repo cannot accidentally `git add` the per-observation private payload.
+- **CI Lint job extended** to `ruff check src/ tests/ tools/` + `ruff format --check src/ tests/ tools/`.
+- Closes [ADR-0019 §"W3"](docs/adr/0019-cycle-2-entry-consolidation-primitive.md).
+
+### Added — ADRs (4 new)
+
+- **[ADR-0017](docs/adr/0017-deduplicate-api-keys-migration.md)** — Deduplicate `api_keys` migration (012 vs 017). v4.0.2 audit-remediation arc.
+- **[ADR-0018](docs/adr/0018-cycle-cadence-doc-artifacts.md)** — Cycle cadence doc artifacts (roadmap, backlog, audit re-run). v4.0.2 audit-remediation arc.
+- **[ADR-0019](docs/adr/0019-cycle-2-entry-consolidation-primitive.md)** — Cycle 2 entry: Consolidation + Primitive (Option 4). Strategic record.
+- **[ADR-0020](docs/adr/0020-calibration-harness-primitive.md)** — Calibration harness as a reusable primitive for probabilistic-heuristic engines.
+
+### Tests
+
+- **+59 tests** across the cycle (1376 baseline at v4.0.2 → 1435 collected at v4.1.0):
+  - W0: 1 backend (live-429 against `jobs/progress/start`) + 4 frontend (`destroy()` helper).
+  - W1: 8 backend (heartbeat decode helper × 3, hb-opt-in heartbeat frame, hb=0 silence, revoked api_key 4401, expired token 4401, sourceguard) + 7 frontend (auth_check silent drop, recoveryPoller × 5, destroy-during-recovery cancellation).
+  - W2: 13 backend (`TestIsConstructionActiveDerivation` × 7 + `TestEffectiveIsConstructionActive` × 6 covering inferred / locked-override / cold-start / Pydantic JSON serialization).
+  - W3: 38 backend (sub-gates, dedup, hysteresis, coarse-banding, registry, CLI smoke, schema, Observation validation, empty-gate edge, protocol drift hash-pin).
+
+### Pending follow-ups (carry to Cycle 3)
+
+- W4 outcome authoritative reproduction — blocked on archiving `/tmp/w4_manifest.json` to `meridianiq-private/calibration/cycle1-w4/`. Once done, a `test_w4_reproduction.py` can pin equivalence between `scripts/calibration/run_w4_calibration.py` and the new harness.
+- Backend `job_id` index on `RiskStore` + `GET /api/v1/risk/simulations/by-job/{id}` + risk-page `recoveryPoller` wiring + i18n for `'recovering'` state — D4 fully closed only after these land.
+- Per-user key_func on `start_progress_job` (D1 partial — bumping to `RATE_LIMIT_READ` buys headroom; user-level keying is the proper fix).
+- 429 alerting / Sentry breadcrumb suppression on `auth_check` heartbeats (log-noise).
+- GET /lifecycle endpoint smoke test via TestClient (B2 has helper-level + summary-level coverage).
+- Source-aware boolean shape on `effective_is_construction_active` if MCP/external integrations report manual/calibrated provenance confusion.
+
+### Verification (Cycle 2 close)
+
+- `python3 -m pytest tests/ -q`: **1429 passed, 6 skipped, 0 failed** (1435 collected; 1376 collected at v4.0.2 → +59).
+- `cd web && npm run check`: 0 errors / 0 warnings (637 files).
+- `cd web && npm test` (Vitest): 26 / 26 passed.
+- `ruff check src/ tests/ tools/` + `ruff format --check src/ tests/ tools/`: clean.
+- `python3 scripts/check_stats_consistency.py`: clean.
+- `python -m tools.calibration_harness --engine=lifecycle_phase --protocol=lifecycle_phase-w4-v1 --fixtures=tests/fixtures`: runs end-to-end, produces three payloads, exit 0.
+- 7 commits since v4.0.2.
+
+### Pre-registered success criteria (ADR-0019)
+
+6 of 7 closed at v4.1.0; the 7th is this release tag itself.
+
+  1. ✓ `/optimizer` page no longer renders undefined stats — closed in v4.0.2 via #14.
+  2. ✓ `POST /jobs/progress/start` returns 429 after N starts/min — W0 (`RATE_LIMIT_READ`).
+  3. ✓ WS heartbeat closes 4401 on synthetic expired token — W1 D3.
+  4. ✓ `effective_is_construction_active` served alongside preview-flagged 5+1 phase — W2 B2.
+  5. ✓ `python -m tools.calibration_harness` reproduces a coarse-banded report shape — W3. (W4 numbers pending manifest archive — see ADR-0020 §"Decision" caveat.)
+  6. ✓ ADR-0019 + ADR-0020 committed with ADR-0009 Am.2 cross-link.
+  7. ✓ v4.1.0 tagged + GitHub release + CI green — this release.
+
 ## [4.0.2] — 2026-04-26 — Audit remediation
 
 Post-v4.0.1 remediation landing from the 2026-04-22 structural audit, plus full

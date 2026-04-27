@@ -38,11 +38,11 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 47 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 1376 backend + 15 Vitest composables + Playwright E2E |
+| Tests passing | 1435 backend + 26 Vitest composables + Playwright E2E |
 | Frontend pages | 54 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, …) |
 | API endpoints | 121 across 23 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | v0.1.0 → v4.0.2 |
+| Released versions | v0.1.0 → v4.1.0 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -214,6 +214,7 @@ flowchart LR
 | v3.8 | **Forensic MIP Expansion + Frontend Hardening** | AACE MIPs 3.1/3.2/3.5/3.6/3.7 · AIA G702 PDF · BI templates · per-WBS Gantt print · stats-consistency CI · audit IP/UA · type-safety + i18n sweeps | ✅ Released |
 | v3.9 | **Real-Time + Extensibility** | WebSocket progress (Monte Carlo) · plugin architecture + HTTP surface · MCP HTTP/SSE transports · activity grouping · structured calendar exception parser · mobile responsive · KPI cache · slowapi consolidation | ✅ Released |
 | v4.0 | **Materialized Intelligence** | schedule_derived_artifacts + provenance contract · async materializer pipeline (pending/ready/failed) · lifecycle phase inference (preliminary construction indicator per W4 calibration) · WebSocket progress hardening · evolution_optimizer callback · Svelte WS composable · datetime-safe store boundary · pre-registered calibration protocol | ✅ Released |
+| v4.1 | **Consolidation + Primitive (Cycle 2 close)** | rate-limit on `jobs/progress/start` · slowapi in [dev] extras · WS heartbeat + 4401 close on token expiry / API-key revocation · `useWebSocketProgress` recoveryPoller hook · authoritative `is_construction_active` + 5+1 phase preview-flagged (B2 honesty-debt closure) · W4 calibration post-mortem · `tools/calibration_harness.py` reusable primitive (ADR-0020) · ADRs 0017/0018/0019/0020 | ✅ Released |
 
 See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP_v06_to_v20.md).
 
