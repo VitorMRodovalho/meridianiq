@@ -6,7 +6,7 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-04-26 (Cycle 2 close, v4.1.0)**.
+> Last refreshed: **2026-04-27 (Cycle 3 W0 entry, ADR-0021 — see "Next — Cycle 3" below)**.
 
 ---
 
@@ -33,53 +33,76 @@ archived (see "Operator actions" below).
 
 ---
 
-## Next — Cycle 3 (kickoff TBD; scope TBD)
+## Next — Cycle 3 (kickoff 2026-04-27, in flight)
 
-**Cycle 3 has not opened.** ADR-0019 §"Cycle 3 status" pre-committed two
-candidate deeps gated on the calibration harness landing (which it did
-in Cycle 2 W3):
+**Theme:** Floor + Field-surface shallow ([ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md), Option α).
+**Tag target:** `v4.2.0` — "Governance + Corpus Foundation".
 
-- **A1+A2 — auto-grouping + baseline inference** (product-validator
-  deep). Additional gates before opening: MERGE-cascade migration
-  scoped as its own wave; A2 baseline contract defined.
-- **E1 — multi-discipline forensic methodology** (strategist deep).
-  Additional gate: measurability framing for the investor lens.
+The 2026-04-27 council round (4 agents over 2 rounds per ADR-0019
+§"Process") rejected both ADR-0019 §"Cycle 3 status" pre-committed
+deeps and the strategist-proposed hybrid. Round 2 devils-advocate
+verified A2 baseline inference is **not separable** from A1 grouping
+in the current codebase (`src/database/store.py:252-260` — `save_project`
+auto-creates programs from `proj_short_name` exact-match with no
+baseline modeling primitive); round 2 investor-view confronted its
+own ADR-0019 §"Option 3" caveat as relative-not-absolute and now
+underweighted, citing the absent forensic-corpus precondition for E1.
+Both round 2 agents converged on a floor plan that closes the
+contractual operator-block work (ADR-0018 §5 + ROADMAP §"Operator
+actions") + ships the W4 reproduction regression test as the
+load-bearing primitive that unblocks any future calibration-dependent
+deep.
 
-Cycle 3 opens with the standard council protocol from ADR-0019 §"Process":
-`product-validator` + `strategist` synthesis, then `devils-advocate` +
-`investor-view` paired adversarial round, then Chairman synthesis →
-scope memo. A follow-up PR will populate this section with concrete
-waves once that round closes.
+A1+A2 deferred to Cycle 5+ with corpus-build preconditions; E1
+deferred to Cycle 4 with the corpus-precondition gate. ADR-0022 and
+ADR-0023 reserved for whichever Cycle 4 deep ships.
+
+| Wave | Delivers |
+|------|----------|
+| W0 | This ROADMAP refresh + ADR-0021 + ADR-0022/0023 reservations + 2026-04-26 audit re-run published as `docs/audit/2026-04-26/` (6-layer per ADR-0018 §5) with findings as `audit-2026-04-26`-labeled issues. |
+| W1 | Migration `026_api_keys_schema_align.sql` applied in production per `docs/audit/HANDOFF.md §H-01` (backup, apply, sample-row inspection, RLS verification, audit-log entry). Closes `#26` (P0). |
+| W2 | `#28` ratifications of ADR-0017/0018/0019/0020 (re-read + recorded). W4 manifest archive into `meridianiq-private/calibration/cycle1-w4/` with content-hash verification (re-run W4 protocol against the harness if `/tmp` was rotated). |
+| W3 | `tests/test_w4_reproduction.py` — pins equivalence between `scripts/calibration/run_w4_calibration.py` and `tools/calibration_harness.py` on the same input. Asserts byte-identical aggregate numbers. **Load-bearing primitive of the cycle.** |
+| W4 | `_ENGINE_VERSION` → `src/__about__.py::__version__` per [ADR-0014](adr/0014-derived-artifact-provenance-hash.md). Operator decision required on re-materialize event (88 prod rows). Closes the multi-cycle divergence documented in [`LESSONS_LEARNED.md` Cycle 2 §"The ADR-0014 implementation has been diverged for multiple cycles"](LESSONS_LEARNED.md). |
+| W5 (optional) | Field Engineer mobile look-ahead spike. Sub-pick (deferred to W4 close based on remaining capacity): (a) responsive Schedule Viewer pass, OR (b) 3-week look-ahead view, OR (c) lighter offline cache for already-loaded schedules. Addresses 2-cycle-deep Field/Sub under-service. |
+
+Pre-registered success criteria: see [ADR-0021 §"Pre-registered
+success criteria"](adr/0021-cycle-3-entry-floor-plus-field-shallow.md).
+Cycle 3 fails *gracefully* if ≥5 of the 9 criteria close and the rest
+are cleanly documented for Cycle 3.5 or Cycle 4.
 
 ---
 
-## Cycle 2 close — outstanding follow-ups
+## Cycle 2 carry-over (now Cycle 3 W0-W2 work)
 
-### Operator actions (require human execution; cannot be closed by automation)
+The four operator-action items below were carried over from Cycle 2
+close. ADR-0021 commits them to specific Cycle 3 waves. Maintainer or
+operator executes; Claude prepares runbooks. Tracked here for audit
+trail; cycle-by-cycle status will move into the wave table above as
+each closes.
 
 - **#26 (P0, ops)** — Apply migration `026_api_keys_schema_align.sql`
   to production Supabase. Diagnostic + backup + apply procedure in
   [`docs/audit/HANDOFF.md §H-01`](audit/HANDOFF.md#h-01--aplicar-migration-026-em-produção).
+  **Cycle 3 W1.**
 - **#28 (P2, governance)** — Council ratification of
   [ADR-0017](adr/0017-deduplicate-api-keys-migration.md),
   [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md),
   [ADR-0019](adr/0019-cycle-2-entry-consolidation-primitive.md),
   [ADR-0020](adr/0020-calibration-harness-primitive.md).
+  **Cycle 3 W2.**
 - **W4 manifest archive** — move `/tmp/w4_manifest.json` +
   `/tmp/w4_calibration_private.json` + `/tmp/w4_calibration_public.json`
-  into `meridianiq-private/calibration/cycle1-w4/`. Pre-condition for
-  the W4-reproduction regression test.
+  into `meridianiq-private/calibration/cycle1-w4/`. If `/tmp` was
+  rotated and the manifest is gone, re-run the W4 protocol against
+  the harness as the archive material. Pre-condition for the W3
+  reproduction regression test. **Cycle 3 W2.**
 - **2026-04-26 audit re-run** — owed per
   [ADR-0018 §5](adr/0018-cycle-cadence-doc-artifacts.md), which states
-  the audit re-run is *cycle-close mandatory*, not opportunistic. The
-  Cycle 2 close ships only 4 of the 5 ADR-0018 artifacts in this
-  refresh; this 5th is tracked as a separate operator work item to be
-  executed before Cycle 3 W0 opens. Output: a new
-  `docs/audit/YYYY-MM-DD/` directory following the 6-layer structure
-  of the 2026-04-22 baseline; findings become GitHub issues with the
-  `audit-YYYY-MM-DD` label. If pragmatically deferred past Cycle 3 W0,
-  authoring an ADR-0018 amendment (rather than silently slipping the
-  contract) is the honest move.
+  the audit re-run is *cycle-close mandatory*, not opportunistic.
+  Output: `docs/audit/2026-04-26/` following the 6-layer structure of
+  the 2026-04-22 baseline; findings become GitHub issues with the
+  `audit-2026-04-26` label. **Cycle 3 W0.**
 
 ### Pre-Cycle-3 hygiene (Claude-doable, status)
 
@@ -189,11 +212,20 @@ waves once that round closes.
   full record of what was tried and why it parked.
 - **Fuzzy-match dependency category** — reserved (ADR-0011 not
   authored). See ADR-0009 §"Wave A" for the original framing.
+- **ADR-0022 + ADR-0023** — reserved for the two Cycle 4 deeps
+  selected at Cycle 3 close per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md)
+  §"Decision". Candidates: A1+A2 deep (corpus-conditional), E1 deep
+  (corpus-conditional), or other if Cycle 3 evidence reframes. Pre-
+  reservation matches the ADR-0010 / ADR-0011 pattern (numbers held;
+  no stub files until the actual ADR is authored at Cycle 4 W0).
 - **Schedule Viewer Wave 7** — backend engines exist
   (`src/analytics/resource_leveling.py`, `src/analytics/evm.py`); Gantt
   UI integration tracked at #23 with sub-issues #29 (P1 resource
   histogram), #30 (P2 cost-loading), #31 (P2 BVA per activity), #32
-  (P3 RCCP highlighting). Strong candidate for a Cycle 3+ wave.
+  (P3 RCCP highlighting). Re-evaluated at Cycle 3 entry (ADR-0021
+  §"Considered Options" Option 3 — rejected as cycle commitment, kept
+  as slot-opportunistic shallow). Strong candidate for a Cycle 4+
+  shallow.
 
 ---
 
@@ -229,11 +261,15 @@ close updates five artifacts. The Cycle 2 close did:
 
 | Artifact | Status |
 |----------|--------|
-| `docs/ROADMAP.md` (this doc) | refreshed in this commit |
-| [`BUGS.md`](../BUGS.md) header + pruning | refreshed in this commit |
-| [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) cycle entry | appended in this commit |
-| Catalog regen via `scripts/generate_*.py` | done in `6be1ec8` (pre-bump) |
-| `docs/audit/2026-04-26/` re-run | **owed** per ADR-0018 §5 (deferred to a separate operator work item — see "Operator actions" follow-ups) |
+| `docs/ROADMAP.md` | refreshed at Cycle 2 close + this Cycle 3 W0 entry |
+| [`BUGS.md`](../BUGS.md) header + pruning | refreshed at Cycle 2 close |
+| [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) Cycle 2 entry | appended at Cycle 2 close + 5 close-arc lessons appended in PR #37 (2026-04-27) |
+| Catalog regen via `scripts/generate_*.py` | done at `6be1ec8` (pre-bump) + `dfcc0bd` (post-by-job endpoint, 2026-04-27) |
+| `docs/audit/2026-04-26/` re-run | **scheduled — Cycle 3 W0** per ADR-0021 §"Wave plan" |
+
+Cycle 3 also implements the Cycle 2 §"What we would do differently"
+lesson — this ROADMAP refresh + ADR-0021 land at Cycle 3 W0 (kickoff),
+not Cycle 3 close. Future cycles follow the same pattern.
 
 ---
 
