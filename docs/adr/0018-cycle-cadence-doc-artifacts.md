@@ -105,19 +105,31 @@ be immediately followed by a commit updating these five artifacts:
 
 * Status: accepted
 * Date: 2026-04-27
-* Trigger: [ADR-0021 §"Open process gap"](0021-cycle-3-entry-floor-plus-field-shallow.md#open-process-gap) self-flagged the absence of in-repo codification; [AUDIT-2026-04-26-003 (P2)](../audit/2026-04-26/02-architecture.md#audit-2026-04-26-003) confirmed; tracked under [#42](https://github.com/VitorMRodovalho/meridianiq/issues/42).
+* Trigger: [ADR-0021 §"Open process gap"](0021-cycle-3-entry-floor-plus-field-shallow.md#open-process-gap) self-flagged the absence of in-repo codification; **AUDIT-2026-04-26-003** (P2 — see [`docs/audit/2026-04-26/02-architecture.md`](../audit/2026-04-26/02-architecture.md)) confirmed; tracked under [#42](https://github.com/VitorMRodovalho/meridianiq/issues/42).
 
 ### Context
 
-ADR-0018 originally covered **cycle-close** cadence (the five doc artifacts in §"Decision"). The 2026-04-27 close-arc session of Cycle 2 organically established a complementary **PR-level** cadence — a "devils-advocate-as-second-reviewer" protocol used on every PR with non-trivial code or ADR-level content. The pattern proved robust across 12+ PRs (#33, #35, #36, #37, #38, #39, #47, #48, #49, #50, #51, #52) but lived only in maintainer memory + `docs/LESSONS_LEARNED.md` prose. AUDIT-2026-04-26-003 flagged this as a P2 process gap; ADR-0021 §"Open process gap" self-disclosed the absence; #42 tracks closure.
+ADR-0018 originally covered **cycle-close** cadence (the five doc artifacts in §"Decision"). The 2026-04-27 close-arc session of Cycle 2 organically established a complementary **PR-level** cadence — a "devils-advocate-as-second-reviewer" protocol used on every PR with non-trivial code or ADR-level content. The pattern was applied to a sample of 8 substantive PRs (#33, #35, #36, #38, #39, #48, #50, #52) and intentionally skipped on 4 derivative PRs in the same range (#37 LESSONS append, #47/#49/#51 status-marking refreshes per the §"Skip exceptions" list below). The pattern lived only in maintainer memory + `docs/LESSONS_LEARNED.md` prose. AUDIT-2026-04-26-003 flagged this as a P2 process gap; ADR-0021 §"Open process gap" self-disclosed the absence; #42 tracks closure.
 
 This amendment formalizes the PR-level cadence as a continuation of the cycle-cadence theme — same ADR, same source-of-truth for process discipline.
 
+### When the protocol applies (positive-test rule)
+
+The protocol applies to any PR that:
+
+- **Changes runtime behavior** in `src/` (any non-test code), OR
+- **Changes public API surface** (router signatures, Pydantic schemas, CLI args), OR
+- **Changes RLS policy or migration SQL** in `supabase/migrations/`, OR
+- **Edits ADR text** — including amendments to existing ADRs (so this very PR invokes the protocol), OR
+- **Adds or modifies prescriptive content** in `docs/` (governance, audit, LESSONS) where future readers will treat the text as authoritative.
+
+The §"Skip exceptions" list below carves out the small set of PRs where the surface is mechanical or strictly derivative.
+
 ### The protocol
 
-For PRs that touch ADR-level decisions OR substantive code changes:
+For PRs that match the positive-test rule above:
 
-1. **Open the PR.** Pre-code council (e.g., backend-reviewer + frontend-ux-reviewer in parallel) is recommended for waves and ADRs but is not strictly part of this PR-level cadence; the protocol below is the *exit* council.
+1. **Open the PR.** **Pre-code council** is invoked **for `src/` non-test changes** (backend-reviewer parallel; add frontend-ux-reviewer for any `web/` change) AND for ADR-level decisions (per the cycle-entry council pattern). The 2026-04-27 sample dispatched backend-reviewer in parallel with DA on PRs #48 and #50 — both touched `src/`. ADR-only / doc-only PRs may run DA-only as the exit council. Pre-code council is "exit-style" timing in this Amendment because the maintainer-as-author pattern collapses entry-and-exit; future contributor-shaped work can split.
 2. **Dispatch DA review.** Run `Agent(subagent_type="devils-advocate", ...)` with a PR-specific prompt that names load-bearing claims to verify, framing risks to red-team, citations to spot-check, and severity questions to interrogate. A vague "review this PR" prompt produces shallow output — see §"Negative / accepted costs" below.
 3. **Address blocking findings** in a fix-up commit on the same branch. Non-blocking findings either get addressed or get explicit defer-rationale entries in the structured comment of step 4.
 4. **Post a structured comment** on the PR. Recommended sections (the standing template observed across PRs #38–#52):
@@ -143,33 +155,44 @@ When in doubt, run the protocol — false positives cost 5–10 min, false negat
 
 ### Rationale (empirical)
 
-Across 12+ sample PRs (#33–#52) under the protocol:
+Two empirical samples — the second is an extension of the first applied to additional PRs without independently re-aggregated counts. Both are self-collected by the same DA agent that runs the protocol; see §"Negative / accepted costs" §"Self-pressure-test bias" for the epistemic gap this introduces.
 
-- **DA review caught 2 blocking + 4 substantive non-blocking findings per PR on average.**
-- Densest single PR: PR #38 (5 blocking + 5 non-blocking) on a Cycle 3 entry doc-only PR — denser than typical because ADR-level doc surface is large and citation-drift accumulates fast.
-- Recurring categories:
-  - **ADR-citation drift** — same class hit PR #36, PR #38, AND PR #50 (the audit that documents the class). The protocol catches its own recurrence.
+**Original sample (recorded in [`docs/LESSONS_LEARNED.md`](../LESSONS_LEARNED.md) Cycle 2 close-arc):** 3 PRs (#33, #35, #36).
+
+- **2 blocking + 4 substantive non-blocking findings per PR average.**
+- Time cost: ~2 min to dispatch + ~5–10 min to address findings.
+
+**Extended sample (5 additional PRs without re-aggregation):** #38, #39, #48, #50, #52.
+
+- The protocol was applied; per-PR finding counts were NOT independently re-aggregated into a refreshed average. **The 2+4 average is from the original 3-PR sample only**; whether it holds across 8 substantive PRs is observation-quality, not measured.
+- Densest single PR observed: **PR #38 (5 blocking + 5 non-blocking findings caught by DA)**, of which 5 blocking + 4 non-blocking were addressed in fix-up commit `06ec88a`; 1 non-blocking was explicitly deferred. The "5+5" figure refers to *DA-caught* count; the fix-up commit message says "5+4" referring to *addressed* count (commit `ea4ee4d`). Both are accurate for their measure.
+- Recurring catch categories:
+  - **ADR-citation drift** — same class hit PR #36, PR #38, AND PR #50. Including the very PR (#53 — this Amendment) where DA caught the citation slip on the "5+5 vs 5+4" framing above. The protocol catches its own recurrence.
   - **Severity miscategorization** — PR #50 reescalated AUDIT-2026-04-26-007 from P3 → P2 mid-review.
   - **Missed-finding addition** — PR #50 added AUDIT-2026-04-26-011 mid-review when DA discovered `src/__about__.py` had never existed.
   - **Honesty-debt slippage on closure claims** — PR #50's "structurally closes" framing reframed to "code-side closes; operator re-mat is required for end-to-end".
 
-Time cost: ~2 min to dispatch + ~5–10 min to address findings. Time savings: a single caught blocking finding usually saves 1–3 hours of post-merge cleanup. The pattern is a strict positive on every empirical sample.
+Time savings: a single caught blocking finding usually saves 1–3 hours of post-merge cleanup. **The pattern is a positive on every observed sample under the empirical caveat above** — re-aggregating averages across all 8 substantive PRs is future work the protocol does not currently mandate.
 
 ### Negative / accepted costs
 
 - **Unenforced.** Same social-enforcement model as the cycle-cadence §"Decision". A maintainer can skip the protocol on any PR; the cost is higher review-surface variance. Future work could add a `.github/PULL_REQUEST_TEMPLATE.md` checkbox or a CI step that warns if a substantive PR has no DA-review comment, but neither is mandated here.
 - **Prompt-engineering load.** The protocol's value depends on the DA agent being well-prompted. PR-specific framing (load-bearing claims, files to verify, severity questions) is what makes the protocol catch substantive findings. A boilerplate prompt produces boilerplate review.
-- **Self-pressure-test bias.** This amendment was authored under the protocol it codifies. The empirical claims (12 PRs, 2+4 average, recurring drift class catches) are self-supporting evidence. The structural gap (no in-repo codification before this amendment) was real regardless of who confirmed it; the empirical data is real regardless of who collected it. PR #50 §"Disclosure" recorded a similar conflict-of-interest honestly. Future amendments to the protocol should note this and seek external validation when feasible.
+- **Self-pressure-test bias.** This amendment was authored under the protocol it codifies. **Two distinct claim classes are self-collected and need to be separated:**
+  - **Gap-existence claims** (no in-repo codification before this amendment; ADR-0021 §"Open process gap" + AUDIT-2026-04-26-003 surfaced the gap) — **low risk**. The structural gap is independently verifiable: a `grep` of the repo before this PR returns nothing matching the protocol; the audit docs are immutable historical record.
+  - **Protocol-effectiveness claims** (2+4 average, time savings, recurring catch categories) — **high risk**. These are collected by the same DA agent that runs the protocol; no external validator exists. PR #50 §"Disclosure" recorded a similar conflict-of-interest honestly. Disclosure does not neutralize the bias — only external validation can. Future amendments should seek that validation when feasible (e.g., a contributor's independent audit of finding rates, a hand-reviewed sample, an external review of recent PR comments).
 
 ### Cross-references
 
-- [LESSONS_LEARNED.md Cycle 2 close-arc](../LESSONS_LEARNED.md) — empirical data + 5 close-arc lessons authored under the protocol
+- [LESSONS_LEARNED.md Cycle 2 close-arc](../LESSONS_LEARNED.md) — original empirical sample (3 PRs) + 5 close-arc lessons authored under the protocol
 - [ADR-0021 §"Open process gap"](0021-cycle-3-entry-floor-plus-field-shallow.md#open-process-gap) — the gap-flag this amendment closes
-- [AUDIT-2026-04-26-003 (P2)](../audit/2026-04-26/02-architecture.md#audit-2026-04-26-003) — formal audit finding
+- **AUDIT-2026-04-26-003** (P2) at [`docs/audit/2026-04-26/02-architecture.md`](../audit/2026-04-26/02-architecture.md) — formal audit finding (anchor link omitted because the heading slug is unstable across the audit's `· P2 · ...` separator format; locate via Cmd-F on the AUDIT-ID)
 - Issue [#42](https://github.com/VitorMRodovalho/meridianiq/issues/42) — tracking
 
 ### Scope of what this Amendment does NOT do
 
-- **Does not codify the 4-agent council protocol** (PV + strategist round 1 parallel; DA + IV round 2 paired) used for cycle-entry decisions. ADR-0021 §"Open process gap" flags both the PR-level protocol AND the cycle-entry council. The cycle-entry council operates on different rhythm (per-cycle, ~2/year) vs PR-level (per-PR, frequent), and its codification touches investor-view + strategist + product-validator surfaces beyond this amendment's scope. Reserved for a future Amendment 2 to ADR-0018 OR a separate ADR.
+- **Does not codify the 4-agent council protocol** (PV + strategist round 1 parallel; DA + IV round 2 paired) used for cycle-entry decisions. ADR-0021 §"Open process gap" flags both the PR-level protocol AND the cycle-entry council. The cycle-entry council operates on different rhythm (per-cycle, ~2/year) vs PR-level (per-PR, frequent), and its codification touches investor-view + strategist + product-validator surfaces beyond this amendment's scope.
+
+  **Trigger commitment for Amendment 2:** Amendment 2 lands at **Cycle 4 W0** alongside the deep ADR (ADR-0022 OR ADR-0023), OR by **Cycle 5 W0 unconditionally**, whichever comes first. This trigger is recorded explicitly to prevent "reserved" decaying to "deferred-until-forgotten" — the very doc-rot pattern ADR-0018 originally tried to prevent.
 - **Does not enforce the protocol via CI.** Social enforcement only. PR-template checkbox + review-comment heuristic CI step are explicit future work.
 - **Does not create a `docs/adr/cycles/cycle-N/` directory** with audit-grade council outputs (the alternative ADR-0021 §"Open process gap" suggested). The PR-level protocol leaves its trail in the PR comment + commit history; cycle-entry councils would need this if/when Amendment 2 lands.
