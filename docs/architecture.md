@@ -1,11 +1,11 @@
-<!-- Last updated: 2026-04-26 (v4.0.2) -->
+<!-- Last updated: 2026-04-27 (post-Cycle-3 W4 code-side close) -->
 # MeridianIQ — System Architecture
 
 ## System Overview
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v4.0.2**: 47 analysis engines + 1 export module, 121 API endpoints across 23 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 25 Supabase migrations, 22 MCP tools, 15 PDF report types, 1435 tests.
+As of **v4.1.0** + Cycle 3 in-flight: 47 analysis engines + 1 export module, 122 API endpoints across 23 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 26 Supabase migrations, 22 MCP tools, 15 PDF report types, 1473 tests.
 
 ```mermaid
 graph TB
@@ -26,7 +26,7 @@ graph TB
 
     subgraph "Platform — Supabase"
         AUTH["Supabase Auth<br/>Google · LinkedIn · Microsoft<br/>ES256 JWT via JWKS"]
-        DB[("PostgreSQL<br/>25 migrations · RLS enforced<br/>projects (pending/ready/failed)<br/>activities · WBS<br/>schedule_derived_artifacts<br/>erp_sources · cbs_elements<br/>cost_snapshots · audit")]
+        DB[("PostgreSQL<br/>26 migrations · RLS enforced<br/>projects (pending/ready/failed)<br/>activities · WBS<br/>schedule_derived_artifacts<br/>erp_sources · cbs_elements<br/>cost_snapshots · audit")]
         STORAGE["Supabase Storage<br/>xer-files bucket · RLS"]
     end
 
@@ -87,7 +87,7 @@ web/
       stores/        auth (lazy init), theme, i18n
       api.ts         API client
 supabase/
-  migrations/        25 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations)
+  migrations/        26 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome")
 scripts/
   generate_api_reference.py       → docs/api-reference.md
   generate_mcp_catalog.py         → docs/mcp-tools.md
