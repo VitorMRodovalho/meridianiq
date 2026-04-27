@@ -22,24 +22,31 @@ What this test pins:
    contributor edits one but not the other.
 2. ``src/materializer/runtime.py::_ENGINE_VERSION`` equals
    ``__about__.__version__`` at module-load time — basic equality.
-3. AST inspection of ``runtime.py`` confirms the literal
-   ``from src.__about__ import __version__`` import (any alias OK)
-   exists — catches a future refactor that re-introduces a hardcoded
-   literal coincidentally matching today's pyproject value (``importlib.reload``
-   was tried first but broke test isolation by re-defining ``JobHandle``,
-   regressing downstream ``isinstance`` checks).
+3. AST inspection of ``runtime.py`` confirms BOTH the
+   ``from src.__about__ import __version__`` import AND the absence of
+   any ``_ENGINE_VERSION = <string-literal>`` assignment. Either alone
+   has a hole; both together pin the binding. (``importlib.reload`` was
+   tried first but broke test isolation by re-defining ``JobHandle``,
+   regressing downstream ``isinstance`` checks.)
 4. ``__about__.__version__`` is a non-empty string — minimal sanity.
 5. End-to-end transitive: ``runtime._ENGINE_VERSION`` matches
    ``pyproject.toml [project.version]`` — belt-and-suspenders against
    a chain split where each link individually passes.
 
-Companion to `tests/test_materializer_runtime.py::TestEngineVersionSingleSource`
-which pins the *consumer* side of the chain (backfill + lifecycle
-router read from ``runtime._ENGINE_VERSION`` at call time, not from a
-captured literal). Together those two test files form the structural
-sourcing contract:
+Companions in the sourcing contract:
+
+- `tests/test_materializer_runtime.py::TestEngineVersionSingleSource`
+  pins the *consumer* side of the chain (backfill + lifecycle router
+  read from ``runtime._ENGINE_VERSION`` at call time, not from a
+  captured literal).
+- `tests/test_materializer_runtime.py::TestArtifactContent::test_saved_artifacts_carry_input_hash_and_versions`
+  pins the *write* side (``Materializer.materialize()`` actually
+  emits ``engine_version=_ENGINE_VERSION`` on saved rows).
+
+Together those test files form the structural sourcing contract:
 
     pyproject.toml → __about__.__version__ → runtime._ENGINE_VERSION → consumers
+                                                                    → save_derived_artifact
 
 A drift at any link in the chain breaks loud.
 
@@ -60,10 +67,25 @@ PYPROJECT_TOML = REPO_ROOT / "pyproject.toml"
 
 
 def _read_pyproject_version() -> str:
-    """Read the canonical version from ``pyproject.toml``."""
+    """Read the canonical version from ``pyproject.toml``.
+
+    Defensive guard against PEP 621 dynamic versioning: if the project
+    ever moves to ``dynamic = ["version"]`` (e.g.,
+    ``[tool.setuptools.dynamic] version = {attr = "src.__about__.__version__"}``),
+    ``[project.version]`` won't exist and the caller needs an explicit
+    handler. This raises a typed error so the test failure points at
+    the migration rather than masking it as a generic ``KeyError``."""
     with open(PYPROJECT_TOML, "rb") as f:
         pyproject = tomllib.load(f)
-    project_version: str = pyproject["project"]["version"]
+    project = pyproject.get("project", {})
+    if "version" not in project:
+        raise RuntimeError(
+            "pyproject.toml has no static [project.version] — likely PEP 621 "
+            "dynamic versioning. Update _read_pyproject_version to fall back "
+            "to importlib.metadata.version('meridianiq') OR read the dynamic "
+            "config block."
+        )
+    project_version: str = project["version"]
     return project_version
 
 
@@ -118,18 +140,27 @@ class TestEngineVersionSourcesFromAbout:
             "§'Decision Outcome' line 44."
         )
 
-    def test_runtime_imports_version_from_about_via_ast(self) -> None:
-        """AST inspection: ``runtime.py`` MUST contain a top-level
-        ``from src.__about__ import __version__`` (any alias OK).
+    def test_runtime_does_not_hardcode_engine_version_literal(self) -> None:
+        """AST inspection: ``runtime.py`` MUST (a) contain a top-level
+        ``from src.__about__ import __version__`` and (b) NOT contain
+        any ``_ENGINE_VERSION = <string-literal>`` assignment.
 
-        Proves the binding is via import, not a hardcoded literal that
-        coincidentally matches today's pyproject value. A future
-        refactor that replaces the import with
-        ``_ENGINE_VERSION = "4.1.0"`` (or any literal) would coincide
-        with today's pyproject value and
-        ``test_engine_version_equals_about_version_at_import`` would
-        still pass — but THIS test would fail because the import
-        statement wouldn't be there.
+        The two checks together pin the binding. Either alone has a
+        gap:
+
+        - Import-only check: a future refactor could write
+          ``from src.__about__ import __version__`` AND
+          ``_ENGINE_VERSION = "4.1.0"`` (literal, coincidentally matching
+          today's pyproject). The import test passes; the binding is wrong.
+        - Literal-only check: a future refactor could omit the import
+          and bind ``_ENGINE_VERSION`` from somewhere else (e.g.,
+          ``importlib.metadata`` directly). The literal check passes;
+          the canonical source contract is bypassed.
+
+        Both checks together force the explicit
+        ``from src.__about__ import __version__ as _ENGINE_VERSION``
+        pattern (or the equivalent two-step ``import`` then ``=``
+        binding to the imported name).
 
         Why AST and not ``importlib.reload``: reload re-defines all
         classes in the runtime module (e.g., ``JobHandle``), breaking
@@ -142,25 +173,45 @@ class TestEngineVersionSourcesFromAbout:
         comment changes, alias variations (``import as``), formatting,
         and string interpolation tricks. The Cycle 2 close-arc lesson
         about source-text regression-test smell specifically warned
-        against ``grep`` patterns; AST-based imports are explicitly
-        the suggested rigorous alternative.
+        against ``grep`` patterns; AST-based parsing is the suggested
+        rigorous alternative.
         """
         from src.materializer import runtime
 
         source = inspect.getsource(runtime)
         tree = ast.parse(source)
-        found = False
+
+        # Check (a): import from src.__about__ must exist.
+        import_found = False
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "src.__about__":
                 if any(alias.name == "__version__" for alias in node.names):
-                    found = True
+                    import_found = True
                     break
-        assert found, (
+        assert import_found, (
             "src/materializer/runtime.py does not import __version__ "
             "from src.__about__ — likely a hardcoded literal. Per "
             "ADR-0014 §'Decision Outcome' line 44, _ENGINE_VERSION "
             "MUST source from src/__about__.py::__version__."
         )
+
+        # Check (b): no top-level _ENGINE_VERSION = "<literal-string>" assignment.
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "_ENGINE_VERSION":
+                        if isinstance(node.value, ast.Constant) and isinstance(
+                            node.value.value, str
+                        ):
+                            raise AssertionError(
+                                f"Found hardcoded literal "
+                                f"_ENGINE_VERSION = {node.value.value!r} at "
+                                f"runtime.py:{node.lineno}. The constant MUST "
+                                f"come from `from src.__about__ import "
+                                f"__version__ as _ENGINE_VERSION` (or via a "
+                                f"binding to the imported `__version__` name) "
+                                f"per ADR-0014 §'Decision Outcome' line 44."
+                            )
 
 
 class TestEngineVersionMatchesPyproject:
