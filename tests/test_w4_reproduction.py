@@ -11,35 +11,47 @@ the W4 outcome authoritatively."*
 
 The strategy is **engine-agnostic equivalence on a shared input**:
 
-1. Run both pipelines against the synthetic XER fixtures in
-   ``tests/fixtures/``.
-2. Assert the per-observation outputs (label/phase, confidence,
-   rules_fired, program_key_hash) are byte-identical for every fixture.
-3. Assert the aggregate counts, histograms, and §B/§C/§D/§E sub-gate
-   evaluations are byte-identical (modulo the schema-renaming from
-   ``phase``/``numerator_phase_counts`` → ``label``/``numerator_label_counts``
-   the harness applies to generalize beyond lifecycle_phase).
+1. Run both pipelines ONCE against the synthetic XER fixtures in
+   ``tests/fixtures/`` via a module-scoped fixture.
+2. Assert per-observation outputs (label/phase, confidence,
+   rules_fired, program_key_hash, **plus the dedup-input metadata**
+   ``activity_count`` and ``last_recalc_date_iso``) are byte-identical
+   for every fixture.
+3. Assert aggregate counts, histograms, identity strings
+   (``engine_version``, ``ruleset_version``), and §B/§C/§D/§E sub-gate
+   evaluations are byte-identical (modulo schema-renaming the harness
+   applies to generalize beyond lifecycle_phase: ``phase`` →
+   ``label``; ``numerator_phase_counts`` → ``numerator_label_counts``;
+   ``total_xers_found`` → ``total_fixtures``).
 
-The synthetic fixtures are insufficient for a meaningful calibration
-(3 XERs, 1 in gate after dedup — the W3 demo trivially-failed gate
-case ADR-0020 explicitly disclosed). But equivalence on synthetic
-fixtures is enough to prove the harness is a faithful generalization:
-when the operator runs the harness against the archived W4 corpus
-(``meridianiq-private/calibration/cycle1-w4/``, pending W2 archive),
-the numbers will reproduce ADR-0009-w4-outcome by mathematical
-necessity of this equivalence — which is exactly what closes the
-caveat.
+Honest scope (DA exit-council finding addressed in fix-up):
 
-Why the test is engine-agnostic enough to detect drift in either
-implementation:
-- A future PR that drifts ``infer_lifecycle_phase`` rules WILL break
-  this test (both pipelines call the same engine, so same drift; but
-  the historical W4 outcome record gets pinned by ``TestProtocolDriftPin``
-  in ``test_calibration_harness.py`` separately).
-- A future PR that drifts the harness §A/§B/§C/§D/§E logic will break
-  this test because the W4 script keeps the original logic.
-- A future PR that drifts the W4 script will break this test because
-  the harness keeps the original logic.
+The synthetic 3-XER corpus exercises dedup at the fixture level
+(``sample.xer`` + ``sample_update.xer`` + ``sample_update2.xer`` are
+revisions of the same program — gate=1, hysteresis=2 per ADR-0020
+§"Decision" disclosure). It does NOT exercise hysteresis-flip arithmetic
+across confidence-band edges nor §C/§D edge cases. Equivalence on
+THESE fixtures is sufficient to prove the harness is a faithful
+generalization of the W4 script's logic — a single-line drift in
+either pipeline's dedup, sub-gate, or histogram code WILL break this
+test. It is NOT a sufficient gate-pass test for any new engine
+(authoring an engine still requires a corpus engineered to its own
+§A-§E protocol). The reproduction-of-W4-outcome claim only becomes
+authoritative when the harness runs against the archived W4 corpus
+at ``meridianiq-private/calibration/cycle1-w4/`` — pending W2
+operator action.
+
+Drift-detection guarantees:
+- Drift in ``infer_lifecycle_phase`` rules: detected (both pipelines
+  share the engine; ``TestProtocolDriftPin`` in test_calibration_harness
+  pins protocol params separately).
+- Drift in harness §A/§B/§C/§D/§E logic: detected (W4 script keeps
+  original).
+- Drift in W4 script: detected (harness keeps original).
+- Drift in ``activity_count`` / ``last_recalc_date_iso`` extraction
+  between pipelines: detected (per-observation metadata pinned).
+- Drift in hardcoded ``engine_version`` / ``ruleset_version`` between
+  pipelines: detected (explicit identity tests).
 
 Combined with ``TestProtocolDriftPin`` (protocol parameters), this
 forms the structural reproducibility contract for ADR-0020.
@@ -48,9 +60,8 @@ forms the structural reproducibility contract for ADR-0020.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -100,24 +111,24 @@ def _rename_keys(d: dict[str, Any], renames: dict[str, str]) -> dict[str, Any]:
 def _normalize_w4_payload(public: dict[str, Any]) -> dict[str, Any]:
     """Translate W4-script public payload to harness vocabulary.
 
-    Keys we do NOT compare across the two payloads (because the harness
-    explicitly adds them and the W4 script predates them):
-    - ``protocol_name`` (harness only, sourced from the protocol arg)
-    - ``schema_version`` (matches structurally but is not a value-equivalence
-      claim)
-    - ``run_started_at`` (timestamp, non-deterministic)
+    Renames applied:
+    - ``phase_histogram_all`` → ``label_histogram_all``
+    - ``phase_histogram_gate`` → ``label_histogram_gate``
+    - inside ``counts``: ``total_xers_found`` → ``total_fixtures``
+    - inside each gate evaluation: ``dominant_phase_share_of_numerator`` →
+      ``dominant_label_share_of_numerator``;
+      ``phase_distribution_sub_gate_ok`` → ``label_distribution_sub_gate_ok``;
+      ``numerator_phase_counts`` → ``numerator_label_counts``
+    - inside hysteresis report: ``phase_flips_across_revisions`` →
+      ``label_flips_across_revisions``
 
-    Keys we DO compare (after rename):
-    - ``counts`` (with ``total_xers_found`` → ``total_fixtures``)
-    - ``label_histogram_all``, ``label_histogram_gate``
-    - ``confidence_histogram_gate``
-    - ``gate_evaluations_by_threshold`` (with field renames per
-      ``_GATE_EVAL_RENAMES``)
-    - ``hysteresis_report_gate_plus_hysteresis`` (with rename)
+    Volatile fields stripped before equivalence comparison via
+    ``_strip_aggregate_volatile_fields`` (a separate function so the
+    rename and strip concerns don't entangle).
     """
     normalized = _rename_keys(public, _PUBLIC_RENAMES)
-    counts = dict(normalized["counts"])
-    counts["total_fixtures"] = counts.pop("total_xers_found")
+    counts = {**normalized["counts"], "total_fixtures": normalized["counts"]["total_xers_found"]}
+    del counts["total_xers_found"]
     normalized["counts"] = counts
     gate_evals = {
         threshold: _rename_keys(ev, _GATE_EVAL_RENAMES)
@@ -130,15 +141,31 @@ def _normalize_w4_payload(public: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _strip_volatile_fields(payload: dict[str, Any]) -> dict[str, Any]:
-    """Remove fields that are non-deterministic or out-of-scope."""
+def _strip_aggregate_volatile_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    """Strip fields known to legitimately differ between pipelines.
+
+    NOT stripped (intentionally — these are structural identity markers
+    that drift would mean a real bug):
+    - ``engine_version`` — pinned in a separate explicit test
+      (``TestEngineIdentityIntegrity``), kept in stripped payload here
+      and asserted to match.
+    - ``ruleset_version`` — same.
+
+    Stripped (legitimately differ):
+    - ``run_started_at`` — non-deterministic timestamp.
+    - ``schema_version`` — both happen to ship as ``1`` today; allowed
+      to diverge if either bumps after an ADR amendment.
+    - ``protocol_name`` — harness-only; the W4 script predates the
+      protocol concept.
+    - ``engine_name`` — both ship as ``"lifecycle_phase"`` today; the
+      W4 script writes the same value via ``ENGINE_NAME`` import. Allowed
+      to diverge under refactor (e.g., harness adds qualifier suffix).
+    """
     out = dict(payload)
     out.pop("run_started_at", None)
     out.pop("schema_version", None)
     out.pop("protocol_name", None)
     out.pop("engine_name", None)
-    out.pop("engine_version", None)
-    out.pop("ruleset_version", None)
     return out
 
 
@@ -147,28 +174,15 @@ def _strip_volatile_fields(payload: dict[str, Any]) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 
 
-def _run_w4_script(
-    fixtures_dir: Path,
-    output_dir: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> dict[str, dict[str, Any]]:
-    """Execute the W4 script in-process, capturing its three JSON payloads.
+class _PipelineOutputs(NamedTuple):
+    """Outputs from one full run of both pipelines on the same fixtures."""
 
-    Monkeypatches the module-level output paths + ``XER_SANDBOX_DIR`` so
-    we don't trample the real ``/tmp/w4_*.json`` artifacts a maintainer
-    may still need for the W2 manifest archive operator action.
-    """
-    monkeypatch.setenv("XER_SANDBOX_DIR", str(fixtures_dir))
-    monkeypatch.setattr(w4_script, "MANIFEST_OUT", output_dir / "w4_manifest.json")
-    monkeypatch.setattr(w4_script, "PUBLIC_OUT", output_dir / "w4_calibration_public.json")
-    monkeypatch.setattr(w4_script, "PRIVATE_OUT", output_dir / "w4_calibration_private.json")
-    rc = w4_script.main()
-    assert rc == 0, "W4 script returned non-zero"
-    return {
-        "manifest": json.loads((output_dir / "w4_manifest.json").read_text()),
-        "public": json.loads((output_dir / "w4_calibration_public.json").read_text()),
-        "private": json.loads((output_dir / "w4_calibration_private.json").read_text()),
-    }
+    w4_manifest: dict[str, Any]
+    w4_public: dict[str, Any]
+    w4_private: dict[str, Any]
+    harness_manifest: dict[str, Any]
+    harness_public: dict[str, Any]
+    harness_private: dict[str, Any]
 
 
 def _run_harness(fixtures_dir: Path) -> dict[str, dict[str, Any]]:
@@ -204,35 +218,90 @@ def fixtures_dir() -> Path:
     return FIXTURES_DIR
 
 
+@pytest.fixture(scope="module")
+def pipeline_outputs(
+    fixtures_dir: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> _PipelineOutputs:
+    """Run both pipelines ONCE per test module, share outputs across tests.
+
+    Performance: cuts what was ~17 × 2 pipeline executions to 2 (one per
+    pipeline). The W4 script and the harness re-parse the same XERs and
+    re-run the same engine, so caching is purely aggregation-level.
+
+    Implementation note: ``monkeypatch`` is function-scoped in pytest
+    (cannot be used in module-scoped fixtures). We use
+    ``tmp_path_factory`` + manual env var management instead. The
+    ``run_w4_calibration`` module-level Path constants are reassigned
+    in-place AND restored explicitly in the finally block — this is the
+    single non-monkeypatch in the file because pytest's module-scoped
+    fixture lifecycle requires it.
+    """
+    import os
+
+    output_dir = tmp_path_factory.mktemp("w4_reproduction")
+    saved_env = os.environ.get("XER_SANDBOX_DIR")
+    saved_manifest = w4_script.MANIFEST_OUT
+    saved_public = w4_script.PUBLIC_OUT
+    saved_private = w4_script.PRIVATE_OUT
+    try:
+        os.environ["XER_SANDBOX_DIR"] = str(fixtures_dir)
+        w4_script.MANIFEST_OUT = output_dir / "w4_manifest.json"
+        w4_script.PUBLIC_OUT = output_dir / "w4_calibration_public.json"
+        w4_script.PRIVATE_OUT = output_dir / "w4_calibration_private.json"
+        rc = w4_script.main()
+        assert rc == 0, "W4 script returned non-zero in module-scoped fixture"
+        w4 = {
+            "manifest": json.loads((output_dir / "w4_manifest.json").read_text()),
+            "public": json.loads((output_dir / "w4_calibration_public.json").read_text()),
+            "private": json.loads((output_dir / "w4_calibration_private.json").read_text()),
+        }
+        harness = _run_harness(fixtures_dir)
+    finally:
+        if saved_env is None:
+            os.environ.pop("XER_SANDBOX_DIR", None)
+        else:
+            os.environ["XER_SANDBOX_DIR"] = saved_env
+        w4_script.MANIFEST_OUT = saved_manifest
+        w4_script.PUBLIC_OUT = saved_public
+        w4_script.PRIVATE_OUT = saved_private
+    return _PipelineOutputs(
+        w4_manifest=w4["manifest"],
+        w4_public=w4["public"],
+        w4_private=w4["private"],
+        harness_manifest=harness["manifest"],
+        harness_public=harness["public"],
+        harness_private=harness["private"],
+    )
+
+
 class TestObservationLevelEquivalence:
     """Per-fixture: harness and W4 script must produce IDENTICAL engine
-    output (label/phase, confidence, rules_fired, program_key_hash).
+    output AND identical dedup-input metadata.
 
-    This is the load-bearing claim — if observations match per fixture,
-    every aggregate derived from them necessarily matches (modulo the
-    aggregation logic, which gets covered by the aggregate tests below)."""
+    Coverage (DA exit-council blocking #1 closed in fix-up):
+    - Engine output: label/phase, confidence, parse_error
+    - Identity: program_key_hash
+    - Forensic: rules_fired list (exact equality)
+    - **Dedup inputs: activity_count, last_recalc_date_iso** — without
+      these, a future drift where the harness adapter computes
+      ``activity_count`` differently from ``_parse_and_classify`` would
+      stay invisible if dedup-tie-break ordering happened to coincide.
 
-    def test_observation_count_matches(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        assert len(w4["private"]["observations"]) == len(harness["private"]["observations"])
+    This is the load-bearing claim — if observations match per fixture
+    on ALL these fields, every aggregate derived from them necessarily
+    matches (modulo aggregation logic, covered by tests below)."""
 
-    def test_observations_match_per_content_hash(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
+    def test_observation_count_matches(self, pipeline_outputs: _PipelineOutputs) -> None:
+        assert len(pipeline_outputs.w4_private["observations"]) == len(
+            pipeline_outputs.harness_private["observations"]
+        )
 
-        w4_by_hash = {o["content_hash"]: o for o in w4["private"]["observations"]}
-        harness_by_hash = {o["content_hash"]: o for o in harness["private"]["observations"]}
+    def test_observations_match_per_content_hash(self, pipeline_outputs: _PipelineOutputs) -> None:
+        w4_by_hash = {o["content_hash"]: o for o in pipeline_outputs.w4_private["observations"]}
+        harness_by_hash = {
+            o["content_hash"]: o for o in pipeline_outputs.harness_private["observations"]
+        }
         assert w4_by_hash.keys() == harness_by_hash.keys(), (
             "Pipelines disagreed on which fixtures were processed"
         )
@@ -255,49 +324,108 @@ class TestObservationLevelEquivalence:
             # rules_fired list — exact byte equivalence.
             assert w4_obs["rules_fired"] == h_obs["rules_fired"]
 
+    def test_dedup_input_metadata_matches_per_content_hash(
+        self, pipeline_outputs: _PipelineOutputs
+    ) -> None:
+        """Pin the dedup tie-break inputs (DA exit-council blocking #1).
+
+        The W4 script writes ``activity_count`` and ``last_recalc_date_iso``
+        at the top level of each observation; the harness writes them
+        inside ``metadata``. A drift where one pipeline reads the count
+        differently (e.g., excludes summary tasks) would yield identical
+        gate hashes on single-revision fixtures BUT diverge on multi-
+        revision ones — invisible to this test before this fix-up.
+        """
+        w4_by_hash = {o["content_hash"]: o for o in pipeline_outputs.w4_private["observations"]}
+        harness_by_hash = {
+            o["content_hash"]: o for o in pipeline_outputs.harness_private["observations"]
+        }
+        for content_hash in w4_by_hash:
+            w4_obs = w4_by_hash[content_hash]
+            h_obs = harness_by_hash[content_hash]
+            if w4_obs["parse_error"] is not None:
+                # Parse errors carry no metadata in either pipeline.
+                continue
+            h_metadata = h_obs.get("metadata", {})
+            assert w4_obs["activity_count"] == h_metadata.get("activity_count"), (
+                f"activity_count diverged on {content_hash[:8]}: "
+                f"W4={w4_obs['activity_count']!r} "
+                f"harness={h_metadata.get('activity_count')!r}"
+            )
+            assert w4_obs["last_recalc_date_iso"] == h_metadata.get("last_recalc_date_iso"), (
+                f"last_recalc_date_iso diverged on {content_hash[:8]}: "
+                f"W4={w4_obs['last_recalc_date_iso']!r} "
+                f"harness={h_metadata.get('last_recalc_date_iso')!r}"
+            )
+
+
+class TestEngineIdentityIntegrity:
+    """Pin ``engine_version`` and ``ruleset_version`` byte-equality across
+    pipelines (DA exit-council blocking #2 closed in fix-up).
+
+    Both values are hardcoded as string literals in TWO separate modules
+    (W4 script lines 296+319; harness adapter line 535). If a future PR
+    bumps one and forgets the other, the equivalence test for aggregates
+    that strips these as "volatile" would silently pass — but the W4
+    outcome would be reproduced from a different engine. This class
+    pins the integrity directly so the failure mode is loud."""
+
+    def test_engine_version_matches_between_pipelines(
+        self, pipeline_outputs: _PipelineOutputs
+    ) -> None:
+        assert (
+            pipeline_outputs.w4_public["engine_version"]
+            == (pipeline_outputs.harness_public["engine_version"])
+        ), (
+            "engine_version diverged between W4 script and harness adapter — "
+            "structural identity drift. Author an Amendment ADR to ADR-0014 "
+            "before bumping either side."
+        )
+        assert (
+            pipeline_outputs.w4_manifest["engine_version"]
+            == (pipeline_outputs.harness_manifest["engine_version"])
+        )
+
+    def test_ruleset_version_matches_between_pipelines(
+        self, pipeline_outputs: _PipelineOutputs
+    ) -> None:
+        assert (
+            pipeline_outputs.w4_public["ruleset_version"]
+            == (pipeline_outputs.harness_public["ruleset_version"])
+        ), (
+            "ruleset_version diverged between W4 script and harness adapter — "
+            "structural identity drift. Author an Amendment ADR to ADR-0016 "
+            "before bumping either side."
+        )
+        assert (
+            pipeline_outputs.w4_manifest["ruleset_version"]
+            == (pipeline_outputs.harness_manifest["ruleset_version"])
+        )
+
 
 class TestManifestEquivalence:
     """Manifest is the public commit-safe artifact; gate/hysteresis split
     drives every downstream sub-gate evaluation. Equivalence here is the
     contract that ADR-0020 §"Decision" caveat refers to."""
 
-    def test_gate_subset_content_hashes_match(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
+    def test_gate_subset_content_hashes_match(self, pipeline_outputs: _PipelineOutputs) -> None:
         assert (
-            w4["manifest"]["gate_subset_content_hashes"]
-            == harness["manifest"]["gate_subset_content_hashes"]
+            pipeline_outputs.w4_manifest["gate_subset_content_hashes"]
+            == pipeline_outputs.harness_manifest["gate_subset_content_hashes"]
         )
 
     def test_hysteresis_subset_content_hashes_match(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+        self, pipeline_outputs: _PipelineOutputs
     ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
         assert (
-            w4["manifest"]["hysteresis_subset_content_hashes"]
-            == harness["manifest"]["hysteresis_subset_content_hashes"]
+            pipeline_outputs.w4_manifest["hysteresis_subset_content_hashes"]
+            == pipeline_outputs.harness_manifest["hysteresis_subset_content_hashes"]
         )
 
-    def test_parse_failed_content_hashes_match(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
+    def test_parse_failed_content_hashes_match(self, pipeline_outputs: _PipelineOutputs) -> None:
         assert (
-            w4["manifest"]["parse_failed_content_hashes"]
-            == harness["manifest"]["parse_failed_content_hashes"]
+            pipeline_outputs.w4_manifest["parse_failed_content_hashes"]
+            == pipeline_outputs.harness_manifest["parse_failed_content_hashes"]
         )
 
 
@@ -307,109 +435,69 @@ class TestPublicPayloadEquivalence:
     harness must reproduce this byte-identically (modulo field renames
     documented in ``_normalize_w4_payload``)."""
 
-    def test_counts_match(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        normalized_w4 = _normalize_w4_payload(w4["public"])
-        assert normalized_w4["counts"] == harness["public"]["counts"]
+    def test_counts_match(self, pipeline_outputs: _PipelineOutputs) -> None:
+        normalized_w4 = _normalize_w4_payload(pipeline_outputs.w4_public)
+        assert normalized_w4["counts"] == pipeline_outputs.harness_public["counts"]
 
-    def test_label_histogram_all_matches(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        normalized_w4 = _normalize_w4_payload(w4["public"])
-        assert normalized_w4["label_histogram_all"] == harness["public"]["label_histogram_all"]
-
-    def test_label_histogram_gate_matches(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        normalized_w4 = _normalize_w4_payload(w4["public"])
-        assert normalized_w4["label_histogram_gate"] == harness["public"]["label_histogram_gate"]
-
-    def test_confidence_histogram_gate_matches(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
+    def test_label_histogram_all_matches(self, pipeline_outputs: _PipelineOutputs) -> None:
+        normalized_w4 = _normalize_w4_payload(pipeline_outputs.w4_public)
         assert (
-            w4["public"]["confidence_histogram_gate"]
-            == harness["public"]["confidence_histogram_gate"]
+            normalized_w4["label_histogram_all"]
+            == pipeline_outputs.harness_public["label_histogram_all"]
+        )
+
+    def test_label_histogram_gate_matches(self, pipeline_outputs: _PipelineOutputs) -> None:
+        normalized_w4 = _normalize_w4_payload(pipeline_outputs.w4_public)
+        assert (
+            normalized_w4["label_histogram_gate"]
+            == pipeline_outputs.harness_public["label_histogram_gate"]
+        )
+
+    def test_confidence_histogram_gate_matches(self, pipeline_outputs: _PipelineOutputs) -> None:
+        assert (
+            pipeline_outputs.w4_public["confidence_histogram_gate"]
+            == pipeline_outputs.harness_public["confidence_histogram_gate"]
         )
 
     @pytest.mark.parametrize("threshold_key", ["0.80", "0.70", "0.60"])
     def test_gate_evaluation_at_threshold_matches(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        threshold_key: str,
+        self, pipeline_outputs: _PipelineOutputs, threshold_key: str
     ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        normalized_w4 = _normalize_w4_payload(w4["public"])
+        normalized_w4 = _normalize_w4_payload(pipeline_outputs.w4_public)
         w4_eval = normalized_w4["gate_evaluations_by_threshold"][threshold_key]
-        h_eval = harness["public"]["gate_evaluations_by_threshold"][threshold_key]
+        h_eval = pipeline_outputs.harness_public["gate_evaluations_by_threshold"][threshold_key]
         assert w4_eval == h_eval, (
             f"Sub-gate evaluation diverged at threshold {threshold_key}.\n"
             f"  W4 (normalized): {w4_eval}\n"
             f"  harness:         {h_eval}"
         )
 
-    def test_hysteresis_report_matches(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        normalized_w4 = _normalize_w4_payload(w4["public"])
+    def test_hysteresis_report_matches(self, pipeline_outputs: _PipelineOutputs) -> None:
+        normalized_w4 = _normalize_w4_payload(pipeline_outputs.w4_public)
         assert (
             normalized_w4["hysteresis_report_gate_plus_hysteresis"]
-            == harness["public"]["hysteresis_report_gate_plus_hysteresis"]
+            == pipeline_outputs.harness_public["hysteresis_report_gate_plus_hysteresis"]
         )
 
 
 class TestAggregatePayloadByteIdenticalAfterNormalization:
-    """The final claim: after applying the documented field-name normalization,
-    the public payloads compare byte-equal modulo three explicitly volatile
-    fields (``run_started_at`` timestamp, ``schema_version`` schema-shape
-    marker, ``protocol_name``/``engine_*`` identity strings).
+    """Headline assertion ADR-0021 §"Wave plan" W3 commits to: byte-
+    identical aggregate numbers on the same input.
 
-    This is the headline assertion ADR-0021 §"Wave plan" W3 commits to and
-    closes the ADR-0020 §"Decision" caveat: *byte-identical aggregate
-    numbers on the same input*. If this passes today against synthetic
-    fixtures, it will pass tomorrow against the archived W4 corpus when
-    that operator action lands — by mathematical construction of the
-    pipeline equivalence proven here."""
+    After applying documented field-name normalization, the public
+    payloads compare byte-equal modulo three explicitly volatile
+    fields (``run_started_at`` timestamp; ``schema_version`` shape
+    marker; ``protocol_name`` harness-only identity; ``engine_name``
+    refactor-tolerable). ``engine_version`` and ``ruleset_version`` are
+    NOT stripped — they're pinned by ``TestEngineIdentityIntegrity``."""
 
     def test_public_payloads_equal_after_normalization(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+        self, pipeline_outputs: _PipelineOutputs
     ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        w4_clean = _strip_volatile_fields(_normalize_w4_payload(w4["public"]))
-        h_clean = _strip_volatile_fields(harness["public"])
+        w4_clean = _strip_aggregate_volatile_fields(
+            _normalize_w4_payload(pipeline_outputs.w4_public)
+        )
+        h_clean = _strip_aggregate_volatile_fields(pipeline_outputs.harness_public)
         # Sort keys for deterministic diff if one fires.
         assert json.dumps(w4_clean, sort_keys=True) == json.dumps(h_clean, sort_keys=True), (
             f"Public payloads diverged after normalization.\n"
@@ -420,77 +508,48 @@ class TestAggregatePayloadByteIdenticalAfterNormalization:
 
 class TestManifestByteIdentical:
     """Manifest payloads diverge ONLY in volatile fields after the
-    schema_version/protocol_name strip. Pin equivalence on the
-    load-bearing structural fields."""
+    schema_version/protocol_name strip + the W4-only ``dedup_rule``
+    descriptive string. Pin equivalence on the load-bearing structural
+    fields."""
 
-    def test_manifest_load_bearing_fields_equal(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        harness = _run_harness(fixtures_dir)
-        w4_clean = _strip_volatile_fields(w4["manifest"])
-        h_clean = _strip_volatile_fields(harness["manifest"])
+    def test_manifest_load_bearing_fields_equal(self, pipeline_outputs: _PipelineOutputs) -> None:
+        w4_clean = _strip_aggregate_volatile_fields(pipeline_outputs.w4_manifest)
+        h_clean = _strip_aggregate_volatile_fields(pipeline_outputs.harness_manifest)
         # The W4 manifest has ``dedup_rule`` (descriptive string) — drop
-        # it before compare; the harness expresses dedup via the engine's
+        # before compare; the harness expresses dedup via the engine's
         # ``dedup_key_priority`` callable, not as a string literal.
         w4_clean.pop("dedup_rule", None)
         assert w4_clean == h_clean
 
 
-class TestGuardAgainstOSEnvLeak:
-    """Belt-and-suspenders: the W4 script reads ``XER_SANDBOX_DIR`` at
-    runtime. The test fixtures must NOT leak this env var into the
-    process so future tests in this suite don't pick it up."""
+class TestW4ScriptOutputPassesHarnessBoundaryValidator:
+    """The harness's ``Observation.__post_init__`` rejects out-of-range
+    confidence (``[0.0, 1.0]``); the W4 script does NOT have this
+    validator. This class verifies the W4 script's raw dict outputs DO
+    pass the harness's validator — closing the gap that the W4 script
+    could have shipped a confidence drift the harness would have
+    rejected.
 
-    def test_xer_sandbox_dir_unset_after_test(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+    NOT tautological with the rest of the suite (DA exit-council
+    blocking #3 reframed in fix-up): the rest of the suite runs the
+    harness AFTER the engine produces confidence; this class runs the
+    harness's validator AFTER the W4 script's output, exercising the
+    cross-pipeline contract directly."""
+
+    def test_w4_observations_pass_harness_boundary_validator(
+        self, pipeline_outputs: _PipelineOutputs
     ) -> None:
-        _ = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        # ``monkeypatch.setenv`` auto-undoes at fixture teardown — so the
-        # variable should be back to whatever the surrounding shell had,
-        # which in a fresh CI environment is undefined. We rely on the
-        # monkeypatch contract here; this test documents the assumption
-        # so a future refactor that drops the monkeypatch breaks loud.
-        # We can't directly assert "not set" because a developer's local
-        # shell may have it set — assert only that the in-test setting
-        # was applied.
-        assert os.environ.get("XER_SANDBOX_DIR") != str(fixtures_dir / "__never_set__")
-
-
-class TestObservationConfidenceInBoundsForBothPipelines:
-    """Defensive: both pipelines' observations must respect the
-    ``Observation.__post_init__`` validation contract (``[0.0, 1.0]``).
-    If a future engine drift produces out-of-range confidence, the
-    harness will fail loud at construction; this test pins that the
-    W4 script's data is clean enough to NOT trigger the validator."""
-
-    def test_w4_observations_have_valid_confidence(
-        self,
-        fixtures_dir: Path,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        w4 = _run_w4_script(fixtures_dir, tmp_path, monkeypatch)
-        for obs in w4["private"]["observations"]:
+        for obs in pipeline_outputs.w4_private["observations"]:
             confidence = obs["confidence"]
             if confidence is None:
-                # Parse error path; allowed.
+                # Parse error path; allowed — harness also accepts None
+                # under parse_error per Observation contract.
                 assert obs["parse_error"] is not None
                 continue
-            assert 0.0 <= confidence <= 1.0, (
-                f"Out-of-range confidence in W4 output: {confidence!r} "
-                f"on content_hash={obs['content_hash'][:8]}. "
-                "If this fires, the engine produced an invalid value — "
-                "fix the engine, not this test."
-            )
-            # Also exercise the harness boundary validator on the same
-            # value via Observation construction. Throws if drift exists.
+            # Construct a fresh Observation from the W4 dict via the
+            # harness validator. Throws ValueError if confidence ∉ [0.0, 1.0]
+            # — pinning the cross-pipeline contract for any future
+            # engine drift that produces 1.0000001-style float quirks.
             Observation(
                 content_hash=obs["content_hash"],
                 program_key_hash=obs["program_key_hash"],
