@@ -49,13 +49,12 @@ MATERIALIZER_SYNC_THRESHOLD = 100
 MATERIALIZER_TIMEOUT_HARD_S = 600
 
 # ``_ENGINE_VERSION`` is imported from ``src/__about__.py::__version__`` per
-# ADR-0014 §"Decision Outcome" line 44 (see top-of-file imports). Pre-Cycle-3-W4
-# it was hardcoded as ``"4.0"`` (multi-cycle drift documented in
-# ``AUDIT-2026-04-26-007`` + ``AUDIT-2026-04-26-011``); the migration is pinned
-# by ``tests/test_engine_version_source.py``. Bump engine algorithm versions
-# below when the corresponding engine's algorithm changes in a way that
-# invalidates prior artifacts — ``get_latest_derived_artifact`` returns None on
-# version mismatch, forcing re-materialization.
+# ADR-0014 §"Decision Outcome" line 44 (see top-of-file imports + the rationale
+# in ``__about__.py``). The migration is pinned by
+# ``tests/test_engine_version_source.py``. Bump engine algorithm versions below
+# when the corresponding engine's algorithm changes in a way that invalidates
+# prior artifacts — ``get_latest_derived_artifact`` returns None on version
+# mismatch, forcing re-materialization.
 _RULESET_VERSIONS: dict[str, str] = {
     "dcma": "dcma-v1",
     "health": "health-v1",
