@@ -172,10 +172,34 @@ Symptom: Dependabot PRs failing format check that passed locally. Diagnosis: loc
 Even though pyiceberg comes via the supabase chain (not a direct dep), blocking its majors via `version-update:semver-major` ignore prevents future deploy breaks if pyiceberg drops 3.13 support.
 **Lesson:** Defensive ignore on transitive deps is rarely wrong. Cost is low (Dependabot just doesn't propose); benefit is preventing a repeat of the 3.14 incident.
 
+#### Post-tag close-arc lessons (2026-04-27)
+
+The following five lessons emerged in the post-`v4.1.0` close-arc session as three PRs landed under the devils-advocate-as-second-reviewer protocol established that day: PR #33 (Cycle 2 close docs per ADR-0018), PR #35 (D4 backend wiring un-dormants the WS recovery poller), PR #36 (engine_version source-of-truth dedup). They are recorded under Cycle 2 because the work was within the Cycle 2 close envelope — no new cycle had opened. Cycle 3 will record its own lessons in its own entry per ADR-0018 cadence.
+
+##### ROADMAP self-corrections are themselves reviewable
+PR #36's first commit "corrected" my own earlier ROADMAP framing about `engine_version` — and the correction was wrong (contradicted [ADR-0014 §"engine_version" line 44](adr/0014-derived-artifact-provenance-hash.md), which explicitly sources the version from `src/__about__.py::__version__`). Devils-advocate caught it on the same-day PR review.
+**Lesson:** When reverting or correcting a ROADMAP entry, ground the new framing in the source ADR text directly, not a re-imagining of what the ADR "should" say. The ADR file is authoritative; the ROADMAP follows it.
+
+##### Source-inspection regression tests are a smell
+The first version of `TestEngineVersionSingleSource` (PR #36) used `inspect.getsource()` + string match against the literal `"4.0"`. It felt like it enforced a contract but only enforced a string match — any rename, refactor, or moved import would silently bypass the test. Devils-advocate caught it; the replacement uses `monkeypatch` + sentinel-value identity check, exercising the actual import path so a future literal-cache regression fails the test under any refactor shape.
+**Lesson:** Source-text tests are a code smell. A test that drives the real import path costs a few extra LoC but catches refactor regressions a string-match test silently passes through.
+
+##### The ADR-0014 implementation has been diverged for multiple cycles
+`_ENGINE_VERSION = "4.0"` was hand-coded in `src/materializer/runtime.py` since Cycle 1; ADR-0014 says it should be sourced from `src/__about__.py::__version__`, which does not exist. The divergence rotted under the radar across four releases (v4.0.0 → v4.0.1 → v4.0.2 → v4.1.0) — only surfaced when devils-advocate re-read the ADR during PR #36 review.
+**Lesson:** Read the ADR, don't re-derive its claims from memory. ADR drift between text and implementation is silent until a fresh reader (human or agent) does the cross-check. Pair with: any future ADR that pins a concrete file/line/symbol contract should ship a regression test that verifies the contract on every CI run.
+
+##### Devils-advocate cost vs benefit pattern is now empirical
+Across the three PRs of session 2026-04-27 (#33, #35, #36), devils-advocate caught **2 blocking + 4 substantive non-blocking findings per PR on average**. Time cost: ~2 min to dispatch + ~5–10 min to address. Sample categories: honesty-debt slippage (7/7 → 6+tag overclaim, ADR §5 silent weakening, "likely still running" overpromise), real bugs (line 310 hardcoded literal in same module as the dedup fix, source-inspection brittleness), and ROADMAP self-corrections that were themselves wrong (the ADR-0014 framing slip). Pair this with the earlier "council pair pays for itself" lesson on substantive WAVES — devils-advocate-as-second-reviewer is the same pattern at PR-level granularity.
+**Lesson:** Devils-advocate is cheap insurance on every substantive PR. Skip only for truly mechanical work (Dependabot bumps, catalog regen, 1-line typo fixes). The ADR-0018 §"Negative / accepted costs" social-enforcement clause makes solo-maintainer self-merge acceptable when paired with a devils-advocate proxy review; the 3-for-3 hit rate this session validates the protocol.
+
+##### Catalog drift is caught by CI but not by author
+PR #35's first commit added the new `GET /api/v1/risk/simulations/by-job/{job_id}` endpoint without regen-ing `docs/api-reference.md`. CI's doc-sync workflow caught the drift; two follow-up commits brought CLAUDE.md (`docs: bump CLAUDE.md endpoint count 121→122`) and the api-reference catalog into stat consistency.
+**Lesson:** Any new endpoint = regen catalogs in the same PR via `python3 scripts/generate_api_reference.py`. The CI workflow is the safety net, but the author-time cost of running the script once is much lower than the cost of two follow-up commits + the cognitive overhead of stat-consistency triage. Add the regen step to any "new endpoint" PR template / personal checklist.
+
 #### What we would do differently
 - Open Cycle 2 with a 1-day audit-prep wave (reading the previous cycle's W4 outcome, mapping every "deferred" item) before W0. The audit umbrella `#25` had 6 sub-issues and W0 ended up partly resolving them — would have been cleaner to scope explicitly.
 - Author `docs/ROADMAP.md` at Cycle 2 *kickoff*, not Cycle 2 *close*. Issue #27 sat for the duration of the cycle. Future cycles: ROADMAP refresh is a W0 deliverable, not a close-time deliverable.
 
 ---
 
-*Last updated: 2026-04-26 (Cycle 2 close)*
+*Last updated: 2026-04-27 (Cycle 2 post-tag close-arc — 5 lessons appended from PRs #33 + #35 + #36)*
