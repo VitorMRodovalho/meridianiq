@@ -32,6 +32,7 @@ from dataclasses import asdict, dataclass, is_dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from src.__about__ import __version__ as _ENGINE_VERSION
 from src.database.canonical_hash import compute_input_hash
 from src.parser.models import ParsedSchedule
 
@@ -47,11 +48,14 @@ MATERIALIZER_SYNC_THRESHOLD = 100
 # asyncio task and flips projects.status='failed'.
 MATERIALIZER_TIMEOUT_HARD_S = 600
 
-# Current artifact versions. Bump each entry when the corresponding
-# engine's algorithm changes in a way that invalidates prior artifacts —
-# see ``get_latest_derived_artifact`` which returns None on version
-# mismatch, forcing re-materialization.
-_ENGINE_VERSION = "4.0"
+# ``_ENGINE_VERSION`` is imported from ``src/__about__.py::__version__`` per
+# ADR-0014 §"Decision Outcome" line 44 (see top-of-file imports). Pre-Cycle-3-W4
+# it was hardcoded as ``"4.0"`` (multi-cycle drift documented in
+# ``AUDIT-2026-04-26-007`` + ``AUDIT-2026-04-26-011``); the migration is pinned
+# by ``tests/test_engine_version_source.py``. Bump engine algorithm versions
+# below when the corresponding engine's algorithm changes in a way that
+# invalidates prior artifacts — ``get_latest_derived_artifact`` returns None on
+# version mismatch, forcing re-materialization.
 _RULESET_VERSIONS: dict[str, str] = {
     "dcma": "dcma-v1",
     "health": "health-v1",
