@@ -82,22 +82,12 @@ operator executes; Claude prepares runbooks. Tracked here for audit
 trail; cycle-by-cycle status will move into the wave table above as
 each closes.
 
-- **#26 (P0, ops)** — Apply migration `026_api_keys_schema_align.sql`
-  to production Supabase. Diagnostic + backup + apply procedure in
-  [`docs/audit/HANDOFF.md §H-01`](audit/HANDOFF.md#h-01--aplicar-migration-026-em-produção).
-  **Cycle 3 W1.**
-- **#28 (P2, governance)** — Council ratification of
-  [ADR-0017](adr/0017-deduplicate-api-keys-migration.md),
-  [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md),
-  [ADR-0019](adr/0019-cycle-2-entry-consolidation-primitive.md),
-  [ADR-0020](adr/0020-calibration-harness-primitive.md).
-  **Cycle 3 W2.**
-- **W4 manifest archive** — move `/tmp/w4_manifest.json` +
-  `/tmp/w4_calibration_private.json` + `/tmp/w4_calibration_public.json`
-  into `meridianiq-private/calibration/cycle1-w4/`. If `/tmp` was
-  rotated and the manifest is gone, re-run the W4 protocol against
-  the harness as the archive material. Pre-condition for the W3
-  reproduction regression test. **Cycle 3 W2.**
+**Comprehensive runbooks for all four items below:** [`docs/operator-runbooks/cycle3.md`](operator-runbooks/cycle3.md) — pre-flight diagnostics, backup, execution, verification, rollback, registry per item.
+
+- **#26 (P0, ops)** — Apply migration `026_api_keys_schema_align.sql` to production Supabase. **Runbook:** [`cycle3.md §W1`](operator-runbooks/cycle3.md#w1--apply-migration-026-to-production). **Cycle 3 W1 / criterion #2.**
+- **#28 (P2, governance)** — Council ratification of **5 ADRs** (scope expanded per AUDIT-2026-04-26-009): [ADR-0017](adr/0017-deduplicate-api-keys-migration.md), [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md) (incl. Amendment 1), [ADR-0019](adr/0019-cycle-2-entry-consolidation-primitive.md), [ADR-0020](adr/0020-calibration-harness-primitive.md), [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md). **Runbook:** [`cycle3.md §W2-A`](operator-runbooks/cycle3.md#w2-a--ratify-adrs-0017-0021-five-adrs). **Cycle 3 W2 / criterion #3.**
+- **W4 manifest archive (no issue — meta #25 tracks)** — move `/tmp/w4_manifest.json` + `/tmp/w4_calibration_private.json` + `/tmp/w4_calibration_public.json` into `meridianiq-private/calibration/cycle1-w4/` with sha256 verification. Pre-flight content hashes recorded 2026-04-27 in the runbook. If `/tmp` was rotated and the manifest is gone, re-run the W4 protocol against the harness as the archive material. **Runbook:** [`cycle3.md §W2-B`](operator-runbooks/cycle3.md#w2-b--archive-w4-manifest-to-private-repo). **Cycle 3 W2 / criterion #4.**
+- **#54 (P1, ops, requires-human-decision)** — Re-materialize OR tombstone 88 prod derived-artifact rows at `engine_version="4.0"` (post PR #50 deploy). Decision: bulk re-mat (Option A, default) vs tombstone migration `027` (Option B). **Runbook:** [`cycle3.md §W4`](operator-runbooks/cycle3.md#w4--re-materialize-or-tombstone-88-prod-rows). **Cycle 3 W4 / criterion #7.**
 - ~~**2026-04-26 audit re-run**~~ — **DONE** at PR #39 (commits `7bfc334` +
   `0524db7`). 9 layer docs published in `docs/audit/2026-04-26/` following
   the 6-layer baseline structure. **0 P0 / 0 P1 new**, 4 P2 new (001 README
