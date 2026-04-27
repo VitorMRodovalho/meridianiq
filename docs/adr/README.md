@@ -35,6 +35,9 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0018](0018-cycle-cadence-doc-artifacts.md) | Cycle cadence doc artifacts (roadmap, backlog, audit re-run) | accepted |
 | [0019](0019-cycle-2-entry-consolidation-primitive.md) | Cycle 2 entry — Consolidation + Primitive (Option 4) | accepted |
 | [0020](0020-calibration-harness-primitive.md) | Calibration harness as a reusable primitive for probabilistic-heuristic engines | accepted |
+| [0021](0021-cycle-3-entry-floor-plus-field-shallow.md) | Cycle 3 entry — Floor + Field-surface shallow (Option α) | accepted |
+| 0022 | _(reserved — Cycle 4 deep #1 per [ADR-0021](0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision")_ | reserved, not authored |
+| 0023 | _(reserved — Cycle 4 deep #2 per [ADR-0021](0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision")_ | reserved, not authored |
 
 ## Adding a new ADR
 
