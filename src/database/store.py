@@ -798,6 +798,26 @@ class InMemoryStore:
             return None
         return latest
 
+    def get_projects_at_engine_version(self, engine_version: str) -> list[str]:
+        """Return distinct project IDs with at least one non-stale derived
+        artifact at the given ``engine_version`` — driver query for the
+        re-materialization workflow.
+
+        Used by ``src/materializer/backfill.py --re-materialize-version <ver>``
+        to enumerate projects whose existing rows predate the current
+        ``_ENGINE_VERSION`` and need re-materialization per ADR-0014
+        provenance contract. Cycle 3 W4 use case: the 88 production rows
+        carrying ``engine_version='4.0'`` after PR #50 migrated runtime
+        sourcing from ``src/__about__.py``.
+
+        Sorted for deterministic batch ordering across runs.
+        """
+        pids: set[str] = set()
+        for row in self._derived_artifacts:
+            if row["engine_version"] == engine_version and not row["is_stale"]:
+                pids.add(row["project_id"])
+        return sorted(pids)
+
     def mark_stale(
         self,
         project_id: str,
@@ -2780,6 +2800,27 @@ class SupabaseStore:
         if latest.get("ruleset_version") != current_ruleset_version:
             return None
         return latest
+
+    def get_projects_at_engine_version(self, engine_version: str) -> list[str]:
+        """Return distinct project IDs with at least one non-stale artifact at
+        the given ``engine_version`` — driver query for the re-materialization
+        workflow (Cycle 3 W4).
+
+        Reads ``schedule_derived_artifacts`` with the partial filter
+        ``WHERE engine_version = $1 AND is_stale = false`` and projects
+        ``DISTINCT project_id``. Sorted for deterministic batch ordering.
+
+        Used by ``src/materializer/backfill.py --re-materialize-version <ver>``.
+        """
+        result = (
+            self._client.table("schedule_derived_artifacts")
+            .select("project_id")
+            .eq("engine_version", engine_version)
+            .eq("is_stale", False)
+            .execute()
+        )
+        rows: list[dict[str, Any]] = result.data or []
+        return sorted({row["project_id"] for row in rows})
 
     def mark_stale(
         self,

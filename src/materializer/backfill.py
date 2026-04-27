@@ -44,6 +44,30 @@ from src.materializer.runtime import Materializer, _RULESET_VERSIONS
 logger = logging.getLogger("src.materializer.backfill")
 
 
+def _re_materialization_candidates(
+    store: Any,
+    old_engine_version: str,
+    limit: int | None,
+) -> list[str]:
+    """Enumerate projects whose artifacts predate the current engine version.
+
+    Cycle 3 W4 use case: PR #50 migrated ``_ENGINE_VERSION`` from hardcoded
+    ``"4.0"`` to source from ``src/__about__.py::__version__`` (currently
+    ``"4.1.0"``). The 88 production rows at ``engine_version="4.0"`` become
+    invisible to ``get_latest_derived_artifact`` per ADR-0014 §"Decision
+    Outcome" (version mismatch → forced re-mat). This helper drives the
+    one-shot bulk re-materialization that closes the visibility gap.
+
+    Calls ``store.get_projects_at_engine_version(old_engine_version)``,
+    which both ``InMemoryStore`` and ``SupabaseStore`` implement against
+    ``schedule_derived_artifacts``.
+    """
+    pids = store.get_projects_at_engine_version(old_engine_version)
+    if limit is not None:
+        return pids[:limit]
+    return pids
+
+
 def _candidate_project_ids(
     store: Any,
     limit: int | None,
@@ -178,7 +202,25 @@ def main(argv: list[str] | None = None) -> int:
             "the new kind onto already-materialized projects."
         ),
     )
+    parser.add_argument(
+        "--re-materialize-version",
+        dest="re_materialize_version",
+        type=str,
+        default=None,
+        help=(
+            "Re-materialization mode (Cycle 3 W4 / criterion #7): select projects "
+            "that have at least one non-stale derived artifact at this OLD "
+            "engine_version (e.g., '4.0'), and re-run the materializer to produce "
+            "fresh rows at the current engine_version per ADR-0014 §'Decision "
+            "Outcome' provenance contract. Designed for the post-PR-#50 88-row "
+            "re-mat. When set, --kind is ignored (re-mat covers all kinds for the "
+            "affected projects). Mutually exclusive with --project-id."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.re_materialize_version is not None and args.project_id is not None:
+        parser.error("--re-materialize-version and --project-id are mutually exclusive")
 
     logging.basicConfig(
         level=logging.INFO,
@@ -192,13 +234,22 @@ def main(argv: list[str] | None = None) -> int:
     from src.api.deps import get_materializer, get_store
 
     store = get_store()
-    candidates = _candidate_project_ids(store, args.limit, args.project_id, kind=args.kind)
-    logger.info(
-        "Backfill %s → %d candidate project(s) for kind=%s",
-        backfill_id,
-        len(candidates),
-        args.kind,
-    )
+    if args.re_materialize_version is not None:
+        candidates = _re_materialization_candidates(store, args.re_materialize_version, args.limit)
+        logger.info(
+            "Backfill %s → %d candidate project(s) for re-mat from engine_version=%r",
+            backfill_id,
+            len(candidates),
+            args.re_materialize_version,
+        )
+    else:
+        candidates = _candidate_project_ids(store, args.limit, args.project_id, kind=args.kind)
+        logger.info(
+            "Backfill %s → %d candidate project(s) for kind=%s",
+            backfill_id,
+            len(candidates),
+            args.kind,
+        )
 
     if args.dry_run:
         for pid in candidates:

@@ -329,7 +329,7 @@ meridianiq/
 ├── web/                  # SvelteKit + Tailwind (54 pages)
 ├── tests/                # 1473+ backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations (26 files)
+│   └── migrations/       # PostgreSQL schema migrations (27 files)
 ├── .github/
 │   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents

@@ -21,6 +21,7 @@ from src.database.store import InMemoryStore  # noqa: E402
 from src.materializer import Materializer  # noqa: E402
 from src.materializer.backfill import (  # noqa: E402
     _candidate_project_ids,
+    _re_materialization_candidates,
     _run_batch,
     main,
 )
@@ -177,3 +178,150 @@ class TestCliMain:
         main([])
         after = len(store._derived_artifacts)
         assert before == after, "second run must not duplicate artifacts"
+
+
+# ------------------------------------------------------------------ #
+# Re-materialization mode (Cycle 3 W4 / criterion #7)                #
+# ------------------------------------------------------------------ #
+
+
+class TestReMaterializationMode:
+    """``--re-materialize-version <ver>`` selects projects with at least one
+    non-stale artifact at the given OLD engine_version. Designed to drive the
+    post-PR-#50 88-row re-mat per ADR-0014 §"Decision Outcome"."""
+
+    def test_returns_projects_with_artifact_at_old_engine_version(self) -> None:
+        store = InMemoryStore()
+        p1 = store.add(_schedule("A"), b"")
+        p2 = store.add(_schedule("B"), b"")
+        # Seed p1 with an artifact at OLD version "4.0"; p2 with current version.
+        store.save_derived_artifact(
+            project_id=p1,
+            artifact_kind="dcma",
+            payload={"dummy": True},
+            engine_version="4.0",
+            ruleset_version="dcma-v1",
+            input_hash="a" * 64,
+            effective_at=None,
+            computed_by=None,
+        )
+        store.save_derived_artifact(
+            project_id=p2,
+            artifact_kind="dcma",
+            payload={"dummy": True},
+            engine_version=_ENGINE_VERSION,
+            ruleset_version="dcma-v1",
+            input_hash="b" * 64,
+            effective_at=None,
+            computed_by=None,
+        )
+        candidates = _re_materialization_candidates(store, "4.0", limit=None)
+        assert candidates == [p1], "only p1 has an artifact at engine_version=4.0"
+
+    def test_excludes_stale_rows(self) -> None:
+        store = InMemoryStore()
+        p1 = store.add(_schedule("A"), b"")
+        store.save_derived_artifact(
+            project_id=p1,
+            artifact_kind="dcma",
+            payload={"dummy": True},
+            engine_version="4.0",
+            ruleset_version="dcma-v1",
+            input_hash="a" * 64,
+            effective_at=None,
+            computed_by=None,
+        )
+        # Mark all artifacts of p1 as stale (e.g., post-upload).
+        store.mark_stale(p1, stale_reason="input_changed")
+        candidates = _re_materialization_candidates(store, "4.0", limit=None)
+        assert candidates == [], "stale rows must NOT be selected for re-mat"
+
+    def test_dedups_projects_with_multiple_kinds_at_old_version(self) -> None:
+        """A single project with N artifact kinds at the old version should
+        appear ONCE in the candidate list (not N times)."""
+        store = InMemoryStore()
+        p1 = store.add(_schedule("A"), b"")
+        for kind, hash_seed in [("dcma", "a"), ("health", "b"), ("cpm", "c")]:
+            store.save_derived_artifact(
+                project_id=p1,
+                artifact_kind=kind,
+                payload={"dummy": True},
+                engine_version="4.0",
+                ruleset_version=f"{kind}-v1",
+                input_hash=hash_seed * 64,
+                effective_at=None,
+                computed_by=None,
+            )
+        candidates = _re_materialization_candidates(store, "4.0", limit=None)
+        assert candidates == [p1], "p1 has 3 kinds at 4.0 but should appear once"
+
+    def test_limit_honoured_in_re_mat_mode(self) -> None:
+        store = InMemoryStore()
+        for letter, hash_seed in [("A", "a"), ("B", "b"), ("C", "c")]:
+            pid = store.add(_schedule(letter), b"")
+            store.save_derived_artifact(
+                project_id=pid,
+                artifact_kind="dcma",
+                payload={"dummy": True},
+                engine_version="4.0",
+                ruleset_version="dcma-v1",
+                input_hash=hash_seed * 64,
+                effective_at=None,
+                computed_by=None,
+            )
+        candidates = _re_materialization_candidates(store, "4.0", limit=2)
+        assert len(candidates) == 2, "limit truncates the sorted candidate list"
+
+
+class TestReMaterializationCLIArgs:
+    """``--re-materialize-version`` plumbing: mutual-exclusion with
+    ``--project-id`` + propagation to candidate selection."""
+
+    def test_mutual_exclusion_with_project_id_exits_2(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        with pytest.raises(SystemExit) as exc:
+            main(["--re-materialize-version", "4.0", "--project-id", "p-x"])
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert "mutually exclusive" in captured.err
+
+    def test_re_mat_mode_dry_run_lists_only_old_version_projects(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        store = InMemoryStore()
+        old_pid = store.add(_schedule("A"), b"")
+        new_pid = store.add(_schedule("B"), b"")
+        store.save_derived_artifact(
+            project_id=old_pid,
+            artifact_kind="dcma",
+            payload={"dummy": True},
+            engine_version="4.0",
+            ruleset_version="dcma-v1",
+            input_hash="a" * 64,
+            effective_at=None,
+            computed_by=None,
+        )
+        store.save_derived_artifact(
+            project_id=new_pid,
+            artifact_kind="dcma",
+            payload={"dummy": True},
+            engine_version=_ENGINE_VERSION,
+            ruleset_version="dcma-v1",
+            input_hash="b" * 64,
+            effective_at=None,
+            computed_by=None,
+        )
+        monkeypatch.setattr("src.api.deps.get_store", lambda: store)
+        monkeypatch.setattr(
+            "src.api.deps.get_materializer",
+            lambda: Materializer(store),
+        )
+        rc = main(["--re-materialize-version", "4.0", "--dry-run"])
+        assert rc == 0
+        captured = capsys.readouterr()
+        # Old-version project printed; new-version project NOT printed.
+        assert old_pid in captured.out
+        assert new_pid not in captured.out
