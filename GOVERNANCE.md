@@ -17,6 +17,11 @@ A single maintainer holds the commit bit. Additional maintainers are added by th
 - **Architectural decisions** — recorded as an ADR under [`docs/adr/`](docs/adr/). Any change that (a) adds/removes a dependency category, (b) changes how users deploy, or (c) reshapes the module boundaries is an ADR.
 - **Breaking changes** — require a major version bump and a migration note in `CHANGELOG.md`.
 
+### Process discipline
+
+- **Cycle-close cadence** — five doc artifacts updated at every cycle close per [ADR-0018 §"Decision"](docs/adr/0018-cycle-cadence-doc-artifacts.md): `ROADMAP`, `BUGS` pruning, `LESSONS_LEARNED` append, catalog regen, audit re-run.
+- **PR-level cadence** — devils-advocate-as-second-reviewer protocol on PRs touching ADR-level decisions or substantive code per [ADR-0018 Amendment 1](docs/adr/0018-cycle-cadence-doc-artifacts.md#amendment-1-2026-04-27--pr-level-cadence-devils-advocate-as-second-reviewer-protocol). Skip exceptions documented; social enforcement (no CI gate today).
+
 ## Release cadence
 
 - **Target**: one minor release per month when active work is landing; faster if a P1 item is ready in isolation.
