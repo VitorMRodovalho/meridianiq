@@ -38,6 +38,43 @@ from src.analytics.risk import (
 router = APIRouter()
 
 
+def _assert_channel_owner(job_id: str, user: object) -> None:
+    """Reject cross-user access to a progress channel — shared 403 gate.
+
+    Used by every endpoint that consumes a ``job_id`` previously bound to
+    a user via ``POST /api/v1/jobs/progress/start``. Centralizes the
+    ownership check so a single regression locks down all consumers
+    (``run_risk_simulation`` and ``get_risk_simulation_by_job`` today;
+    any future endpoint accepting a ``job_id`` should call this helper
+    rather than re-implement the comparison).
+
+    Anonymous calls are allowed through: when the caller is unauthenticated
+    (``user is None`` or has no ``"id"`` key) the ownership check is
+    skipped entirely. This matches the pre-existing semantics of
+    ``run_risk_simulation`` (Wave 0 #7 hardening) — a bound channel
+    rejects MISMATCHED authenticated users, not anonymous ones.
+
+    Args:
+        job_id: Progress channel identifier.
+        user: ``optional_auth`` dependency value — typically ``dict``
+            with an ``"id"`` key, or ``None`` for unauthenticated.
+
+    Raises:
+        HTTPException: 403 with ``"job_id is bound to another user"``
+            when the channel is owned by a user_id different from the
+            authenticated caller's id.
+    """
+    from ..progress import get_channel_owner
+
+    owner = get_channel_owner(job_id)
+    caller_id = user["id"] if isinstance(user, dict) else None
+    if owner is not None and caller_id is not None and owner != caller_id:
+        raise HTTPException(
+            status_code=403,
+            detail="job_id is bound to another user",
+        )
+
+
 def _simulation_to_schema(result: Any) -> SimulationResultSchema:
     """Convert a SimulationResult dataclass to its Pydantic schema.
 
@@ -130,7 +167,7 @@ async def run_risk_simulation(
     """
     import asyncio
 
-    from ..progress import get_channel, get_channel_owner, publish, thread_safe_publisher
+    from ..progress import get_channel, publish, thread_safe_publisher
 
     store = get_store()
     risk_store = get_risk_store()
@@ -183,15 +220,8 @@ async def run_risk_simulation(
     progress_callback = None
     if job_id:
         # Wave 0 #7 hardening: the caller may only use a job_id they own
-        # (the channel was bound on POST /api/v1/jobs/progress/start). If
-        # the channel is bound AND the authenticated user differs, reject.
-        owner = get_channel_owner(job_id)
-        caller_id = _user["id"] if isinstance(_user, dict) else None
-        if owner is not None and caller_id is not None and owner != caller_id:
-            raise HTTPException(
-                status_code=403,
-                detail="job_id is bound to another user",
-            )
+        # (the channel was bound on POST /api/v1/jobs/progress/start).
+        _assert_channel_owner(job_id, _user)
     if job_id and get_channel(job_id) is not None:
         publish_event = thread_safe_publisher(job_id)
 
@@ -264,15 +294,7 @@ def get_risk_simulation_by_job(
         HTTPException: 403 when the channel is bound to a different
             user (matches ``run_risk_simulation`` ownership check).
     """
-    from ..progress import get_channel_owner
-
-    owner = get_channel_owner(job_id)
-    caller_id = _user["id"] if isinstance(_user, dict) else None
-    if owner is not None and caller_id is not None and owner != caller_id:
-        raise HTTPException(
-            status_code=403,
-            detail="job_id is bound to another user",
-        )
+    _assert_channel_owner(job_id, _user)
 
     risk_store = get_risk_store()
     sid = risk_store.get_simulation_id_by_job(job_id)

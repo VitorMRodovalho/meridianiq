@@ -404,7 +404,7 @@ export default {
 	'risk.progress.starting': 'Starting job...',
 	'risk.progress.connecting': 'Connecting to progress channel...',
 	'risk.progress.running': 'Running simulation',
-	'risk.progress.recovering': 'Connection dropped — simulation likely still running. Polling for completion...',
+	'risk.progress.recovering': 'Connection lost — checking if the simulation completed...',
 	'risk.progress.connection_lost': 'Connection lost. The simulation may still be running in the background; refresh the list below once it completes.',
 	'risk.progress.failed': 'Simulation failed',
 
