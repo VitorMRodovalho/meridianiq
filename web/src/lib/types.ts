@@ -791,6 +791,9 @@ export interface LifecyclePhaseInferenceSchema {
 	ruleset_version: string;
 	effective_at: string | null;
 	computed_at: string | null;
+	// ADR-0019 §"W2 — B2". Authoritative classifier output. Tri-state:
+	// `true` / `false` when phase resolved; `null` when phase=='unknown'.
+	is_construction_active: boolean | null;
 }
 
 export interface LifecycleOverrideSchema {
@@ -813,6 +816,10 @@ export interface LifecyclePhaseSummary {
 	effective_phase: LifecyclePhase;
 	effective_confidence: number | null;
 	source: 'inferred' | 'manual' | null;
+	// ADR-0019 §"W2 — B2". Authoritative classifier surfaced
+	// alongside the preview-flagged effective_phase. Tri-state — never
+	// silently coerce `null` to `false` in the UI.
+	effective_is_construction_active: boolean | null;
 }
 
 export interface LifecycleOverrideRequest {

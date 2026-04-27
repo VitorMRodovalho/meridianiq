@@ -864,7 +864,14 @@ export default {
 
 	// Fase do ciclo de vida (ADR-0016 — W3 do Ciclo 1 v4.0)
 	'lifecycle.card_title': 'Fase do Ciclo',
-	'lifecycle.card_subtitle': 'Indicador preliminar — distingue com confiança construção de não-construção; as demais fases são direcionais.',
+	'lifecycle.card_subtitle': 'Indicador autoritativo de construção ativa (calibrado em W4). A classificação de fase abaixo é preview / direcional.',
+	'lifecycle.authoritative_label': 'Indicador de construção ativa (autoritativo)',
+	'lifecycle.is_construction_active_yes': 'Construção em andamento',
+	'lifecycle.is_construction_active_no': 'Fora de construção',
+	'lifecycle.is_construction_active_unknown': 'Fase desconhecida',
+	'lifecycle.preview_label': 'Classificação de fase',
+	'lifecycle.preview_marker': '(prévia)',
+	'lifecycle.preview_aria': 'classificação preliminar',
 	'lifecycle.card_empty': 'Inferência pendente — aguardando análise',
 	'lifecycle.card_failed': 'Inferência indisponível',
 	'lifecycle.card_low_hint': 'A inferência tem confiança baixa. Revise o racional ou ajuste manualmente.',

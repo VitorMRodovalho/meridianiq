@@ -76,6 +76,13 @@ def _inference_from_artifact(row: dict[str, Any]) -> LifecyclePhaseInferenceSche
     confidence = max(0.0, min(1.0, confidence))
     if phase == "unknown":
         confidence = 0.0
+    # ADR-0019 §"W2 — B2": authoritative construction-active classifier.
+    # Tri-state: ``True`` if the engine resolved a construction phase,
+    # ``False`` for any other resolved phase, ``None`` when unknown.
+    if phase == "unknown":
+        is_construction_active: Optional[bool] = None
+    else:
+        is_construction_active = phase == "construction"
     return LifecyclePhaseInferenceSchema(
         phase=phase,
         confidence=confidence,
@@ -85,6 +92,7 @@ def _inference_from_artifact(row: dict[str, Any]) -> LifecyclePhaseInferenceSche
         ruleset_version=row.get("ruleset_version", "") or "",
         effective_at=_iso(row.get("effective_at")),
         computed_at=_iso(row.get("computed_at")),
+        is_construction_active=is_construction_active,
     )
 
 
@@ -154,6 +162,17 @@ def _build_summary(store: Any, project_id: str) -> LifecyclePhaseSummary:
         source = None
         active_override = None
 
+    # ADR-0019 §"W2 — B2": the authoritative construction-active flag
+    # is computed from ``effective_phase`` so it tracks both the
+    # inference path AND a manual override (a Cost Engineer who locks
+    # ``construction`` in is signaling authoritative). ``None`` when
+    # the effective phase is ``unknown`` — never coerce "don't know"
+    # into a binary.
+    if effective_phase == "unknown":
+        effective_is_construction_active: Optional[bool] = None
+    else:
+        effective_is_construction_active = effective_phase == "construction"
+
     return LifecyclePhaseSummary(
         project_id=project_id,
         locked=locked,
@@ -162,6 +181,7 @@ def _build_summary(store: Any, project_id: str) -> LifecyclePhaseSummary:
         effective_phase=effective_phase,
         effective_confidence=effective_confidence,
         source=source,
+        effective_is_construction_active=effective_is_construction_active,
     )
 
 

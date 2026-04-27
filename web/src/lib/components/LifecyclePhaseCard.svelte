@@ -85,6 +85,13 @@
 	let band = $derived(summary?.inference?.confidence_band ?? 'low');
 	let source = $derived(summary?.source ?? null);
 	let isComputing = $derived(polling.isComputing);
+	// ADR-0019 §"W2 — B2". Authoritative tri-state classifier. The
+	// nullish-coalesce is deliberate — never collapse `null` to `false`
+	// in the UI; the W4 honesty-debt closure exists precisely so
+	// "we don't know" never silently reads as "not in construction".
+	let isConstructionActive = $derived(
+		summary?.effective_is_construction_active ?? null,
+	);
 
 	// Label keys map 1:1 to LifecyclePhase enum.
 	let phaseLabel = $derived($t(`lifecycle.phase.${phase}`));
@@ -143,13 +150,59 @@
 	{:else if isComputing && phase === 'unknown'}
 		<p class="text-sm text-gray-500 dark:text-gray-400">{$t('lifecycle.card_empty')}</p>
 	{:else}
+		<!-- ADR-0019 §"W2 — B2": authoritative construction-active
+		     classifier surfaces as a structural chip ABOVE the
+		     preview-flagged 5+1 phase label. Tri-state:
+		       - true   → green "Construction active"
+		       - false  → muted "Not in construction"
+		       - null   → outlined "Phase unknown"
+		-->
+		<div class="mb-3">
+			<p
+				class="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1"
+			>
+				{$t('lifecycle.authoritative_label')}
+			</p>
+			{#if isConstructionActive === true}
+				<span
+					class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-sm font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+				>
+					<span class="block w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
+					{$t('lifecycle.is_construction_active_yes')}
+				</span>
+			{:else if isConstructionActive === false}
+				<span
+					class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-sm font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+				>
+					<span class="block w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+					{$t('lifecycle.is_construction_active_no')}
+				</span>
+			{:else}
+				<span
+					class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400"
+				>
+					{$t('lifecycle.is_construction_active_unknown')}
+				</span>
+			{/if}
+		</div>
+
 		<p
-			class="text-2xl font-semibold text-gray-900 dark:text-gray-100 capitalize"
+			class="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1"
+		>
+			{$t('lifecycle.preview_label')}
+			<span
+				class="ml-1 px-1.5 py-0.5 rounded text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 normal-case"
+			>
+				{$t('lifecycle.preview_marker')}
+			</span>
+		</p>
+		<p
+			class="text-xl font-semibold text-gray-700 dark:text-gray-300 capitalize"
 			aria-label={phase === 'unknown'
 				? $t('lifecycle.phase.unknown')
 				: confidencePct !== null
-					? `${phaseLabel}, ${$t('lifecycle.confidence.suffix').replace('{pct}', String(confidencePct))} (${bandLabel})`
-					: phaseLabel}
+					? `${phaseLabel}, ${$t('lifecycle.confidence.suffix').replace('{pct}', String(confidencePct))} (${bandLabel}) — ${$t('lifecycle.preview_aria')}`
+					: `${phaseLabel} — ${$t('lifecycle.preview_aria')}`}
 		>
 			{phaseLabel}
 		</p>

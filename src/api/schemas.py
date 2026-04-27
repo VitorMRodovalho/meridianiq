@@ -1644,9 +1644,25 @@ class LifecyclePhaseInferenceSchema(BaseModel):
     Mirrors ``src.analytics.lifecycle_types.LifecyclePhaseInference``.
     The ``rationale`` dict carries the signals and the triggered rule
     name so a forensic reviewer can reconstruct the decision post-hoc.
+
+    ADR-0019 §"W2 — B2": ``is_construction_active`` is the **authoritative**
+    output the W4 calibration validated. The fine-grained ``phase``
+    (5 + unknown taxonomy) is preview / directional — see
+    ``docs/calibration/lifecycle-phase-w4-postmortem.md`` for what the
+    calibration actually validated and what ruleset v2 would need to
+    extend the authoritative surface to the full taxonomy.
     """
 
-    phase: str
+    phase: str = Field(
+        ...,
+        description=(
+            "Preview / directional. The 5+1 phase classification did NOT pass "
+            "the W4 calibration gate — see "
+            "docs/calibration/lifecycle-phase-w4-postmortem.md. Prefer "
+            "``is_construction_active`` for any code path that needs an "
+            "authoritative answer."
+        ),
+    )
     confidence: float = Field(..., ge=0.0, le=1.0)
     confidence_band: str  # 'low' | 'medium' | 'high' — derived per ADR-0016
     rationale: dict[str, Any] = Field(default_factory=dict)
@@ -1654,6 +1670,17 @@ class LifecyclePhaseInferenceSchema(BaseModel):
     ruleset_version: str = ""
     effective_at: Optional[str] = None
     computed_at: Optional[str] = None
+    # ``True``/``False`` when the engine resolved a phase; ``None`` for
+    # ``phase == 'unknown'`` so the UI can render a tri-state without
+    # silently coercing "we don't know" into "not in construction".
+    is_construction_active: Optional[bool] = Field(
+        None,
+        description=(
+            "Authoritative classifier output (W4 calibration validated). "
+            "Tri-state: True/False when phase is resolved; None for "
+            "phase='unknown' — never coerce to False."
+        ),
+    )
 
 
 class LifecycleOverrideSchema(BaseModel):
@@ -1689,9 +1716,41 @@ class LifecyclePhaseSummary(BaseModel):
     locked: bool = False
     inference: Optional[LifecyclePhaseInferenceSchema] = None
     latest_override: Optional[LifecycleOverrideSchema] = None
-    effective_phase: str = "unknown"
+    effective_phase: str = Field(
+        "unknown",
+        description=(
+            "Preview / directional — same posture as "
+            "``LifecyclePhaseInferenceSchema.phase``. Drives the 5+1 UI label "
+            "behind a (preview) marker. Use ``effective_is_construction_active`` "
+            "for any decision."
+        ),
+    )
     effective_confidence: Optional[float] = None
     source: Optional[str] = None  # 'inferred' | 'manual' | None
+    # ADR-0019 §"W2 — B2". The authoritative classification surfaced
+    # alongside the preview-flagged ``effective_phase``. Tri-state:
+    # ``True`` = engine resolved the project as construction-active,
+    # ``False`` = engine resolved a non-construction phase, ``None`` =
+    # unknown (no inference, lock without override, or
+    # ``effective_phase=='unknown'``).
+    #
+    # Provenance follows ``source``. When ``source=='inferred'`` the
+    # boolean carries W4 calibration authority (the field's headline
+    # warranty). When ``source=='manual'`` the boolean inherits the
+    # override author's domain authority — same value, different
+    # accountability chain. Consumers that act on this field SHOULD
+    # also read ``source`` if the distinction matters (e.g. an audit
+    # trail). The W4 calibration validated only the inferred binary;
+    # the full 5+1 taxonomy did not pass the gate. See
+    # ``docs/calibration/lifecycle-phase-w4-postmortem.md``.
+    effective_is_construction_active: Optional[bool] = Field(
+        None,
+        description=(
+            "Authoritative tri-state classifier; provenance follows "
+            "``source`` (calibrated for inferred, manual-domain for "
+            "override). Never coerce None to False."
+        ),
+    )
 
 
 class LifecycleOverrideRequest(BaseModel):

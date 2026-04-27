@@ -864,9 +864,16 @@ export default {
 	'projects.col_status': 'Status',
 	'projects.computing_global': 'Computing {count} project(s) in the background',
 
-	// Lifecycle phase (ADR-0016 — W3 of Cycle 1 v4.0)
+	// Lifecycle phase (ADR-0016 — W3 of Cycle 1 v4.0; ADR-0019 §"W2 — B2" honesty-debt closure)
 	'lifecycle.card_title': 'Lifecycle Phase',
-	'lifecycle.card_subtitle': 'Preliminary indicator — reliably flags construction vs non-construction; other phase labels are directional.',
+	'lifecycle.card_subtitle': 'Authoritative construction-active flag (W4 calibrated). The phase classification below is preview / directional.',
+	'lifecycle.authoritative_label': 'Construction-active flag (authoritative)',
+	'lifecycle.is_construction_active_yes': 'Construction active',
+	'lifecycle.is_construction_active_no': 'Not in construction',
+	'lifecycle.is_construction_active_unknown': 'Phase unknown',
+	'lifecycle.preview_label': 'Phase classification',
+	'lifecycle.preview_marker': '(preview)',
+	'lifecycle.preview_aria': 'preliminary classification',
 	'lifecycle.card_empty': 'Inference pending — waiting for analytics',
 	'lifecycle.card_failed': 'Inference unavailable',
 	'lifecycle.card_low_hint': 'Inference has low confidence. Review the rationale or override.',
