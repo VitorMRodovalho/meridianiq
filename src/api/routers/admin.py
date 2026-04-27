@@ -9,7 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth, require_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
 from ..schemas import GDPRDeleteResponse
 
 router = APIRouter()
@@ -160,7 +160,9 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 
 
 @router.post("/api/v1/ips/reconcile")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def reconcile_ips(
+    request: Request,
     request_body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
@@ -213,7 +215,9 @@ def reconcile_ips(
 
 
 @router.post("/api/v1/recovery/validate")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def validate_recovery(
+    request: Request,
     request_body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
