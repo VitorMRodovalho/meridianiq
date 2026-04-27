@@ -345,17 +345,77 @@ class TestRiskByJobEndpoint:
         finally:
             progress_module.close_channel("job-owned-by-alice-anon")
 
-    # NOTE on the 403 path: the cross-user ownership check in
-    # ``get_risk_simulation_by_job`` is byte-identical to the one in
-    # ``run_risk_simulation`` (same ``get_channel_owner`` lookup, same
-    # ``caller_id`` comparison, same 403 message). A dedicated 403
-    # test here would require FastAPI ``dependency_overrides`` to fake
-    # the authenticated caller. Under this repository's full test
-    # suite the override is correctly registered (verified via debug
-    # logs) but FastAPI's resolver bypasses it for ``optional_auth``,
-    # likely due to an inter-test pollution path that this test cannot
-    # be made robust against in isolation. The contract is exercised
-    # end-to-end by ``test_anonymous_caller_with_owned_channel_allowed``
-    # above (channel-owner lookup is invoked) and the 403 branch
-    # itself is identical to the long-tested whatif/risk simulate
-    # path.
+    # NOTE on the 403 path: the cross-user ownership check is now
+    # centralised in ``_assert_channel_owner`` (src/api/routers/risk.py)
+    # and shared by both ``run_risk_simulation`` and
+    # ``get_risk_simulation_by_job``. End-to-end FastAPI tests via
+    # ``dependency_overrides[optional_auth]`` exhibit flaky behaviour
+    # under the full test suite (the override is correctly registered
+    # but FastAPI's resolver bypasses it for ``optional_auth`` — root
+    # cause appears to be inter-test pollution outside this module's
+    # reach). To get hard regression coverage on the ownership branch
+    # without that flakiness, the helper itself is unit-tested below
+    # (``TestAssertChannelOwner``). Any future endpoint that consumes
+    # a ``job_id`` should call ``_assert_channel_owner`` rather than
+    # re-implement the comparison — that way the helper test covers
+    # all consumers.
+
+
+class TestAssertChannelOwner:
+    """Unit tests for the shared ownership-check helper.
+
+    ``_assert_channel_owner`` is the single 403 gate consumed by every
+    endpoint that takes a ``job_id`` parameter. Testing the helper
+    directly (instead of via FastAPI dependency overrides) avoids the
+    test-suite-pollution issue documented above and gives one
+    regression that protects all consumers.
+    """
+
+    def test_anonymous_no_owner_passes(self) -> None:
+        """No channel registered + no caller → no raise (dev-mode default)."""
+        from src.api.routers.risk import _assert_channel_owner
+
+        _assert_channel_owner("job-no-channel-no-user", None)  # no raise
+
+    def test_authenticated_user_matching_owner_passes(self) -> None:
+        """Owner == caller → no raise (the happy path)."""
+        from src.api import progress
+        from src.api.routers.risk import _assert_channel_owner
+
+        progress.open_channel("job-bob-match", owner_user_id="bob")
+        try:
+            _assert_channel_owner("job-bob-match", {"id": "bob"})  # no raise
+        finally:
+            progress.close_channel("job-bob-match")
+
+    def test_authenticated_user_mismatched_owner_raises_403(self) -> None:
+        """Owner ≠ caller → raises HTTPException(403)."""
+        from fastapi import HTTPException
+
+        from src.api import progress
+        from src.api.routers.risk import _assert_channel_owner
+
+        progress.open_channel("job-alice-mismatch", owner_user_id="alice")
+        try:
+            with pytest.raises(HTTPException) as exc_info:
+                _assert_channel_owner("job-alice-mismatch", {"id": "bob"})
+            assert exc_info.value.status_code == 403
+            assert "bound to another user" in exc_info.value.detail
+        finally:
+            progress.close_channel("job-alice-mismatch")
+
+    def test_anonymous_caller_with_owned_channel_passes(self) -> None:
+        """Owner present + anonymous caller → no raise.
+
+        Matches the existing ``run_risk_simulation`` semantics (Wave 0
+        #7 hardening) where bound channels reject MISMATCHED
+        authenticated users, not anonymous callers.
+        """
+        from src.api import progress
+        from src.api.routers.risk import _assert_channel_owner
+
+        progress.open_channel("job-alice-anon-helper", owner_user_id="alice")
+        try:
+            _assert_channel_owner("job-alice-anon-helper", None)  # no raise
+        finally:
+            progress.close_channel("job-alice-anon-helper")

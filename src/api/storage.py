@@ -379,13 +379,18 @@ class RiskStore:
     def bind_job(self, job_id: str, simulation_id: str) -> None:
         """Index a completed simulation by its progress channel job_id.
 
-        Per ADR-0019 §"W1 — D4". The risk page WebSocket-progress flow
-        allocates a ``job_id`` before invoking ``POST
-        /api/v1/risk/simulate``; on completion the result is stored via
-        ``add()`` and the job_id is bound here so a subsequent
-        ``GET /api/v1/risk/simulations/by-job/{job_id}`` lookup can
-        recover the simulation_id even if the WebSocket disconnected
-        before the terminal frame arrived. Closes the W1 dormancy.
+        Per ADR-0019 §"W1 — D4". Closes the W1 dormancy by enabling
+        ``GET /api/v1/risk/simulations/by-job/{job_id}`` lookups for
+        the WebSocket recovery poller.
+
+        **Atomicity caveat:** ``add()`` and ``bind_job()`` are
+        individually thread-safe (each acquires ``_lock``) but the
+        sequence ``risk_store.add(result); risk_store.bind_job(job_id,
+        sid)`` is NOT jointly atomic. A poller calling
+        ``get_simulation_id_by_job(job_id)`` between the two calls
+        sees ``None`` and continues polling — the next poll (5s
+        default cadence) catches up. Acceptable race for the WS
+        recovery scenario; revisit if a stricter contract is needed.
 
         Args:
             job_id: Progress channel id from ``POST /jobs/progress/start``.
@@ -409,7 +414,8 @@ class RiskStore:
             stored for that job_id (still running, never started, or
             store was cleared).
         """
-        return self._jobs.get(job_id)
+        with self._lock:
+            return self._jobs.get(job_id)
 
     def get(self, simulation_id: str) -> SimulationResult | None:
         """Retrieve a simulation result by simulation_id.
@@ -420,7 +426,8 @@ class RiskStore:
         Returns:
             The stored ``SimulationResult``, or ``None`` if not found.
         """
-        return self._simulations.get(simulation_id)
+        with self._lock:
+            return self._simulations.get(simulation_id)
 
     def list_all(self) -> list[dict[str, Any]]:
         """List all stored simulations with summary info.
