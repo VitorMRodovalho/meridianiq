@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
-from ..deps import _sandbox_projects, get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, _sandbox_projects, get_store, limiter
 from ..schemas import (
     ActivitySchema,
     ActivityStatusSummary,
@@ -108,7 +108,9 @@ def list_pending_statuses(
 
 
 @router.put("/api/v1/projects/{project_id}/sandbox")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def toggle_sandbox(
+    request: Request,
     project_id: str,
     _user: object = Depends(optional_auth),
 ) -> dict:

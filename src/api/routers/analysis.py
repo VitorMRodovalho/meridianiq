@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store, get_tia_store
+from ..deps import RATE_LIMIT_MODERATE, get_store, get_tia_store, limiter
 from ..schemas import (
     ComplianceCheckSchema,
     ContractCheckRequest,
@@ -408,7 +408,9 @@ def get_schedule_view(
 
 
 @router.delete("/api/v1/projects/{project_id}/schedule-view/cache")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def invalidate_schedule_view_cache(
+    request: Request,
     project_id: str,
     _user: object = Depends(optional_auth),
 ) -> dict:

@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from ..auth import optional_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 
 router = APIRouter()
 
@@ -162,7 +162,9 @@ def compare_cost_snapshots_endpoint(
 
 
 @router.post("/api/v1/trends")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def get_schedule_trends(
+    request: Request,
     body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
