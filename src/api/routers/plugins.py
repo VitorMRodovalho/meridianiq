@@ -14,12 +14,12 @@ Endpoints:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.plugins import get_plugin, list_plugins
 
 from ..auth import optional_auth
-from ..deps import get_store
+from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
 
 router = APIRouter()
 
@@ -36,7 +36,9 @@ def list_registered_plugins(_user: object = Depends(optional_auth)) -> dict:
 
 
 @router.post("/api/v1/plugins/{name}/run/{project_id}")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_plugin(
+    request: Request,
     name: str,
     project_id: str,
     _user: object = Depends(optional_auth),

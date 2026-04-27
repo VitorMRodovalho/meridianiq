@@ -4,10 +4,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store
+from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 from ..kpi_helpers import schedule_kpi_bundle
 
 router = APIRouter()
@@ -41,7 +41,13 @@ def get_program_detail(program_id: str, _user: object = Depends(optional_auth)):
 
 
 @router.put("/api/v1/programs/{program_id}")
-def update_program(program_id: str, body: dict, _user: object = Depends(optional_auth)):
+@limiter.limit(RATE_LIMIT_MODERATE)
+def update_program(
+    request: Request,
+    program_id: str,
+    body: dict,
+    _user: object = Depends(optional_auth),
+):
     """Rename or update a program."""
     store = get_store()
     user_id = _user["id"] if _user else None

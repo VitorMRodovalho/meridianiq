@@ -7,10 +7,10 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store
+from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 from ..schemas import (
     BenchmarkCompareResponse,
     BenchmarkSummaryResponse,
@@ -24,7 +24,9 @@ _benchmark_dataset: list[Any] = []
 
 
 @router.post("/api/v1/benchmarks/contribute")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def contribute_benchmark(
+    request: Request,
     project_id: str,
     _user: object = Depends(optional_auth),
 ) -> dict:

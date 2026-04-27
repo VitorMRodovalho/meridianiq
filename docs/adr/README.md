@@ -33,7 +33,7 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0016](0016-lifecycle-phase-inference.md) | Lifecycle phase inference + override log + lock-flag | accepted |
 | [0017](0017-deduplicate-api-keys-migration.md) | Deduplicate `api_keys` migration (012 vs 017) | accepted |
 | [0018](0018-cycle-cadence-doc-artifacts.md) | Cycle cadence doc artifacts (roadmap, backlog, audit re-run) — Amendment 1 (2026-04-27) PR-level DA-as-second-reviewer | accepted (amended 2026-04-27) |
-| [0019](0019-cycle-2-entry-consolidation-primitive.md) | Cycle 2 entry — Consolidation + Primitive (Option 4) | accepted |
+| [0019](0019-cycle-2-entry-consolidation-primitive.md) | Cycle 2 entry — Consolidation + Primitive (Option 4) — Amendment 1 (2026-04-27) rate-limit policy contract | accepted (amended 2026-04-27) |
 | [0020](0020-calibration-harness-primitive.md) | Calibration harness as a reusable primitive for probabilistic-heuristic engines | accepted |
 | [0021](0021-cycle-3-entry-floor-plus-field-shallow.md) | Cycle 3 entry — Floor + Field-surface shallow (Option α) | accepted |
 | 0022 | _(reserved — Cycle 4 deep #1 per [ADR-0021](0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision")_ | reserved, not authored |

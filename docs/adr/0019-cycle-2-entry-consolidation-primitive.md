@@ -1,6 +1,6 @@
 # 0019. Cycle 2 entry — Consolidation + Primitive (Option 4)
 
-* Status: accepted
+* Status: accepted — amended 2026-04-27 (**Amendment 1**: rate-limit policy contract; see end of file)
 * Deciders: @VitorMRodovalho
 * Date: 2026-04-26
 * Triggered by: post-v4.0.2 cycle-entry decision; supersedes the Track 2
@@ -338,3 +338,74 @@ rest are cleanly documented for Cycle 2.5 or Cycle 3.
   collision noted in the "Numbering note" section above.
 - `project_v40_cycle_2.md` (memory) — original scope memo from
   2026-04-19. This ADR is its repo artifact.
+
+---
+
+## Amendment 1 (2026-04-27) — Rate-limit policy contract
+
+* Status: accepted
+* Date: 2026-04-27
+* Trigger: [AUDIT-2026-04-26-005 (P3)](../audit/2026-04-26/04-security.md) — the rate-limit buckets defined in W0 (D1) lacked an in-repo policy contract + enforcement test; ad-hoc decorator literals had drifted across routers. Tracked under [#45](https://github.com/VitorMRodovalho/meridianiq/issues/45).
+
+### Context
+
+ADR-0019 §"W0 — D1" introduced `RATE_LIMIT_READ = "30/minute"` for the WS progress endpoint and added `slowapi` to `[dev]` extras (D10) so CI exercises the real limiter. After Cycle 2 close + Cycle 3 W4, three buckets exist in `src/api/deps.py:138-140`:
+
+```python
+RATE_LIMIT_EXPENSIVE = "3/minute"
+RATE_LIMIT_MODERATE = "10/minute"
+RATE_LIMIT_READ = "30/minute"
+```
+
+But: the buckets had no documented application policy. AUDIT-2026-04-26-005 enumerated the gap — 18 write endpoints had NO `@limiter.limit` decorator at all; existing decorators used a mix of constants + literal strings (`"5/minute"`, `"10/minute"`, `"60/minute"`) without a written rule for which to use where.
+
+This Amendment closes the policy gap by codifying the heuristic + an enforcement test.
+
+### The policy
+
+**Rule 1 — Write coverage.** Every endpoint with HTTP method `POST/PUT/PATCH/DELETE` MUST have `@limiter.limit(...)` (any value), UNLESS the endpoint is on the `APPROVED_EXCEPTIONS` list in `tests/test_rate_limit_policy.py` with a documented rationale.
+
+**Rule 2 — Expensive coverage.** Every endpoint whose path or function name matches `EXPENSIVE_PATTERNS` (Monte Carlo simulate, schedule build, plugin run, what-if/pareto/leveling, evolution optimize, PDF generate) MUST have a rate limit ≤ 5/minute (`RATE_LIMIT_EXPENSIVE` = 3/min preferred; literals `"3/minute"`–`"5/minute"` accepted).
+
+**Rule 3 — Exception discipline.** Any addition to `APPROVED_EXCEPTIONS` requires a one-line rationale in the test file. Reviewers should challenge the rationale on PR.
+
+**Bucket choice (informal):**
+
+| Bucket | Rate | Use for |
+|---|---|---|
+| `RATE_LIMIT_EXPENSIVE` | 3/min | Monte Carlo, evolution optimizer, pareto search, resource leveling solver, schedule build (CPM from scratch), plugin run (untrusted), PDF generate, what-if simulation |
+| `RATE_LIMIT_MODERATE` | 10/min | XER round-trip, batch CRUD, MIP forensic windows, exports, write endpoints not in EXPENSIVE class |
+| `RATE_LIMIT_READ` | 30/min | Single-resource GETs (when GET-rate-limit is added — currently optional per §"What this Amendment does NOT enforce") |
+| Literal `"N/minute"` | Various | Acceptable forms: `"5/minute"` is the standard moderate-write rate before constants existed; preserved for backward-compat. Future PRs may convert to constants. |
+| **No decorator** | n/a | Healthchecks (`/health`, `/api/v1/health`); admin-scope auth-gated endpoints (auth IS the throttle); endpoints in APPROVED_EXCEPTIONS |
+
+### Empirical state at amendment time (2026-04-27)
+
+- **112 total endpoints** across 23 routers
+- **38 write endpoints**: 28 with `@limiter.limit` after the #45 fix-up commits, 4 admin-auth-gated exceptions, 6 deferred for `request: <Pydantic>` body parameter rename (tracked as #45 follow-up — mechanically safe but touches every call-site)
+- **0 EXPENSIVE-pattern endpoints** without rate-limit (after #45 fix-up applied to plugins.run_plugin, plus deferred entries in APPROVED_EXCEPTIONS)
+- Mix of constants (~12 callsites) and literals (~14 callsites) — mid-state during convention adoption
+
+### Enforcement
+
+`tests/test_rate_limit_policy.py` (5 tests) parses each router via AST and applies the three rules. CI catches:
+
+- A new write endpoint added without a limiter decorator (violation of Rule 1)
+- A new expensive endpoint added at MODERATE/READ rate (violation of Rule 2)
+- An exception entry without rationale (violation of Rule 3)
+- An exception entry pointing at a non-existent endpoint (dead weight)
+
+### Negative / accepted costs
+
+- **Pattern matching is heuristic.** EXPENSIVE_PATTERNS uses substring match against `<path> <function_name>`. False positives (a GET that happens to contain "/optimize" in its path but doesn't compute) are excluded by Rule 2's GET-skip clause. False negatives (a write endpoint that's expensive but doesn't match any pattern) require pattern refinement when discovered — the test file is the source of truth.
+- **MIP forensic analyses chose MODERATE not EXPENSIVE.** Each MIP runs a window-by-window CPM (e.g., 10 windows × 10 days = 10 CPM passes); heavy but not Monte-Carlo-class. The maintainer's existing decision (`@limiter.limit(RATE_LIMIT_MODERATE)` on six MIP endpoints) is preserved by narrowing EXPENSIVE_PATTERNS to exclude broad "forensic" — the policy follows existing reasoned decisions, not a fresh-bucket-per-endpoint rewrite.
+- **`request:` parameter collision deferred.** 6 endpoints (3 in `whatif.py`, 1 in `forensics.py`, 1 in `analysis.py`, 1 in `schedule_ops.py`) take a Pydantic body parameter named `request: <SomeRequest>`. Adding the slowapi decorator requires renaming `request: <Pydantic>` → `body: <Pydantic>` AND adding a separate `request: Request` parameter. The rename is mechanically safe (FastAPI auto-detects body via type annotation) but touches every call-site and benefits from focused review. Currently in APPROVED_EXCEPTIONS with explicit "deferred — #45 follow-up" rationale; tracked for closure when the rename PR ships.
+- **Constants vs literals not enforced.** Both forms count as rate-limited. A future PR may convert all literals (`"5/minute"`, `"10/minute"`) to constants for grep-discoverability; not in scope of this Amendment.
+
+### Cross-references
+
+- [AUDIT-2026-04-26-005 (P3)](../audit/2026-04-26/04-security.md) — formal audit finding
+- Issue [#45](https://github.com/VitorMRodovalho/meridianiq/issues/45) — tracking
+- `tests/test_rate_limit_policy.py` — the enforcement test file
+- `src/api/deps.py:138-140` — bucket constants
+- ADR-0017 §"Decision Outcome" — original rate-limit context (api_keys fail-closed); orthogonal to this policy

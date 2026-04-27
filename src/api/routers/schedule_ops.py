@@ -4,10 +4,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 
 router = APIRouter()
 
@@ -163,7 +163,9 @@ def get_risk_register(
 
 
 @router.post("/api/v1/projects/{project_id}/risk-register")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def add_risk_register_entry(
+    request: Request,
     project_id: str,
     body: dict,
     _user: object = Depends(optional_auth),
@@ -187,7 +189,9 @@ def add_risk_register_entry(
 
 
 @router.delete("/api/v1/projects/{project_id}/risk-register/{risk_id}")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def delete_risk_register_entry(
+    request: Request,
     project_id: str,
     risk_id: str,
     _user: object = Depends(optional_auth),
