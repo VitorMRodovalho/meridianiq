@@ -81,15 +81,34 @@ waves once that round closes.
   authoring an ADR-0018 amendment (rather than silently slipping the
   contract) is the honest move.
 
-### Pre-Cycle-3 hygiene (Claude-doable, queued)
+### Pre-Cycle-3 hygiene (Claude-doable, status)
 
-- **D4 backend wiring** — `RiskStore.job_id` index +
-  `GET /api/v1/risk/simulations/by-job/{id}` endpoint + risk-page
-  passes `recoveryPoller(jobId)` arg + i18n key `'recovering'` × 3
-  locales. Un-dormants the Cycle 2 W1 composable for real users.
-- **`engine_version` dynamic** — replace hardcoded `"4.0"` in lifecycle
-  adapter with `importlib.metadata`-based read.
-- **Mypy strict** on `EngineAdapter` Protocol conformance.
+- ~~**D4 backend wiring**~~ — **DONE** at PR #35 (commits
+  `a392e85` + `dfcc0bd` + `c43483d` + `3de5ee9`). `RiskStore.bind_job`
+  / `get_simulation_id_by_job` indexes added; new
+  `GET /api/v1/risk/simulations/by-job/{job_id}` endpoint;
+  risk page passes `recoveryPoller`; `'recovering'` UI state +
+  i18n × 3 locales; centralised `_assert_channel_owner` helper
+  shared between `run_risk_simulation` and the new endpoint.
+- ~~**`engine_version` source-of-truth dedup**~~ — **DONE** in this
+  cycle. `src/materializer/backfill.py` now imports `_ENGINE_VERSION`
+  from `src/materializer/runtime.py` instead of duplicating the
+  literal. Two regression tests in `tests/test_materializer_runtime.py
+  ::TestEngineVersionSingleSource` lock the import contract for
+  both `backfill.py` and `src/api/routers/lifecycle.py`. Note:
+  the original ROADMAP entry suggested an `importlib.metadata`-based
+  read — that was the wrong fix (engine version ≠ package version
+  per ADR-0014; bumping by package version on every release would
+  silently invalidate all stored derived artifacts). The correct
+  fix is dedup on a single source.
+- ~~**Mypy strict on `EngineAdapter` Protocol conformance**~~ — **DONE**
+  (verified — already passing). `mypy --strict
+  --follow-imports=silent tools/calibration_harness.py` reports
+  `Success: no issues found in 1 source file`. The Protocol
+  conformance of `_LifecyclePhaseV1Adapter` was already clean. The
+  4 errors visible without `--follow-imports=silent` are
+  pre-existing in transitive analytics imports (`networkx`
+  untyped, `dcma14.py` datetime), unrelated to the harness.
 
 ### Deferred technical follow-ups (parking lot — pull into a wave when relevant)
 
@@ -107,6 +126,27 @@ waves once that round closes.
   (replace module-level `_REGISTRY` dict with
   `importlib.metadata.entry_points` so engines self-register via
   `pyproject.toml`).
+- **`channel_known: bool` field on by-job endpoint** (devils-advocate
+  PR #35 item 2). Differentiate "still running" (channel still in
+  `_channels` registry) from "session lost" (channel reaped or
+  process restart). Today both surface as `simulation_id: null`
+  and the poller waits the full 60s window before declaring
+  failure. Contract change; needs its own PR.
+- **`AbortController` plumbing for `getRiskSimulationByJob`**
+  (devils-advocate PR #35 item 7). On rapid unmount/remount loops
+  (route navigation), `destroy()` flips `recoveryAborted = true`
+  but the in-flight `await getRiskSimulationByJob` continues to
+  completion before the flag is re-checked. Leaks one HTTP
+  roundtrip per dropped instance. Wire `AbortController` through
+  to the underlying `fetch`.
+- **Vitest test for `_attemptRecovery` end-to-end** (devils-advocate
+  PR #35 item 11). The new `TestAssertChannelOwner` covers the
+  ownership helper directly and `TestRiskByJobEndpoint` covers
+  the bind/lookup pair, but no test exercises the actual
+  WS-drop → composable enters `recovering` → poller succeeds →
+  composable flips to `done` path. Needs a Vitest test with a
+  fake `recoveryPoller` and a controlled `error.code` event to
+  drive the state machine.
 
 ---
 
