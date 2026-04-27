@@ -24,6 +24,7 @@ from src.materializer.backfill import (  # noqa: E402
     _run_batch,
     main,
 )
+from src.materializer.runtime import _ENGINE_VERSION  # noqa: E402
 from src.parser.models import ParsedSchedule, Project, Task  # noqa: E402
 
 
@@ -47,12 +48,16 @@ class TestCandidateSelection:
         store = InMemoryStore()
         p1 = store.add(_schedule("A"), b"")
         p2 = store.add(_schedule("B"), b"")
-        # Pre-materialize p1's dcma so it is NOT a candidate.
+        # Pre-materialize p1's dcma so it is NOT a candidate. Use the
+        # runtime ``_ENGINE_VERSION`` (sourced from src/__about__.py per
+        # ADR-0014 §"Decision Outcome") rather than a hardcoded literal —
+        # otherwise a version bump leaves this test asserting against
+        # a stale artifact.
         store.save_derived_artifact(
             project_id=p1,
             artifact_kind="dcma",
             payload={"dummy": True},
-            engine_version="4.0",
+            engine_version=_ENGINE_VERSION,
             ruleset_version="dcma-v1",
             input_hash="a" * 64,
             effective_at=None,
