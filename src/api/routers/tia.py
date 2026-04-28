@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.analytics.tia import (
     DelayFragment,
@@ -123,7 +123,9 @@ def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
 @router.post("/api/v1/tia/analyze", response_model=TIAAnalysisSchema)
 @limiter.limit("10/minute")
 def tia_analyze(
-    request: TIAAnalyzeRequest, _user: object = Depends(optional_auth)
+    request: Request,
+    body: TIAAnalyzeRequest,
+    _user: object = Depends(optional_auth),
 ) -> TIAAnalysisSchema:
     """Run Time Impact Analysis on a project with delay fragments.
 
@@ -131,7 +133,8 @@ def tia_analyze(
     runs CPM, and measures the impact on the project completion date.
 
     Args:
-        request: Contains project_id and fragment definitions.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains project_id and fragment definitions.
 
     Raises:
         HTTPException: If the project is not found or analysis fails.
@@ -139,12 +142,12 @@ def tia_analyze(
     store = get_store()
     tia_store = get_tia_store()
 
-    schedule = store.get(request.project_id)
+    schedule = store.get(body.project_id)
     if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {request.project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {body.project_id}")
 
     # Convert schemas to domain models
-    fragments = [_fragment_schema_to_model(f) for f in request.fragments]
+    fragments = [_fragment_schema_to_model(f) for f in body.fragments]
 
     try:
         analyzer = TimeImpactAnalyzer(schedule)

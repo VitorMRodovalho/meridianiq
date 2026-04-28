@@ -382,28 +382,40 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
 ### Empirical state at amendment time (2026-04-27, updated 2026-04-28 post-#57)
 
 - **112 total endpoints** across 23 routers (floor — adds-only over time)
-- **38 write endpoints**: 36 with `@limiter.limit` after the #45 + DA-review + #57 rename commits, 2 user-self-action exceptions (`require_auth`-gated; per-JWT auth-throttle), 0 deferred (#57 closed the body-collision deferral)
-- **EXPENSIVE-pattern coverage** (after #57 close):
-  - `plugins.run_plugin` → `RATE_LIMIT_EXPENSIVE` (added in #45)
-  - `admin.reconcile_ips` + `admin.validate_recovery` → `RATE_LIMIT_EXPENSIVE` (DA caught: these were `optional_auth` — anonymous-callable + compute-heavy; now properly limited)
-  - 4 EXPENSIVE-pattern matches in `whatif.py` (`run_what_if`, `run_pareto_analysis`, `run_resource_leveling`) + `schedule_ops.build_schedule_endpoint` → `RATE_LIMIT_EXPENSIVE` (added in #57 after the parameter rename `request: <Pydantic>` → `body: <Pydantic>` + `request: Request` first-param)
-  - Empirical: 8 write endpoints match an EXPENSIVE pattern; **all 8 are now decorated with a Rule-2-compliant rate** (constant or literal ≤ 5/min)
-- Mix of constants (~20 callsites) and literals (~14 callsites) — mid-state during convention adoption (`#57` added 6 constant uses)
+- **38 write endpoints**: 36 with `@limiter.limit` after the #45 + DA-review + #57 rename + #57 fix-up commits, 2 user-self-action exceptions (`require_auth`-gated; per-JWT auth-throttle), 0 deferred (#57 closed the body-collision deferral)
+- **EXPENSIVE-pattern coverage**: 8 write endpoints match `EXPENSIVE_PATTERNS` (the test-file-defined matchers). All 8 are decorated with a Rule-2-compliant rate (`RATE_LIMIT_EXPENSIVE` or literal ≤ 5/min):
+  - `plugins.run_plugin` (`/plugins/...`) → `RATE_LIMIT_EXPENSIVE` (added in #45)
+  - `risk.run_risk_simulation` (`/risk/simulate`) → `RATE_LIMIT_EXPENSIVE`
+  - `whatif.optimize_schedule_endpoint` (`/optimize`) → `"5/minute"` literal
+  - `whatif.run_what_if` (`/what-if`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
+  - `whatif.run_pareto_analysis` (`/pareto`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
+  - `whatif.run_resource_leveling` (`/resource-leveling`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
+  - `schedule_ops.build_schedule_endpoint` (`/schedule/build`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
+  - `reports.generate_report` → `RATE_LIMIT_EXPENSIVE`
+- **Defensive promotions** (NOT `EXPENSIVE_PATTERNS`-matched, but DA-promoted to `RATE_LIMIT_EXPENSIVE`): `admin.reconcile_ips` + `admin.validate_recovery` — both `optional_auth` (anonymous-callable) + compute-heavy. These do NOT count toward the "8" above; they are a separate hardening from the same DA-review session that birthed #45.
+- **#57 fix-up scope expansion (DA-caught)**: the issue body listed 6 `request: <Pydantic>` body-collision endpoints. A fresh AST sweep during #57's DA exit-council found 3 more in the same failure class — `comparison.compare_schedules`, `tia.tia_analyze`, `schedule_ops.generate_schedule_endpoint` — all with `@limiter.limit` decorators but no `Request`-typed parameter, so slowapi was silently failing at runtime. All 3 fixed in the same #57 PR (rate values preserved: `"20/minute"`, `"10/minute"`, `"5/minute"` literals).
+- Mix of constants (~20 callsites) and literals (~14 callsites) — mid-state during convention adoption (`#57` added 6 constant uses + 3 literal preserves)
 
 ### Enforcement
 
-`tests/test_rate_limit_policy.py` (5 tests) parses each router via AST and applies the three rules. CI catches:
+`tests/test_rate_limit_policy.py` (6 tests) parses each router via AST and applies the four rules. CI catches:
 
 - A new write endpoint added without a limiter decorator (violation of Rule 1)
 - A new expensive endpoint added at MODERATE/READ rate (violation of Rule 2)
 - An exception entry without rationale (violation of Rule 3)
 - An exception entry pointing at a non-existent endpoint (dead weight)
+- A `@limiter.limit`-decorated endpoint with no `Request`-typed parameter (violation of Rule 4 — slowapi can't extract the IP, decorator silently no-ops or raises in production while Rules 1+2 pass). Rule 4 was added by #57 after a DA exit-council found 3 silent-failure cases (`comparison.compare_schedules`, `tia.tia_analyze`, `schedule_ops.generate_schedule_endpoint`) that Rules 1+2 marked compliant.
 
 ### Negative / accepted costs
 
 - **Pattern matching is heuristic.** EXPENSIVE_PATTERNS uses substring match against `<path> <function_name>`. False positives (a GET that happens to contain "/optimize" in its path but doesn't compute) are excluded by Rule 2's GET-skip clause. False negatives (a write endpoint that's expensive but doesn't match any pattern) require pattern refinement when discovered — the test file is the source of truth.
 - **MIP forensic analyses chose MODERATE not EXPENSIVE.** Each MIP runs a window-by-window CPM (e.g., 10 windows × 10 days = 10 CPM passes); heavy but not Monte-Carlo-class. The maintainer's existing decision (`@limiter.limit(RATE_LIMIT_MODERATE)` on six MIP endpoints) is preserved by narrowing EXPENSIVE_PATTERNS to exclude broad "forensic" — the policy follows existing reasoned decisions, not a fresh-bucket-per-endpoint rewrite.
-- **`request:` parameter collision closed (#57, 2026-04-28).** 6 endpoints (3 in `whatif.py`, 1 in `forensics.py`, 1 in `analysis.py`, 1 in `schedule_ops.py`) previously took a Pydantic body parameter named `request: <SomeRequest>`, which collided with the `request: Request` slowapi requires. Closed by [#57](https://github.com/VitorMRodovalho/meridianiq/issues/57): renamed `request: <Pydantic>` → `body: <Pydantic>` + added `request: Request` first parameter + applied the appropriate bucket (`RATE_LIMIT_EXPENSIVE` for the four EXPENSIVE-pattern endpoints, `RATE_LIMIT_MODERATE` for `contract_check` and `create_timeline`). Adjacent observation surfaced during the rename: `forensics.py` uses a different convention (`request: <Pydantic>, _http_request: Request` sibling pattern) on its 6 MIP endpoints — both conventions work; #57 stayed with the issue spec to match the `optimize_schedule_endpoint` precedent. Codebase-wide convention alignment is a future hygiene task, not in scope.
+- **`request:` parameter collision closed (#57, 2026-04-28).** Issue #57 originally targeted 6 endpoints (3 in `whatif.py`, 1 in `forensics.py`, 1 in `analysis.py`, 1 in `schedule_ops.py`) that took a Pydantic body parameter named `request: <SomeRequest>`, which collided with the `request: Request` slowapi requires. The PR's exit-council DA review found 3 *additional* endpoints in the same failure class (`comparison.compare_schedules`, `tia.tia_analyze`, `schedule_ops.generate_schedule_endpoint`) that the issue body had missed — these had `@limiter.limit` decorators but no `Request` parameter at all, silently no-op'ing in production. All 9 fixed in the #57 PR. Three conventions exist in the codebase post-#57:
+  - **Convention A — rename to `body`** (#57's choice + precedent `whatif.optimize_schedule_endpoint` + `admin.create_api_key`): `request: Request, body: <Pydantic | dict>`
+  - **Convention B — sibling `_http_request: Request`** (`forensics.py` 6 MIP endpoints + `forensics.run_half_step` + `reports.generate_report`): `request: <Pydantic>, _http_request: Request`
+  - **Convention C — `request_body` rename** (`admin.reconcile_ips` + `admin.validate_recovery`, added in #45): `request: Request, request_body: dict`
+
+  All three satisfy slowapi (Rule 4) and FastAPI's body auto-binding (parameter name is irrelevant for routing once the body type is annotated). Codebase-wide convention alignment to one form is a future hygiene task — not in scope of #57. **Rule 4 (added in #57) catches future regressions of this class structurally**: the AST walker now records each function's parameter annotations, and any `@limiter.limit`-decorated function without a `Request`-typed parameter fails the test.
 - **Constants vs literals not enforced.** Both forms count as rate-limited. A future PR may convert all literals (`"5/minute"`, `"10/minute"`) to constants for grep-discoverability; not in scope of this Amendment.
 
 ### Cross-references
