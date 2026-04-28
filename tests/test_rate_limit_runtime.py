@@ -108,5 +108,5 @@ class TestSlowapiRuntime:
             f"expected 429 on 4th call within the minute, got {statuses[3]}. "
             f"Full status sequence: {statuses}. Either RATE_LIMIT_EXPENSIVE drifted "
             "from the 3/min budget, or slowapi can no longer extract the IP from "
-            "the request: Request parameter (PR #60 regression)."
+            "the request: Request parameter (PR #60 / #64 regression class)."
         )
