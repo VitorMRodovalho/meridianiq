@@ -17,7 +17,11 @@
 		try {
 			const res = await getProjects();
 			projects = res.projects;
-		} catch { /* ignore */ }
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Failed to load projects';
+			toastError(`Could not load projects: ${msg}`);
+			console.error('loadProjects (alerts):', e);
+		}
 	}
 
 	async function analyze() {

@@ -22,8 +22,9 @@
 		try {
 			const data = await getEVMAnalyses();
 			analyses = data.analyses || [];
-		} catch {
-			/* ignore */
+		} catch (e) {
+			console.error('loadEVMAnalyses:', e);
+			// Non-blocking: empty list is acceptable initial state
 		}
 	}
 
@@ -31,8 +32,10 @@
 		try {
 			const data = await getProjects();
 			projects = data.projects || [];
-		} catch {
-			/* ignore */
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Failed to load projects';
+			toastError(`Could not load projects: ${msg}`);
+			console.error('loadProjects (evm):', e);
 		}
 	}
 
