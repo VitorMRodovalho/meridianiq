@@ -1,21 +1,24 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""Rate-limit RUNTIME regression — slowapi actually fires 429 at burst.
+"""Rate-limit RUNTIME spot-check — slowapi actually fires 429 at burst.
 
 Closes the structural-vs-runtime gap PR #60's devils-advocate exit-council
 flagged as N3. ``tests/test_rate_limit_policy.py`` validates the AST shape
 of the contract (Rules 1–4: write coverage, expensive coverage, exception
-discipline, ``Request`` parameter presence). It cannot prove that slowapi's
-runtime path actually issues 429 at the configured burst threshold —
-e.g., a misconfigured ``key_func``, a swallowed exception in the limiter
+discipline, ``Request`` parameter presence). Rule 4 enforces the contract
+across all 40+ ``@limiter.limit``-decorated endpoints; this file is a
+**spot-check**, not a parameterized harness — it pins that the
+structural→runtime path is reachable on the families PR #60 touched.
+A misconfigured ``key_func``, a swallowed exception in the limiter
 backend, or a future async-conversion regression would all pass the AST
-test while silently no-op'ing in production.
+test while silently no-op'ing in production for THIS endpoint; this test
+catches that specific drift.
 
-This file pins one runtime burst per Convention A endpoint family that
-PR #60 either fixed or precedented. Together with the long-standing
+Together with the long-standing
 ``test_whatif_router.py::TestOptimizeRateLimit`` (which covers
 ``optimize_schedule_endpoint``, the original Convention A pattern), this
-is the runtime correlate of Rule 4.
+is a sample-of-N=2 runtime tripwire — not a full parameterized harness
+across every limited endpoint.
 
 Why ``build_schedule_endpoint``?
 
@@ -74,19 +77,32 @@ class TestSlowapiRuntime:
             pytest.skip("slowapi _NoOpLimiter fallback — rate-limit not active")
 
         monkeypatch.setattr(api_limiter, "enabled", True)
-        if hasattr(api_limiter, "reset"):
-            api_limiter.reset()
+        # Hard-assert ``reset()`` exists. The earlier ``hasattr`` guard
+        # silently no-ops on slowapi major bumps — but ``slowapi`` is a hard
+        # ``[dev]`` dep since Cycle 2 W0, so a missing ``reset()`` indicates
+        # a breaking-change upgrade we want to notice loudly.
+        assert hasattr(api_limiter, "reset"), (
+            "slowapi Limiter.reset() vanished — review test isolation contract"
+        )
+        api_limiter.reset()
 
-        body = {"description": "build a small commercial schedule"}
+        # Minimal body. A keyword-rich description (``small commercial``) would
+        # bias ``_fallback_build`` keyword detection branches and make this test
+        # fragile to schedule-builder changes that should be unrelated.
+        body = {"description": "x"}
         statuses: list[int] = []
         for _ in range(4):
             resp = client.post("/api/v1/schedule/build", json=body)
             statuses.append(resp.status_code)
 
-        # First three within budget — must NOT be 429.
-        assert statuses[0] != 429, f"1st call should not be rate-limited (got {statuses[0]})"
-        assert statuses[1] != 429, f"2nd call should not be rate-limited (got {statuses[1]})"
-        assert statuses[2] != 429, f"3rd call should not be rate-limited (got {statuses[2]})"
+        # Calls 1–3: must succeed end-to-end (200), not just "not 429". A
+        # negative-form ``!= 429`` assertion silently passes if the endpoint
+        # itself regresses (e.g., ``_fallback_build`` raising 500). Since
+        # this test brands itself a runtime correlate of Rule 4, the
+        # endpoint must actually work — not merely fail-without-being-throttled.
+        assert statuses[0] == 200, f"1st call must succeed (got {statuses[0]}; full: {statuses})"
+        assert statuses[1] == 200, f"2nd call must succeed (got {statuses[1]}; full: {statuses})"
+        assert statuses[2] == 200, f"3rd call must succeed (got {statuses[2]}; full: {statuses})"
         # The 4th is the 429 boundary.
         assert statuses[3] == 429, (
             f"expected 429 on 4th call within the minute, got {statuses[3]}. "

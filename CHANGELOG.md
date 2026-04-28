@@ -39,9 +39,9 @@ Cycle 3 is the **Floor + Field-surface shallow** cycle per [ADR-0021](docs/adr/0
 
 ### Changed — Documentation drift catches
 
-- README.md mermaid diagram + ASCII tree literals corrected (40 engines/98 endpoints/1435 tests → 47/122/1488). PR #52 + PR #58 catches.
+- README.md mermaid diagram + ASCII tree literals corrected (40 engines/98 endpoints/1435 tests → 47/122/1488 at PR #52 + #58 close). Counts continue evolving in subsequent PRs (currently 1490 — see badge in README); the "1488" here is what these specific drift-catching PRs aligned to at their merge time, not a current claim.
 - CLAUDE.md §Architecture migrations bumped 24 → 26 → 27 (over the cycle).
-- `docs/architecture.md` prose + mermaid + ASCII tree all aligned to 122 endpoints / 27 migrations / 1488 tests.
+- `docs/architecture.md` prose + mermaid + ASCII tree all aligned to 122 endpoints / 27 migrations / 1488 tests at PR #58 close (current literal in `architecture.md` is 1490; subsequent test-count bumps in PR #60 → 1489 and PR #63 → 1490 were applied directly).
 - `scripts/check_stats_consistency.py` extended with 5 new validators (mermaid blocks, README ASCII tree, architecture.md prose+mermaid+tree, migrations canonical count, CLAUDE.md migrations claim).
 - `.github/workflows/doc-sync-check.yml` trigger paths now include `docs/architecture.md` + `supabase/migrations/**`.
 - `.env.example` now documents `RATE_LIMIT_ENABLED` env var.
