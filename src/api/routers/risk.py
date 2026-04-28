@@ -143,7 +143,7 @@ def _simulation_to_schema(result: Any) -> SimulationResultSchema:
 async def run_risk_simulation(
     request: Request,
     project_id: str,
-    payload: RunSimulationRequest,
+    body: RunSimulationRequest,
     job_id: str | None = None,
     _user: object = Depends(optional_auth),
 ) -> SimulationResultSchema:
@@ -155,8 +155,9 @@ async def run_risk_simulation(
     Per AACE RP 57R-09.
 
     Args:
+        request: FastAPI request object (consumed by the rate limiter).
         project_id: The stored project identifier.
-        request: Simulation configuration, duration risks, and risk events.
+        body: Simulation configuration, duration risks, and risk events.
         job_id: Optional progress channel id. When set, the client should
             connect to ``GET /api/v1/ws/progress/{job_id}`` (WebSocket)
             BEFORE issuing this request to receive ``{"type": "progress",
@@ -176,15 +177,15 @@ async def run_risk_simulation(
     if schedule is None:
         raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
 
-    # Convert payload schemas to domain models
+    # Convert body schemas to domain models
     config = None
-    if payload.config:
+    if body.config:
         config = SimulationConfig(
-            iterations=payload.config.iterations,
-            default_distribution=DistributionType(payload.config.default_distribution),
-            default_uncertainty=payload.config.default_uncertainty,
-            seed=payload.config.seed,
-            confidence_levels=payload.config.confidence_levels,
+            iterations=body.config.iterations,
+            default_distribution=DistributionType(body.config.default_distribution),
+            default_uncertainty=body.config.default_uncertainty,
+            seed=body.config.seed,
+            confidence_levels=body.config.confidence_levels,
         )
 
     duration_risks = (
@@ -196,9 +197,9 @@ async def run_risk_simulation(
                 most_likely=r.most_likely,
                 max_duration=r.max_duration,
             )
-            for r in payload.duration_risks
+            for r in body.duration_risks
         ]
-        if payload.duration_risks
+        if body.duration_risks
         else None
     )
 
@@ -211,9 +212,9 @@ async def run_risk_simulation(
                 impact_hours=e.impact_hours,
                 affected_activities=e.affected_activities,
             )
-            for e in payload.risk_events
+            for e in body.risk_events
         ]
-        if payload.risk_events
+        if body.risk_events
         else None
     )
 
