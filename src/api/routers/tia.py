@@ -16,7 +16,7 @@ from src.analytics.tia import (
 )
 
 from ..auth import optional_auth
-from ..deps import get_store, get_tia_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, get_store, get_tia_store, limiter
 from ..schemas import (
     DelayFragmentSchema,
     FragmentActivitySchema,
@@ -121,7 +121,7 @@ def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
 
 
 @router.post("/api/v1/tia/analyze", response_model=TIAAnalysisSchema)
-@limiter.limit("10/minute")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def tia_analyze(
     request: Request,
     body: TIAAnalyzeRequest,

@@ -7,13 +7,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_MODERATE, get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_MODERATE, RATE_LIMIT_WRITE, get_store, limiter
 
 router = APIRouter()
 
 
 @router.post("/api/v1/schedule/generate")
-@limiter.limit("5/minute")
+@limiter.limit(RATE_LIMIT_WRITE)
 def generate_schedule_endpoint(
     request: Request,
     body: dict,

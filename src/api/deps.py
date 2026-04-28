@@ -105,6 +105,31 @@ def get_schedule_or_404(project_id: str, user_id: str | None = None) -> ParsedSc
     return schedule
 
 
+# Shared rate-limit buckets — use these instead of hard-coding per-router
+# strings so audit (AUDIT-003) stays reviewable in one place.  Tune values
+# here and the whole API moves together.
+#
+#   EXPENSIVE — Monte Carlo, PDF generation, XER round-trip export, /optimize,
+#               /pareto, /resource-leveling, /schedule/build, /plugins/.
+#   WRITE     — Mutation/write endpoints (admin actions, cost upload, ask,
+#               schedule control, override). Between EXPENSIVE and MODERATE
+#               so accidental misuse on heavy work surfaces via 429 quickly.
+#   MODERATE  — Forensic window analysis, file upload, EVM/TIA submit,
+#               explicit reads with large serialisation (Excel, AIA G703).
+#   ANALYSIS  — Analytical reads (lifecycle inference preview, comparison
+#               summaries, override mutations).
+#   READ      — Cached reads, aggregated rollups, search, pending-statuses.
+#   LIGHT     — Very light reads (lifecycle status / list); matches
+#               ``Limiter.default_limits`` so per-route bucket scope is
+#               preserved without inventing a stricter rate.
+RATE_LIMIT_EXPENSIVE = "3/minute"
+RATE_LIMIT_WRITE = "5/minute"
+RATE_LIMIT_MODERATE = "10/minute"
+RATE_LIMIT_ANALYSIS = "20/minute"
+RATE_LIMIT_READ = "30/minute"
+RATE_LIMIT_LIGHT = "60/minute"
+
+
 # Rate limiter (shared instance)
 try:
     from slowapi import Limiter
@@ -112,7 +137,7 @@ try:
 
     limiter = Limiter(
         key_func=get_remote_address,
-        default_limits=["60/minute"],
+        default_limits=[RATE_LIMIT_LIGHT],
         enabled=os.getenv("RATE_LIMIT_ENABLED", "true").lower() != "false",
     )
 except ImportError:
@@ -125,16 +150,3 @@ except ImportError:
             return decorator
 
     limiter = _NoOpLimiter()  # type: ignore[assignment]
-
-
-# Shared rate-limit buckets — use these instead of hard-coding per-router
-# strings so audit (AUDIT-003) stays reviewable in one place.  Tune values
-# here and the whole API moves together.
-#
-#   EXPENSIVE — Monte Carlo, PDF generation, XER round-trip export.
-#   MODERATE  — Forensic window analysis, comparison, explicit reads with
-#               large serialisation (Excel, AIA G703).
-#   READ      — Cached reads, aggregated rollups, search.
-RATE_LIMIT_EXPENSIVE = "3/minute"
-RATE_LIMIT_MODERATE = "10/minute"
-RATE_LIMIT_READ = "30/minute"

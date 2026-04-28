@@ -11,13 +11,13 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from ..auth import optional_auth
-from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, RATE_LIMIT_WRITE, get_store, limiter
 
 router = APIRouter()
 
 
 @router.post("/api/v1/cost/upload")
-@limiter.limit("5/minute")
+@limiter.limit(RATE_LIMIT_WRITE)
 async def upload_cost_data(
     request: Request,
     file: UploadFile = File(...),
