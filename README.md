@@ -11,7 +11,7 @@ Open-source schedule intelligence platform — from validation to prediction to 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.56-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/Tests-1488%2B%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-1489%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -38,7 +38,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 47 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 1488 backend + 26 Vitest composables + Playwright E2E |
+| Tests passing | 1489 backend + 26 Vitest composables + Playwright E2E |
 | Frontend pages | 54 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, …) |
 | API endpoints | 122 across 23 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
@@ -277,7 +277,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (1488+ passing) · Vitest (26 composables) · Playwright E2E |
+| **Testing** | pytest (1489+ passing) · Vitest (26 composables) · Playwright E2E |
 
 ---
 
@@ -327,7 +327,7 @@ meridianiq/
 │       ├── routers/      # 122 endpoints across modular routers
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind (54 pages)
-├── tests/                # 1488+ backend tests
+├── tests/                # 1489+ backend tests
 ├── supabase/
 │   └── migrations/       # PostgreSQL schema migrations (27 files)
 ├── .github/

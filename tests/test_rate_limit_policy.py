@@ -33,6 +33,15 @@ also accepted).
 requires a rationale comment in this file. Reviewers should challenge
 the rationale on PR.
 
+**Rule 4 — Slowapi Request parameter.** Every endpoint with
+``@limiter.limit(...)`` MUST have a parameter typed as ``Request`` (the
+starlette/fastapi class). Slowapi extracts the client IP from this
+parameter; without one the decorator silently no-ops or raises at
+runtime — Rules 1+2 pass while the endpoint is unrate-limited in
+production. Added by [#57](
+https://github.com/VitorMRodovalho/meridianiq/issues/57) after a DA
+exit-council found 3 silent-failure cases.
+
 ## What this test does NOT enforce
 
 - Constant-vs-literal preference (advisory only — both forms count as
@@ -134,6 +143,14 @@ class Endpoint:
     decorators: tuple[str, ...]
     """All decorator source-text strings on the function."""
 
+    param_annotations: tuple[str, ...]
+    """Parameter type annotations as source text, parameter order preserved.
+
+    Empty string for parameters without an annotation. Used by Rule 4 to
+    detect whether a slowapi-decorated function has a ``Request``-typed
+    parameter (slowapi needs one to extract the client IP).
+    """
+
     @property
     def is_write(self) -> bool:
         return self.method in {"POST", "PUT", "PATCH", "DELETE"}
@@ -141,6 +158,27 @@ class Endpoint:
     @property
     def has_limiter(self) -> bool:
         return any("limiter.limit" in d for d in self.decorators)
+
+    @property
+    def has_request_param(self) -> bool:
+        """True if any parameter is typed as a starlette/fastapi ``Request``.
+
+        Slowapi's ``@limiter.limit`` decorator requires a ``Request`` instance
+        to extract the client IP (or whichever key_func the limiter is bound
+        to). Without one, the decorator either silently no-ops or raises at
+        runtime — both failure modes are invisible to the AST-only Rule 1
+        check.
+
+        Accepts the bare ``Request`` annotation as well as the dotted
+        ``fastapi.Request`` / ``starlette.requests.Request`` forms.
+        """
+        for ann in self.param_annotations:
+            if not ann:
+                continue
+            tail = ann.split(".")[-1]
+            if tail == "Request":
+                return True
+        return False
 
     @property
     def is_expensive_match(self) -> bool:
@@ -199,12 +237,19 @@ def _extract_endpoints(router_path: Path) -> Iterable[Endpoint]:
                 break
         if method is None:
             continue
+        # Capture parameter annotations (positional + keyword-only) so Rule 4
+        # can detect Request-typed parameters. Empty string for unannotated
+        # parameters (we currently don't have any in routers, but defensive).
+        params: list[str] = []
+        for arg in (*node.args.args, *node.args.kwonlyargs):
+            params.append(ast.unparse(arg.annotation) if arg.annotation else "")
         yield Endpoint(
             router=router_path.stem,
             function=node.name,
             method=method,
             path=path or "<unknown>",
             decorators=deco_texts,
+            param_annotations=tuple(params),
         )
 
 
@@ -315,6 +360,42 @@ class TestRule3ExceptionDiscipline:
                 "(router, function) pair exists in src/api/routers/. "
                 "Either remove the dead entry or fix the typo."
             )
+
+
+class TestRule4SlowapiRequestParam:
+    """Every endpoint with ``@limiter.limit`` MUST have a parameter typed
+    as ``Request`` (slowapi extracts the client IP from it).
+
+    This rule was added by [#57](
+    https://github.com/VitorMRodovalho/meridianiq/issues/57) after a DA
+    exit-council found 3 endpoints (``comparison.compare_schedules``,
+    ``tia.tia_analyze``, ``schedule_ops.generate_schedule_endpoint``)
+    with ``@limiter.limit`` decorators but no ``Request``-typed parameter.
+    Rules 1+2+3 are AST-decorator-presence checks — they cannot detect this
+    runtime failure class. Rule 4 closes the structural gap.
+    """
+
+    def test_every_limited_endpoint_has_request_param(self) -> None:
+        violations: list[str] = []
+        for ep in _all_endpoints():
+            if not ep.has_limiter:
+                continue
+            if not ep.has_request_param:
+                violations.append(
+                    f"{ep.router}.{ep.function}() {ep.method} {ep.path} — "
+                    "@limiter.limit without a Request-typed parameter"
+                )
+        assert not violations, (
+            "Rate-limit policy violation (Rule 4: slowapi Request param). "
+            "Each violation below has @limiter.limit but no parameter typed "
+            "as starlette/fastapi Request. Slowapi cannot extract the client "
+            "IP — the decorator silently no-ops or raises at runtime, so "
+            "Rules 1+2 pass while the endpoint is unrate-limited in production:\n  - "
+            + "\n  - ".join(violations)
+            + "\n\nFix: add `request: Request` (or `_http_request: Request` "
+            "if a Pydantic body parameter is named `request`) to the function "
+            "signature, and ensure `from fastapi import Request` is imported."
+        )
 
 
 class TestPolicyMatrixSnapshot:

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.analytics.comparison import ScheduleComparison
 
@@ -29,29 +29,30 @@ router = APIRouter()
 @router.post("/api/v1/compare", response_model=CompareResponse)
 @limiter.limit("20/minute")
 def compare_schedules(
-    request: CompareRequest, _user: object = Depends(optional_auth)
+    request: Request,
+    body: CompareRequest,
+    _user: object = Depends(optional_auth),
 ) -> CompareResponse:
     """Compare two uploaded projects (baseline vs update).
 
     Args:
-        request: Contains baseline_id and update_id.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains baseline_id and update_id.
 
     Raises:
         HTTPException: If either project is not found.
     """
     store = get_store()
 
-    baseline = store.get(request.baseline_id)
+    baseline = store.get(body.baseline_id)
     if baseline is None:
         raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
+            status_code=404, detail=f"Baseline project not found: {body.baseline_id}"
         )
 
-    update = store.get(request.update_id)
+    update = store.get(body.update_id)
     if update is None:
-        raise HTTPException(
-            status_code=404, detail=f"Update project not found: {request.update_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Update project not found: {body.update_id}")
 
     comparison = ScheduleComparison(baseline, update)
     result = comparison.compare()

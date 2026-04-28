@@ -15,24 +15,30 @@ router = APIRouter()
 @router.post("/api/v1/schedule/generate")
 @limiter.limit("5/minute")
 def generate_schedule_endpoint(
-    request: dict,
+    request: Request,
+    body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Generate a complete schedule from project parameters.
 
     Accepts project_type, size_category, project_name, and target_duration_days.
     Returns generated activities, relationships, and predicted duration.
+
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Free-form dict with project_type, size_category, project_name,
+            target_duration_days, complexity_factor.
     """
     from dataclasses import asdict
 
     from src.analytics.schedule_generation import GenerationInput, generate_schedule
 
     params = GenerationInput(
-        project_type=request.get("project_type", "commercial"),
-        project_name=request.get("project_name", "Generated Project"),
-        target_duration_days=request.get("target_duration_days", 0),
-        size_category=request.get("size_category", "medium"),
-        complexity_factor=request.get("complexity_factor", 1.0),
+        project_type=body.get("project_type", "commercial"),
+        project_name=body.get("project_name", "Generated Project"),
+        target_duration_days=body.get("target_duration_days", 0),
+        size_category=body.get("size_category", "medium"),
+        complexity_factor=body.get("complexity_factor", 1.0),
     )
     result = generate_schedule(params)
     # Exclude parsed_schedule from response (too large)
