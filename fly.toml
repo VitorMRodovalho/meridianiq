@@ -11,9 +11,17 @@ primary_region = "iad"
 [http_service]
   internal_port = 8080
   force_https = true
+  # Cold-start mitigation (BUG-007): keep at least 1 machine always running.
+  # `auto_stop_machines = "stop"` still scales DOWN excess machines (e.g.,
+  # under load Fly may add 2-3 machines, idle scales back to 1).
+  # `min_machines_running = 1` is the floor — guarantees one warm worker so
+  # the first request after idle doesn't return 502 (HTTP/2 connection drop
+  # in the browser → false-CORS error). Cost delta ~$5-8/month for the 1
+  # always-on machine. Pairs with PR #65 (frontend surface-errors fix);
+  # this is the BACKEND half of the same root cause.
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ["app"]
 
   [http_service.concurrency]
