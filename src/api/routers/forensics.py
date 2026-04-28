@@ -93,8 +93,10 @@ def _window_to_schema(wr: Any) -> WindowSchema:
     "/api/v1/forensic/create-timeline",
     response_model=TimelineDetailSchema,
 )
+@limiter.limit(RATE_LIMIT_MODERATE)
 def create_timeline(
-    request: CreateTimelineRequest,
+    request: Request,
+    body: CreateTimelineRequest,
     bifurcated: bool = False,
     _user: object = Depends(optional_auth),
 ) -> TimelineDetailSchema:
@@ -105,7 +107,8 @@ def create_timeline(
     full timeline.
 
     Args:
-        request: Contains a list of project_ids (minimum 2).
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains a list of project_ids (minimum 2).
         bifurcated: If True, run MIP 3.4 half-step analysis per window.
 
     Raises:
@@ -115,14 +118,14 @@ def create_timeline(
     tl_store = get_timeline_store()
 
     schedules: list[ParsedSchedule] = []
-    for pid in request.project_ids:
+    for pid in body.project_ids:
         schedule = store.get(pid)
         if schedule is None:
             raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
         schedules.append(schedule)
 
     try:
-        analyzer = ForensicAnalyzer(schedules, list(request.project_ids), bifurcated=bifurcated)
+        analyzer = ForensicAnalyzer(schedules, list(body.project_ids), bifurcated=bifurcated)
         timeline = analyzer.analyze()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

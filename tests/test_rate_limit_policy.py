@@ -103,41 +103,15 @@ APPROVED_EXCEPTIONS: dict[tuple[str, str], str] = {
     # have `@limiter.limit(RATE_LIMIT_EXPENSIVE)` — applied in
     # `src/api/routers/admin.py` per the DA-review fix-up commit.
     # ─────────────────────────────────────────────────────────────────
-    # Deferred — request parameter collision with Pydantic body model.
+    # NOTE: the 6 `request: <Pydantic>` body-collision endpoints
+    # (analysis.contract_check, forensics.create_timeline,
+    # schedule_ops.build_schedule_endpoint, whatif.run_what_if /
+    # run_pareto_analysis / run_resource_leveling) were closed by #57:
+    # renamed to `body: <Pydantic>` + added `request: Request` first
+    # parameter + decorated with the appropriate bucket
+    # (RATE_LIMIT_MODERATE for the two non-EXPENSIVE-pattern endpoints,
+    # RATE_LIMIT_EXPENSIVE for the four EXPENSIVE-pattern ones).
     # ─────────────────────────────────────────────────────────────────
-    # These endpoints take a Pydantic body parameter named `request: SomeRequest`,
-    # which collides with the FastAPI `request: Request` slowapi requires.
-    # Adding the decorator requires renaming `request: <Pydantic>` →
-    # `body: <Pydantic>` AND adding a separate `request: Request` parameter.
-    # The rename is mechanically safe (FastAPI auto-detects body via type
-    # annotation, parameter name is irrelevant for routing) but touches every
-    # call-site and benefits from focused review. Tracked as a fresh issue
-    # because #45 itself closes when this PR merges (DA-review correction:
-    # parking the deferral on a closed-issue pointer would rot).
-    (
-        "analysis",
-        "contract_check",
-    ): "deferred — request: ContractCheckRequest body collision; tracked in #57",
-    (
-        "forensics",
-        "create_timeline",
-    ): "deferred — request: CreateTimelineRequest body collision; tracked in #57",
-    (
-        "schedule_ops",
-        "build_schedule_endpoint",
-    ): "deferred — request: dict body collision; tracked in #57",
-    (
-        "whatif",
-        "run_what_if",
-    ): "deferred — request: WhatIfRequest body collision; tracked in #57",
-    (
-        "whatif",
-        "run_pareto_analysis",
-    ): "deferred — request: ParetoRequest body collision; tracked in #57",
-    (
-        "whatif",
-        "run_resource_leveling",
-    ): "deferred — request: LevelingRequest body collision; tracked in #57",
 }
 
 
