@@ -21,6 +21,7 @@ from src.database.store import InMemoryStore  # noqa: E402
 from src.materializer import Materializer  # noqa: E402
 from src.materializer.backfill import (  # noqa: E402
     _candidate_project_ids,
+    _diagnose_zero_candidates,
     _re_materialization_candidates,
     _run_batch,
     main,
@@ -273,6 +274,47 @@ class TestReMaterializationMode:
         assert len(candidates) == 2, "limit truncates the sorted candidate list"
 
 
+class TestDiagnoseZeroCandidates:
+    """Per DA exit-council: Option A and Option B silently neutralize each
+    other if applied in the wrong order. _diagnose_zero_candidates returns
+    a warning string when 0 candidates is the consequence of Option B
+    having tombstoned the rows already."""
+
+    def test_returns_none_when_no_rows_at_version(self) -> None:
+        store = InMemoryStore()
+        # No rows seeded — 0 candidates is the legit "nothing to do" case.
+        assert _diagnose_zero_candidates(store, "4.0") is None
+
+    def test_returns_warning_when_only_stale_rows_at_version(self) -> None:
+        store = InMemoryStore()
+        p1 = store.add(_schedule("A"), b"")
+        store.save_derived_artifact(
+            project_id=p1,
+            artifact_kind="dcma",
+            payload={"dummy": True},
+            engine_version="4.0",
+            ruleset_version="dcma-v1",
+            input_hash="a" * 64,
+            effective_at=None,
+            computed_by=None,
+        )
+        store.mark_stale(p1, stale_reason="engine_upgraded")
+        diagnostic = _diagnose_zero_candidates(store, "4.0")
+        assert diagnostic is not None
+        assert "Option-B-already-ran" in diagnostic
+        assert "1 project(s)" in diagnostic
+        assert "migration 027" in diagnostic
+
+    def test_returns_none_when_store_lacks_method(self) -> None:
+        """Defensive: a store implementation without the method should
+        not crash the CLI; the diagnostic just degrades to silent."""
+
+        class _MinimalStore:
+            pass
+
+        assert _diagnose_zero_candidates(_MinimalStore(), "4.0") is None
+
+
 class TestReMaterializationCLIArgs:
     """``--re-materialize-version`` plumbing: mutual-exclusion with
     ``--project-id`` + propagation to candidate selection."""
@@ -285,6 +327,18 @@ class TestReMaterializationCLIArgs:
         assert exc.value.code == 2
         captured = capsys.readouterr()
         assert "mutually exclusive" in captured.err
+
+    def test_kind_explicit_with_re_mat_exits_2(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Per DA exit-council: silent --kind ignore is unsafe. The CLI
+        now hard-errors if both --re-materialize-version and --kind
+        (non-default) are passed."""
+        with pytest.raises(SystemExit) as exc:
+            main(["--re-materialize-version", "4.0", "--kind", "health"])
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert "incompatible" in captured.err
 
     def test_re_mat_mode_dry_run_lists_only_old_version_projects(
         self,

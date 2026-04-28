@@ -62,10 +62,60 @@ def _re_materialization_candidates(
     which both ``InMemoryStore`` and ``SupabaseStore`` implement against
     ``schedule_derived_artifacts``.
     """
+    if not hasattr(store, "get_projects_at_engine_version"):
+        raise NotImplementedError(
+            "Store must implement `get_projects_at_engine_version(engine_version, "
+            "*, include_stale=False)` for re-materialization mode. "
+            "See src/database/store.py InMemoryStore + SupabaseStore."
+        )
     pids = store.get_projects_at_engine_version(old_engine_version)
     if limit is not None:
         return pids[:limit]
     return pids
+
+
+def _diagnose_zero_candidates(
+    store: Any,
+    old_engine_version: str,
+) -> str | None:
+    """Return a diagnostic warning string when re-mat finds 0 candidates,
+    or None if no diagnostic applies.
+
+    Per Cycle 3 W4 §W4 runbook + ADR-0014: Option A (bulk re-mat) and
+    Option B (migration 027 tombstone) silently neutralize each other if
+    applied in the wrong order. After Option B runs, the fresh-rows query
+    returns 0 candidates — the CLI would otherwise return rc=0 with no
+    signal, leading the operator to believe the re-mat succeeded.
+
+    This diagnostic checks for stale rows at the same engine_version
+    (i.e., Option B already applied). When found, returns a multi-line
+    warning the CLI logs at WARNING level so 2-AM operators see the
+    ordering trap before they reach the verification step.
+    """
+    if not hasattr(store, "get_projects_at_engine_version"):
+        return None
+    try:
+        stale_pids = store.get_projects_at_engine_version(
+            old_engine_version, include_stale=True
+        )
+    except TypeError:
+        # Older store implementation without `include_stale` keyword; skip.
+        return None
+    if not stale_pids:
+        return None
+    # We have rows at this engine_version, but all are stale → Option B
+    # has already been applied (or some other process tombstoned them).
+    return (
+        f"Re-mat found 0 candidates at engine_version={old_engine_version!r}, "
+        f"but {len(stale_pids)} project(s) have STALE rows at that version. "
+        "This is the Option-B-already-ran case (migration 027 tombstoned "
+        "the rows). Re-mat candidates are filtered to non-stale only — see "
+        "docs/operator-runbooks/cycle3.md §W4. If you intended Option A "
+        "(bulk re-mat) but Option B already ran, the read-path forces re-mat "
+        "on first read of each project — no further operator action needed. "
+        "If you intended Option B and ran the migration, this WARNING is "
+        "informational; you can ignore."
+    )
 
 
 def _candidate_project_ids(
@@ -213,14 +263,21 @@ def main(argv: list[str] | None = None) -> int:
             "engine_version (e.g., '4.0'), and re-run the materializer to produce "
             "fresh rows at the current engine_version per ADR-0014 §'Decision "
             "Outcome' provenance contract. Designed for the post-PR-#50 88-row "
-            "re-mat. When set, --kind is ignored (re-mat covers all kinds for the "
-            "affected projects). Mutually exclusive with --project-id."
+            "re-mat. Re-mat covers all kinds for the affected projects — "
+            "passing --kind alongside --re-materialize-version is a hard error. "
+            "Mutually exclusive with --project-id."
         ),
     )
     args = parser.parse_args(argv)
 
     if args.re_materialize_version is not None and args.project_id is not None:
         parser.error("--re-materialize-version and --project-id are mutually exclusive")
+
+    if args.re_materialize_version is not None and args.kind != "dcma":
+        parser.error(
+            "--kind is incompatible with --re-materialize-version "
+            "(re-mat covers all kinds for the affected projects)"
+        )
 
     logging.basicConfig(
         level=logging.INFO,
@@ -242,6 +299,11 @@ def main(argv: list[str] | None = None) -> int:
             len(candidates),
             args.re_materialize_version,
         )
+        # Order-of-operations diagnostic — see _diagnose_zero_candidates docstring.
+        if not candidates:
+            diagnostic = _diagnose_zero_candidates(store, args.re_materialize_version)
+            if diagnostic is not None:
+                logger.warning("Backfill %s — %s", backfill_id, diagnostic)
     else:
         candidates = _candidate_project_ids(store, args.limit, args.project_id, kind=args.kind)
         logger.info(
