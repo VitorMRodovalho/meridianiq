@@ -9,7 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
 from ..schemas import (
     ActivityImpactSchema,
     ActivityShiftSchema,
@@ -32,9 +32,11 @@ router = APIRouter()
 
 
 @router.post("/api/v1/projects/{project_id}/what-if")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_what_if(
+    request: Request,
     project_id: str,
-    request: WhatIfRequest,
+    body: WhatIfRequest,
     _user: object = Depends(optional_auth),
 ) -> WhatIfResponse:
     """Run a what-if scenario on a project schedule.
@@ -44,8 +46,9 @@ def run_what_if(
     deterministic (single run) and probabilistic (N iterations with ranges).
 
     Args:
+        request: FastAPI request object (consumed by the rate limiter).
         project_id: The stored project identifier.
-        request: Scenario definition with adjustments and iteration count.
+        body: Scenario definition with adjustments and iteration count.
 
     References:
         AACE RP 57R-09 — Scenario Analysis,
@@ -63,7 +66,7 @@ def run_what_if(
     )
 
     scenario = WhatIfScenario(
-        name=request.name,
+        name=body.name,
         adjustments=[
             DurationAdjustment(
                 target=a.target,
@@ -71,9 +74,9 @@ def run_what_if(
                 min_pct=a.min_pct,
                 max_pct=a.max_pct,
             )
-            for a in request.adjustments
+            for a in body.adjustments
         ],
-        iterations=request.iterations,
+        iterations=body.iterations,
     )
 
     result = simulate_whatif(schedule, scenario)
@@ -111,15 +114,22 @@ def run_what_if(
 
 
 @router.post("/api/v1/projects/{project_id}/pareto")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_pareto_analysis(
+    request: Request,
     project_id: str,
-    request: ParetoRequest,
+    body: ParetoRequest,
     _user: object = Depends(optional_auth),
 ) -> ParetoResponse:
     """Run time-cost Pareto analysis across multiple scenarios.
 
     Identifies the Pareto-optimal frontier of non-dominated solutions
     on the time-vs-cost plane.
+
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        project_id: The stored project identifier.
+        body: List of cost scenarios + base cost for the Pareto frontier.
 
     References:
         AACE RP 36R-06, Kelley & Walker (1959).
@@ -146,10 +156,10 @@ def run_pareto_analysis(
             ],
             cost_delta=cs.cost_delta,
         )
-        for cs in request.scenarios
+        for cs in body.scenarios
     ]
 
-    result = analyze_pareto(schedule, scenarios, base_cost=request.base_cost)
+    result = analyze_pareto(schedule, scenarios, base_cost=body.base_cost)
 
     def _map_point(p):  # noqa: ANN001, ANN202
         return ParetoPointSchema(
@@ -174,15 +184,22 @@ def run_pareto_analysis(
 
 
 @router.post("/api/v1/projects/{project_id}/resource-leveling")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_resource_leveling(
+    request: Request,
     project_id: str,
-    request: LevelingRequest,
+    body: LevelingRequest,
     _user: object = Depends(optional_auth),
 ) -> LevelingResponse:
     """Run resource-constrained scheduling using Serial SGS.
 
     Levels resources by scheduling activities at their earliest feasible
     start, respecting both precedence and resource capacity constraints.
+
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        project_id: The stored project identifier.
+        body: Resource limits + priority rule + max extension config.
 
     References:
         AACE RP 46R-11, Kolisch (1996), Kelley & Walker (1959).
@@ -201,10 +218,10 @@ def run_resource_leveling(
                 max_units=rl.max_units,
                 cost_per_unit_day=rl.cost_per_unit_day,
             )
-            for rl in request.resource_limits
+            for rl in body.resource_limits
         ],
-        priority_rule=request.priority_rule,
-        max_project_extension_pct=request.max_project_extension_pct,
+        priority_rule=body.priority_rule,
+        max_project_extension_pct=body.max_project_extension_pct,
     )
 
     result = level_resources(schedule, config)

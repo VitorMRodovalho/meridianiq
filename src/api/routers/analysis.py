@@ -256,8 +256,11 @@ def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> M
 
 
 @router.post("/api/v1/contract/check", response_model=ContractCheckResponse)
+@limiter.limit(RATE_LIMIT_MODERATE)
 def contract_check(
-    request: ContractCheckRequest, _user: object = Depends(optional_auth)
+    request: Request,
+    body: ContractCheckRequest,
+    _user: object = Depends(optional_auth),
 ) -> ContractCheckResponse:
     """Run contract compliance checks against a TIA analysis.
 
@@ -265,17 +268,16 @@ def contract_check(
     provisions per AIA A201, ConsensusDocs 200, and FIDIC conditions.
 
     Args:
-        request: Contains the analysis_id to check.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains the analysis_id to check.
 
     Raises:
         HTTPException: If the analysis is not found.
     """
     tia_store = get_tia_store()
-    analysis = tia_store.get(request.analysis_id)
+    analysis = tia_store.get(body.analysis_id)
     if analysis is None:
-        raise HTTPException(
-            status_code=404, detail=f"TIA analysis not found: {request.analysis_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"TIA analysis not found: {body.analysis_id}")
 
     checker = ContractComplianceChecker()
     checks = checker.check_all(analysis.fragments, analysis.results)
@@ -299,7 +301,7 @@ def contract_check(
     failures = sum(1 for c in checks if c.status.value == "fail")
 
     return ContractCheckResponse(
-        analysis_id=request.analysis_id,
+        analysis_id=body.analysis_id,
         checks=check_schemas,
         total_checks=len(checks),
         warnings=warnings,

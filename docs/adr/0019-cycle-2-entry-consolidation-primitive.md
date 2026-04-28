@@ -379,15 +379,16 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
 | Literal `"N/minute"` | Various | Acceptable forms: `"5/minute"` is the standard moderate-write rate before constants existed; preserved for backward-compat. Future PRs may convert to constants. |
 | **No decorator** | n/a | Healthchecks (`/health`, `/api/v1/health`); admin-scope auth-gated endpoints (auth IS the throttle); endpoints in APPROVED_EXCEPTIONS |
 
-### Empirical state at amendment time (2026-04-27)
+### Empirical state at amendment time (2026-04-27, updated 2026-04-28 post-#57)
 
 - **112 total endpoints** across 23 routers (floor — adds-only over time)
-- **38 write endpoints**: 30 with `@limiter.limit` after the #45 + DA-review fix-up commits, 2 user-self-action exceptions (`require_auth`-gated; per-JWT auth-throttle), 6 deferred for `request: <Pydantic>` body parameter rename (the rename is mechanically safe but touches every call-site and benefits from focused review — tracked as a separate rename-PR follow-up)
-- **EXPENSIVE-pattern coverage** (after DA-review fix-up):
+- **38 write endpoints**: 36 with `@limiter.limit` after the #45 + DA-review + #57 rename commits, 2 user-self-action exceptions (`require_auth`-gated; per-JWT auth-throttle), 0 deferred (#57 closed the body-collision deferral)
+- **EXPENSIVE-pattern coverage** (after #57 close):
   - `plugins.run_plugin` → `RATE_LIMIT_EXPENSIVE` (added in #45)
   - `admin.reconcile_ips` + `admin.validate_recovery` → `RATE_LIMIT_EXPENSIVE` (DA caught: these were `optional_auth` — anonymous-callable + compute-heavy; now properly limited)
-  - 4 EXPENSIVE-pattern matches in `whatif.py` (`run_what_if`, `run_pareto_analysis`, `run_resource_leveling`) + `schedule_ops.build_schedule_endpoint` are **deferred via APPROVED_EXCEPTIONS** pending the parameter rename PR. **They are NOT decorated yet — Rule 2 does not apply because Rule 1 exception bypasses Rule 2.** This is a known gap, scoped to the rename PR; the test will fail loud once the rename lands but the decorator doesn't get added.
-- Mix of constants (~14 callsites) and literals (~14 callsites) — mid-state during convention adoption
+  - 4 EXPENSIVE-pattern matches in `whatif.py` (`run_what_if`, `run_pareto_analysis`, `run_resource_leveling`) + `schedule_ops.build_schedule_endpoint` → `RATE_LIMIT_EXPENSIVE` (added in #57 after the parameter rename `request: <Pydantic>` → `body: <Pydantic>` + `request: Request` first-param)
+  - Empirical: 8 write endpoints match an EXPENSIVE pattern; **all 8 are now decorated with a Rule-2-compliant rate** (constant or literal ≤ 5/min)
+- Mix of constants (~20 callsites) and literals (~14 callsites) — mid-state during convention adoption (`#57` added 6 constant uses)
 
 ### Enforcement
 
@@ -402,7 +403,7 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
 
 - **Pattern matching is heuristic.** EXPENSIVE_PATTERNS uses substring match against `<path> <function_name>`. False positives (a GET that happens to contain "/optimize" in its path but doesn't compute) are excluded by Rule 2's GET-skip clause. False negatives (a write endpoint that's expensive but doesn't match any pattern) require pattern refinement when discovered — the test file is the source of truth.
 - **MIP forensic analyses chose MODERATE not EXPENSIVE.** Each MIP runs a window-by-window CPM (e.g., 10 windows × 10 days = 10 CPM passes); heavy but not Monte-Carlo-class. The maintainer's existing decision (`@limiter.limit(RATE_LIMIT_MODERATE)` on six MIP endpoints) is preserved by narrowing EXPENSIVE_PATTERNS to exclude broad "forensic" — the policy follows existing reasoned decisions, not a fresh-bucket-per-endpoint rewrite.
-- **`request:` parameter collision deferred.** 6 endpoints (3 in `whatif.py`, 1 in `forensics.py`, 1 in `analysis.py`, 1 in `schedule_ops.py`) take a Pydantic body parameter named `request: <SomeRequest>`. Adding the slowapi decorator requires renaming `request: <Pydantic>` → `body: <Pydantic>` AND adding a separate `request: Request` parameter. The rename is mechanically safe (FastAPI auto-detects body via type annotation) but touches every call-site and benefits from focused review. Currently in APPROVED_EXCEPTIONS with explicit "deferred — #45 follow-up" rationale; tracked for closure when the rename PR ships.
+- **`request:` parameter collision closed (#57, 2026-04-28).** 6 endpoints (3 in `whatif.py`, 1 in `forensics.py`, 1 in `analysis.py`, 1 in `schedule_ops.py`) previously took a Pydantic body parameter named `request: <SomeRequest>`, which collided with the `request: Request` slowapi requires. Closed by [#57](https://github.com/VitorMRodovalho/meridianiq/issues/57): renamed `request: <Pydantic>` → `body: <Pydantic>` + added `request: Request` first parameter + applied the appropriate bucket (`RATE_LIMIT_EXPENSIVE` for the four EXPENSIVE-pattern endpoints, `RATE_LIMIT_MODERATE` for `contract_check` and `create_timeline`). Adjacent observation surfaced during the rename: `forensics.py` uses a different convention (`request: <Pydantic>, _http_request: Request` sibling pattern) on its 6 MIP endpoints — both conventions work; #57 stayed with the issue spec to match the `optimize_schedule_endpoint` precedent. Codebase-wide convention alignment is a future hygiene task, not in scope.
 - **Constants vs literals not enforced.** Both forms count as rate-limited. A future PR may convert all literals (`"5/minute"`, `"10/minute"`) to constants for grep-discoverability; not in scope of this Amendment.
 
 ### Cross-references

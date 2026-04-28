@@ -7,7 +7,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_MODERATE, get_store, limiter
 
 router = APIRouter()
 
@@ -42,17 +42,23 @@ def generate_schedule_endpoint(
 
 
 @router.post("/api/v1/schedule/build")
+@limiter.limit(RATE_LIMIT_EXPENSIVE)
 async def build_schedule_endpoint(
-    request: dict,
+    request: Request,
+    body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Build a schedule from natural language description.
 
     Uses Claude API to extract parameters, falls back to keyword matching.
+
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Free-form dict with a ``description`` key (natural language).
     """
     from src.analytics.schedule_builder import _fallback_build
 
-    description = request.get("description", "")
+    description = body.get("description", "")
     if not description:
         raise HTTPException(status_code=400, detail="Description required")
 
