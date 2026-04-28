@@ -29,6 +29,12 @@ from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
 
+# Re-materialization query cap (Cycle 3 W4 / issue #54). PostgREST's silent
+# default of 1,000 rows would truncate without warning; raising past 10,000
+# crosses into "data has scaled past the operator-script regime" territory
+# and deserves a hard pagination strategy, not a single query.
+RE_MAT_MAX_ROWS = 10_000
+
 
 def _json_safe(obj: Any) -> Any:
     """Recursively convert datetime / date to ISO 8601 strings for JSON encoding.
@@ -798,24 +804,34 @@ class InMemoryStore:
             return None
         return latest
 
-    def get_projects_at_engine_version(self, engine_version: str) -> list[str]:
-        """Return distinct project IDs with at least one non-stale derived
-        artifact at the given ``engine_version`` — driver query for the
-        re-materialization workflow.
+    def get_projects_at_engine_version(
+        self, engine_version: str, *, include_stale: bool = False
+    ) -> list[str]:
+        """Return distinct project IDs with at least one derived artifact at
+        the given ``engine_version``.
 
-        Used by ``src/materializer/backfill.py --re-materialize-version <ver>``
-        to enumerate projects whose existing rows predate the current
-        ``_ENGINE_VERSION`` and need re-materialization per ADR-0014
-        provenance contract. Cycle 3 W4 use case: the 88 production rows
-        carrying ``engine_version='4.0'`` after PR #50 migrated runtime
-        sourcing from ``src/__about__.py``.
+        ``include_stale=False`` (default) — driver query for the re-mat
+        workflow. Used by ``src/materializer/backfill.py
+        --re-materialize-version <ver>`` to enumerate projects whose existing
+        non-stale rows predate the current ``_ENGINE_VERSION``. Cycle 3 W4
+        use case: 88 production rows at ``engine_version='4.0'`` after PR #50.
+
+        ``include_stale=True`` — diagnostic query. When the re-mat CLI finds
+        0 candidates at a non-current version, it re-queries with
+        ``include_stale=True`` to detect "Option B (migration 027) already
+        ran" — the tombstone scenario where rows exist but all are stale.
+        Tells the operator their candidate-list is empty NOT because the
+        re-mat already ran, but because the inputs were tombstoned.
 
         Sorted for deterministic batch ordering across runs.
         """
         pids: set[str] = set()
         for row in self._derived_artifacts:
-            if row["engine_version"] == engine_version and not row["is_stale"]:
-                pids.add(row["project_id"])
+            if row["engine_version"] != engine_version:
+                continue
+            if not include_stale and row["is_stale"]:
+                continue
+            pids.add(row["project_id"])
         return sorted(pids)
 
     def mark_stale(
@@ -2801,25 +2817,47 @@ class SupabaseStore:
             return None
         return latest
 
-    def get_projects_at_engine_version(self, engine_version: str) -> list[str]:
-        """Return distinct project IDs with at least one non-stale artifact at
+    def get_projects_at_engine_version(
+        self, engine_version: str, *, include_stale: bool = False
+    ) -> list[str]:
+        """Return distinct project IDs with at least one derived artifact at
         the given ``engine_version`` — driver query for the re-materialization
         workflow (Cycle 3 W4).
 
-        Reads ``schedule_derived_artifacts`` with the partial filter
-        ``WHERE engine_version = $1 AND is_stale = false`` and projects
-        ``DISTINCT project_id``. Sorted for deterministic batch ordering.
+        ``include_stale=False`` (default): only fresh rows. Used by
+        ``src/materializer/backfill.py --re-materialize-version <ver>``.
 
-        Used by ``src/materializer/backfill.py --re-materialize-version <ver>``.
+        ``include_stale=True``: diagnostic query for the CLI's "0 candidates
+        + Option-B-already-ran" detection — see InMemoryStore docstring above
+        for the full rationale.
+
+        Pagination: explicit ``range(0, RE_MAT_MAX_ROWS - 1)`` cap of
+        10,000 rows. PostgREST's silent default of 1,000 would silently
+        truncate above that; raising past 10k crosses into
+        "data has scaled past the operator-script regime" territory and
+        deserves a hard error, not silent truncation. Logged warning fires
+        if the query hits the cap so the operator knows pagination is
+        needed.
         """
-        result = (
+        query = (
             self._client.table("schedule_derived_artifacts")
             .select("project_id")
             .eq("engine_version", engine_version)
-            .eq("is_stale", False)
-            .execute()
         )
+        if not include_stale:
+            query = query.eq("is_stale", False)
+        result = query.range(0, RE_MAT_MAX_ROWS - 1).execute()
         rows: list[dict[str, Any]] = result.data or []
+        if len(rows) >= RE_MAT_MAX_ROWS:
+            logger.warning(
+                "get_projects_at_engine_version(%r, include_stale=%s): hit "
+                "row cap of %d — result may be truncated; operator must "
+                "paginate via an alternative query path before running "
+                "re-materialization.",
+                engine_version,
+                include_stale,
+                RE_MAT_MAX_ROWS,
+            )
         return sorted({row["project_id"] for row in rows})
 
     def mark_stale(

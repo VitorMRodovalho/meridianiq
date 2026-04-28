@@ -10,6 +10,17 @@
 --   (bulk re-mat). Option A path: run
 --   `python -m src.materializer.backfill --re-materialize-version 4.0` instead.
 --
+-- ⚠ ORDER-OF-OPERATIONS TRAP (per DA exit-council on PR #58):
+--   Option A and Option B silently neutralize each other if applied in
+--   the wrong order:
+--   - If THIS migration runs FIRST (tombstones rows), then `--re-materialize-
+--     version 4.0` is run, the candidate list is EMPTY (filtered to
+--     `is_stale=false`). The CLI returns "0 candidates" + rc=0; the
+--     operator may think the re-mat succeeded when nothing happened.
+--   - The CLI now emits a WARNING in this case via
+--     `_diagnose_zero_candidates` pointing at this migration.
+--   - PRO-TIP: choose ONE option per cycle. Don't mix.
+--
 -- ⚠ This migration is FORWARD-ONLY in semantics. The UPDATE flips
 --   `is_stale=true` + `stale_reason='engine_upgraded'` on every row whose
 --   `engine_version='4.0'` AND is currently fresh (`is_stale=false`).
