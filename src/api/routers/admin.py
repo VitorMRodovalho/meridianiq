@@ -9,7 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth, require_auth
-from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_WRITE, get_store, limiter
 from ..schemas import GDPRDeleteResponse
 
 router = APIRouter()
@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.post("/api/v1/api-keys")
-@limiter.limit("5/minute")
+@limiter.limit(RATE_LIMIT_WRITE)
 def create_api_key(
     request: Request,
     body: dict,

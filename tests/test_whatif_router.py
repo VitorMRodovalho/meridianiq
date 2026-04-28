@@ -12,7 +12,7 @@ Covers the W5/W6 progress_callback wire-in PLUS the issue #14 contract:
   - foreign job_id (bound to a different user) is rejected with 403
   - exceptions raised by the engine are published as an error event on
     the channel before the HTTP 500 bubbles up
-  - the @limiter.limit("5/minute") decorator survives the async
+  - the @limiter.limit(RATE_LIMIT_WRITE) decorator survives the async
     conversion (6th call within the minute returns 429)
 """
 
@@ -410,9 +410,10 @@ class TestOptimizeRateLimit:
         uploaded_project_id: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """@limiter.limit("5/minute") is applied to the async handler.
-        The 6th request within the window must be throttled — regression
-        guard for the sync→async conversion interacting with slowapi.
+        """@limiter.limit(RATE_LIMIT_WRITE) (= "5/minute") is applied to
+        the async handler.  The 6th request within the window must be
+        throttled — regression guard for the sync→async conversion
+        interacting with slowapi.
 
         conftest.py disables rate-limiting globally for the suite
         (RATE_LIMIT_ENABLED=false) so tests don't fight the limiter

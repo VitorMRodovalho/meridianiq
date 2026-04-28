@@ -9,7 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_WRITE, get_store, limiter
 from ..schemas import (
     ActivityImpactSchema,
     ActivityShiftSchema,
@@ -351,7 +351,7 @@ def get_scorecard(
 
 
 @router.post("/api/v1/projects/{project_id}/optimize")
-@limiter.limit("5/minute")
+@limiter.limit(RATE_LIMIT_WRITE)
 async def optimize_schedule_endpoint(
     request: Request,
     project_id: str,

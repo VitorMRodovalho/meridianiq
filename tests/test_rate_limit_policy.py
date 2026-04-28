@@ -4,16 +4,23 @@
 
 Pins the rate-limit policy contract per [ADR-0019 Amendment 1](
 docs/adr/0019-cycle-2-entry-consolidation-primitive.md). The buckets
-already exist in ``src/api/deps.py:138-140``:
+live in ``src/api/deps.py``:
 
 - ``RATE_LIMIT_EXPENSIVE = "3/minute"``
+- ``RATE_LIMIT_WRITE = "5/minute"``
 - ``RATE_LIMIT_MODERATE = "10/minute"``
+- ``RATE_LIMIT_ANALYSIS = "20/minute"``
 - ``RATE_LIMIT_READ = "30/minute"``
+- ``RATE_LIMIT_LIGHT = "60/minute"``
 
 The pre-PR-#45 gap was *enforcement*, not buckets — engines were limited
 ad-hoc with literal strings (`"5/minute"`, `"10/minute"`, `"60/minute"`)
 instead of the constants, and ~18 write endpoints had NO decorator at
-all. This test enforces the policy moving forward.
+all. PR #45 closed the enforcement gap; the literal-vs-constant cleanup
+itself was deferred and closed by N5 (this PR), at which point Rule 2's
+``is_expensive_bucket`` was extended to resolve constant names through
+``CONSTANT_TO_RATE`` so a future tweak to ``RATE_LIMIT_WRITE`` (e.g.,
+"5/minute" → "8/minute") propagates automatically.
 
 ## Rules pinned by this file
 
@@ -62,7 +69,31 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.api.deps import (
+    RATE_LIMIT_ANALYSIS,
+    RATE_LIMIT_EXPENSIVE,
+    RATE_LIMIT_LIGHT,
+    RATE_LIMIT_MODERATE,
+    RATE_LIMIT_READ,
+    RATE_LIMIT_WRITE,
+)
+
 ROUTERS_DIR = Path(__file__).parent.parent / "src" / "api" / "routers"
+
+# Constant-name → rate-string lookup.  Imported from ``src.api.deps`` so a
+# future rate-value tweak (e.g., ``RATE_LIMIT_WRITE`` "5/minute" → "8/minute")
+# is automatically reflected in ``Endpoint.is_expensive_bucket`` evaluation
+# without a test edit.  The router AST scan extracts the *name* from the
+# decorator (``@limiter.limit(RATE_LIMIT_WRITE)``), and Rule 2 needs the
+# underlying rate string to compare against the ≤5/minute threshold.
+CONSTANT_TO_RATE: dict[str, str] = {
+    "RATE_LIMIT_ANALYSIS": RATE_LIMIT_ANALYSIS,
+    "RATE_LIMIT_EXPENSIVE": RATE_LIMIT_EXPENSIVE,
+    "RATE_LIMIT_LIGHT": RATE_LIMIT_LIGHT,
+    "RATE_LIMIT_MODERATE": RATE_LIMIT_MODERATE,
+    "RATE_LIMIT_READ": RATE_LIMIT_READ,
+    "RATE_LIMIT_WRITE": RATE_LIMIT_WRITE,
+}
 
 # Patterns that mark an endpoint as EXPENSIVE-class (must have rate ≤ 5/minute).
 # Lowercased substring match against `<path> <function_name>`.
@@ -201,14 +232,24 @@ class Endpoint:
 
     @property
     def is_expensive_bucket(self) -> bool:
-        """True if the rate-limit is ``RATE_LIMIT_EXPENSIVE`` or a string ≤ 5/minute."""
+        """True if the rate-limit resolves to a string ≤ 5/minute.
+
+        Accepts both the constant-name form (``RATE_LIMIT_EXPENSIVE`` /
+        ``RATE_LIMIT_WRITE`` resolve to "3/minute" / "5/minute" via
+        ``CONSTANT_TO_RATE``) and the literal-string form (``"3/minute"``
+        through ``"5/minute"``).  The literal-string branch survives so an
+        ad-hoc decorator authored before N5's sweep doesn't false-fail the
+        rule — the constants are preferred but not (yet) mandatory.
+        """
         v = self.limiter_value
         if v is None:
             return False
-        if v == "RATE_LIMIT_EXPENSIVE":
-            return True
-        # Literal string form: '"N/minute"' OR "'N/minute'" (ast.unparse may emit either).
-        m = re.search(r"""['"](\d+)/minute['"]""", v)
+        # Resolve constant name to its rate string when applicable so a
+        # rate tweak in deps.py (e.g., RATE_LIMIT_WRITE "5/minute" → "8/minute")
+        # propagates without a test edit.  Unknown identifiers fall through
+        # to the literal regex (covers both stale and ad-hoc cases).
+        rate_str = CONSTANT_TO_RATE.get(v, v)
+        m = re.search(r"""['"]?(\d+)/minute['"]?""", rate_str)
         if m:
             return int(m.group(1)) <= 5
         return False

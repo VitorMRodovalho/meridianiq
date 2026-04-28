@@ -10,7 +10,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_WRITE, get_store, limiter
 from ..schemas import (
     ActivityFloatTrendSchema,
     ActivityRiskSchema,
@@ -197,7 +197,7 @@ def get_root_cause(
     "/api/v1/projects/{project_id}/ask",
     response_model=NLPQueryResponse,
 )
-@limiter.limit("5/minute")
+@limiter.limit(RATE_LIMIT_WRITE)
 async def ask_schedule(
     request: Request,
     project_id: str,

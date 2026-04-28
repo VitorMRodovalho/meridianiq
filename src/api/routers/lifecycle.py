@@ -35,7 +35,7 @@ from src.analytics.lifecycle_types import LIFECYCLE_PHASES, confidence_band
 from src.materializer.runtime import _ENGINE_VERSION as _MATERIALIZER_ENGINE_VERSION
 
 from ..auth import optional_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_ANALYSIS, RATE_LIMIT_LIGHT, get_store, limiter
 from ..schemas import (
     LifecycleOverrideListResponse,
     LifecycleOverrideRequest,
@@ -189,7 +189,7 @@ def _build_summary(store: Any, project_id: str) -> LifecyclePhaseSummary:
     "/api/v1/projects/{project_id}/lifecycle",
     response_model=LifecyclePhaseSummary,
 )
-@limiter.limit("60/minute")
+@limiter.limit(RATE_LIMIT_LIGHT)
 def get_lifecycle_summary(
     request: Request,
     project_id: str,
@@ -214,7 +214,7 @@ def get_lifecycle_summary(
     response_model=LifecycleOverrideSchema,
     status_code=201,
 )
-@limiter.limit("20/minute")
+@limiter.limit(RATE_LIMIT_ANALYSIS)
 def create_lifecycle_override(
     request: Request,
     project_id: str,
@@ -319,7 +319,7 @@ def create_lifecycle_override(
     "/api/v1/projects/{project_id}/lifecycle/override",
     status_code=204,
 )
-@limiter.limit("20/minute")
+@limiter.limit(RATE_LIMIT_ANALYSIS)
 def revert_lifecycle_override(
     request: Request,
     project_id: str,
@@ -346,7 +346,7 @@ def revert_lifecycle_override(
     "/api/v1/projects/{project_id}/lifecycle/overrides",
     response_model=LifecycleOverrideListResponse,
 )
-@limiter.limit("60/minute")
+@limiter.limit(RATE_LIMIT_LIGHT)
 def list_lifecycle_overrides(
     request: Request,
     project_id: str,

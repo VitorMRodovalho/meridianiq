@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from src.parser.models import ParsedSchedule
 
 from ..auth import optional_auth
-from ..deps import RATE_LIMIT_MODERATE, _sandbox_projects, get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, RATE_LIMIT_READ, _sandbox_projects, get_store, limiter
 from ..schemas import (
     ActivitySchema,
     ActivityStatusSummary,
@@ -58,7 +58,7 @@ def list_projects(
 
 
 @router.get("/api/v1/projects/pending-statuses", response_model=PendingStatusesResponse)
-@limiter.limit("30/minute")
+@limiter.limit(RATE_LIMIT_READ)
 def list_pending_statuses(
     request: Request,
     _user: object = Depends(optional_auth),

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from src.analytics.comparison import ScheduleComparison
 
 from ..auth import optional_auth
-from ..deps import get_store, limiter
+from ..deps import RATE_LIMIT_ANALYSIS, get_store, limiter
 from ..schemas import (
     ActivityChangeSchema,
     CodeRestructuringSchema,
@@ -27,7 +27,7 @@ router = APIRouter()
 
 
 @router.post("/api/v1/compare", response_model=CompareResponse)
-@limiter.limit("20/minute")
+@limiter.limit(RATE_LIMIT_ANALYSIS)
 def compare_schedules(
     request: Request,
     body: CompareRequest,

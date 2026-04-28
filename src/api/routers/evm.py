@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from src.analytics.evm import EVMAnalyzer
 
 from ..auth import optional_auth
-from ..deps import get_evm_store, get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, get_evm_store, get_store, limiter
 from ..schemas import (
     EVMAnalysisSchema,
     EVMAnalysisSummarySchema,
@@ -114,7 +114,7 @@ def _evm_result_to_schema(result: Any, project_id: str = "") -> EVMAnalysisSchem
 
 
 @router.post("/api/v1/evm/analyze/{project_id}", response_model=EVMAnalysisSchema)
-@limiter.limit("10/minute")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def run_evm_analysis(
     request: Request, project_id: str, _user: object = Depends(optional_auth)
 ) -> EVMAnalysisSchema:

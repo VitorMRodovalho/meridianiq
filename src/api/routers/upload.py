@@ -14,7 +14,7 @@ from src.parser.xer_reader import XERReader
 
 from ..auth import optional_auth
 from ..cache import invalidate_namespace
-from ..deps import _sandbox_projects, get_materializer, get_store, limiter
+from ..deps import RATE_LIMIT_MODERATE, _sandbox_projects, get_materializer, get_store, limiter
 from ..schemas import ProjectSummary, ScheduleMetadataSchema
 
 router = APIRouter()
@@ -81,7 +81,7 @@ def demo_project():
 
 
 @router.post("/api/v1/upload", response_model=ProjectSummary)
-@limiter.limit("10/minute")
+@limiter.limit(RATE_LIMIT_MODERATE)
 async def upload_xer(
     request: Request,
     file: UploadFile = File(...),
