@@ -163,7 +163,7 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 def reconcile_ips(
     request: Request,
-    request_body: dict,
+    body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Run IPS reconciliation between a master schedule and sub-schedules.
@@ -171,17 +171,20 @@ def reconcile_ips(
     Per AACE RP 71R-12. Checks milestone alignment, date consistency,
     float consistency, and WBS alignment.
 
-    Request body:
-        master_project_id: str -- the master schedule project ID
-        sub_project_ids: list[str] -- sub-schedule project IDs
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Request body dict with keys:
+
+            - master_project_id (str): the master schedule project ID
+            - sub_project_ids (list[str]): sub-schedule project IDs
 
     Returns:
         IPSReconciliationResult as dict.
     """
     from src.analytics.ips_reconciliation import IPSReconciler
 
-    master_id = request_body.get("master_project_id")
-    sub_ids = request_body.get("sub_project_ids", [])
+    master_id = body.get("master_project_id")
+    sub_ids = body.get("sub_project_ids", [])
 
     if not master_id or not sub_ids:
         raise HTTPException(
@@ -218,7 +221,7 @@ def reconcile_ips(
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 def validate_recovery(
     request: Request,
-    request_body: dict,
+    body: dict,
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Validate a recovery schedule against the impacted schedule.
@@ -226,14 +229,17 @@ def validate_recovery(
     Per AACE RP 29R-03 Section 4. Checks duration compression,
     scope changes, float consumption, and logic integrity.
 
-    Request body:
-        impacted_project_id: str -- the impacted schedule
-        recovery_project_id: str -- the proposed recovery schedule
+    Args:
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Request body dict with keys:
+
+            - impacted_project_id (str): the impacted schedule
+            - recovery_project_id (str): the proposed recovery schedule
     """
     from src.analytics.recovery_validation import RecoveryValidator
 
-    impacted_id = request_body.get("impacted_project_id")
-    recovery_id = request_body.get("recovery_project_id")
+    impacted_id = body.get("impacted_project_id")
+    recovery_id = body.get("recovery_project_id")
 
     if not impacted_id or not recovery_id:
         raise HTTPException(
