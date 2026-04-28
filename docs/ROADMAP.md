@@ -6,7 +6,7 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-04-27 (Cycle 3 W4 code-side close — `_ENGINE_VERSION → __about__.py` migration merged at PR #50 `394d741`; Cycle 3 success criteria #1 + #5 + #6 (code-side) closed; 3/9 closed)**.
+> Last refreshed: **2026-04-27 night (Cycle 3 in-flight close-arc — operator runbooks + rate-limit policy + W4 operator-prep + audit follow-ups merged via PRs #52/#53/#55/#56/#58. Main at `820b86a`. Cycle 3 success criteria 3/9 closed; 4 operator-pending criteria with full runbooks at `docs/operator-runbooks/cycle3.md`).**
 
 ---
 

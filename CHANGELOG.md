@@ -3,6 +3,67 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — Cycle 3 in-flight (post-v4.1.0)
+
+Cycle 3 is the **Floor + Field-surface shallow** cycle per [ADR-0021](docs/adr/0021-cycle-3-entry-floor-plus-field-shallow.md). NO deep committed; the cycle ships closure of multi-cycle contractual debts + the W3 reproduction-regression primitive every future calibration-dependent deep depends on. **Pre-registered success criteria status: 3/9 closed** (#1 audit re-run, #5 reproduction test, #6 `_ENGINE_VERSION` code-side migration). Per ADR-0021 graceful threshold (≥5/9), on track once operator runbooks land.
+
+### Added — W0 cycle entry + audit re-run
+
+- **ADR-0021 — Cycle 3 entry (Floor + Field-surface shallow, Option α)** authored after 4-agent council round (PV + strategist round 1 parallel; DA + IV round 2 paired adversarially). Both ADR-0019-pre-committed Cycle 3 deeps (A1+A2 + E1) rejected with explicit rationale; reserved for Cycle 4+ with corpus-precondition gates. ADR-0022 + ADR-0023 reserved for Cycle 4 deeps. Closes [PR #38](https://github.com/VitorMRodovalho/meridianiq/pull/38).
+- **2026-04-26 audit re-run** at `docs/audit/2026-04-26/` — 9 layer docs (README + 6 layers + HANDOFF + CLOSING_REPORT) following the 2026-04-22 baseline structure. Carry-over of 18 baseline AUDIT-NNN: 11 resolved, 3 with regression sub-finding, 1 reaffirmed, 3 still-operator. **0 P0/P1 new findings**; 4 P2 + 7 P3 new. Closes [PR #39](https://github.com/VitorMRodovalho/meridianiq/pull/39) + [#40 meta-tracking](https://github.com/VitorMRodovalho/meridianiq/issues/40).
+
+### Added — W3 calibration reproduction primitive
+
+- **`tests/test_w4_reproduction.py`** (19 tests across 7 classes) — pins byte-identical equivalence between `scripts/calibration/run_w4_calibration.py` (Cycle 1 W4 historical record) and `tools/calibration_harness.py` (ADR-0020 primitive) on shared synthetic XER fixtures. Closes [ADR-0020 §"Decision" caveat](docs/adr/0020-calibration-harness-primitive.md) outstanding since 2026-04-26. Coverage: per-observation equivalence (incl. dedup-input metadata `activity_count` + `last_recalc_date_iso`), engine identity integrity (`engine_version` + `ruleset_version` pinned across pipelines), manifest/public payload equivalence, harness boundary validation on W4 outputs. Closes [PR #48](https://github.com/VitorMRodovalho/meridianiq/pull/48).
+
+### Added — W4 code-side: `_ENGINE_VERSION` sourcing chain
+
+- **`src/__about__.py`** created with literal `__version__ = "4.1.0"` pinned to `pyproject.toml [project.version]`. Closes the multi-cycle structural drift documented in `AUDIT-2026-04-26-011 (P2)` — the file referenced by ADR-0014 §"Decision Outcome" line 44 had never existed since 2026-04-18.
+- **`src/materializer/runtime.py`** refactored: `_ENGINE_VERSION = "4.0"` (hardcoded literal, multi-cycle drift) → `from src.__about__ import __version__ as _ENGINE_VERSION`. Closes `AUDIT-2026-04-26-007 (P2)`.
+- **`tests/test_engine_version_source.py`** — 5 tests across 3 classes pinning the chain `pyproject.toml → __about__.__version__ → runtime._ENGINE_VERSION`, including AST-based literal-rejection check (catches the adversarial pattern where someone re-introduces a hardcoded literal coincidentally matching today's pyproject value). Closes [PR #50](https://github.com/VitorMRodovalho/meridianiq/pull/50).
+
+### Added — Cycle 3 audit follow-ups + governance
+
+- **PR #52** — `#41` (P2, README mermaid + ASCII tree drift) + `#44` (P3, architecture.md + CLAUDE.md migration count drift + RATE_LIMIT_ENABLED env doc). Extended `scripts/check_stats_consistency.py` with mermaid + ASCII tree + architecture.md validators. Adversarial-tested.
+- **PR #53** — [ADR-0018 Amendment 1](docs/adr/0018-cycle-cadence-doc-artifacts.md) — codifies PR-level **devils-advocate-as-second-reviewer protocol** (5 steps + skip exceptions + positive-test rule + empirical rationale). DA review of the meta-PR caught 5 blocking + 5 non-blocking findings on the very PR codifying DA review (recursive validation). New `GOVERNANCE.md §"Process discipline"` subsection. Closes #42.
+- **PR #56** — [ADR-0019 Amendment 1](docs/adr/0019-cycle-2-entry-consolidation-primitive.md) — codifies **rate-limit policy contract** (3 rules: write coverage, expensive coverage, exception discipline). NEW `tests/test_rate_limit_policy.py` (385 lines, 5 tests, AST-based per-router walker). 10 decorator additions across 8 routers. **DA caught CRITICAL SECURITY:** 2 of 4 "admin" endpoints (`reconcile_ips`, `validate_recovery`) labeled "admin-scope auth gated" actually used `optional_auth` (anonymous-callable!) on compute-heavy analytical engines — the PR pre-DA-review would have codified the security gap as ADR-acceptable. Both now `RATE_LIMIT_EXPENSIVE`. Closes #45.
+- **PR #58** — Cycle 3 W4 operator-prep: `--re-materialize-version <ver>` flag + `_re_materialization_candidates` helper + `_diagnose_zero_candidates` ordering-trap warning + `migration 027_artifact_engine_version_tombstone.sql` draft (operator-decision-gated) + `get_projects_at_engine_version()` on both stores. **DA caught 2 critical blocking:** (1) PostgREST silent row truncation regression class; (2) Option A vs Option B silent neutralization if applied in wrong order. Both fixed with `RE_MAT_MAX_ROWS = 10_000` cap + multi-line WARNING when 0 candidates + stale rows exist.
+
+### Added — Operator runbooks + scoreboard infrastructure
+
+- **`docs/operator-runbooks/cycle3.md`** (598 lines) — comprehensive runbooks for W1 #26 prod migration + W2-A #28 ratification (5 ADRs) + W2-B W4 manifest archive + W4 #54 re-mat decision (Option A bulk re-mat vs Option B tombstone migration). Pre-flight + backup + execution + verification + rollback + registry per item. Closes [PR #55](https://github.com/VitorMRodovalho/meridianiq/pull/55).
+- Issue `#28` body **expanded** from 2 ADRs to 5 (0017+0018+0019+0020+0021 — per AUDIT-2026-04-26-009). Issue `#54` **created** for criterion #7 W4 re-mat operator decision.
+
+### Changed — Documentation drift catches
+
+- README.md mermaid diagram + ASCII tree literals corrected (40 engines/98 endpoints/1435 tests → 47/122/1488). PR #52 + PR #58 catches.
+- CLAUDE.md §Architecture migrations bumped 24 → 26 → 27 (over the cycle).
+- `docs/architecture.md` prose + mermaid + ASCII tree all aligned to 122 endpoints / 27 migrations / 1488 tests.
+- `scripts/check_stats_consistency.py` extended with 5 new validators (mermaid blocks, README ASCII tree, architecture.md prose+mermaid+tree, migrations canonical count, CLAUDE.md migrations claim).
+- `.github/workflows/doc-sync-check.yml` trigger paths now include `docs/architecture.md` + `supabase/migrations/**`.
+- `.env.example` now documents `RATE_LIMIT_ENABLED` env var.
+
+### Pending — operator execution required (NOT shipped in this Unreleased section)
+
+| # | Criterion | Status | Action |
+|---|---|---|---|
+| #2 | Apply migration 026 to production Supabase | OPEN | Maintainer follows `cycle3.md §W1` |
+| #3 | Ratify ADRs 0017–0021 (5 ADRs) | OPEN | Maintainer comments on `#28` per `cycle3.md §W2-A` |
+| #4 | Archive W4 manifest to `meridianiq-private` | OPEN | Maintainer follows `cycle3.md §W2-B` |
+| #7 | Re-mat OR tombstone 88 prod rows at `engine_version='4.0'` | OPEN | Maintainer chooses Option A vs B per `cycle3.md §W4` |
+| #9 | Release tag (v4.2.0 if W5 ships, else v4.1.1) | NOT STARTED | After #2/#3/#4/#7 + (optional) #8 W5 spike |
+
+### Pending — Claude-doable follow-ups (NOT in this Unreleased section)
+
+- [#46](https://github.com/VitorMRodovalho/meridianiq/issues/46) — Detail page i18n carry-over (defer to Cycle 4 W5 candidate)
+- [#57](https://github.com/VitorMRodovalho/meridianiq/issues/57) — Rate-limit decorator parameter rename: 6 endpoints with `request: <Pydantic>` body collision
+
+### Self-pressure-test bias disclosure (per ADR-0018 Amendment 1)
+
+Two ADR amendments codify in-cycle protocols (DA-as-second-reviewer in 0018 Am.1; rate-limit policy in 0019 Am.1) authored under those same protocols. Empirical claims (PR-level catch rates, security findings, recursive validation pattern) are self-collected and lack external validation. Future amendments should seek that validation when feasible.
+
+---
+
 ## [4.1.0] — 2026-04-26 — Consolidation + Primitive (Cycle 2 close)
 
 Cycle 2 close. Per [ADR-0019](docs/adr/0019-cycle-2-entry-consolidation-primitive.md), the cycle did NOT commit to a deep — it shipped the three primitives every future deep depends on: (1) security hygiene that any enterprise conversation requires; (2) honesty-debt closure on the v4.0.0 lifecycle classifier; (3) a reusable calibration harness future probabilistic-heuristic engines pre-register against. 4 waves planned, 4 waves landed.

@@ -203,3 +203,42 @@ PR #35's first commit added the new `GET /api/v1/risk/simulations/by-job/{job_id
 ---
 
 *Last updated: 2026-04-27 (Cycle 2 post-tag close-arc — 5 lessons appended from PRs #33 + #35 + #36)*
+
+---
+
+## Cycle 3 in-flight close-arc — 2026-04-27 night
+
+The following lessons emerged in the Cycle 3 in-flight close-arc session (2026-04-27 evening + night) as **9 substantive PRs** landed under the [ADR-0018 Amendment 1](adr/0018-cycle-cadence-doc-artifacts.md) PR-level cadence: PR #38 (Cycle 3 entry), #39 (audit re-run), #48 (W3 reproduction test), #50 (engine_version migration), #52 (doc-drift), #53 (ADR-0018 Am.1), #55 (operator runbooks), #56 (rate-limit policy + Am.1 to ADR-0019), #58 (W4 operator-prep). Cycle 3 is **mid-cycle** at this writing (3/9 success criteria closed); these are *in-flight* lessons recorded before close to avoid memory-fade. Cycle close lessons authored separately at v4.2.0/v4.1.1 release per ADR-0018 §3 cadence.
+
+##### Recursive validation: the protocol catches the protocol's own bugs
+
+PR #53 codified the DA-as-second-reviewer protocol in ADR-0018 Amendment 1. DA review of that meta-PR caught 5 blocking + 5 non-blocking findings on the very PR codifying DA review — including ADR-citation drift on the `5+5 vs 5+4` empirical claim about PR #38's own DA findings (the same ADR-citation-drift class the protocol is designed to catch). PR #56 codified the rate-limit policy in ADR-0019 Amendment 1; DA review caught 3 blocking on that meta-PR including a **CRITICAL SECURITY ISSUE** that pre-existed the PR but would have been ADR-codified-as-acceptable without the review (`reconcile_ips` + `validate_recovery` were `optional_auth`/anonymous-callable + compute-heavy, but APPROVED_EXCEPTIONS labeled them "admin-scope auth gated"). PR #58 codified W4 operator-prep; DA caught 2 blocking including PostgREST silent row truncation (same regression class as ADR-0012 amendment 2).
+**Lesson:** The protocol catches not just new bugs but pre-existing bugs that were about to get rubber-stamped into ADR-grade authoritative reference. The "rubber-stamp risk" is the load-bearing reason to NOT skip DA on meta-PRs even when they feel ouroboros. Catalog the recursive findings explicitly in the amendment text — they are the strongest evidence the protocol works.
+
+##### Audit-driven tests pay multiple times across the cycle
+
+`scripts/check_stats_consistency.py` was extended in PR #52 to validate README mermaid + ASCII tree + `docs/architecture.md` (3 forms) + migrations canonical count. PR #58's commit later tripped the same guard — caught my own drift mid-cycle (bumped 26 → 27 migrations). The guard caught the drift class it was authored to prevent, on the same author's same-cycle work.
+**Lesson:** Audit-driven tests / linters self-pay even within a single author's session. The pattern is: audit finding → test → drift → test catches → fix → ship clean. Author finds it cheaper to bump the literal once than re-litigate the drift class. Future audits should always ship with their enforcement test in the same PR, not as deferred follow-up.
+
+##### Pydantic body-name collision is a real CLI-flag-rollout cost
+
+PR #56 added `request: Request` (slowapi-required) parameter to 8 router functions for rate-limit decorator addition. Six functions (whatif × 3 + forensics × 1 + analysis × 1 + schedule_ops × 1) had `request: <Pydantic>` body collisions — adding decorator requires renaming `request: <Pydantic>` → `body: <Pydantic>` AND adding separate `request: Request`. Mechanically safe (FastAPI auto-detects body via type annotation, parameter name irrelevant for routing) but touches every call-site. Deferred via `APPROVED_EXCEPTIONS` with explicit "deferred — request: <Pydantic> body collision" rationale + tracked in `#57`.
+**Lesson:** When introducing a CLI-style decorator that requires a specific parameter name, audit ALL existing decorated functions for parameter-name collisions BEFORE deciding scope. The 8/14 fixable + 6/14 deferred ratio is a normal first-pass for retrofitting — but the deferred set needs its own tracking issue immediately, not buried in the test exception list.
+
+##### Operator-runbook prep + diagnostic warnings prevent silent-success failure modes
+
+PR #58 (W4 operator-prep) shipped `--re-materialize-version` CLI flag + migration 027 (tombstone) draft as the two operator paths. DA blocking #2 caught a class of failure that the runbook alone couldn't prevent: if migration 027 (Option B) runs FIRST, then `--re-materialize-version 4.0` returns 0 candidates with rc=0 — operator sees "0 candidates" + "nothing to materialize" + exit code 0 and concludes success. Fix: explicit `_diagnose_zero_candidates(store, old_engine_version)` helper that re-queries with `include_stale=True` and emits a multi-line WARNING when stale rows exist at the queried version. The warning explicitly references the runbook + migration 027.
+**Lesson:** When operator paths are mutually exclusive (Option A vs Option B), the CLI MUST emit diagnostic warnings for the cross-path silent-failure modes — even if the runbook documents the correct order. Tired operators read CLI output, not runbooks. The diagnostic cost is one helper function + one log line; the missed-deploy cost is hours of "why are dashboards blank?" investigation.
+
+##### Mid-cycle CHANGELOG `[Unreleased]` section with explicit pending-operator + pending-Claude tables
+
+The Cycle 3 in-flight CHANGELOG entry tables what's pending. The two-column structure (criterion / status / action) makes the gap between "PR landed" and "criterion closed" visible. Without the table, a future reader scanning the changelog sees "lots of merged PRs" and presumes Cycle 3 is done — not "3/9 criteria closed; 4 operator-pending; 1 Claude-doable follow-up open".
+**Lesson:** When mid-cycle changelog entries ship, separate "what merged" from "what closed". Operator-pending criteria need a visible table with action references to the runbook section. Without the explicit pending column, the changelog overclaims completion.
+
+#### Pattern observation (not a lesson — early to claim)
+
+Across Cycle 1 + 2 + 3 in-flight (so far), every meta-PR that codifies a policy has been DA-reviewed AND has had a substantive blocking finding. Sample size n=4 (PR #38 cycle entry, #53 ADR-0018 Am.1, #56 ADR-0019 Am.1, #58 W4 prep — though #58 wasn't strictly a "policy" PR). The pattern suggests "meta-PRs are denser per-line than feature PRs in catch surface." Too early to claim as a lesson; record for future cross-cycle synthesis.
+
+---
+
+*Last updated: 2026-04-27 night (Cycle 3 in-flight close-arc — 5 lessons appended from PRs #38, #39, #48, #50, #52, #53, #55, #56, #58)*
