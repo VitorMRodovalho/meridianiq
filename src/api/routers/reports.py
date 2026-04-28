@@ -64,8 +64,8 @@ _VALID_REPORT_TYPES = {
 )
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 def generate_report(
-    request: GenerateReportRequest,
-    _http_request: Request,
+    request: Request,
+    body: GenerateReportRequest,
     _user: object = Depends(optional_auth),
 ) -> GenerateReportResponse:
     """Generate a PDF report. Returns report ID for download.
@@ -79,41 +79,42 @@ def generate_report(
     - monthly_review: Monthly Review Report (health + comparison + alerts)
 
     Args:
-        request: Report generation parameters.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Report generation parameters.
 
     Raises:
         HTTPException: If the project is not found or report type is invalid.
     """
-    if request.report_type not in _VALID_REPORT_TYPES:
+    if body.report_type not in _VALID_REPORT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid report_type '{request.report_type}'. "
+            detail=f"Invalid report_type '{body.report_type}'. "
             f"Valid types: {', '.join(sorted(_VALID_REPORT_TYPES))}",
         )
 
     store = get_store()
-    schedule = store.get(request.project_id)
+    schedule = store.get(body.project_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
     generator = ReportGenerator()
-    report_type = request.report_type
+    report_type = body.report_type
 
     try:
         if report_type == "health":
-            pdf_bytes = _generate_health_report(generator, schedule, request)
+            pdf_bytes = _generate_health_report(generator, schedule, body)
         elif report_type == "comparison":
-            pdf_bytes = _generate_comparison_report(generator, schedule, request, store)
+            pdf_bytes = _generate_comparison_report(generator, schedule, body, store)
         elif report_type == "forensic":
-            pdf_bytes = _generate_forensic_report(generator, schedule, request, store)
+            pdf_bytes = _generate_forensic_report(generator, schedule, body, store)
         elif report_type == "tia":
-            pdf_bytes = _generate_tia_report(generator, schedule, request, store)
+            pdf_bytes = _generate_tia_report(generator, schedule, body, store)
         elif report_type == "risk":
-            pdf_bytes = _generate_risk_report(generator, schedule, request, store)
+            pdf_bytes = _generate_risk_report(generator, schedule, body, store)
         elif report_type == "monthly_review":
-            pdf_bytes = _generate_monthly_review_report(generator, schedule, request, store)
+            pdf_bytes = _generate_monthly_review_report(generator, schedule, body, store)
         elif report_type == "executive_summary":
-            pdf_bytes = _generate_executive_summary(generator, schedule, request.project_id, store)
+            pdf_bytes = _generate_executive_summary(generator, schedule, body.project_id, store)
         elif report_type == "calendar":
             result = validate_calendars(schedule)
             pdf_bytes = generator.generate_calendar_report(schedule, result)
@@ -121,13 +122,13 @@ def generate_report(
             result = compute_delay_attribution(schedule)
             pdf_bytes = generator.generate_attribution_report(schedule, result)
         elif report_type == "narrative":
-            pdf_bytes = _generate_narrative_report(generator, schedule, request, store)
+            pdf_bytes = _generate_narrative_report(generator, schedule, body, store)
         elif report_type == "scl_protocol":
-            pdf_bytes = _generate_scl_protocol_report(generator, schedule, request, store)
+            pdf_bytes = _generate_scl_protocol_report(generator, schedule, body, store)
         elif report_type == "aace_29r03":
-            pdf_bytes = _generate_aace_29r03_report(generator, schedule, request, store)
+            pdf_bytes = _generate_aace_29r03_report(generator, schedule, body, store)
         elif report_type == "aia_g702":
-            pdf_bytes = _generate_aia_g702_report(generator, schedule, request, store)
+            pdf_bytes = _generate_aia_g702_report(generator, schedule, body, store)
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported report type: {report_type}")
     except HTTPException:
@@ -144,7 +145,7 @@ def generate_report(
         pdf_bytes,
         {
             "report_type": report_type,
-            "project_id": request.project_id,
+            "project_id": body.project_id,
             "generated_at": generated_at,
         },
     )
@@ -152,7 +153,7 @@ def generate_report(
     return GenerateReportResponse(
         report_id=report_id,
         report_type=report_type,
-        project_id=request.project_id,
+        project_id=body.project_id,
         generated_at=generated_at,
     )
 

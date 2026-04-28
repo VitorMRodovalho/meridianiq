@@ -201,8 +201,8 @@ def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> Ti
 )
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_half_step(
-    request: HalfStepRequest,
-    _http_request: Request,
+    request: Request,
+    body: HalfStepRequest,
     _user: object = Depends(optional_auth),
 ) -> HalfStepResponse:
     """Run a half-step (bifurcation) analysis between two schedule updates.
@@ -211,24 +211,23 @@ def run_half_step(
     (actual work performance) and revision effect (logic/plan changes).
 
     Args:
-        request: Contains baseline_id and update_id.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains baseline_id and update_id.
 
     Raises:
         HTTPException: If either project is not found or analysis fails.
     """
     store = get_store()
 
-    baseline = store.get(request.baseline_id)
+    baseline = store.get(body.baseline_id)
     if baseline is None:
         raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
+            status_code=404, detail=f"Baseline project not found: {body.baseline_id}"
         )
 
-    update = store.get(request.update_id)
+    update = store.get(body.update_id)
     if update is None:
-        raise HTTPException(
-            status_code=404, detail=f"Update project not found: {request.update_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Update project not found: {body.update_id}")
 
     try:
         result = analyze_half_step(baseline, update)
@@ -260,8 +259,8 @@ def run_half_step(
 )
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_1(
-    request: Mip31Request,
-    _http_request: Request,
+    request: Request,
+    body: Mip31Request,
     _user: object = Depends(optional_auth),
 ) -> Mip31Response:
     """Run MIP 3.1 — Observational Static Logic / Gross comparison.
@@ -270,26 +269,27 @@ def run_mip_3_1(
     per AACE RP 29R-03 §3.1. No intermediate updates are examined.
 
     Args:
-        request: Contains baseline_id and final_id.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains baseline_id and final_id.
 
     Raises:
         HTTPException: If either project is not found.
     """
     store = get_store()
 
-    baseline = store.get(request.baseline_id)
+    baseline = store.get(body.baseline_id)
     if baseline is None:
         raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {request.baseline_id}"
+            status_code=404, detail=f"Baseline project not found: {body.baseline_id}"
         )
 
-    final = store.get(request.final_id)
+    final = store.get(body.final_id)
     if final is None:
-        raise HTTPException(status_code=404, detail=f"Final project not found: {request.final_id}")
+        raise HTTPException(status_code=404, detail=f"Final project not found: {body.final_id}")
 
     try:
         result = analyze_mip_3_1(
-            baseline, final, baseline_id=request.baseline_id, final_id=request.final_id
+            baseline, final, baseline_id=body.baseline_id, final_id=body.final_id
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"MIP 3.1 analysis failed: {exc}")
@@ -327,8 +327,8 @@ def run_mip_3_1(
 )
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_2(
-    request: Mip32Request,
-    _http_request: Request,
+    request: Request,
+    body: Mip32Request,
     _user: object = Depends(optional_auth),
 ) -> Mip32Response:
     """Run MIP 3.2 — Observational Dynamic Logic / Contemporaneous As-Is.
@@ -337,7 +337,8 @@ def run_mip_3_2(
     update (no window splitting). Per AACE RP 29R-03 §3.2.
 
     Args:
-        request: Contains project_ids (minimum 2).
+        request: FastAPI request object (consumed by the rate limiter).
+        body: Contains project_ids (minimum 2).
 
     Raises:
         HTTPException: 404 if any project is missing, 400 on invalid input.
@@ -345,14 +346,14 @@ def run_mip_3_2(
     store = get_store()
 
     schedules: list[ParsedSchedule] = []
-    for pid in request.project_ids:
+    for pid in body.project_ids:
         schedule = store.get(pid)
         if schedule is None:
             raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
         schedules.append(schedule)
 
     try:
-        result = analyze_mip_3_2(schedules, project_ids=list(request.project_ids))
+        result = analyze_mip_3_2(schedules, project_ids=list(body.project_ids))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -396,8 +397,8 @@ def run_mip_3_2(
 )
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_6(
-    request: Mip36Request,
-    _http_request: Request,
+    request: Request,
+    body: Mip36Request,
     _user: object = Depends(optional_auth),
 ) -> Mip36Response:
     """Run MIP 3.6 — Modified / Subtractive Single Simulation (Collapsed As-Built).
@@ -411,16 +412,17 @@ def run_mip_3_6(
     rather than raising, so the caller can show partial results.
 
     Args:
-        request: ``Mip36Request`` with project_id + list of delay events.
+        request: FastAPI request object (consumed by the rate limiter).
+        body: ``Mip36Request`` with project_id + list of delay events.
 
     Raises:
         HTTPException: 404 if project missing, 400 on negative days.
     """
     store = get_store()
 
-    schedule = store.get(request.project_id)
+    schedule = store.get(body.project_id)
     if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {request.project_id}")
+        raise HTTPException(status_code=404, detail=f"Project not found: {body.project_id}")
 
     events = [
         DelayEvent(
@@ -428,7 +430,7 @@ def run_mip_3_6(
             days=e.days,
             description=e.description,
         )
-        for e in request.delay_events
+        for e in body.delay_events
     ]
 
     try:
@@ -472,8 +474,8 @@ def run_mip_3_6(
 )
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_7(
-    request: Mip37Request,
-    _http_request: Request,
+    request: Request,
+    body: Mip37Request,
     _user: object = Depends(optional_auth),
 ) -> Mip37Response:
     """Run MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed).
@@ -484,7 +486,8 @@ def run_mip_3_7(
     report zero attributable delay.
 
     Args:
-        request: project_ids (minimum 2) + optional per-window delay
+        request: FastAPI request object (consumed by the rate limiter).
+        body: project_ids (minimum 2) + optional per-window delay
             event bundles.
 
     Raises:
@@ -494,7 +497,7 @@ def run_mip_3_7(
     store = get_store()
 
     schedules: list[ParsedSchedule] = []
-    for pid in request.project_ids:
+    for pid in body.project_ids:
         schedule = store.get(pid)
         if schedule is None:
             raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
@@ -508,14 +511,14 @@ def run_mip_3_7(
                 for e in b.events
             ],
         )
-        for b in request.window_delay_events
+        for b in body.window_delay_events
     ]
 
     try:
         result = analyze_mip_3_7(
             schedules,
             window_delay_events=bundles,
-            project_ids=list(request.project_ids),
+            project_ids=list(body.project_ids),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -569,8 +572,8 @@ def run_mip_3_7(
 )
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_mip_3_5(
-    request: Mip35Request,
-    _http_request: Request,
+    request: Request,
+    body: Mip35Request,
     _user: object = Depends(optional_auth),
 ) -> Mip35Response:
     """Run MIP 3.5 — Modified / Additive Multiple Base (Impacted As-Planned).
@@ -585,7 +588,8 @@ def run_mip_3_5(
     semantics rather than subtractive (but-for) semantics.
 
     Args:
-        request: project_ids (minimum 2) + optional per-window delay
+        request: FastAPI request object (consumed by the rate limiter).
+        body: project_ids (minimum 2) + optional per-window delay
             event bundles.
 
     Raises:
@@ -595,7 +599,7 @@ def run_mip_3_5(
     store = get_store()
 
     schedules: list[ParsedSchedule] = []
-    for pid in request.project_ids:
+    for pid in body.project_ids:
         schedule = store.get(pid)
         if schedule is None:
             raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
@@ -609,14 +613,14 @@ def run_mip_3_5(
                 for e in b.events
             ],
         )
-        for b in request.window_delay_events
+        for b in body.window_delay_events
     ]
 
     try:
         result = analyze_mip_3_5(
             schedules,
             window_delay_events=bundles,
-            project_ids=list(request.project_ids),
+            project_ids=list(body.project_ids),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
