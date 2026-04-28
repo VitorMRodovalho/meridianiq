@@ -27,6 +27,8 @@
 			projects = res.projects;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load projects';
+			toastError(`Could not load projects: ${error}`);
+			console.error('loadProjects (whatif):', e);
 		}
 	}
 

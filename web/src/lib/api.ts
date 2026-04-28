@@ -41,7 +41,13 @@ const BASE = import.meta.env.VITE_API_URL || '';
 /** True while the backend is waking up from cold start */
 export const isWarmingUp = writable(false);
 
-const MAX_RETRIES = 3;
+// Cold-start tolerance: Fly.io idle machines wake in 5-15s. Backoff sequence
+// (attempt 0 immediate, then 1.5s · 2^N) gives total tolerance:
+//   3 retries → ~10.5s   (often too short — user sees "Failed to fetch")
+//   5 retries → ~46.5s   (covers worst-case Fly cold start + network blip)
+// Bumped 3 → 5 alongside surface-errors fix on auth-gated pages so the user
+// gets fewer false-negatives during cold start.
+const MAX_RETRIES = 5;
 const INITIAL_DELAY_MS = 1500;
 
 async function sleep(ms: number): Promise<void> {

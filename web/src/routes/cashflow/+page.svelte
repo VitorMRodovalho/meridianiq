@@ -34,7 +34,9 @@
 			const res = await getProjects();
 			projects = res.projects;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			error = e instanceof Error ? e.message : 'Failed to load projects';
+			toastError(`Could not load projects: ${error}`);
+			console.error('loadProjects (cashflow):', e);
 		}
 	}
 

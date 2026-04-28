@@ -70,7 +70,11 @@
 		try {
 			const data = await getProjects();
 			projects = data.projects;
-		} catch { }
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Failed to load projects';
+			toastError(`Could not load projects: ${msg}`);
+			console.error('loadProjects (risk):', e);
+		}
 	}
 
 	async function runSimulation() {
