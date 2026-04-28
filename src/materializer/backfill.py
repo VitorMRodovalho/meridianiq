@@ -95,9 +95,7 @@ def _diagnose_zero_candidates(
     if not hasattr(store, "get_projects_at_engine_version"):
         return None
     try:
-        stale_pids = store.get_projects_at_engine_version(
-            old_engine_version, include_stale=True
-        )
+        stale_pids = store.get_projects_at_engine_version(old_engine_version, include_stale=True)
     except TypeError:
         # Older store implementation without `include_stale` keyword; skip.
         return None

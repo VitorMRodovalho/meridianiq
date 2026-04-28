@@ -328,9 +328,7 @@ class TestReMaterializationCLIArgs:
         captured = capsys.readouterr()
         assert "mutually exclusive" in captured.err
 
-    def test_kind_explicit_with_re_mat_exits_2(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_kind_explicit_with_re_mat_exits_2(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Per DA exit-council: silent --kind ignore is unsafe. The CLI
         now hard-errors if both --re-materialize-version and --kind
         (non-default) are passed."""
