@@ -9,7 +9,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
-from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_WRITE, get_store, limiter
+from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
 from ..schemas import (
     ActivityImpactSchema,
     ActivityShiftSchema,
@@ -351,7 +351,15 @@ def get_scorecard(
 
 
 @router.post("/api/v1/projects/{project_id}/optimize")
-@limiter.limit(RATE_LIMIT_WRITE)
+# /optimize matches EXPENSIVE_PATTERNS (test_rate_limit_policy.py) but is
+# held at 5/min — between RATE_LIMIT_EXPENSIVE (3/min) and the rest of the
+# whatif endpoints — per ADR-0019 Amendment 1 §"Empirical state" line 389.
+# Kept as a literal (not a constant) so the deliberate non-default rate is
+# visible at the call site; folding it under RATE_LIMIT_WRITE would silently
+# relax this EXPENSIVE-pattern endpoint if a future PR bulk-tunes the WRITE
+# bucket.  ``is_expensive_bucket`` recognises the literal "5/minute" via
+# its regex branch (≤5 → expensive bucket).
+@limiter.limit("5/minute")
 async def optimize_schedule_endpoint(
     request: Request,
     project_id: str,

@@ -238,18 +238,31 @@ class Endpoint:
         ``RATE_LIMIT_WRITE`` resolve to "3/minute" / "5/minute" via
         ``CONSTANT_TO_RATE``) and the literal-string form (``"3/minute"``
         through ``"5/minute"``).  The literal-string branch survives so an
-        ad-hoc decorator authored before N5's sweep doesn't false-fail the
-        rule — the constants are preferred but not (yet) mandatory.
+        ad-hoc decorator authored before N5's sweep — and the documented
+        ``whatif.optimize_schedule_endpoint`` exception held at literal
+        ``"5/minute"`` per ADR-0019 Amendment 1 line 389 — doesn't
+        false-fail the rule.
         """
         v = self.limiter_value
         if v is None:
             return False
+        # Normalise dotted-name access (e.g., ``deps.RATE_LIMIT_WRITE``) so
+        # the lookup hits regardless of import style.  Bare names pass
+        # through unchanged; literal-string forms (which contain ``/``)
+        # rsplit harmlessly.
+        key = v.rsplit(".", 1)[-1]
         # Resolve constant name to its rate string when applicable so a
         # rate tweak in deps.py (e.g., RATE_LIMIT_WRITE "5/minute" → "8/minute")
         # propagates without a test edit.  Unknown identifiers fall through
         # to the literal regex (covers both stale and ad-hoc cases).
-        rate_str = CONSTANT_TO_RATE.get(v, v)
-        m = re.search(r"""['"]?(\d+)/minute['"]?""", rate_str)
+        rate_str = CONSTANT_TO_RATE.get(key, v)
+        # Strip enclosing quotes from the literal-string form (ast.unparse
+        # may emit '"5/minute"' or "'5/minute'") and require an exact match
+        # against ``<digits>/minute``.  ``fullmatch`` rejects anything with
+        # extra suffixes (e.g., a hypothetical ``"3/minute_per_user"``
+        # custom format) that ``search`` would silently green-light.
+        stripped = rate_str.strip("\"'")
+        m = re.fullmatch(r"(\d+)/minute", stripped)
         if m:
             return int(m.group(1)) <= 5
         return False

@@ -379,14 +379,14 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
 | Literal `"N/minute"` | Various | Acceptable forms: `"5/minute"` is the standard moderate-write rate before constants existed; preserved for backward-compat. Future PRs may convert to constants. |
 | **No decorator** | n/a | Healthchecks (`/health`, `/api/v1/health`); admin-scope auth-gated endpoints (auth IS the throttle); endpoints in APPROVED_EXCEPTIONS |
 
-### Empirical state at amendment time (2026-04-27, updated 2026-04-28 post-#57)
+### Empirical state at amendment time (2026-04-27, updated 2026-04-28 post-#57, post-N5/#68)
 
 - **112 total endpoints** across 23 routers (floor — adds-only over time)
 - **38 write endpoints**: 36 with `@limiter.limit` after the #45 + DA-review + #57 rename + #57 fix-up commits, 2 user-self-action exceptions (`require_auth`-gated; per-JWT auth-throttle), 0 deferred (#57 closed the body-collision deferral)
 - **EXPENSIVE-pattern coverage**: 8 write endpoints match `EXPENSIVE_PATTERNS` (the test-file-defined matchers). All 8 are decorated with a Rule-2-compliant rate (`RATE_LIMIT_EXPENSIVE` or literal ≤ 5/min):
   - `plugins.run_plugin` (`/plugins/...`) → `RATE_LIMIT_EXPENSIVE` (added in #45)
   - `risk.run_risk_simulation` (`/risk/simulate`) → `RATE_LIMIT_EXPENSIVE`
-  - `whatif.optimize_schedule_endpoint` (`/optimize`) → `"5/minute"` literal
+  - `whatif.optimize_schedule_endpoint` (`/optimize`) → `"5/minute"` literal — **N5 (#68) intentionally retained the literal at this site**: every other callsite was converted to a constant, but folding this one under `RATE_LIMIT_WRITE` would have hidden the deliberate non-default rate (EXPENSIVE-pattern at WRITE bucket) behind a name that promises "ordinary write endpoint", risking silent relaxation if a future PR bulk-tunes WRITE. See inline comment at `src/api/routers/whatif.py:353-354`.
   - `whatif.run_what_if` (`/what-if`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
   - `whatif.run_pareto_analysis` (`/pareto`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
   - `whatif.run_resource_leveling` (`/resource-leveling`) → `RATE_LIMIT_EXPENSIVE` (added in #57)
@@ -394,7 +394,8 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
   - `reports.generate_report` → `RATE_LIMIT_EXPENSIVE`
 - **Defensive promotions** (NOT `EXPENSIVE_PATTERNS`-matched, but DA-promoted to `RATE_LIMIT_EXPENSIVE`): `admin.reconcile_ips` + `admin.validate_recovery` — both `optional_auth` (anonymous-callable) + compute-heavy. These do NOT count toward the "8" above; they are a separate hardening from the same DA-review session that birthed #45.
 - **#57 fix-up scope expansion (DA-caught)**: the issue body listed 6 `request: <Pydantic>` body-collision endpoints. A fresh AST sweep during #57's DA exit-council found 3 more in the same failure class — `comparison.compare_schedules`, `tia.tia_analyze`, `schedule_ops.generate_schedule_endpoint` — all with `@limiter.limit` decorators but no `Request`-typed parameter, so slowapi was silently failing at runtime. All 3 fixed in the same #57 PR (rate values preserved: `"20/minute"`, `"10/minute"`, `"5/minute"` literals).
-- Mix of constants (~20 callsites) and literals (~14 callsites) — mid-state during convention adoption (`#57` added 6 constant uses + 3 literal preserves)
+- **Post-N5 (#68, 2026-04-28)**: 13 of 14 literal callsites converted to constants. The single remaining literal — `whatif.optimize_schedule_endpoint` (`"5/minute"`) — is the documented EXPENSIVE-pattern-at-WRITE-rate exception described above. Three new constants introduced (`RATE_LIMIT_WRITE = "5/minute"`, `RATE_LIMIT_ANALYSIS = "20/minute"`, `RATE_LIMIT_LIGHT = "60/minute"`) to consolidate values that previously lived only as literals. `Limiter.default_limits` now references `RATE_LIMIT_LIGHT` instead of literal `"60/minute"`.
+- *(Historical, pre-N5)*: Mix of constants (~20 callsites) and literals (~14 callsites) — mid-state during convention adoption (`#57` added 6 constant uses + 3 literal preserves).
 
 ### Enforcement
 
@@ -419,7 +420,7 @@ This Amendment closes the policy gap by codifying the heuristic + an enforcement
   - **Convention D — `payload` rename** (was: `risk.run_risk_simulation`, the historical Convention A precedent before `optimize_schedule_endpoint` standardized on `body`): `request: Request, payload: <Pydantic>` — **migrated to A in PR #64 fix-up**
 
   All four conventions satisfied slowapi (Rule 4) and FastAPI's body auto-binding (parameter name is irrelevant for routing once the body type is annotated); the consolidation is hygiene, not correctness. **Rule 4 (added in #57) catches future regressions of the silent-failure class structurally**: the AST walker records each function's parameter annotations, and any `@limiter.limit`-decorated function without a `Request`-typed parameter fails the test. **A runtime spot-check (PR #63, `tests/test_rate_limit_runtime.py`)** correlates Rule 4 to actual slowapi runtime behavior on `build_schedule_endpoint` (sample-of-N=2 with the long-standing `TestOptimizeRateLimit`); not a parameterized harness.
-- **Constants vs literals not enforced.** Both forms count as rate-limited. A future PR may convert all literals (`"5/minute"`, `"10/minute"`) to constants for grep-discoverability; not in scope of this Amendment.
+- **Constants vs literals not enforced.** Both forms count as rate-limited. **Closed by PR #68 (N5, 2026-04-28)**: 13 of 14 literal callsites converted to constants for grep-discoverability + audit-friendliness. The 14th (`whatif.optimize_schedule_endpoint`) retains its literal as a documented exception (see §"Empirical state" line 389). `tests/test_rate_limit_policy.py:is_expensive_bucket` was extended to resolve constant names through a `CONSTANT_TO_RATE` lookup imported from `src.api.deps`, so a future rate-value tweak (e.g., `RATE_LIMIT_WRITE` "5/minute" → "8/minute") propagates without a test edit.
 
 ### Cross-references
 
