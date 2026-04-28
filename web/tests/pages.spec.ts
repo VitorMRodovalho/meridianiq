@@ -177,9 +177,20 @@ test.describe('Docs page sections', () => {
 });
 
 test.describe('Sidebar navigation', () => {
-  test('Intelligence section hidden when unauthenticated', async ({ page }) => {
+  test('Auth-gated sections hidden when unauthenticated', async ({ page }) => {
     await page.goto('/');
-    // Auth-required sections are hidden for unauthenticated users
-    await expect(page.locator('aside').getByText('Intelligence')).not.toBeVisible();
+    // Sections marked `auth: true` in `web/src/routes/+layout.svelte:navSections`
+    // must NOT render for anonymous visitors. Each title below is a real
+    // auth-gated section header (i18n keys nav.section.*) — they are
+    // chosen specifically because they don't substring-collide with
+    // always-visible chrome (the `Schedule Intelligence Platform` tagline
+    // at +layout.svelte:206 contains both "Schedule" and "Intelligence",
+    // so neither word is a safe locator on its own).
+    await expect(page.locator('aside').getByText('AI Insights')).not.toBeVisible();
+    await expect(page.locator('aside').getByText('Claims & Forensic')).not.toBeVisible();
+    await expect(page.locator('aside').getByText('Risk & Controls')).not.toBeVisible();
+    await expect(page.locator('aside').getByText('Cost & Earned Value')).not.toBeVisible();
+    await expect(page.locator('aside').getByText('Planning & Optimization')).not.toBeVisible();
+    await expect(page.locator('aside').getByText('Enterprise')).not.toBeVisible();
   });
 });
