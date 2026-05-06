@@ -66,3 +66,10 @@ w4_manifest.json
 # detail (program-key hashes + label + confidence + rules_fired). NEVER commit;
 # operator archives to ``meridianiq-private/calibration/<cycle>-<wave>/``.
 *_private.json
+
+# ImageMagick PostScript screenshot dumps (DA finding #8 from PR #68).
+# Anchored at repo root only; sub-trees with legitimate ``re``/``sys`` names
+# (e.g. Python venv directories) are NOT shadowed.
+/re
+/sys
+*.ps
