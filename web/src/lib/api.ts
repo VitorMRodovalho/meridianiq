@@ -1326,3 +1326,62 @@ export async function getLifecycleOverrides(
 export async function getPendingStatuses(): Promise<PendingStatusesResponse> {
 	return request<PendingStatusesResponse>(`/api/v1/projects/pending-statuses`);
 }
+
+// ── Cycle 4 W2 — revision detection (ADR-0022 + Amendment 2) ───
+
+/**
+ * Run the v1 heuristic to find a candidate parent revision for a project.
+ *
+ * Returns ``candidate_project_id: null`` when no sibling matches.
+ * UI MUST NOT render ``confidence`` as a high-trust signal — see ADR-0022
+ * Amendment 2 §"Calibration caveat".
+ */
+export async function detectRevisionOf(
+	projectId: string
+): Promise<import('./types').DetectRevisionOfResponse> {
+	return request<import('./types').DetectRevisionOfResponse>(
+		`/api/v1/projects/${projectId}/detect-revision-of`,
+		{ method: 'POST' }
+	);
+}
+
+/**
+ * Append-only INSERT of a ``revision_history`` row anchoring the project as
+ * a new revision in the parent's program. Server recomputes ``content_hash``
+ * from the stored XER bytes — client does not need to send it.
+ *
+ * Throws on 4xx / 5xx with the server-provided detail message.
+ */
+export async function confirmRevisionOf(
+	projectId: string,
+	parentProjectId: string
+): Promise<import('./types').ConfirmRevisionOfResponse> {
+	return request<import('./types').ConfirmRevisionOfResponse>(
+		`/api/v1/projects/${projectId}/confirm-revision-of`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ parent_project_id: parentProjectId })
+		}
+	);
+}
+
+/**
+ * Soft-tombstone a revision_history row + write paired audit_log entry.
+ *
+ * Idempotent — re-tombstone returns the existing tombstoned_at without
+ * a new audit row.
+ */
+export async function tombstoneRevision(
+	revisionId: string,
+	reason: string
+): Promise<import('./types').TombstoneRevisionResponse> {
+	return request<import('./types').TombstoneRevisionResponse>(
+		`/api/v1/revisions/${revisionId}/tombstone`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ reason })
+		}
+	);
+}

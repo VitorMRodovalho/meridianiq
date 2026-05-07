@@ -1318,4 +1318,16 @@ export default {
 	'root_cause.tf_label': 'TF',
 	'root_cause.dur_label': 'Dur',
 	'root_cause.timeline_title': 'Trace Timeline',
+
+	// Revision confirmation card (Cycle 4 W2 PR-B / ADR-0022 Amendment 2)
+	'revision.confirm_card_title': 'Possible revision detected',
+	'revision.confirm_card_body': 'This upload appears to share project name and program with {name} (uploaded {date}). Currently {count} active revisions in this program.',
+	'revision.confirm_card_help': 'Matched on project name and program. Confirm to link as a new revision in this program lineage, or skip to treat as a separate project.',
+	'revision.confirm_button': 'Confirm as revision',
+	'revision.confirming': 'Linking…',
+	'revision.skip_button': 'Treat as new project',
+	'revision.confirmed_toast': 'Linked as revision {N} in program {name}',
+	'revision.cap_reached': 'Project has reached the revision cap. Tombstone an older revision before linking a new one.',
+	'revision.checking': 'Checking for revision matches…',
+	'revision.auth_expired_hint': 'Could not check for revisions — session may have expired. Refresh the page and re-upload to retry.',
 } as Record<string, string>;

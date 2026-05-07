@@ -1316,4 +1316,16 @@ export default {
 	'root_cause.tf_label': 'FT',
 	'root_cause.dur_label': 'Dur',
 	'root_cause.timeline_title': 'Linha do tempo do rastreio',
+
+	// Revision confirmation card (Cycle 4 W2 PR-B / ADR-0022 Amendment 2)
+	'revision.confirm_card_title': 'Possível revisão detectada',
+	'revision.confirm_card_body': 'Este upload parece compartilhar nome de projeto e programa com {name} (enviado em {date}). Atualmente {count} revisões ativas neste programa.',
+	'revision.confirm_card_help': 'Correspondência por nome de projeto e programa. Confirme para vincular como nova revisão desta linhagem, ou pule para tratar como projeto separado.',
+	'revision.confirm_button': 'Confirmar como revisão',
+	'revision.confirming': 'Vinculando…',
+	'revision.skip_button': 'Tratar como novo projeto',
+	'revision.confirmed_toast': 'Vinculado como revisão {N} no programa {name}',
+	'revision.cap_reached': 'O projeto atingiu o limite de revisões. Marque uma revisão antiga como tombstone antes de vincular uma nova.',
+	'revision.checking': 'Verificando correspondências de revisão…',
+	'revision.auth_expired_hint': 'Não foi possível verificar revisões — a sessão pode ter expirado. Recarregue a página e reenvie para tentar novamente.',
 } as Record<string, string>;
