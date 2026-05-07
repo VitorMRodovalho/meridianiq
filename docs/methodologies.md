@@ -1,6 +1,6 @@
 # Methodology Catalog
 
-MeridianIQ's analysis stack is **47 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
+MeridianIQ's analysis stack is **48 engines** plus **1 export module** in `src/export/`. Every engine is a standalone module whose docstring cites the published standard it implements — this catalog is auto-generated from those docstrings.
 
 When a scheduler or forensic analyst asks *"what standard does this calculation follow?"*, the answer is in the engine docstring and in this catalog.
 
@@ -43,6 +43,7 @@ When a scheduler or forensic analyst asks *"what standard does this calculation 
 | [`recovery_validation`](#recovery-validation--recovery-validation) | Recovery Schedule Validation Engine. |
 | [`report_generator`](#report-generator--report-generator) | Professional PDF report generator per AACE RP 29R-03 S5.3. |
 | [`resource_leveling`](#resource-leveling--resource-leveling) | Resource-constrained project scheduling (RCPSP) via Serial SGS. |
+| [`revision_trends`](#revision-trends--revision-trends) | Multi-revision schedule trend analysis (Cycle 4 W3 PR-A). |
 | [`risk`](#risk--risk) | Monte Carlo schedule risk simulation per AACE RP 57R-09. |
 | [`risk_register`](#risk-register--risk-register) | Risk register — discrete risk event management and Monte Carlo integration. |
 | [`root_cause`](#root-cause--root-cause) | Root Cause Analysis — backwards network trace to delay origin. |
@@ -836,6 +837,52 @@ The algorithm:
 - PMI Practice Standard for Scheduling — Resource Leveling
 - Kelley & Walker (1959) — CPM with Resource Constraints
 - Kolisch (1996) — Serial and Parallel SGS for RCPSP
+
+---
+
+### `revision_trends` — Revision Trends
+
+**Multi-revision schedule trend analysis (Cycle 4 W3 PR-A).**
+
+Implements **AACE RP 29R-03 Forensic Schedule Analysis §"Window analysis" multi-revision overlay** primitive: extracts the planned-completion-percent S-curve from each successive revision of a project, detects regime changes via CUSUM, and surfaces slope CI bands with the heteroscedasticity-aware contract per ADR-0022 §"W3 — C-visualization".
+
+## Why CPM-based completion curves, NOT cashflow
+
+Backend-reviewer entry-council on PR #N flagged that
+``src.analytics.cashflow.analyze_cashflow`` produces a cost-mass-weighted
+S-curve (with duration-as-proxy fallback when cost data is missing).
+Window Analysis (AACE 29R-03) is **completion-percent-weighted**: the
+curve point at day D is "what fraction of the schedule was planned to be
+complete at day D, by activity count or duration-weighted activity
+count". This module computes that directly from CPM ``early_finish``
+output — no cost dependency.
+
+## Methodology citation surfaced in the response
+
+``"AACE RP 29R-03 — Forensic Schedule Analysis, §'Window analysis'
+(multi-revision overlay); CUSUM change-point detection (Page 1954);
+heteroscedasticity-aware OLS with σ ∝ √horizon. Forecast curve
+intentionally omitted pending W4 calibration gate (ADR-0022 path-A
+pre-commitment)."``
+
+## Pure-numpy implementation
+
+scipy is NOT in the dependency set (per ``pyproject.toml`` and verified
+by grep across ``src/``). CUSUM is 5 lines of ``numpy.cumsum``; OLS for
+the slope band is closed-form via ``numpy.polyfit``. Future migration to
+scipy.stats would be a separate dep-add ADR.
+
+## What this module does NOT do (W3 scope discipline)
+
+- Does NOT produce a forecast curve (path-A pre-commit per ADR-0022 W4).
+- Does NOT calibrate the heuristic (W4 deliverable).
+- Does NOT cache responses (W2-coupling concern; future follow-up).
+- Does NOT re-rank candidates by content_hash similarity (W3+ deferral
+  per ADR-0022 Amendment 2).
+
+**Standards implemented:**
+
+- AACE RP 29R-03 — Forensic Schedule Analysis
 
 ---
 
