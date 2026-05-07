@@ -30,7 +30,13 @@ primary_region = "iad"
     soft_limit = 200
 
 [[vm]]
-  memory = "1024mb"
+  # Bumped 1024mb→2048mb on 2026-05-06 after OOM incident on idle instance.
+  # Root cause hypothesis: slow native-allocation leak (numpy/scipy/Cairo)
+  # accumulating over ~40 days of uptime — even with no user traffic.
+  # Pairs with /api/v1/admin/runtime + Sentry breadcrumb (Tier 2 D
+  # instrumentation) to confirm the leak curve. If 2048mb still OOMs,
+  # next step is forkserver in ProcessPoolExecutor (ADR-0015 amendment).
+  memory = "2048mb"
   cpu_kind = "shared"
   cpus = 1
 
