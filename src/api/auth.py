@@ -15,7 +15,7 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -119,7 +119,7 @@ def require_auth(user: Optional[dict] = Depends(get_current_user)) -> dict:
     return user
 
 
-def _is_superadmin(user: dict) -> bool:
+def _is_superadmin(user: dict[str, Any]) -> bool:
     """Return True if the authenticated user is a SuperAdmin.
 
     SuperAdmin is the top of the 5-tier role hierarchy
@@ -161,7 +161,7 @@ def _is_superadmin(user: dict) -> bool:
     return False
 
 
-def require_superadmin(user: dict = Depends(require_auth)) -> dict:
+def require_superadmin(user: dict[str, Any] = Depends(require_auth)) -> dict[str, Any]:
     """Dependency that requires the caller to be a SuperAdmin.
 
     Layered on top of ``require_auth`` — first proves authentication

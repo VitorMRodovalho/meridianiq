@@ -29,15 +29,22 @@ logger = logging.getLogger(__name__)
 # this module loads even when [api] is not installed (test envs).
 # Stubs not shipped with psutil — types-psutil is unmaintained, so we
 # accept the import-untyped at this single boundary.
+#
+# DA fix-up #P2 (PR #71): the inner ``Process()`` call can raise
+# ``psutil.AccessDenied`` on hardened containers (rare but documented),
+# which is NOT an ImportError.  Catch broadly at module-init only —
+# correctness of /health and /api/v1/superadmin/runtime must not depend
+# on psutil being usable, only on the FastAPI app booting cleanly.
+psutil: Any = None
+_PSUTIL_AVAILABLE = False
+_PROCESS: Any = None
 try:
-    import psutil  # type: ignore[import-untyped]
+    import psutil  # type: ignore[import-untyped,no-redef]  # noqa: F811
 
+    _PROCESS = psutil.Process()
     _PSUTIL_AVAILABLE = True
-    _PROCESS: "psutil.Process | None" = psutil.Process()
-except ImportError:  # pragma: no cover — exercised via monkeypatch in tests
-    psutil = None
-    _PSUTIL_AVAILABLE = False
-    _PROCESS = None
+except Exception:  # noqa: BLE001 — module-init MUST NOT brick startup
+    pass
 
 
 # Process start time captured at module import — i.e., when uvicorn
@@ -46,10 +53,40 @@ except ImportError:  # pragma: no cover — exercised via monkeypatch in tests
 _BOOT_TS_WALL = time.time()
 _BOOT_TS_MONO = time.monotonic()
 
+
+def _read_breadcrumb_interval_env() -> float:
+    """Parse ``RUNTIME_BREADCRUMB_INTERVAL_SECONDS`` env safely.
+
+    DA fix-up #P1 (PR #71): the original implementation called
+    ``float(os.environ.get(..., "300"))`` directly at module-import.
+    A non-numeric env value (operator typo, shell expansion artifact,
+    stray ``=`` line in a ``.env``) would raise ``ValueError`` during
+    FastAPI app boot — bricking the entire deploy at the worst possible
+    time (the next OOM-class incident this primitive exists to diagnose).
+
+    Fail-safe contract: bad input → default 300s + WARNING log.
+    Below-minimum input → clamp to 5s + WARNING log.  Valid input → as-is.
+    """
+    raw = os.environ.get("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", "300")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "RUNTIME_BREADCRUMB_INTERVAL_SECONDS=%r non-numeric; using default 300s", raw
+        )
+        return 300.0
+    if value < 5.0:
+        logger.warning(
+            "RUNTIME_BREADCRUMB_INTERVAL_SECONDS=%s below 5s minimum; clamping to 5s", value
+        )
+        return 5.0
+    return value
+
+
 # Throttle for Sentry breadcrumb emission from /health.  Module-level
 # state — process-local, NOT shared across Fly machines.  That is
 # intentional: each machine has its own memory leak curve to track.
-_BREADCRUMB_INTERVAL_SECONDS = float(os.environ.get("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", "300"))
+_BREADCRUMB_INTERVAL_SECONDS = _read_breadcrumb_interval_env()
 _last_breadcrumb_mono: float = 0.0
 
 
@@ -112,12 +149,14 @@ def get_runtime_snapshot() -> dict[str, Any]:
 
     Fields (all numeric defaults to 0 on introspection failure):
 
+    - ``pid``            ``os.getpid()`` of the snapshotting process
     - ``memory_rss_mb``  Resident set size — load-bearing leak metric
     - ``memory_vms_mb``  Virtual memory — diverges from RSS on fork
                          (signals subprocess presence; e.g.
                          materializer ProcessPoolExecutor spawn)
     - ``cpu_percent``    CPU % since the previous probe (first call
-                         always reads 0 by psutil contract)
+                         always reads 0 by psutil contract — second
+                         and later calls give meaningful signal)
     - ``cpu_count``      Number of vCPUs visible to the process
     - ``process_uptime_seconds``  Monotonic seconds since module import
     - ``boot_time_iso``  ISO-8601 wall-clock at module import (UTC)
@@ -128,8 +167,21 @@ def get_runtime_snapshot() -> dict[str, Any]:
     - ``active_ws_channels``  Open WebSocket progress channels
     - ``rate_limit_buckets``  Estimate of slowapi MemoryStorage size
     - ``psutil_available``    True if psutil is importable
+
+    DA fix-up #P2 (PR #71): the module-level ``_PROCESS`` handle is
+    captured at import time and points at the importing process's PID.
+    If a future caller imports this module inside a ``ProcessPoolExecutor
+    spawn`` worker (e.g., calibration harness, materializer subprocess),
+    a stale ``_PROCESS`` would silently report subprocess RSS while the
+    operator believed it was parent RSS.  The PID self-correct below
+    re-acquires ``_PROCESS`` if it drifts, making subprocess use both
+    visible (via the ``pid`` field) and self-healing.
     """
+    global _PROCESS
+
+    current_pid = os.getpid()
     snapshot: dict[str, Any] = {
+        "pid": current_pid,
         "memory_rss_mb": 0.0,
         "memory_vms_mb": 0.0,
         "cpu_percent": 0.0,
@@ -147,14 +199,16 @@ def get_runtime_snapshot() -> dict[str, Any]:
         "psutil_available": _PSUTIL_AVAILABLE,
     }
 
-    if _PSUTIL_AVAILABLE and _PROCESS is not None:
+    if _PSUTIL_AVAILABLE and _PROCESS is not None and psutil is not None:
         try:
+            # Self-correct after fork / spawn — if the captured handle's
+            # PID drifted from the running process, re-acquire so the
+            # snapshot reports THIS process, not the parent that imported.
+            if _PROCESS.pid != current_pid:
+                _PROCESS = psutil.Process(current_pid)
             mem = _PROCESS.memory_info()
             snapshot["memory_rss_mb"] = round(mem.rss / (1024 * 1024), 1)
             snapshot["memory_vms_mb"] = round(mem.vms / (1024 * 1024), 1)
-            # ``cpu_percent(interval=None)`` returns % since last call;
-            # first invocation per process always reads 0.0 (psutil
-            # contract), which is fine — subsequent calls give signal.
             snapshot["cpu_percent"] = _PROCESS.cpu_percent(interval=None)
         except Exception as exc:  # noqa: BLE001 — diagnostic must not raise
             logger.warning("psutil snapshot failed: %s", exc)
@@ -213,6 +267,13 @@ def _reset_throttle_for_tests() -> None:
 
     Lets a test trigger a fresh emission without sleeping for 5 minutes.
     NOT exported in ``__all__``; tests reach in via the leading underscore.
+
+    DA fix-up #P1 (PR #71) follow-up: setting to ``0.0`` is unsafe because
+    ``time.monotonic()`` is "seconds since some unspecified start" — in a
+    freshly-booted Python process (e.g., CI runner) the value can be < 300s,
+    so ``now - 0.0 < _BREADCRUMB_INTERVAL_SECONDS`` and the next call would
+    NOT fire.  Setting to ``float("-inf")`` makes the next call fire
+    deterministically regardless of monotonic baseline.
     """
     global _last_breadcrumb_mono
-    _last_breadcrumb_mono = 0.0
+    _last_breadcrumb_mono = float("-inf")

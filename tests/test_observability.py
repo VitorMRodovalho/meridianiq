@@ -10,6 +10,8 @@ tests pin that invariant.
 
 from __future__ import annotations
 
+import logging
+import os
 import time
 
 import pytest
@@ -20,6 +22,7 @@ from src.api import observability
 def test_get_runtime_snapshot_returns_dict_with_expected_keys() -> None:
     snapshot = observability.get_runtime_snapshot()
     expected_keys = {
+        "pid",
         "memory_rss_mb",
         "memory_vms_mb",
         "cpu_percent",
@@ -39,6 +42,8 @@ def test_get_runtime_snapshot_returns_dict_with_expected_keys() -> None:
 
 def test_get_runtime_snapshot_field_types() -> None:
     snapshot = observability.get_runtime_snapshot()
+    assert isinstance(snapshot["pid"], int)
+    assert snapshot["pid"] > 0
     assert isinstance(snapshot["memory_rss_mb"], float)
     assert isinstance(snapshot["memory_vms_mb"], float)
     assert isinstance(snapshot["cpu_percent"], float)
@@ -53,6 +58,12 @@ def test_get_runtime_snapshot_field_types() -> None:
     assert isinstance(snapshot["active_ws_channels"], int)
     assert isinstance(snapshot["rate_limit_buckets"], int)
     assert isinstance(snapshot["psutil_available"], bool)
+
+
+def test_pid_matches_current_process() -> None:
+    """The reported PID is the process running this test, not the import-time PID."""
+    snapshot = observability.get_runtime_snapshot()
+    assert snapshot["pid"] == os.getpid()
 
 
 def test_psutil_fields_populated_when_available() -> None:
@@ -127,10 +138,16 @@ def test_maybe_emit_breadcrumb_after_reset_unblocks() -> None:
 
 def test_maybe_emit_breadcrumb_swallows_snapshot_failure(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """If get_runtime_snapshot raises, breadcrumb emission must NOT propagate.
+    """If get_runtime_snapshot raises, breadcrumb emission must NOT propagate
+    — but the WARNING log MUST fire, otherwise the leak-class failure that
+    the diagnostic exists to surface would be silently swallowed forever.
 
-    /health endpoint correctness is the load-bearing invariant.
+    DA fix-up #P2 (PR #71): the original test only asserted ``result is True``,
+    pinning the wrong invariant. The asserted logger.warning call is what
+    keeps the next OOM investigation from finding the same diagnostic
+    darkness as the 2026-05-06 incident.
     """
     observability._reset_throttle_for_tests()
 
@@ -138,12 +155,92 @@ def test_maybe_emit_breadcrumb_swallows_snapshot_failure(
         raise RuntimeError("simulated psutil meltdown")
 
     monkeypatch.setattr(observability, "get_runtime_snapshot", _boom)
-    # Returns True (throttle was advanced) but did NOT raise.
-    result = observability.maybe_emit_breadcrumb()
+    with caplog.at_level(logging.WARNING, logger="src.api.observability"):
+        result = observability.maybe_emit_breadcrumb()
+
+    # Throttle advanced (the contract; tests would otherwise tight-loop).
     assert result is True
+    # The failure path MUST log a WARNING with the underlying exception.
+    matching = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING
+        and "breadcrumb emission failed" in r.getMessage()
+        and "simulated psutil meltdown" in r.getMessage()
+    ]
+    assert matching, (
+        "expected logger.warning('breadcrumb emission failed: ...') with the "
+        "underlying exception text — defensive code must remain VISIBLE in logs"
+    )
 
 
 def test_get_runtime_snapshot_version_is_non_empty() -> None:
     snapshot = observability.get_runtime_snapshot()
     assert snapshot["version"]
     assert snapshot["version"] != ""
+
+
+def test_read_breadcrumb_interval_env_default() -> None:
+    """Unset env returns the documented default 300s."""
+    import os
+
+    os.environ.pop("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", None)
+    assert observability._read_breadcrumb_interval_env() == 300.0
+
+
+def test_read_breadcrumb_interval_env_non_numeric_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """DA fix-up #P1 (PR #71): non-numeric env must not brick startup."""
+    monkeypatch.setenv("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", "5min")
+    with caplog.at_level(logging.WARNING, logger="src.api.observability"):
+        value = observability._read_breadcrumb_interval_env()
+    assert value == 300.0
+    assert any("non-numeric" in r.getMessage() for r in caplog.records)
+
+
+def test_read_breadcrumb_interval_env_clamps_below_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Below-5s values clamp to 5s with a warning — guards the Fly log /
+    Sentry quota during an active incident."""
+    monkeypatch.setenv("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", "0")
+    with caplog.at_level(logging.WARNING, logger="src.api.observability"):
+        value = observability._read_breadcrumb_interval_env()
+    assert value == 5.0
+    assert any("below 5s minimum" in r.getMessage() for r in caplog.records)
+
+
+def test_read_breadcrumb_interval_env_negative_clamps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", "-100")
+    assert observability._read_breadcrumb_interval_env() == 5.0
+
+
+def test_read_breadcrumb_interval_env_valid_passes_through(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_BREADCRUMB_INTERVAL_SECONDS", "60")
+    assert observability._read_breadcrumb_interval_env() == 60.0
+
+
+def test_rate_limit_buckets_contract_pin() -> None:
+    """DA fix-up #P3 (PR #71): pin the slowapi private-internals contract.
+
+    ``_rate_limit_buckets`` reaches into ``limiter._storage.storage``.
+    A future slowapi bump that renames either layer would silently turn
+    this into 0 forever.  This test asserts the structure exists at the
+    expected path so a contract regression fails LOUDLY.
+    """
+    from src.api.deps import limiter
+
+    storage = getattr(limiter, "_storage", None)
+    assert storage is not None, "slowapi Limiter._storage missing — contract drift"
+    backing = getattr(storage, "storage", None)
+    assert backing is not None, "MemoryStorage.storage missing — contract drift"
+    assert hasattr(backing, "__len__"), (
+        "Expected dict-like backing (Counter); got something with no __len__"
+    )
