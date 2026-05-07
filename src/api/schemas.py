@@ -1819,3 +1819,35 @@ class PendingStatusesResponse(BaseModel):
 
     items: list[PendingStatusItem] = Field(default_factory=list)
     polled_at: Optional[str] = None
+
+
+# ── Runtime observability (D-tier ops instrumentation) ───
+
+
+class RuntimeSnapshot(BaseModel):
+    """Response for GET /api/v1/admin/runtime — process runtime state.
+
+    SuperAdmin-gated diagnostic. Captures the leak-curve metrics that
+    were missing during the 2026-05-06 OOM post-mortem (idle 40-day
+    Fly machine, no user traffic, 1024mb cgroup limit). Pairs with
+    the throttled Sentry breadcrumb emitter wired into ``/health``.
+
+    See ``src.api.observability.get_runtime_snapshot`` for the field
+    contract — all numeric fields default to 0 if introspection fails
+    (the diagnostic must NEVER raise, as that would mask the very
+    OOM-class issues it is meant to surface).
+    """
+
+    memory_rss_mb: float = 0.0
+    memory_vms_mb: float = 0.0
+    cpu_percent: float = 0.0
+    cpu_count: int = 1
+    process_uptime_seconds: float = 0.0
+    boot_time_iso: str = ""
+    gc_counts: list[int] = Field(default_factory=list)
+    version: str = "unknown"
+    environment: str = "development"
+    python_version: str = ""
+    active_ws_channels: int = 0
+    rate_limit_buckets: int = 0
+    psutil_available: bool = False

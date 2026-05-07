@@ -119,6 +119,65 @@ def require_auth(user: Optional[dict] = Depends(get_current_user)) -> dict:
     return user
 
 
+def _is_superadmin(user: dict) -> bool:
+    """Return True if the authenticated user is a SuperAdmin.
+
+    SuperAdmin is the top of the 5-tier role hierarchy
+    (SuperAdmin → Enterprise → Program → Project → Contract).  Today
+    it is env-gated via ``SUPERADMIN_USER_IDS`` (comma-separated
+    Supabase user UUIDs) and/or ``SUPERADMIN_EMAILS`` (comma-separated
+    case-insensitive emails).  A future Tier-model migration will
+    replace this primitive with a DB-backed ``users.tier`` column.
+
+    Fail-closed: if neither env var is set, no user is SuperAdmin.
+
+    API-key callers are NEVER SuperAdmin in this primitive — even if
+    their ``user_id`` matches.  SuperAdmin actions must originate from
+    a session JWT (proves recent human auth via OAuth) so an exfil-
+    trated long-lived API key cannot be used to e.g. force a Fly
+    restart or read runtime memory of arbitrary other users' sessions.
+    """
+    import os
+
+    if user.get("role") == "api_key":
+        return False
+
+    ids_env = os.environ.get("SUPERADMIN_USER_IDS", "").strip()
+    emails_env = os.environ.get("SUPERADMIN_EMAILS", "").strip()
+    if not ids_env and not emails_env:
+        return False
+
+    if ids_env:
+        allowed_ids = {s.strip() for s in ids_env.split(",") if s.strip()}
+        if user.get("id") in allowed_ids:
+            return True
+
+    if emails_env:
+        allowed_emails = {s.strip().lower() for s in emails_env.split(",") if s.strip()}
+        user_email = (user.get("email") or "").strip().lower()
+        if user_email and user_email in allowed_emails:
+            return True
+
+    return False
+
+
+def require_superadmin(user: dict = Depends(require_auth)) -> dict:
+    """Dependency that requires the caller to be a SuperAdmin.
+
+    Layered on top of ``require_auth`` — first proves authentication
+    (raises 401 if no valid token), then proves SuperAdmin tier
+    (raises 403 if authenticated but not SuperAdmin).
+
+    See ``_is_superadmin`` for the env-gated allowlist contract.
+    """
+    if not _is_superadmin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SuperAdmin access required",
+        )
+    return user
+
+
 def optional_auth(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),

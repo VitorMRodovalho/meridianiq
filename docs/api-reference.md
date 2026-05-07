@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **122 endpoints** across **23 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **123 endpoints** across **24 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -28,6 +28,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Health](#health) — 2 endpoints
 - [Bi](#bi) — 3 endpoints
 - [Lifecycle](#lifecycle) — 4 endpoints
+- [Observability](#observability) — 1 endpoints
 - [Organizations](#organizations) — 11 endpoints
 - [Plugins](#plugins) — 2 endpoints
 - [Ws](#ws) — 1 endpoints
@@ -257,7 +258,7 @@ _Readiness and liveness_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `GET` | `/api/v1/health` | Health check endpoint. | `HealthResponse` | none |
-| `GET` | `/health` | — | `—` | none |
+| `GET` | `/health` | — | `dict` | none |
 
 ## Bi
 
@@ -275,6 +276,12 @@ _Readiness and liveness_
 | `DELETE` | `/api/v1/projects/{project_id}/lifecycle/override` | Revert to the inferred phase (keeps override history). | `—` | optional |
 | `POST` | `/api/v1/projects/{project_id}/lifecycle/override` | Write a manual lifecycle phase override + flip the lock. | `LifecycleOverrideSchema` | optional |
 | `GET` | `/api/v1/projects/{project_id}/lifecycle/overrides` | Return the override history for a project (newest first). | `LifecycleOverrideListResponse` | optional |
+
+## Observability
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `GET` | `/api/v1/admin/runtime` | Return a snapshot of process runtime state (SuperAdmin only). | `RuntimeSnapshot` | none |
 
 ## Organizations
 

@@ -116,3 +116,102 @@ def test_invalid_token_raises_401():
     with pytest.raises(HTTPException) as exc_info:
         get_current_user(creds)
     assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# SuperAdmin tier (env-gated allowlist) — the 5-tier role model primitive.
+# Today: SUPERADMIN_USER_IDS / SUPERADMIN_EMAILS env vars.
+# Future: replaced by a DB-backed users.tier column once the Tier-model
+# migration ships.  See project_role_hierarchy.md (memory).
+# ---------------------------------------------------------------------------
+
+
+def test_is_superadmin_fail_closed_when_no_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SUPERADMIN_USER_IDS", raising=False)
+    monkeypatch.delenv("SUPERADMIN_EMAILS", raising=False)
+    from src.api.auth import _is_superadmin
+
+    assert (
+        _is_superadmin({"id": "any-id", "email": "any@example.com", "role": "authenticated"})
+        is False
+    )
+
+
+def test_is_superadmin_id_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERADMIN_USER_IDS", "alice-id,bob-id")
+    monkeypatch.delenv("SUPERADMIN_EMAILS", raising=False)
+    from src.api.auth import _is_superadmin
+
+    assert _is_superadmin({"id": "alice-id", "email": "x@y.com", "role": "authenticated"}) is True
+    assert _is_superadmin({"id": "carol-id", "email": "x@y.com", "role": "authenticated"}) is False
+
+
+def test_is_superadmin_email_match_case_insensitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPERADMIN_EMAILS", "Alice@Example.com")
+    monkeypatch.delenv("SUPERADMIN_USER_IDS", raising=False)
+    from src.api.auth import _is_superadmin
+
+    assert (
+        _is_superadmin({"id": "x", "email": "alice@example.com", "role": "authenticated"}) is True
+    )
+    assert (
+        _is_superadmin({"id": "x", "email": "ALICE@EXAMPLE.COM", "role": "authenticated"}) is True
+    )
+    assert _is_superadmin({"id": "x", "email": "bob@example.com", "role": "authenticated"}) is False
+
+
+def test_is_superadmin_api_key_role_denied_even_if_id_matches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Security: API-key callers MUST NOT be SuperAdmin.
+
+    Long-lived programmatic credentials are higher-risk and an exfiltrated
+    key would otherwise grant SuperAdmin access.  The role check is the
+    structural guard.
+    """
+    monkeypatch.setenv("SUPERADMIN_USER_IDS", "alice-id")
+    from src.api.auth import _is_superadmin
+
+    assert (
+        _is_superadmin({"id": "alice-id", "email": "alice@example.com", "role": "api_key"}) is False
+    )
+    # Same user, session-class JWT — DOES pass.
+    assert (
+        _is_superadmin({"id": "alice-id", "email": "alice@example.com", "role": "authenticated"})
+        is True
+    )
+
+
+def test_is_superadmin_handles_empty_env_strings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Empty strings (deliberate ops misconfig) must NOT promote anyone."""
+    monkeypatch.setenv("SUPERADMIN_USER_IDS", "  ")
+    monkeypatch.setenv("SUPERADMIN_EMAILS", "")
+    from src.api.auth import _is_superadmin
+
+    assert _is_superadmin({"id": "any", "email": "any@x.com", "role": "authenticated"}) is False
+
+
+def test_require_superadmin_raises_403_when_not_super(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SUPERADMIN_USER_IDS", raising=False)
+    monkeypatch.delenv("SUPERADMIN_EMAILS", raising=False)
+    from src.api.auth import require_superadmin
+
+    user = {"id": "alice-id", "email": "alice@example.com", "role": "authenticated"}
+    with pytest.raises(HTTPException) as exc_info:
+        require_superadmin(user=user)
+    assert exc_info.value.status_code == 403
+
+
+def test_require_superadmin_passes_when_super(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERADMIN_USER_IDS", "alice-id")
+    from src.api.auth import require_superadmin
+
+    user = {"id": "alice-id", "email": "alice@example.com", "role": "authenticated"}
+    result = require_superadmin(user=user)
+    assert result == user
