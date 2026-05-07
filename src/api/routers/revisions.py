@@ -1,12 +1,15 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""Revision detection + soft-tombstone router (Cycle 4 W2 PR-A — ADR-0022).
+"""Revision detection + soft-tombstone + multi-rev trends router.
 
-Three endpoints:
+Cycle 4 W2 PR-A + W3 PR-A — ADR-0022 + Amendment 2.
 
-- ``POST /api/v1/projects/{id}/detect-revision-of`` — heuristic, no writes
-- ``POST /api/v1/projects/{id}/confirm-revision-of`` — append-only INSERT
-- ``POST /api/v1/revisions/{id}/tombstone`` — soft-delete + audit_log
+Endpoints:
+
+- ``POST /api/v1/projects/{id}/detect-revision-of`` — W2 heuristic, no writes
+- ``POST /api/v1/projects/{id}/confirm-revision-of`` — W2 append-only INSERT
+- ``POST /api/v1/revisions/{id}/tombstone`` — W2 soft-delete + audit_log
+- ``GET  /api/v1/projects/{id}/revision-trends`` — W3 multi-rev S-curve overlay
 
 The detection heuristic v1 is encoded in
 ``src.api.revision_detection.detect_candidate_parent`` per ADR-0022
@@ -31,13 +34,20 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from src.analytics.revision_trends import analyze_revision_trends
+
 from ..auth import require_auth
 from ..deps import RATE_LIMIT_ANALYSIS, RATE_LIMIT_WRITE, get_store, limiter
 from ..revision_detection import compute_xer_content_hash, detect_candidate_parent
 from ..schemas import (
+    ChangePointMarkerSchema,
     ConfirmRevisionOfRequest,
     ConfirmRevisionOfResponse,
     DetectRevisionOfResponse,
+    RevisionCurvePoint,
+    RevisionCurveSchema,
+    RevisionTrendsResponse,
+    SlopeBandSchema,
     TombstoneRevisionRequest,
     TombstoneRevisionResponse,
 )
@@ -238,4 +248,149 @@ def tombstone_revision_endpoint(
         audit_log_id=(
             str(result["audit_log_id"]) if result.get("audit_log_id") is not None else None
         ),
+    )
+
+
+# ────────────────────────────────────────────────────────────
+# 4. revision-trends (multi-rev S-curve overlay)
+# ────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/api/v1/projects/{project_id}/revision-trends",
+    response_model=RevisionTrendsResponse,
+)
+@limiter.limit(RATE_LIMIT_ANALYSIS)
+def revision_trends_endpoint(
+    request: Request,
+    project_id: str,
+    user: dict[str, Any] = Depends(require_auth),
+) -> RevisionTrendsResponse:
+    """Return the multi-revision S-curve overlay + change-points + slope band.
+
+    Cycle 4 W3 PR-A per ADR-0022. Visualization-only: NO forecast curve
+    in W3 (path-A pre-commitment per ADR-0022 W4 calibration gate).
+
+    CPM × N revisions runs at request time — bounded by W1 cap=12 active
+    revisions per project (migration 028 ``enforce_revision_cap``
+    trigger). RATE_LIMIT_ANALYSIS (20/min) is sufficient at the cap;
+    EXPENSIVE bucket is reserved for Monte Carlo / PDF / forensic loops.
+
+    Caching deferred per backend-reviewer entry-council #8 — would
+    require coupling with W2 confirm/tombstone writers for invalidation.
+
+    Methodology citation surfaced in the response for forensic
+    credibility (AACE RP 29R-03 §"Window analysis").
+    """
+    store = get_store()
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # 1. Load the current project's metadata + program_id.
+    current = store.get_project_meta(project_id, user_id=user_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail=f"project {project_id} not found")
+    program_id = current.get("program_id")
+    if not program_id:
+        # Not in a program — single-revision view; return curve-only response.
+        sched = store.get_project(project_id, user_id=user_id)
+        if sched is None:
+            raise HTTPException(status_code=404, detail="project schedule not available")
+        analysis = analyze_revision_trends(
+            project_id=project_id,
+            program_id=None,
+            revisions=[(project_id, None, None, current.get("data_date"), sched)],
+        )
+        analysis.notes.insert(
+            0,
+            "project not assigned to a program (anonymous upload?) — single-revision view returned",
+        )
+        return _to_response(analysis)
+
+    # 2. Load all sibling projects in the program (RLS-scoped).
+    siblings = store.list_projects_in_program(program_id, user_id=user_id)
+    # Map project_id → revision_history row (active only) for revision_number.
+    rh_rows = store.list_revision_history_by_program(program_id, user_id=user_id)
+    rh_by_project: dict[str, dict[str, Any]] = {
+        r["project_id"]: r for r in rh_rows if r.get("tombstoned_at") is None
+    }
+
+    # 3. Build (project_id, rev_id, rev_num, data_date_iso, schedule) tuples,
+    #    sorted ascending by data_date for the orchestrator.
+    revisions: list[tuple[str, str | None, int | None, str | None, Any]] = []
+    for s in siblings:
+        pid = s["project_id"]
+        sched = store.get_project(pid, user_id=user_id)
+        if sched is None:
+            continue
+        rh = rh_by_project.get(pid)
+        revisions.append(
+            (
+                pid,
+                str(rh["id"]) if rh else None,
+                int(rh["revision_number"]) if rh else None,
+                s.get("data_date"),
+                sched,
+            )
+        )
+    revisions.sort(key=lambda t: t[3] or "")
+
+    if not revisions:
+        analysis = analyze_revision_trends(
+            project_id=project_id, program_id=program_id, revisions=[]
+        )
+        return _to_response(analysis)
+
+    analysis = analyze_revision_trends(
+        project_id=project_id, program_id=program_id, revisions=revisions
+    )
+    return _to_response(analysis)
+
+
+def _to_response(analysis: Any) -> RevisionTrendsResponse:
+    """Convert the dataclass-based RevisionTrendsAnalysis to Pydantic."""
+    return RevisionTrendsResponse(
+        project_id=analysis.project_id,
+        program_id=analysis.program_id,
+        curves=[
+            RevisionCurveSchema(
+                project_id=c.project_id,
+                revision_id=c.revision_id,
+                revision_number=c.revision_number,
+                data_date=c.data_date,
+                points=[
+                    RevisionCurvePoint(
+                        day_offset=p.day_offset,
+                        planned_cumulative_pct=p.planned_cumulative_pct,
+                        actual_cumulative_pct=p.actual_cumulative_pct,
+                    )
+                    for p in c.points
+                ],
+                is_executed=c.is_executed,
+            )
+            for c in analysis.curves
+        ],
+        change_points=[
+            ChangePointMarkerSchema(
+                revision_index=cp.revision_index,
+                revision_id=cp.revision_id,
+                delta_days=cp.delta_days,
+                cusum_value=cp.cusum_value,
+                description=cp.description,
+            )
+            for cp in analysis.change_points
+        ],
+        slope_band=(
+            SlopeBandSchema(
+                slope_days_per_revision=analysis.slope_band.slope_days_per_revision,
+                ci_lower=analysis.slope_band.ci_lower,
+                ci_upper=analysis.slope_band.ci_upper,
+                horizon_revisions=analysis.slope_band.horizon_revisions,
+            )
+            if analysis.slope_band
+            else None
+        ),
+        methodology=analysis.methodology,
+        notes=analysis.notes,
     )

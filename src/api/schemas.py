@@ -1986,3 +1986,80 @@ class TombstoneRevisionResponse(BaseModel):
     revision_id: str
     tombstoned_at: str
     audit_log_id: Optional[str] = None
+
+
+# ── Revision trends — multi-rev S-curve overlay (Cycle 4 W3 PR-A) ───
+
+
+class RevisionCurvePoint(BaseModel):
+    """One point on a per-revision completion-percent curve.
+
+    See ``src.analytics.revision_trends`` for the methodology
+    (AACE RP 29R-03 §"Window analysis"). ``planned_cumulative_pct`` and
+    ``actual_cumulative_pct`` are fractions in [0.0, 1.0].
+    """
+
+    day_offset: int = Field(..., description="Days from the revision's data_date")
+    planned_cumulative_pct: float
+    actual_cumulative_pct: Optional[float] = None
+
+
+class RevisionCurveSchema(BaseModel):
+    """One revision's S-curve metadata + points.
+
+    ``is_executed=true`` only for the most recent revision per ADR-0022
+    W3 spec — older revisions' actuals are intentionally suppressed.
+    """
+
+    project_id: str
+    revision_id: Optional[str] = None
+    revision_number: Optional[int] = None
+    data_date: Optional[str] = None
+    points: list[RevisionCurvePoint] = Field(default_factory=list)
+    is_executed: bool = False
+
+
+class ChangePointMarkerSchema(BaseModel):
+    """A revision index where the CUSUM crossed the threshold."""
+
+    revision_index: int
+    revision_id: Optional[str] = None
+    delta_days: int
+    cusum_value: float
+    description: str
+
+
+class SlopeBandSchema(BaseModel):
+    """Heteroscedasticity-aware OLS slope of inter-revision finish-shift."""
+
+    slope_days_per_revision: float
+    ci_lower: float
+    ci_upper: float
+    horizon_revisions: int
+
+
+class RevisionTrendsResponse(BaseModel):
+    """Response for GET /api/v1/projects/{id}/revision-trends.
+
+    Visualization-only contract per ADR-0022 §"W3 — C-visualization":
+    NO forecast curve. The W4 calibration gate (path-A pre-commit per
+    ADR-0022 §W4) decides whether the optimism-pattern forecast feature
+    can ship in a future cycle.
+
+    ``methodology`` carries the AACE RP 29R-03 citation surfaced to the
+    UI for forensic credibility. ``notes`` accumulates honesty-debt
+    strings ("<5 revisions — CUSUM skipped", etc.).
+
+    ``model_config = ConfigDict(extra="forbid")`` — surfaces drift if
+    the analytics module adds fields without updating this schema.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str
+    program_id: Optional[str] = None
+    curves: list[RevisionCurveSchema] = Field(default_factory=list)
+    change_points: list[ChangePointMarkerSchema] = Field(default_factory=list)
+    slope_band: Optional[SlopeBandSchema] = None
+    methodology: str = ""
+    notes: list[str] = Field(default_factory=list)
