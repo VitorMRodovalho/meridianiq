@@ -305,3 +305,52 @@ This section records the DA-flagged issues addressed inline in this ADR before m
 - SB5 (lifecycle phase regression): added to §"Open process gap" as W1 verification deliverable.
 
 This fix-up represents the recursive validation pattern from PR #38/#56/#58/#60/#64: meta-ADR PRs with non-trivial scope receive their own DA exit-council, and the outcomes are codified inline in the ADR text rather than deferred to follow-up issues. Closes the structural gap that Cycle 3 close-arc lessons (`docs/LESSONS_LEARNED.md`) flagged.
+
+## Amendment 1 — Migration-revisable cap (2026-05-07, W1 PR)
+
+### Context
+
+W1 implementation surfaced a Postgres impedance mismatch with §"Storage cap behavior at limit" as originally written. Two issues:
+
+1. **CHECK constraint syntax is invalid SQL.** PostgreSQL CHECK constraints cannot reference subqueries on the same table (or any other table). The literal `CHECK ((SELECT COUNT(*) FROM revision_history WHERE project_id = NEW.project_id AND tombstoned_at IS NULL) <= MAX_REVISIONS_PER_PROJECT)` would be rejected at migration apply time. The substitute is a BEFORE INSERT trigger which DOES bind service_role inserts (no `session_replication_role` precedent in repo, verified clean).
+
+2. **Env-driven cap requires DB-side coordination.** Reading env vars from a Postgres trigger requires either Postgres custom GUC settings (under `app.*`) — which has zero precedent in this codebase — or a `system_settings` table read by the trigger. Backend-reviewer entry council on the W1 PR identified that introducing GUC for an app-policy concern is the wrong layer.
+
+### Decision
+
+The W1 implementation hardcodes `v_max_revisions CONSTANT INT := 12` in the trigger function `public.enforce_revision_cap`. **Bumping the cap requires a new migration revising the function** — explicit, atomic, version-controlled.
+
+The `MAX_REVISIONS_PER_PROJECT` env var documented in `.env.example` is **documentation-of-intent** for the application layer (logging, error messages, UI hints). It is NOT load-bearing for DB-level enforcement.
+
+### Rationale
+
+- Postgres GUC pattern has zero precedent in this repo; introducing it for an app-policy concern is the wrong layer (entry-council finding).
+- A `system_settings` table read by the trigger is more idiomatic than GUC but adds complexity for a feature that has no demand-validated need for runtime tunability.
+- Migration-revisable is consistent with the rest of the schema lifecycle and makes cap changes auditable in `git log`.
+
+### Cost
+
+Operator who needs to bump the cap: must author + apply a one-line migration revising the trigger function. Acceptable for a feature that ships at v4.2 with the 12-default and no demand signal for runtime tuning.
+
+### Reversibility
+
+Trivial — a future migration can revise the constant. The trigger's `CONSTANT INT` is a function-local declaration; changing it doesn't touch table state.
+
+### TOCTOU race fix (DA W1 exit-council)
+
+The cap-enforcement trigger uses `pg_advisory_xact_lock(hashtext('revision_history.cap.' || NEW.project_id::text))` BEFORE the count query to serialize concurrent inserts on the same project. Without the advisory lock, two concurrent INSERTs at active count = 11 both observe 11, both pass the `< 12` check, both succeed, leaving final count = 13. The lock auto-releases at transaction end.
+
+### Append-only contract refinement (DA W1 exit-council)
+
+Per ADR-0022 §"revision_history append-only" + W1 DA exit-council fix-up #P2-4 / #P2-6:
+
+- Append-only mutation guard refactored from per-column IF cascade to single tuple comparison: `(NEW.id, NEW.project_id, NEW.revision_number, NEW.data_date, NEW.content_hash, NEW.created_at) IS DISTINCT FROM (OLD.*)` — atomic, harder for a future contributor to silently drop one guard.
+- `baseline_lock_at` writes constrained to non-future timestamps via the same trigger (prevents fake future promotions). Unconstrained at INSERT (any backdate is valid for backfill).
+- `tombstoned_reason TEXT` capped at 500 chars via inline CHECK (prevents write-amplification DoS).
+
+### Cross-references
+
+- Migration 028 §"Cap enforcement trigger"
+- `.env.example` §"Cycle 4 W1 — revision lifecycle"
+- W1 PR DA exit-council fix-up commit body (3 P1 + 4 P2 addressed inline)
+- W1 PR backend-reviewer entry-council fix-up #1
