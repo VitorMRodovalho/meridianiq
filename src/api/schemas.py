@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Health ───────────────────────────────────────────────
@@ -1825,7 +1825,7 @@ class PendingStatusesResponse(BaseModel):
 
 
 class RuntimeSnapshot(BaseModel):
-    """Response for GET /api/v1/admin/runtime — process runtime state.
+    """Response for GET /api/v1/superadmin/runtime — process runtime state.
 
     SuperAdmin-gated diagnostic. Captures the leak-curve metrics that
     were missing during the 2026-05-06 OOM post-mortem (idle 40-day
@@ -1836,11 +1836,34 @@ class RuntimeSnapshot(BaseModel):
     contract — all numeric fields default to 0 if introspection fails
     (the diagnostic must NEVER raise, as that would mask the very
     OOM-class issues it is meant to surface).
+
+    DA fix-up #P5 (PR #71): the model validator below asserts that
+    ``psutil_available=True`` AND ``memory_rss_mb=0.0`` is an impossible
+    state — psutil's contract says a live Python process's RSS is
+    always > 0. If both hold, the defensive try/except in the
+    snapshot helper silently swallowed a real failure; surfacing as
+    HTTP 500 lets the operator catch it.
     """
 
-    memory_rss_mb: float = 0.0
+    pid: int = 0
+    memory_rss_mb: float = Field(
+        default=0.0,
+        description=(
+            "Resident set size in MB. Load-bearing leak metric. "
+            "0.0 with psutil_available=True is an impossible state and "
+            "raises a model-validation error."
+        ),
+    )
     memory_vms_mb: float = 0.0
-    cpu_percent: float = 0.0
+    cpu_percent: float = Field(
+        default=0.0,
+        description=(
+            "CPU %% since the previous probe. By psutil contract the "
+            "FIRST invocation per process always reads 0.0; subsequent "
+            "calls give meaningful signal. Operators should call twice "
+            "with a delay between them when interpreting CPU pressure."
+        ),
+    )
     cpu_count: int = 1
     process_uptime_seconds: float = 0.0
     boot_time_iso: str = ""
@@ -1851,3 +1874,13 @@ class RuntimeSnapshot(BaseModel):
     active_ws_channels: int = 0
     rate_limit_buckets: int = 0
     psutil_available: bool = False
+
+    @model_validator(mode="after")
+    def _check_psutil_coherence(self) -> "RuntimeSnapshot":
+        if self.psutil_available and self.memory_rss_mb <= 0:
+            raise ValueError(
+                "psutil_available=True but memory_rss_mb<=0 — impossible state, "
+                "psutil snapshot path failed silently. Inspect WARNING logs "
+                "for the underlying psutil exception."
+            )
+        return self

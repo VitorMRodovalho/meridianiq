@@ -281,7 +281,7 @@ _Readiness and liveness_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
-| `GET` | `/api/v1/admin/runtime` | Return a snapshot of process runtime state (SuperAdmin only). | `RuntimeSnapshot` | none |
+| `GET` | `/api/v1/superadmin/runtime` | Return a snapshot of process runtime state (SuperAdmin only). | `RuntimeSnapshot` | none |
 
 ## Organizations
 

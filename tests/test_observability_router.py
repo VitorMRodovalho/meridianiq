@@ -1,6 +1,6 @@
 # MIT License
 # Copyright (c) 2026 Vitor Maia Rodovalho
-"""Tests for src/api/routers/observability.py — /api/v1/admin/runtime endpoint.
+"""Tests for src/api/routers/observability.py — /api/v1/superadmin/runtime endpoint.
 
 Covers:
 - Unauthenticated → 401
@@ -58,7 +58,7 @@ def test_runtime_endpoint_no_auth_returns_401(client: TestClient) -> None:
     """No Authorization header in production-mode would 401 — but we test
     the SuperAdmin gate which hits ``require_auth`` first.
     """
-    resp = client.get("/api/v1/admin/runtime")
+    resp = client.get("/api/v1/superadmin/runtime")
     assert resp.status_code == 401
 
 
@@ -68,7 +68,7 @@ def test_runtime_endpoint_authed_but_no_envs_returns_403(
     """Fail-closed: env vars unset → no user is SuperAdmin → 403."""
     token = _make_token()
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 403
@@ -82,7 +82,7 @@ def test_runtime_endpoint_authed_id_mismatch_returns_403(
     monkeypatch.setenv("SUPERADMIN_USER_IDS", "different-id")
     token = _make_token(user_id="user-uuid-1234")
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 403
@@ -95,7 +95,7 @@ def test_runtime_endpoint_superadmin_via_user_id_returns_200(
     monkeypatch.setenv("SUPERADMIN_USER_IDS", "user-uuid-1234")
     token = _make_token(user_id="user-uuid-1234")
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
@@ -108,7 +108,7 @@ def test_runtime_endpoint_superadmin_via_email_returns_200(
     monkeypatch.setenv("SUPERADMIN_EMAILS", "admin@example.com,test@example.com")
     token = _make_token(email="test@example.com")
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
@@ -121,7 +121,7 @@ def test_runtime_endpoint_email_match_is_case_insensitive(
     monkeypatch.setenv("SUPERADMIN_EMAILS", "TEST@EXAMPLE.COM")
     token = _make_token(email="test@example.com")
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
@@ -136,7 +136,7 @@ def test_runtime_endpoint_id_match_with_extra_emails_envset(
     monkeypatch.setenv("SUPERADMIN_EMAILS", "different@example.com")
     token = _make_token(user_id="user-uuid-1234", email="test@example.com")
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
@@ -149,12 +149,13 @@ def test_runtime_endpoint_response_shape(
     monkeypatch.setenv("SUPERADMIN_USER_IDS", "user-uuid-1234")
     token = _make_token(user_id="user-uuid-1234")
     resp = client.get(
-        "/api/v1/admin/runtime",
+        "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     body = resp.json()
     expected_keys = {
+        "pid",
         "memory_rss_mb",
         "memory_vms_mb",
         "cpu_percent",
@@ -174,3 +175,4 @@ def test_runtime_endpoint_response_shape(
     # In a live test process psutil should report > 0 RSS.
     assert body["memory_rss_mb"] > 0
     assert body["psutil_available"] is True
+    assert body["pid"] > 0
