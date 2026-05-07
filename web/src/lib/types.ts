@@ -923,3 +923,33 @@ export interface VisualizationResponse {
 	max_wbs_depth: number;
 	summary: Record<string, unknown>;
 }
+
+// Cycle 4 W2 — revision detection (ADR-0022 + Amendment 2)
+//
+// Mirrors src/api/schemas.py shapes. ``confidence`` is surfaced for
+// completeness but the UI MUST NOT render it as a high-trust signal
+// per ADR-0022 Amendment 2 §"Calibration caveat".
+
+export interface DetectRevisionOfResponse {
+	candidate_project_id: string | null;
+	candidate_project_name: string | null;
+	candidate_data_date: string | null;
+	candidate_revision_count: number;
+	confidence: number;
+	reasoning: string;
+}
+
+export interface ConfirmRevisionOfResponse {
+	revision_id: string;
+	project_id: string;
+	revision_number: number;
+	program_id: string | null;
+	data_date: string | null;
+	content_hash: string;
+}
+
+export interface TombstoneRevisionResponse {
+	revision_id: string;
+	tombstoned_at: string;
+	audit_log_id: string | null;
+}

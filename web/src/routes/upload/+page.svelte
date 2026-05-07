@@ -2,6 +2,7 @@
 	import { uploadXER } from '$lib/api';
 	import { trackEvent } from '$lib/analytics';
 	import { success, error as toastError } from '$lib/toast';
+	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { ProjectSummary } from '$lib/types';
 	import { t } from '$lib/i18n';
@@ -11,6 +12,10 @@
 	let error = $state('');
 	let result: ProjectSummary | null = $state(null);
 	let isSandbox = $state(false);
+	// Cycle 4 W2 PR-B — controls visibility of the revision confirmation
+	// card. Set to false on confirm/skip so the card collapses; sandbox
+	// uploads bypass entirely (testing data shouldn't enter revision lineage).
+	let showRevisionCard = $state(true);
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -43,6 +48,7 @@
 		loading = true;
 		error = '';
 		result = null;
+		showRevisionCard = true;
 		try {
 			result = await uploadXER(file, isSandbox);
 			// ADR-0015: pending means the async materializer is still running;
@@ -222,5 +228,32 @@
 				</a>
 			</div>
 		</div>
+
+		<!--
+			Cycle 4 W2 PR-B — revision confirmation card.
+			Renders only for non-sandbox uploads (sandbox bypass per
+			frontend-ux-reviewer entry council #3). Card self-detects;
+			collapses if no candidate found OR if detect-revision-of fails.
+
+			DA exit-council fix-up #P1-1 / #P2-2: ``{#key result.project_id}``
+			forces unmount + remount when the user uploads a different file
+			before the previous detect resolves. Without this, the component
+			instance is reused with stale ``$state``, and a slow detect for
+			file A can resolve AFTER file B's detect has set state — silent
+			data corruption (revision_history row anchored to wrong parent).
+		-->
+		{#if !isSandbox && showRevisionCard}
+			{#key result.project_id}
+				<RevisionConfirmCard
+					projectId={result.project_id}
+					onConfirmed={() => {
+						showRevisionCard = false;
+					}}
+					onSkipped={() => {
+						showRevisionCard = false;
+					}}
+				/>
+			{/key}
+		{/if}
 	{/if}
 </div>
