@@ -1174,10 +1174,19 @@ class SupabaseStore:
         # in the same commit — a code edit without the migration references
         # a missing column; a migration without this edit would leave new
         # rows at DEFAULT 'ready' during the pending window.
+        #
+        # ``revision_date`` (Cycle 4 W1, ADR-0022) is the WALL-CLOCK at upload
+        # time — distinct from ``data_date`` (the schedule effective date
+        # sourced from XER ``proj.last_recalc_date``).  The two diverge by
+        # months on stale-XER re-imports; W2 multi-rev-overlay uses
+        # ``revision_date`` for upload-ordering and ``data_date`` for
+        # x-axis chart positioning.  ALWAYS UTC ISO-8601 (matches the
+        # ``TIMESTAMPTZ`` column shape in migration 028).
         data: dict[str, Any] = {
             "upload_id": upload_id,
             "project_name": proj_name,
             "data_date": data_date,
+            "revision_date": datetime.now(UTC).isoformat(),
             "activity_count": len(schedule.activities),
             "relationship_count": len(schedule.relationships),
             "calendar_count": len(schedule.calendars),
