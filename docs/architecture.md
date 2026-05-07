@@ -5,7 +5,7 @@
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v4.1.0** + Cycle 3 in-flight + post-Cycle-3 follow-ups: 47 analysis engines + 1 export module, 123 API endpoints across 24 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 27 Supabase migrations, 22 MCP tools, 15 PDF report types, 1490 tests.
+As of **v4.1.0** + Cycle 3 in-flight + post-Cycle-3 follow-ups + Cycle 4 W1: 47 analysis engines + 1 export module, 123 API endpoints across 24 routers, 54 SvelteKit pages, 11 hand-crafted SVG chart components, 28 Supabase migrations, 22 MCP tools, 15 PDF report types, 1490 tests.
 
 ```mermaid
 graph TB
@@ -26,7 +26,7 @@ graph TB
 
     subgraph "Platform — Supabase"
         AUTH["Supabase Auth<br/>Google · LinkedIn · Microsoft<br/>ES256 JWT via JWKS"]
-        DB[("PostgreSQL<br/>27 migrations · RLS enforced<br/>projects (pending/ready/failed)<br/>activities · WBS<br/>schedule_derived_artifacts<br/>erp_sources · cbs_elements<br/>cost_snapshots · audit")]
+        DB[("PostgreSQL<br/>28 migrations · RLS enforced<br/>projects (pending/ready/failed)<br/>activities · WBS · revision_history<br/>schedule_derived_artifacts<br/>erp_sources · cbs_elements<br/>cost_snapshots · audit")]
         STORAGE["Supabase Storage<br/>xer-files bucket · RLS"]
     end
 
@@ -87,7 +87,7 @@ web/
       stores/        auth (lazy init), theme, i18n
       api.ts         API client
 supabase/
-  migrations/        27 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome")
+  migrations/        28 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome"; Cycle 4 W1 added `revision_history` per ADR-0022 + Amendment 1)
 scripts/
   generate_api_reference.py       → docs/api-reference.md
   generate_mcp_catalog.py         → docs/mcp-tools.md
