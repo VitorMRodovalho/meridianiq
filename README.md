@@ -35,7 +35,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 
 | Indicator | Value |
 |-----------|-------|
-| Analysis engines | 47 + 1 export module |
+| Analysis engines | 48 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 1490 backend + 26 Vitest composables + Playwright E2E |
@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (47)<br/>127 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (48)<br/>127 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -320,7 +320,7 @@ meridianiq/
 │   │   ├── cost_integration.py # CBS/WBS cost correlation
 │   │   ├── schedule_trends.py  # Period-over-period evolution
 │   │   ├── narrative_report.py # Structured claim narratives
-│   │   └── ...                 # 47 engines total + 1 export
+│   │   └── ...                 # 48 engines total + 1 export
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
 │       ├── app.py        # FastAPI entry point
