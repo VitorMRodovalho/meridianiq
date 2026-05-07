@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ── Health ───────────────────────────────────────────────
@@ -1884,3 +1884,105 @@ class RuntimeSnapshot(BaseModel):
                 "for the underlying psutil exception."
             )
         return self
+
+
+# ── Revision detection (Cycle 4 W2 PR-A — ADR-0022) ───────
+
+
+class DetectRevisionOfResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/detect-revision-of.
+
+    Heuristic v1 (per ADR-0022 Amendment 2): same ``project_name`` (case-
+    insensitive) + same ``program_id`` (already auto-assigned at upload via
+    ``get_or_create_program``) + different ``data_date`` (avoid duplicates).
+    Top candidate by ``data_date DESC NULLS LAST``.
+
+    ``confidence`` is a float in [0.0, 1.0] used for UI prioritization;
+    it is NOT a probability and NOT calibrated. v1 returns 0.9 on exact-
+    name match within program, 0.0 when no candidate found.
+
+    **Important calibration caveat (DA exit-council fix-up #P2-7):**
+    ``confidence`` saturates at 0.9 for ANY exact name match regardless
+    of how many candidates exist in the program. A user with 100 projects
+    all named "PROJ" gets 0.9 confidence on every call. The UI (W2 PR-B)
+    MUST NOT render this as a high-trust signal — frame as
+    "matched on name + program; confirm before linking" rather than
+    "90% certain this is a revision". Future calibration (scaling by
+    ``candidate_revision_count``, or replacing with categorical signal)
+    deferred to W3 / Cycle 5+ on demand evidence.
+
+    ``candidate_revision_count`` shows how many active (non-tombstoned)
+    rows already exist in ``revision_history`` for the candidate's
+    program; the W2 confirmation card surfaces this so the operator
+    sees "you'd be revision N+1 of N existing".
+
+    ``model_config = ConfigDict(extra="forbid")`` per DA exit-council
+    fix-up #P3-16 — surfaces drift if a future helper adds a field
+    without updating this schema (silent ignore would mask the bug).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_project_id: Optional[str] = None
+    candidate_project_name: Optional[str] = None
+    candidate_data_date: Optional[str] = None
+    candidate_revision_count: int = 0
+    confidence: float = 0.0
+    reasoning: str = "no candidate found"
+
+
+class ConfirmRevisionOfRequest(BaseModel):
+    """Request body for POST /api/v1/projects/{id}/confirm-revision-of.
+
+    ``parent_project_id`` is the candidate returned by detect-revision-of
+    (or any caller-owned project — server re-validates RLS scope).
+    ``content_hash`` is the sha256 hex of the current upload's XER bytes
+    (computed server-side via ``compute_xer_content_hash``); the client
+    can echo it for tamper-evidence but the server recomputes from the
+    Storage blob to prevent client-supplied-hash injection.
+    """
+
+    parent_project_id: str = Field(..., min_length=1)
+    content_hash: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ConfirmRevisionOfResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/confirm-revision-of.
+
+    On success returns the freshly-inserted revision_history row's
+    summary. ``program_id`` echoes the parent's program (auto-assigned
+    at upload time per Cycle 4 W2 PR-A redefinition — confirm is now
+    metadata-only; the actual project-program linking happens in
+    ``save_project`` at upload time).
+    """
+
+    revision_id: str
+    project_id: str
+    revision_number: int
+    program_id: Optional[str] = None
+    data_date: Optional[str] = None
+    content_hash: str
+
+
+class TombstoneRevisionRequest(BaseModel):
+    """Request body for POST /api/v1/revisions/{id}/tombstone.
+
+    ``reason`` is mandatory free-form text capped at 500 chars (mirrors
+    migration 028 ``CHECK (length(tombstoned_reason) <= 500)``). Empty
+    or whitespace-only strings are rejected.
+    """
+
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class TombstoneRevisionResponse(BaseModel):
+    """Response for POST /api/v1/revisions/{id}/tombstone (HTTP 200).
+
+    Echoes the tombstoned revision's identity + the audit_log row id so
+    the caller can correlate the revision-side and audit-trail-side
+    records.
+    """
+
+    revision_id: str
+    tombstoned_at: str
+    audit_log_id: Optional[str] = None

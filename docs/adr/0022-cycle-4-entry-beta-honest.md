@@ -354,3 +354,48 @@ Per ADR-0022 §"revision_history append-only" + W1 DA exit-council fix-up #P2-4 
 - `.env.example` §"Cycle 4 W1 — revision lifecycle"
 - W1 PR DA exit-council fix-up commit body (3 P1 + 4 P2 addressed inline)
 - W1 PR backend-reviewer entry-council fix-up #1
+
+## Amendment 2 — W2 PR-A heuristic v1 scope (2026-05-07, W2 PR-A)
+
+### Context
+
+§"Wave plan W2" originally specified the detect heuristic as `proj_short_name + proj_id + content_hash similarity`. Backend-reviewer entry council on the W2 PR-A flagged two issues that constrain v1 scope:
+
+1. **Auto-grouping pre-empts cross-program detect.** `save_project` already auto-assigns `program_id` via `get_or_create_program(user_id, proj_short_name)` since v3.5 (migration 022). Two uploads with the same `proj_short_name` from the same user are **already in the same program**. The detect endpoint's job is therefore to find SIBLINGS within an auto-grouped program with different `data_date`, NOT to find a parent across programs.
+
+2. **`proj_id` is not stored as a top-level column.** P6's internal proj_id is parsed but lives only in the `ParsedSchedule` representation. Promoting it to the `projects` table requires a parser-side breakout + a separate migration (out of W2 scope).
+
+3. **Content_hash similarity beyond exact equality requires LSH/Jaccard infrastructure** that doesn't exist in this codebase. Exact-bytes equality detects re-uploads (different goal) but not "similar revisions". Deferred to W3 / Cycle 5+ on demand evidence.
+
+### Decision
+
+W2 PR-A ships heuristic v1 as: **same `project_name` (case-insensitive, NFKC-normalisation deferred) + same `program_id` + different `data_date`**. The heuristic returns the most recent qualifying sibling by `data_date DESC NULLS LAST`. Confidence saturates at 0.9 on exact-name match, 0.0 on no candidate.
+
+`proj_id` and content_hash similarity are explicitly **deferred** to W3 or Cycle 5+. The deferral is acknowledged here so the audit-trail loop at Cycle 4 close does not flag this as engine_version-style drift.
+
+### Confirm endpoint contract redefinition
+
+Per the same backend-reviewer fix-up: **`/confirm-revision-of` is metadata-only**. The original ADR text implied confirm would `UPDATE projects SET program_id = parent.program_id` to link siblings. Since auto-grouping at upload already places them in the same program, that UPDATE is a no-op. Confirm now writes the `revision_history` row only.
+
+The endpoint validates that current and parent share the same `program_id` and 409s otherwise — defensive against a stale heuristic suggestion or a multi-program user error (not a normal flow).
+
+### Calibration caveat (DA exit-council fix-up #P2-7)
+
+Confidence value 0.9 saturates on exact name match regardless of how many candidates exist in the program. UI rendering (W2 PR-B, deferred) **MUST NOT** frame this as a high-trust signal. Caveat documented in `DetectRevisionOfResponse` schema docstring. Future calibration (scaling by `candidate_revision_count`, or replacing with categorical signal) deferred to W3 or Cycle 5+ on demand evidence.
+
+### `next_revision_number = MAX + 1` (DA exit-council fix-up #P1-3)
+
+The endpoint computes the next revision_number as `MAX(revision_number) + 1` over **active + tombstoned rows** in the program — NOT `count_active + 1`. Tombstoned rows must occupy revision_number space; otherwise `count_active + 1` after any tombstone collides with the still-existing active row above the gap, producing 409 Conflict forever and bricking the endpoint post-first-tombstone. Pinned by regression test `test_confirm_uses_max_plus_one_after_tombstone_gap`.
+
+### Tombstone ownership check ordering (DA exit-council fix-up #P2-4)
+
+`tombstone_revision` MUST run the ownership check **before** the idempotent-already-tombstoned return. Otherwise a cross-tenant attacker could call tombstone on someone else's already-tombstoned row and read back `tombstoned_at` + `original_baseline_lock_at` via the idempotent path. Pinned by regression test `test_tombstone_does_not_leak_state_to_other_user`.
+
+### Cross-references
+
+- W2 PR-A backend-reviewer entry-council fix-up #BLOCKER-1 (auto-grouping collision)
+- W2 PR-A DA exit-council fix-up #P1-3 (MAX vs count) + #P2-4 (ownership ordering) + #P2-7 (confidence calibration caveat)
+- `src/api/revision_detection.py` heuristic implementation
+- `src/api/routers/revisions.py` endpoint contract
+- `tests/test_revisions_router.py` regression tests pinning the contract
+- `docs/operator-runbooks/cycle4.md` §"W2-INC-01" tombstone procedure

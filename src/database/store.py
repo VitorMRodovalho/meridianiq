@@ -109,6 +109,19 @@ class InMemoryStore:
         self._lifecycle_phase_locks: dict[str, bool] = {}
         self._lifecycle_overrides: list[dict[str, Any]] = []
         self._lifecycle_override_counter: int = 0
+        # Cycle 4 W1 — revision_history table (ADR-0022 + Amendment 1)
+        # Each row mirrors the Supabase shape: id, project_id, revision_number,
+        # data_date, baseline_lock_at, content_hash, tombstoned_at, tombstoned_reason,
+        # created_at. The InMemoryStore does NOT replicate the migration's BEFORE
+        # INSERT cap trigger or BEFORE UPDATE append-only trigger — those run
+        # at the DB layer in production. Test harness asserts contracts via
+        # explicit method behaviour rather than mirroring DB triggers.
+        self._revision_history: list[dict[str, Any]] = []
+        self._revision_history_counter: int = 0
+        # Cycle 4 W1 — project metadata enriched with data_date / revision_date
+        # for the W2 detect heuristic. Persisted only in InMemoryStore for tests
+        # (SupabaseStore reads from the projects table directly).
+        self._project_meta: dict[str, dict[str, Any]] = {}
 
     # -- programs --------------------------------------------------------
 
@@ -226,6 +239,248 @@ class InMemoryStore:
             prog["description"] = updates["description"]
         return prog
 
+    # -- revision_history (Cycle 4 W2 — ADR-0022) ----------------------
+
+    def get_project_meta(
+        self, project_id: str, user_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """Return project metadata (project_name, data_date, program_id) for the
+        W2 detect heuristic. RLS-scoped: returns None if caller does not own.
+        """
+        meta = self._project_meta.get(project_id)
+        if meta is None:
+            return None
+        if user_id is not None and meta.get("user_id") not in (None, user_id):
+            return None
+        return dict(meta)
+
+    def list_projects_in_program(
+        self, program_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List projects in a program with the metadata fields the W2 detect
+        heuristic reads (project_id, project_name, data_date, revision_date).
+
+        RLS-scoped: empty list if caller does not own the program.
+        """
+        prog = self._programs.get(program_id)
+        if prog is None:
+            return []
+        if user_id is not None and prog.get("user_id") != user_id:
+            return []
+        out: list[dict[str, Any]] = []
+        for pid, p_id in self._upload_program.items():
+            if p_id != program_id:
+                continue
+            meta = self._project_meta.get(pid, {})
+            out.append(
+                {
+                    "project_id": pid,
+                    "project_name": meta.get("project_name", ""),
+                    "data_date": meta.get("data_date"),
+                    "revision_date": meta.get("revision_date"),
+                    "program_id": program_id,
+                }
+            )
+        return out
+
+    def count_active_revisions_in_program(self, program_id: str, user_id: str | None = None) -> int:
+        """Count active (non-tombstoned) ``revision_history`` rows whose
+        ``project_id`` belongs to the given program. RLS-scoped.
+        """
+        prog = self._programs.get(program_id)
+        if prog is None:
+            return 0
+        if user_id is not None and prog.get("user_id") != user_id:
+            return 0
+        member_pids = {pid for pid, p_id in self._upload_program.items() if p_id == program_id}
+        return sum(
+            1
+            for r in self._revision_history
+            if r["project_id"] in member_pids and r.get("tombstoned_at") is None
+        )
+
+    def max_revision_number_in_program(self, program_id: str, user_id: str | None = None) -> int:
+        """Return MAX(revision_number) over ALL rows (active + tombstoned)
+        in the program. Returns 0 if the program has no revision_history rows.
+
+        DA exit-council fix-up #P1-3: ``count_active + 1`` is broken because
+        tombstoned rows still occupy revision_number space. After tombstoning
+        revision 2 (active 1, 2, 3), ``count_active = 2`` yields ``next = 3``
+        but revision 3 already exists → UNIQUE collision → 409 forever until
+        the user creates a gap-fill revision (impossible without bypassing
+        the API). Tombstones MUST occupy number-space; ``MAX + 1`` is the
+        correct contract.
+        """
+        prog = self._programs.get(program_id)
+        if prog is None:
+            return 0
+        if user_id is not None and prog.get("user_id") != user_id:
+            return 0
+        member_pids = {pid for pid, p_id in self._upload_program.items() if p_id == program_id}
+        max_rev = 0
+        for r in self._revision_history:
+            if r["project_id"] in member_pids and r["revision_number"] > max_rev:
+                max_rev = r["revision_number"]
+        return max_rev
+
+    def insert_revision_history(
+        self,
+        project_id: str,
+        revision_number: int,
+        data_date: str | None,
+        content_hash: str,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Append-only insert into revision_history. Returns the new row.
+
+        RLS-scoped: raises PermissionError if caller does not own ``project_id``.
+        Mirrors the migration 028 trigger's append-only contract via the
+        ``unique_active_identity`` check below — InMemoryStore catches
+        cap violations + duplicate active (project_id, revision_number)
+        pairs, returning the same 23P01 / 23505 semantics surfaced by
+        Postgres in production.
+
+        ``content_hash`` MUST be a 64-char lowercase hex string (sha256
+        of the XER bytes per ADR-0022 W2 + migration 028 CHECK).
+        """
+        if user_id is not None and self._project_owners.get(project_id) not in (None, user_id):
+            raise PermissionError(f"project {project_id} not owned by caller")
+        # Mirror migration 028 cap (default 12) — the InMemoryStore is a
+        # test harness, so the cap value lives here in code (parity with
+        # migration 028's hardcoded ``v_max_revisions CONSTANT INT := 12``).
+        program_id = self._upload_program.get(project_id)
+        if program_id is not None:
+            active = self.count_active_revisions_in_program(program_id, user_id=user_id)
+            if active >= 12:
+                raise ValueError(
+                    f"Project {project_id} has reached revision cap (12). "
+                    "Tombstone an existing revision OR raise the cap via a new migration."
+                )
+        # Mirror UNIQUE NULLS NOT DISTINCT (project_id, revision_number, tombstoned_at).
+        for existing in self._revision_history:
+            if (
+                existing["project_id"] == project_id
+                and existing["revision_number"] == revision_number
+                and existing.get("tombstoned_at") is None
+            ):
+                raise ValueError(
+                    f"revision_history collision: ({project_id}, {revision_number}, NULL) "
+                    "already exists"
+                )
+        self._revision_history_counter += 1
+        row: dict[str, Any] = {
+            "id": f"rh-{self._revision_history_counter:04d}",
+            "project_id": project_id,
+            "revision_number": revision_number,
+            "data_date": data_date,
+            "baseline_lock_at": None,
+            "content_hash": content_hash,
+            "tombstoned_at": None,
+            "tombstoned_reason": None,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        self._revision_history.append(row)
+        return dict(row)
+
+    def list_revision_history_by_program(
+        self,
+        program_id: str,
+        user_id: str | None = None,
+        include_tombstoned: bool = False,
+    ) -> list[dict[str, Any]]:
+        """List ``revision_history`` rows for a program, ordered by
+        ``revision_number`` DESC. Default-filters tombstoned rows
+        (HB-C contract: SELECT default-hides tombstones; AST regression
+        test enforces the ``tombstoned_at IS NULL`` filter for any
+        SELECT not explicitly opting in via ``include_tombstoned=True``).
+        """
+        prog = self._programs.get(program_id)
+        if prog is None:
+            return []
+        if user_id is not None and prog.get("user_id") != user_id:
+            return []
+        member_pids = {pid for pid, p_id in self._upload_program.items() if p_id == program_id}
+        rows = [
+            r
+            for r in self._revision_history
+            if r["project_id"] in member_pids
+            and (include_tombstoned or r.get("tombstoned_at") is None)
+        ]
+        rows.sort(key=lambda r: r["revision_number"], reverse=True)
+        return [dict(r) for r in rows]
+
+    def tombstone_revision(
+        self,
+        revision_id: str,
+        reason: str,
+        user_id: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Soft-tombstone a revision_history row + write paired audit_log entry.
+
+        Returns ``{revision_id, tombstoned_at, audit_log_id, original_baseline_lock_at}``
+        or None if the row is not found / not owned.
+        """
+        for row in self._revision_history:
+            if row["id"] != revision_id:
+                continue
+            # DA exit-council fix-up #P2-4: ownership check MUST run before
+            # the idempotent-return branch. Otherwise any authenticated user
+            # could call tombstone on someone else's already-tombstoned row
+            # and read back tombstoned_at + original_baseline_lock_at —
+            # cross-tenant information disclosure.
+            if user_id is not None:
+                proj_id = row["project_id"]
+                if self._project_owners.get(proj_id) not in (None, user_id):
+                    return None
+            if row.get("tombstoned_at") is not None:
+                # Already tombstoned — idempotent return of current state.
+                return {
+                    "revision_id": revision_id,
+                    "tombstoned_at": row["tombstoned_at"],
+                    "audit_log_id": None,
+                    "original_baseline_lock_at": row.get("baseline_lock_at"),
+                }
+            now = datetime.now(UTC).isoformat()
+            original_baseline_lock_at = row.get("baseline_lock_at")
+            row["tombstoned_at"] = now
+            row["tombstoned_reason"] = reason
+            # Paired audit_log entry — mirrors materialize / lifecycle pattern
+            # at store.py:761 + 938 + 2767. ``action`` matches the ADR-0022
+            # ``event_type='revision_tombstoned'`` vocabulary normalised to
+            # the actual schema column name (``action`` not ``event_type``).
+            #
+            # DA exit-council fix-up #P3-12: cap details.reason at 500 chars
+            # for parity with migration 028 ``CHECK (length(tombstoned_reason)
+            # <= 500)``. Defends audit_log against a future caller that
+            # bypasses the Pydantic schema with a 1MB reason payload.
+            capped_reason = reason[:500] if isinstance(reason, str) else reason
+            audit_id = f"audit-{len(self._audit_log) + 1:04d}"
+            self._audit_log.append(
+                {
+                    "id": audit_id,
+                    "user_id": user_id,
+                    "action": "revision_tombstoned",
+                    "entity_type": "revision_history",
+                    "entity_id": revision_id,
+                    "details": {
+                        "reason": capped_reason,
+                        "original_baseline_lock_at": original_baseline_lock_at,
+                    },
+                    "ip_address": ip_address,
+                    "user_agent": user_agent,
+                    "created_at": now,
+                }
+            )
+            return {
+                "revision_id": revision_id,
+                "tombstoned_at": now,
+                "audit_log_id": audit_id,
+                "original_baseline_lock_at": original_baseline_lock_at,
+            }
+        return None
+
     # -- upload / project ------------------------------------------------
 
     def save_upload(
@@ -257,13 +512,31 @@ class InMemoryStore:
         self._project_statuses[pid] = "ready"
         # Auto-assign program
         proj_name = ""
+        data_date_iso: str | None = None
         if schedule.projects:
             proj_name = schedule.projects[0].proj_short_name
+            dd = schedule.projects[0].last_recalc_date or schedule.projects[0].sum_data_date
+            if dd:
+                data_date_iso = dd.isoformat()
+        program_id_for_meta: str | None = None
         if proj_name and user_id:
-            program_id = self.get_or_create_program(user_id, proj_name)
-            rev = self.get_next_revision_number(program_id)
-            self._upload_program[pid] = program_id
+            program_id_for_meta = self.get_or_create_program(user_id, proj_name)
+            rev = self.get_next_revision_number(program_id_for_meta)
+            self._upload_program[pid] = program_id_for_meta
             self._upload_revision[pid] = rev
+        # Cycle 4 W1 — populate project_meta for the W2 detect heuristic.
+        # Mirrors SupabaseStore which writes data_date + revision_date to the
+        # projects row (per Cycle 4 W1 / ADR-0022). InMemoryStore parity is
+        # required so test fixtures can exercise detect / confirm flows
+        # without spinning up Supabase.
+        self._project_meta[pid] = {
+            "project_id": pid,
+            "user_id": user_id,
+            "project_name": proj_name,
+            "data_date": data_date_iso,
+            "revision_date": datetime.now(UTC).isoformat(),
+            "program_id": program_id_for_meta,
+        }
         return pid
 
     def set_project_status(self, project_id: str, status: str) -> bool:
@@ -2107,6 +2380,314 @@ class SupabaseStore:
             return prog.data[0]
         result = self._client.table("programs").update(allowed).eq("id", program_id).execute()
         return result.data[0] if result.data else None
+
+    # -- revision_history (Cycle 4 W2 — ADR-0022) ----------------------
+
+    def get_project_meta(
+        self, project_id: str, user_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """Return projects-row metadata used by the W2 detect heuristic.
+
+        RLS-scoped: when ``user_id`` is set, the query filters
+        ``user_id = ?`` so the caller cannot read other users' projects
+        even if RLS were bypassed (defence-in-depth).
+        """
+        query = (
+            self._client.table("projects")
+            .select("id, user_id, project_name, data_date, revision_date, program_id")
+            .eq("id", project_id)
+        )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        try:
+            res = query.execute()
+        except Exception as exc:  # noqa: BLE001 — diagnostic surface
+            logger.warning("get_project_meta failed for %s: %s", project_id, exc)
+            return None
+        if not res.data:
+            return None
+        row = res.data[0]
+        return {
+            "project_id": row["id"],
+            "user_id": row.get("user_id"),
+            "project_name": row.get("project_name"),
+            "data_date": row.get("data_date"),
+            "revision_date": row.get("revision_date"),
+            "program_id": row.get("program_id"),
+        }
+
+    def list_projects_in_program(
+        self, program_id: str, user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List projects in a program with the metadata fields the W2 detect
+        heuristic reads. RLS-scoped via ``user_id`` filter when provided.
+        """
+        query = (
+            self._client.table("projects")
+            .select("id, project_name, data_date, revision_date, program_id")
+            .eq("program_id", program_id)
+        )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        try:
+            res = query.execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("list_projects_in_program failed for %s: %s", program_id, exc)
+            return []
+        return [
+            {
+                "project_id": r["id"],
+                "project_name": r.get("project_name"),
+                "data_date": r.get("data_date"),
+                "revision_date": r.get("revision_date"),
+                "program_id": r.get("program_id"),
+            }
+            for r in (res.data or [])
+        ]
+
+    def count_active_revisions_in_program(self, program_id: str, user_id: str | None = None) -> int:
+        """Count active (non-tombstoned) ``revision_history`` rows whose
+        project_id belongs to the given program.
+
+        SELECT INCLUDES ``tombstoned_at IS NULL`` filter — HB-C contract
+        (the AST regression test ``test_revision_history_tombstone_filter``
+        asserts every SELECT path on revision_history applies this).
+        """
+        # Get member project_ids in the program first (RLS-scoped via user_id).
+        member_ids_q = self._client.table("projects").select("id").eq("program_id", program_id)
+        if user_id:
+            member_ids_q = member_ids_q.eq("user_id", user_id)
+        try:
+            members = member_ids_q.execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "count_active_revisions_in_program: members query failed for %s: %s",
+                program_id,
+                exc,
+            )
+            return 0
+        ids = [m["id"] for m in (members.data or [])]
+        if not ids:
+            return 0
+        try:
+            res = (
+                self._client.table("revision_history")
+                .select("id", count="exact")
+                .in_("project_id", ids)
+                .is_("tombstoned_at", "null")
+                .execute()
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("count_active_revisions_in_program failed: %s", exc)
+            return 0
+        return int(res.count or 0)
+
+    def max_revision_number_in_program(self, program_id: str, user_id: str | None = None) -> int:
+        """Return MAX(revision_number) over ALL rows (active + tombstoned).
+
+        DA exit-council fix-up #P1-3: see InMemoryStore variant for the
+        rationale (count + 1 collides on UNIQUE post-tombstone). MAX + 1
+        respects revision-number occupancy.
+        """
+        member_ids_q = self._client.table("projects").select("id").eq("program_id", program_id)
+        if user_id:
+            member_ids_q = member_ids_q.eq("user_id", user_id)
+        try:
+            members = member_ids_q.execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "max_revision_number_in_program: members query failed for %s: %s",
+                program_id,
+                exc,
+            )
+            return 0
+        ids = [m["id"] for m in (members.data or [])]
+        if not ids:
+            return 0
+        try:
+            # Ordering by revision_number DESC + limit(1) is cheaper than a
+            # full aggregate when the table grows. include_tombstoned: True
+            # equivalent — no tombstoned_at filter, intentionally.
+            res = (
+                self._client.table("revision_history")
+                .select("revision_number")
+                .in_("project_id", ids)
+                .order("revision_number", desc=True)
+                .limit(1)
+                .execute()
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("max_revision_number_in_program failed: %s", exc)
+            return 0
+        rows = res.data or []
+        return int(rows[0]["revision_number"]) if rows else 0
+
+    def insert_revision_history(
+        self,
+        project_id: str,
+        revision_number: int,
+        data_date: str | None,
+        content_hash: str,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """INSERT a ``revision_history`` row. Migration 028 triggers enforce
+        the cap (BEFORE INSERT) and append-only contract (BEFORE UPDATE)
+        at the DB layer; ``user_id`` is used for ownership pre-check so
+        the SQL doesn't fire for clearly-not-owned rows.
+        """
+        if user_id is not None:
+            owner_q = (
+                self._client.table("projects")
+                .select("id")
+                .eq("id", project_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            if not owner_q.data:
+                raise PermissionError(f"project {project_id} not owned by caller")
+        payload: dict[str, Any] = {
+            "project_id": project_id,
+            "revision_number": revision_number,
+            "data_date": data_date,
+            "content_hash": content_hash,
+        }
+        result = self._client.table("revision_history").insert(payload).execute()
+        if not result.data:
+            raise RuntimeError("revision_history insert returned no row")
+        return result.data[0]
+
+    def list_revision_history_by_program(
+        self,
+        program_id: str,
+        user_id: str | None = None,
+        include_tombstoned: bool = False,
+    ) -> list[dict[str, Any]]:
+        """List ``revision_history`` for a program. SELECT default-filters
+        ``tombstoned_at IS NULL`` (HB-C contract — RLS quadruple SELECT
+        policy enforces this at the DB layer; the application-side filter
+        below is a defence-in-depth duplicate).
+        """
+        member_ids_q = self._client.table("projects").select("id").eq("program_id", program_id)
+        if user_id:
+            member_ids_q = member_ids_q.eq("user_id", user_id)
+        try:
+            members = member_ids_q.execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("list_revision_history members query failed: %s", exc)
+            return []
+        ids = [m["id"] for m in (members.data or [])]
+        if not ids:
+            return []
+        query = (
+            self._client.table("revision_history")
+            .select("*")
+            .in_("project_id", ids)
+            .order("revision_number", desc=True)
+        )
+        if not include_tombstoned:
+            query = query.is_("tombstoned_at", "null")
+        try:
+            res = query.execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("list_revision_history_by_program failed: %s", exc)
+            return []
+        return list(res.data or [])
+
+    def tombstone_revision(
+        self,
+        revision_id: str,
+        reason: str,
+        user_id: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Soft-tombstone a revision_history row + write paired audit_log entry.
+
+        Mirrors the materialize / lifecycle audit pattern at store.py:761
+        + 938 + 2767. Best-effort audit_log write — if the audit insert
+        fails after the UPDATE succeeded, the tombstone is still valid
+        (HB-C contract is about RLS-default-hide, not audit completeness)
+        but a WARNING surfaces in logs.
+        """
+        # 1. Read pre-tombstone state for audit_log details.
+        try:
+            existing = (
+                self._client.table("revision_history")
+                .select("id, project_id, tombstoned_at, baseline_lock_at")
+                .eq("id", revision_id)
+                .execute()
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("tombstone_revision pre-read failed: %s", exc)
+            return None
+        if not existing.data:
+            return None
+        row = existing.data[0]
+        # DA exit-council fix-up #P2-4: ownership check MUST run BEFORE the
+        # idempotent-return branch — otherwise an attacker can read another
+        # user's already-tombstoned row's tombstoned_at + baseline_lock_at
+        # (cross-tenant information disclosure via the idempotent path).
+        if user_id is not None:
+            owner_q = (
+                self._client.table("projects")
+                .select("id")
+                .eq("id", row["project_id"])
+                .eq("user_id", user_id)
+                .execute()
+            )
+            if not owner_q.data:
+                return None
+        if row.get("tombstoned_at") is not None:
+            # Idempotent — already tombstoned. Ownership confirmed above.
+            return {
+                "revision_id": revision_id,
+                "tombstoned_at": row["tombstoned_at"],
+                "audit_log_id": None,
+                "original_baseline_lock_at": row.get("baseline_lock_at"),
+            }
+        original_baseline_lock_at = row.get("baseline_lock_at")
+        now_iso = datetime.now(UTC).isoformat()
+        # 2. UPDATE — only tombstoned_at + tombstoned_reason. Append-only
+        #    trigger blocks any other column mutation.
+        result = (
+            self._client.table("revision_history")
+            .update({"tombstoned_at": now_iso, "tombstoned_reason": reason})
+            .eq("id", revision_id)
+            .execute()
+        )
+        if not result.data:
+            return None
+        # 3. Paired audit_log write (best-effort — see docstring).
+        # DA exit-council fix-up #P3-12: cap details.reason at 500 chars
+        # for parity with migration 028's tombstoned_reason CHECK; defends
+        # audit_log against a future caller that bypasses Pydantic with a
+        # 1MB reason payload.
+        capped_reason = reason[:500] if isinstance(reason, str) else reason
+        audit_id: str | None = None
+        try:
+            audit_payload = {
+                "user_id": user_id,
+                "action": "revision_tombstoned",
+                "entity_type": "revision_history",
+                "entity_id": revision_id,
+                "details": {
+                    "reason": capped_reason,
+                    "original_baseline_lock_at": original_baseline_lock_at,
+                },
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+            }
+            audit_res = self._client.table("audit_log").insert(audit_payload).execute()
+            if audit_res.data:
+                audit_id = audit_res.data[0]["id"]
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("tombstone_revision audit_log write failed for %s: %s", revision_id, exc)
+        return {
+            "revision_id": revision_id,
+            "tombstoned_at": now_iso,
+            "audit_log_id": audit_id,
+            "original_baseline_lock_at": original_baseline_lock_at,
+        }
 
     # -- legacy aliases for app.py compatibility -------------------------
 
