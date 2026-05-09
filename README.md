@@ -39,7 +39,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 1490 backend + 26 Vitest composables + Playwright E2E |
-| Frontend pages | 54 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, …) |
+| Frontend pages | 55 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
 | API endpoints | 127 across 25 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.1.0 |
@@ -326,7 +326,7 @@ meridianiq/
 │       ├── app.py        # FastAPI entry point
 │       ├── routers/      # 127 endpoints across modular routers
 │       └── schemas.py    # Request/response models
-├── web/                  # SvelteKit + Tailwind (54 pages)
+├── web/                  # SvelteKit + Tailwind (55 pages)
 ├── tests/                # 1490+ backend tests
 ├── supabase/
 │   └── migrations/       # PostgreSQL schema migrations (28 files)

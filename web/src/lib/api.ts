@@ -1385,3 +1385,18 @@ export async function tombstoneRevision(
 		}
 	);
 }
+
+// ── Cycle 4 W3 — multi-revision S-curve overlay (ADR-0022 §W3) ───
+
+/**
+ * Fetch the multi-revision S-curve overlay + change-points + slope band for
+ * a project's program lineage. Visualization-only — NO forecast curve in
+ * W3 (path-A pre-commit per ADR-0022 W4 calibration gate).
+ */
+export async function getRevisionTrends(
+	projectId: string
+): Promise<import('./types').RevisionTrendsResponse> {
+	return request<import('./types').RevisionTrendsResponse>(
+		`/api/v1/projects/${projectId}/revision-trends`
+	);
+}
