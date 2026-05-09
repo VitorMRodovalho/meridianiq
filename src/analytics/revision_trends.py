@@ -137,6 +137,26 @@ class ChangePointMarker:
     """Signed days difference from the prior revision's planned_finish."""
     cusum_value: float
     description: str
+    direction: str
+    """``"slip"`` when ``delta_days > 0`` (this revision plans LATER finish
+    than prior — the local change is worsening); ``"improvement"`` when
+    ``delta_days < 0`` (this revision plans EARLIER finish than prior — the
+    local change is improving); ``"flat"`` when ``delta_days == 0``.
+
+    **DA exit-council on PR #104 P0 #1 fix**: earlier draft mapped from
+    ``sign(cusum_value)``, which is a path-dependent cumulative signal of
+    drift-from-trend-mean (NOT a local change). At a CUSUM threshold-cross
+    where local ``delta_days = +40`` (a slip) and cumulative ``cusum < 0``
+    (because earlier shifts were even larger and pulled cumsum negative),
+    the cusum-based mapping labels the revision "improvement" — which is
+    forensically inverted. The user-facing semantic of "slip" / "improvement"
+    must derive from the LOCAL revision's signed shift, not the cumulative
+    drift. ``cusum_value`` remains exposed as a separate field for users who
+    want the cumulative-drift signal.
+
+    UI surfaces "improvement" in green, "slip" in amber, "flat" in neutral.
+    Issue #89 / DA P3-1 from PR #88; DA P0 #1 fix on PR #104.
+    """
 
 
 @dataclass
@@ -163,6 +183,11 @@ class RevisionTrendsAnalysis:
     methodology: str = METHODOLOGY_CITATION
     notes: list[str] = field(default_factory=list)
     """Free-form operator-facing strings (e.g., '<5 revisions — change-point detection skipped')."""
+    skipped_revisions: list[str] = field(default_factory=list)
+    """Sibling project_ids skipped during sibling iteration (schedule unavailable
+    OR RLS-denied). Populated by the endpoint orchestrator, not by analyze_revision_trends.
+    Issue #91 / DA P3-3 from PR #88; DA exit-council P2 #8 fix on PR #104 — typed
+    field accompanying the count-only note."""
 
 
 # ── Curve extraction ──────────────────────────────────────
@@ -446,16 +471,25 @@ def analyze_revision_trends(
             # is idx + 1 (the revision AFTER the prior).
             rev_index = idx + 1
             rev_curve = out.curves[rev_index]
+            # Direction per issue #89 / DA P3-1, semantically corrected per
+            # DA exit-council P0 #1 on PR #104: derived from sign(delta_days)
+            # of the LOCAL shift at the change point, NOT sign(cusum_value)
+            # which is a path-dependent cumulative signal that can invert
+            # relative to the local user-facing change. cusum_value remains
+            # exposed as a separate field for users who want the trend signal.
+            local_delta = shifts[idx]
+            direction = "slip" if local_delta > 0 else "improvement" if local_delta < 0 else "flat"
             out.change_points.append(
                 ChangePointMarker(
                     revision_index=rev_index,
                     revision_id=rev_curve.revision_id,
                     delta_days=int(shifts[idx]),
                     cusum_value=cusum_val,
+                    direction=direction,
                     description=(
                         f"shift of {int(shifts[idx])} days vs prior revision; "
                         f"CUSUM={cusum_val:.1f} crosses {_CUSUM_SIGMA_THRESHOLD}σ "
-                        f"threshold — regime change detected"
+                        f"threshold — regime change detected ({direction})"
                     ),
                 )
             )
