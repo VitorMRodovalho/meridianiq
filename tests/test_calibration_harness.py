@@ -389,6 +389,35 @@ class TestRegistry:
         assert "construction" in a.label_set
         assert "unknown" in a.label_set
 
+    def test_lifecycle_phase_adapter_lazy_imports_resolve(self) -> None:
+        """Smoke: under the W3-C package layout (``tools/calibration_harness``
+        as a package, NOT a single module), ``_LifecyclePhaseV1Adapter``'s
+        lazy imports of ``src.parser.xer_reader.XERReader`` +
+        ``src.analytics.lifecycle_phase`` still resolve.
+
+        Issue #100 item 5 / DA P3 #16 + backend-reviewer entry-council
+        SHOULD-FIX #2 on PR #111: constructor + property reads alone
+        DON'T fire the lazy import. Force resolution by directly
+        ``importlib.import_module``-ing the lazy-imported modules
+        (matches what the adapter's ``parse_and_classify`` would trigger).
+        """
+        import importlib
+
+        # Adapter constructor + property smoke — verifies the registry path
+        # works under the package layout.
+        a = get_adapter("lifecycle_phase")
+        assert a.engine_name == "lifecycle_phase"
+        # Force-import the modules the adapter lazy-imports inside
+        # ``parse_and_classify``. If the package conversion broke either
+        # import path, these calls raise ``ModuleNotFoundError``.
+        xer_reader_mod = importlib.import_module("src.parser.xer_reader")
+        assert hasattr(xer_reader_mod, "XERReader"), (
+            "src.parser.xer_reader lacks XERReader; W3-C package conversion"
+            " may have broken the import chain"
+        )
+        lifecycle_phase_mod = importlib.import_module("src.analytics.lifecycle_phase")
+        assert hasattr(lifecycle_phase_mod, "infer_lifecycle_phase")
+
     def test_w4_protocol_matches_amendment_1(self) -> None:
         """Pin the canonical W4 numbers — the protocol shipped publicly
         as the example for ADR-0020 and downstream engines will copy

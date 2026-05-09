@@ -871,7 +871,13 @@ def get_protocol(name: str) -> CalibrationProtocol:
 # --------------------------------------------------------------------------- #
 
 
-def _cli(argv: list[str] | None = None) -> int:
+def cli(argv: list[str] | None = None) -> int:
+    """Public CLI entry point. Renamed from ``_cli`` per issue #100 / DA P2 #11
+    on PR #99: ``__main__.py`` is the documented public entry; cross-package
+    private import was convention-broken. Backend-reviewer entry-council on
+    PR #111: gates submodule (``gates/revision_trends_w4.py::_cli``) NOT
+    renamed — that one is genuinely private to the harness sub-tool and not
+    invoked outside the gates package."""
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -985,4 +991,4 @@ def _cli(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(_cli())
+    sys.exit(cli())

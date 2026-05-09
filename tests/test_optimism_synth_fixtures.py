@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -58,6 +59,18 @@ _LOCK_PATH = _FIXTURES_DIR.parent / "optimism_synth.lock"
 # (the lock test catches that first). The literal value below is THE
 # pre-registered W4 sub-gate C result against the current engine.
 _LOCKED_SUB_GATE_C_F1: float = 0.769231
+
+# Python-version provenance pin for the determinism contract. Issue #100
+# item 2 / DA P2 #8 + backend-reviewer entry-council BLOCKING #2 on PR #111:
+# json.dumps + numpy float-formatting are byte-stable WITHIN a Python minor
+# version but may drift across versions. The committed
+# `optimism_synth.lock` was authored under THIS interpreter version. When
+# CI moves to a newer Python (e.g., 3.13 → 3.14), `test_generator_is_deterministic`
+# is SKIPPED with a clear message rather than failing for a non-tampering
+# reason. Operator ceremony on Python bump: re-run the generator on the
+# new interpreter, verify the lock is still semantically correct, update
+# this constant + the lock + the locked F1 baseline if needed.
+_PYTHON_AUTHORED_AT: tuple[int, int] = (3, 12)
 
 
 def test_eight_corner_fixtures_committed() -> None:
@@ -92,7 +105,21 @@ def test_generator_is_deterministic(tmp_path: Path) -> None:
     Catches NumPy float-formatting drift between minor versions, JSON
     library changes, or accidental edits to ``_generator.py`` that
     would silently change the locked content.
+
+    Issue #100 item 2 / DA P2 #8 + backend-reviewer entry-council
+    BLOCKING #2 on PR #111: skipped on Python interpreter versions
+    other than the one the lock was authored on. Cross-Python json.dumps
+    byte-stability is NOT guaranteed; a CI move to a newer Python would
+    fail this test for a non-tampering reason. Skip + ceremony engages.
     """
+    if sys.version_info[:2] != _PYTHON_AUTHORED_AT:
+        pytest.skip(
+            f"determinism lock authored on Python {_PYTHON_AUTHORED_AT[0]}.{_PYTHON_AUTHORED_AT[1]}; "
+            f"runner is {sys.version_info.major}.{sys.version_info.minor}. "
+            f"Cross-version json.dumps + numpy float-formatting byte-stability is not "
+            f"guaranteed. Operator: re-run _generator.py on new Python + verify lock + "
+            f"update _PYTHON_AUTHORED_AT."
+        )
     expected_hashes = parse_fixture_lock(_LOCK_PATH)
     regenerated_hashes = regenerate_all(
         out_dir=tmp_path / "fixtures",
@@ -133,12 +160,19 @@ def test_tamper_detection_on_byte_flip(tmp_path: Path) -> None:
         verify_optimism_synth_hash_lock(fixtures_dir=work_dir, lock_path=work_lock)
 
 
-def test_tamper_detection_on_extra_file(tmp_path: Path) -> None:
-    """Adding an unlocked fixture triggers FixtureHashMismatch.
+def test_tamper_detection_on_extra_file_within_legitimate_range(tmp_path: Path) -> None:
+    """Adding an unlocked fixture WITHIN the legitimate filename range
+    triggers FixtureHashMismatch.
 
-    Catches a "I added a new corner without updating the lock"
-    tampering pattern (e.g., someone planting an easy fixture to
-    inflate sub-gate C F1).
+    Catches the "I added a new corner without updating the lock" tampering
+    pattern with a stronger filename: ``corner_05_v2.json`` is
+    numerically WITHIN the {01..12} range that future fixture rotations
+    might extend to, so the test cannot pass for the wrong reason if
+    Cycle 5+ extends to 12 corners. Issue #100 item 4 / DA P2 #9 fix on
+    PR #99: previous test planted ``corner_99.json`` which is
+    out-of-range and would still pass at 12 corners by trivial
+    numerical-bound check rather than by the intended "lock vs disk"
+    invariant.
     """
     work_dir = tmp_path / "work"
     work_dir.mkdir()
@@ -147,9 +181,12 @@ def test_tamper_detection_on_extra_file(tmp_path: Path) -> None:
     work_lock = tmp_path / "work.lock"
     shutil.copy2(_LOCK_PATH, work_lock)
 
-    # Plant an extra corner.
-    extra = work_dir / "corner_99.json"
-    extra.write_text(json.dumps({"fixture_id": "corner_99", "schema_version": 1}), encoding="utf-8")
+    # Plant an extra corner using the v2-suffix attack (within numeric range
+    # of legitimate corners but not in the lock). Filename: corner_05_v2.json.
+    extra = work_dir / "corner_05_v2.json"
+    extra.write_text(
+        json.dumps({"fixture_id": "corner_05_v2", "schema_version": 1}), encoding="utf-8"
+    )
 
     with pytest.raises(FixtureHashMismatch, match="missing_lock"):
         verify_optimism_synth_hash_lock(fixtures_dir=work_dir, lock_path=work_lock)
