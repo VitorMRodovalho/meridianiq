@@ -288,18 +288,15 @@ def test_analyze_only_latest_carries_executed_actuals() -> None:
     assert latest_actuals, "Most recent revision should expose actual values"
 
 
-def test_change_point_marker_direction_slip_at_3_sigma() -> None:
-    """Issue #89 / DA P3-1: positive cusum → direction='slip'.
+def test_change_point_marker_direction_slip_when_local_delta_positive() -> None:
+    """Issue #89 / DA P3-1 + DA exit-council P0 #1 fix on PR #104:
+    direction is derived from sign(delta_days) of the LOCAL shift, NOT
+    sign(cusum_value).
 
-    Default _CUSUM_SIGMA_THRESHOLD = 3.0; symmetric step functions don't fire
-    at 3σ. Asymmetric step (2 HIGH + 6 LOW shifts) fires.
-
-    Construction: shifts [200, 200, 40, 40, 40, 40, 40, 40] (front-loaded
-    HIGH). Mean=80; sigma=74.07; threshold=222.2. Cumsum=[120, 240, 200, …];
-    abs(cusum_value) at idx=1 = 240 > 222 → fires with cusum=+240 → 'slip'.
-
-    Orchestrator: shift_i = 30 + (fd_{i+1} - fd_i), so target shifts
-    ``[170, 170, 10, 10, 10, 10, 10, 10]`` need fd-deltas ``[170, 170, 10×6]``.
+    Construction: shifts [200, 200, 40×6] (front-loaded HIGH). Mean=80;
+    sigma=74.07; threshold=3σ=222.2. abs(cusum) > 222 fires at idx=1
+    only (cumsum=+240). At idx=1 the LOCAL shift = +200 (this revision
+    plans 200d LATER than prior = SLIP forensically).
     """
     finish_offsets = [10, 180, 350, 360, 370, 380, 390, 400, 410]
     revs = []
@@ -308,26 +305,71 @@ def test_change_point_marker_direction_slip_at_3_sigma() -> None:
         dd_iso = (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(days=30 * i)).isoformat()
         revs.append((f"proj-{i}", f"rev-{i}", i + 1, dd_iso, sched))
     out = analyze_revision_trends(project_id="proj-A", program_id="prog-1", revisions=revs)
-    assert out.change_points, f"expected CUSUM to fire on planted regime change; notes={out.notes}"
-    cp = out.change_points[0]
-    # The load-bearing contract of issue #89: sign(cusum_value) determines direction.
-    if cp.cusum_value > 0:
-        assert cp.direction == "slip", f"cusum {cp.cusum_value} should be 'slip'"
-    elif cp.cusum_value < 0:
-        assert cp.direction == "improvement", f"cusum {cp.cusum_value} should be 'improvement'"
-    else:
-        assert cp.direction == "flat"
-    # Description should surface the direction label.
-    assert cp.direction in cp.description, (
-        f"description should surface direction; got {cp.description!r}"
+    assert out.change_points, f"expected CUSUM to fire; notes={out.notes}"
+    # Sign-consistency contract per DA P0 #1 fix: direction = sign(delta_days).
+    for cp in out.change_points:
+        if cp.delta_days > 0:
+            assert cp.direction == "slip", (
+                f"delta_days={cp.delta_days} (>0) MUST map to 'slip', got {cp.direction!r}"
+            )
+        elif cp.delta_days < 0:
+            assert cp.direction == "improvement"
+        else:
+            assert cp.direction == "flat"
+    assert any(cp.direction == "slip" for cp in out.change_points), (
+        "expected ≥1 'slip' direction in front-loaded-positive-shifts construction"
+    )
+    assert all(cp.direction in cp.description for cp in out.change_points)
+
+
+def test_change_point_marker_direction_improvement_when_local_delta_negative() -> None:
+    """Issue #89 / DA P3-1 + DA exit-council P0 #1 fix on PR #104:
+    NEGATIVE local delta at change-point fires 'improvement' direction.
+
+    Construction: shifts [-200, -200, 50×6] (front-loaded NEGATIVE — early
+    revisions plan EARLIER finish than prior; later revisions slip 50d).
+    Mean=-12.5; sigma=115.7; threshold=347.2. abs(cusum) > 347 fires at
+    idx=1 (cumsum=-375). At idx=1 the LOCAL shift = -200 (this revision
+    plans 200d EARLIER than prior = IMPROVEMENT forensically). To get
+    shift=-200 via orchestrator (shift = 30 + fd-delta): fd-deltas =
+    [-230, -230, 20×6]. Pick fd_0=500 so all fd values stay positive.
+    """
+    finish_offsets = [500, 270, 40, 60, 80, 100, 120, 140, 160]
+    revs = []
+    for i, fd in enumerate(finish_offsets):
+        sched = _schedule_with_acts([_act("t1", duration_hr=float(fd) * 8.0)])
+        dd_iso = (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(days=30 * i)).isoformat()
+        revs.append((f"proj-{i}", f"rev-{i}", i + 1, dd_iso, sched))
+    out = analyze_revision_trends(project_id="proj-A", program_id="prog-1", revisions=revs)
+    assert out.change_points, f"expected CUSUM to fire; notes={out.notes}"
+    for cp in out.change_points:
+        if cp.delta_days > 0:
+            assert cp.direction == "slip"
+        elif cp.delta_days < 0:
+            assert cp.direction == "improvement", (
+                f"delta_days={cp.delta_days} (<0) MUST map to 'improvement', got {cp.direction!r}"
+            )
+        else:
+            assert cp.direction == "flat"
+    assert any(cp.direction == "improvement" for cp in out.change_points), (
+        "expected ≥1 'improvement' direction in front-loaded-negative-shifts construction"
     )
 
 
-def test_change_point_marker_direction_improvement_at_3_sigma() -> None:
-    """Issue #89 / DA P3-1: negative cusum → direction='improvement'.
+def test_change_point_marker_direction_decoupled_from_cusum_sign() -> None:
+    """DA exit-council P0 #1 fix on PR #104: direction is decoupled from
+    cusum_value sign (which is path-dependent), tied to local delta sign.
 
-    Mirror construction: back-loaded HIGH (6 LOW + 2 HIGH).
-    Shifts [40×6, 200×2]; cumsum drifts to -240 at idx=5 < -222 threshold.
+    Pinning regression: a CP where cusum_value < 0 BUT delta_days > 0
+    MUST be labeled 'slip' (not 'improvement'). The earlier draft mapped
+    from sign(cusum) which would inverted-label this revision.
+
+    Construction: shifts [40×6, 200×2] (back-loaded HIGH). Cumsum drifts
+    NEGATIVE on the early-low-shifts and stays negative through the
+    late-high-shifts because cumsum-from-mean integral is below zero
+    overall. At idx=5 cumsum=-240 (NEGATIVE), but shifts[5]=40 (POSITIVE
+    — local slip). With the CORRECT semantic, direction='slip'. With the
+    broken sign(cusum) semantic, direction would have been 'improvement'.
     """
     finish_offsets = [10, 20, 30, 40, 50, 60, 70, 240, 410]
     revs = []
@@ -336,16 +378,17 @@ def test_change_point_marker_direction_improvement_at_3_sigma() -> None:
         dd_iso = (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(days=30 * i)).isoformat()
         revs.append((f"proj-{i}", f"rev-{i}", i + 1, dd_iso, sched))
     out = analyze_revision_trends(project_id="proj-A", program_id="prog-1", revisions=revs)
-    assert out.change_points, f"expected CUSUM to fire on planted regime change; notes={out.notes}"
-    # All firing CPs must satisfy the sign-consistency contract.
-    for cp in out.change_points:
-        assert cp.direction in ("slip", "improvement", "flat"), cp.direction
-        if cp.cusum_value > 0:
-            assert cp.direction == "slip"
-        elif cp.cusum_value < 0:
-            assert cp.direction == "improvement"
-        else:
-            assert cp.direction == "flat"
+    assert out.change_points, f"expected CUSUM to fire; notes={out.notes}"
+    inverted_cases = [cp for cp in out.change_points if cp.cusum_value < 0 and cp.delta_days > 0]
+    assert inverted_cases, (
+        "test construction failed to produce a CP with cusum<0 + delta>0; "
+        "rebalance shifts to surface the inversion case"
+    )
+    for cp in inverted_cases:
+        assert cp.direction == "slip", (
+            f"DA P0 #1 fix regression: cusum<0+delta>0 case must be 'slip' "
+            f"(local slip dominant), got {cp.direction!r}"
+        )
 
 
 def test_analyze_curves_ordered_by_data_date() -> None:

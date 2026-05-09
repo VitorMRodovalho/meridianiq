@@ -32,9 +32,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.analytics.revision_trends import analyze_revision_trends
+from src.analytics.revision_trends import (
+    RevisionTrendsAnalysis,
+    analyze_revision_trends,
+)
 
 from ..auth import require_auth
 from ..deps import RATE_LIMIT_ANALYSIS, RATE_LIMIT_WRITE, get_store, limiter
@@ -344,20 +348,24 @@ def revision_trends_endpoint(
         analysis = _analyze_with_fallback(
             project_id=project_id, program_id=program_id, revisions=[]
         )
+        analysis.skipped_revisions = list(skipped_pids)
         if skipped_pids:
             analysis.notes.append(
                 f"{len(skipped_pids)} sibling revision(s) skipped: schedule data not "
-                f"available (project missing OR RLS denied)"
+                f"available (project missing OR RLS denied) — see "
+                f"`skipped_revisions` field for the project_ids"
             )
         return _to_response(analysis)
 
     analysis = _analyze_with_fallback(
         project_id=project_id, program_id=program_id, revisions=revisions
     )
+    analysis.skipped_revisions = list(skipped_pids)
     if skipped_pids:
         analysis.notes.append(
             f"{len(skipped_pids)} sibling revision(s) skipped: schedule data not "
-            f"available (project missing OR RLS denied)"
+            f"available (project missing OR RLS denied) — see "
+            f"`skipped_revisions` field for the project_ids"
         )
     return _to_response(analysis)
 
@@ -367,26 +375,57 @@ def _analyze_with_fallback(
     project_id: str,
     program_id: str | None,
     revisions: list[tuple[str, str | None, int | None, str | None, Any]],
-) -> Any:
-    """Wrap ``analyze_revision_trends`` with try/except per issue #90 / DA P3-2.
+) -> RevisionTrendsAnalysis:
+    """Wrap ``analyze_revision_trends`` with narrow exception catch per issue
+    #90 / DA P3-2 (DA exit-council P1 #7 narrowing on PR #104).
 
-    NumPy edge cases (NaN, zero-variance shifts, malformed CPM output) could
-    raise from inside ``analyze_revision_trends``. Per ADR-0022 §"W3 —
-    C-visualization": viz should ship value even when downstream computation
-    fails (same principle as W4 path-A fallback). Returns a partial analysis
-    with ``notes: ["analysis failed: <ExceptionClassName>"]`` rather than 500.
+    NumPy data-edge cases (NaN, zero-variance shifts, near-singular OLS
+    matrices, divide-by-zero) could raise from inside
+    ``analyze_revision_trends``. Per ADR-0022 §"W3 — C-visualization": viz
+    should ship value even when downstream computation fails (same principle
+    as W4 path-A fallback). Returns a partial analysis with
+    ``notes: ["analysis failed: <ExceptionClassName> ..."]`` rather than 500.
+
+    **Narrow catch per DA exit-council P1 #7**: only data-edge exceptions
+    are caught (``ValueError``, ``ArithmeticError``, ``FloatingPointError``,
+    ``np.linalg.LinAlgError``). Programming bugs (``TypeError``,
+    ``AttributeError``, ``KeyError``, ``MemoryError``, ``RecursionError``)
+    propagate as 500 to surface in Sentry/CI rather than silently degrade
+    to "analysis failed: TypeError" with no alert.
+
+    Methodology field is ALSO cleared on the fallback path per DA exit-
+    council P1 #5 — failed analyses should not surface the AACE 29R-03
+    citation as if the analysis ran.
     """
     try:
         return analyze_revision_trends(
             project_id=project_id, program_id=program_id, revisions=revisions
         )
-    except Exception as exc:  # noqa: BLE001 — boundary catch by design
-        from src.analytics.revision_trends import RevisionTrendsAnalysis
-
+    except (
+        ValueError,
+        ArithmeticError,
+        FloatingPointError,
+        np.linalg.LinAlgError,
+    ) as exc:
         fallback = RevisionTrendsAnalysis(project_id=project_id, program_id=program_id)
+        # P1 #5 fix: clear methodology so failed-analysis response does NOT
+        # carry the AACE citation as if the analysis ran.
+        fallback.methodology = ""
         fallback.notes.append(
             f"analysis failed: {type(exc).__name__} — partial response per ADR-0022 "
-            f"viz-ships-value principle (issue #90 / DA P3-2)"
+            f"viz-ships-value principle (issue #90 / DA P3-2). Methodology citation "
+            f"cleared (DA exit-council P1 #5 on PR #104). Server-side log retains "
+            f"full exception."
+        )
+        # Log the full exception for operator triage (DA exit-council P3 #16).
+        logger.warning(
+            "revision_trends analysis failed; returning fallback. project_id=%s, "
+            "program_id=%s, revisions_n=%d, exc=%s",
+            project_id,
+            program_id,
+            len(revisions),
+            exc,
+            exc_info=True,
         )
         return fallback
 
@@ -437,4 +476,5 @@ def _to_response(analysis: Any) -> RevisionTrendsResponse:
         ),
         methodology=analysis.methodology,
         notes=analysis.notes,
+        skipped_revisions=list(getattr(analysis, "skipped_revisions", [])),
     )

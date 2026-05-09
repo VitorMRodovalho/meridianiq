@@ -9,7 +9,7 @@ under the InMemoryStore-backed test harness. Uses TestClient + JWT mint.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
@@ -571,13 +571,15 @@ def test_revision_trends_200_with_sibling_revisions(
 
 
 def test_revision_trends_skipped_sibling_in_notes(
-    client: TestClient, fresh_store: InMemoryStore
+    client: TestClient, fresh_store: InMemoryStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Issue #91 / DA P3-3: silent skip masks 'missing' vs 'RLS-denied'.
 
-    Construct two siblings; manually wipe one's schedule from `_projects` to
-    simulate the case `get_project(pid, user_id) returns None`. Endpoint
-    must surface a skipped-sibling note rather than silently dropping.
+    Two siblings; monkeypatch `get_project` to return None for sibling p1
+    (simulates RLS-denied OR missing). Endpoint surfaces a skipped-sibling
+    note + populates the typed `skipped_revisions` list. DA exit-council
+    P2 #8 + P2 #11 fix on PR #104: monkeypatch is less brittle than reaching
+    into ProjectStore inner dict; the response also exposes the typed field.
     """
     p1 = fresh_store.save_project(
         upload_id="u1",
@@ -589,10 +591,15 @@ def test_revision_trends_skipped_sibling_in_notes(
         schedule=_schedule("PROJ-SKIP", datetime(2026, 2, 1, tzinfo=timezone.utc)),
         user_id="user-w2-test",
     )
-    # Simulate "schedule unavailable" for sibling p1 (RLS-denied OR missing).
-    # ProjectStore wraps the inner dict; pop directly to drop the schedule
-    # without affecting project_meta or owner mappings.
-    fresh_store._projects._projects.pop(p1, None)
+    # Public-API simulation: monkeypatch get_project to return None for p1.
+    real_get = fresh_store.get_project
+
+    def _patched_get(pid: str, user_id: str | None = None) -> Any:
+        if pid == p1:
+            return None
+        return real_get(pid, user_id=user_id)
+
+    monkeypatch.setattr(fresh_store, "get_project", _patched_get)
     token = _make_token()
     resp = client.get(
         f"/api/v1/projects/{p2}/revision-trends",
@@ -600,11 +607,19 @@ def test_revision_trends_skipped_sibling_in_notes(
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
+    # Note-based surfacing (count + reference to typed field).
     skipped_notes = [n for n in body["notes"] if "skipped" in n.lower()]
     assert skipped_notes, (
         f"expected skipped-sibling note when schedule unavailable; got notes={body['notes']}"
     )
     assert "1 sibling" in skipped_notes[0] or "1 sibling revision" in skipped_notes[0]
+    # Typed-field surfacing (DA exit-council P2 #8 fix): actual project_ids exposed.
+    assert p1 in body["skipped_revisions"], (
+        f"expected p1={p1} in skipped_revisions; got {body['skipped_revisions']}"
+    )
+    assert p2 not in body["skipped_revisions"], (
+        f"p2={p2} should NOT be in skipped_revisions (its schedule was returned)"
+    )
 
 
 def test_revision_trends_error_fallback_on_analytics_failure(
@@ -626,7 +641,11 @@ def test_revision_trends_error_fallback_on_analytics_failure(
     )
 
     def _raise(*args: Any, **kwargs: Any) -> Any:
-        raise RuntimeError("synthetic numpy edge-case for issue #90 test")
+        # ValueError simulates a data-edge case the fallback IS expected to
+        # catch per DA exit-council P1 #7 narrowing on PR #104. RuntimeError
+        # would propagate as 500 (programming-bug class), which is the
+        # correct behavior — see test_revision_trends_programming_bug_propagates.
+        raise ValueError("synthetic numpy edge-case for issue #90 test")
 
     monkeypatch.setattr("src.api.routers.revisions.analyze_revision_trends", _raise)
     token = _make_token()
@@ -640,33 +659,117 @@ def test_revision_trends_error_fallback_on_analytics_failure(
     assert failure_notes, (
         f"expected 'analysis failed' note on synthetic exception; got notes={body['notes']}"
     )
-    assert "RuntimeError" in failure_notes[0]
+    assert "ValueError" in failure_notes[0]
+    # P1 #5 fix: methodology MUST be cleared on fallback path so the response
+    # does NOT carry the AACE 29R-03 citation as if the analysis ran.
+    assert body["methodology"] == "", (
+        f"expected empty methodology on fallback (P1 #5 fix); got {body['methodology']!r}"
+    )
+
+
+def test_revision_trends_programming_bug_propagates_as_500(
+    client: TestClient,
+    fresh_store: InMemoryStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DA exit-council P1 #7 fix on PR #104: programming bugs (TypeError,
+    AttributeError, KeyError, RuntimeError) MUST propagate as 500, NOT be
+    swallowed by the fallback. The narrow exception catch in
+    `_analyze_with_fallback` only catches data-edge errors (ValueError,
+    ArithmeticError, FloatingPointError, np.linalg.LinAlgError).
+
+    A wider catch would silently degrade programming bugs to "analysis
+    failed: TypeError" with no Sentry trip, hiding regressions indefinitely.
+    """
+    p1_id = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-BUG", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+
+    def _raise_typeerror(*args: Any, **kwargs: Any) -> Any:
+        raise TypeError("synthetic programming-bug — should propagate, not degrade")
+
+    monkeypatch.setattr("src.api.routers.revisions.analyze_revision_trends", _raise_typeerror)
+    token = _make_token()
+    # FastAPI/TestClient surfaces uncaught exceptions as 500.
+    # Use raise_server_exceptions=False to capture the 500 response.
+    test_client = TestClient(app, raise_server_exceptions=False)
+    resp = test_client.get(
+        f"/api/v1/projects/{p1_id}/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 500, (
+        f"TypeError MUST propagate as 500 (programming bug class); got {resp.status_code}"
+    )
 
 
 def test_revision_trends_change_point_carries_direction_field(
     client: TestClient, fresh_store: InMemoryStore
 ) -> None:
-    """Issue #89 / DA P3-1: ChangePointMarkerSchema.direction surfaces in API.
+    """Issue #89 / DA P3-1 + DA exit-council P0 #3 fix on PR #104.
 
-    Schema field exists with default 'slip'; verify the response shape includes
-    it for any change_point emitted (analytic-level direction tests live in
-    test_revision_trends.py — this is the API surface contract pin).
+    Earlier draft used a single-revision construction that NEVER produces
+    change_points (CUSUM requires N≥5 revisions); the for-loop iterated
+    zero times and the test was VACUOUSLY passing. Fixed by constructing
+    9 sibling revisions with the same shifts that the analytic-level test
+    `test_change_point_marker_direction_slip_when_local_delta_positive`
+    uses, so the endpoint actually emits change_points + the API surface
+    contract on `direction` is non-vacuously verified.
     """
-    p1 = fresh_store.save_project(
-        upload_id="u1",
-        schedule=_schedule("PROJ-DIR", datetime(2026, 1, 1, tzinfo=timezone.utc)),
-        user_id="user-w2-test",
-    )
+    # Same finish-offset construction as the analytic-level slip test:
+    # shifts [200, 200, 40×6] → fires at idx=1 with direction='slip'.
+    finish_offsets = [10, 180, 350, 360, 370, 380, 390, 400, 410]
+    project_ids: list[str] = []
+    base_dt = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    for i, fd in enumerate(finish_offsets):
+        # Schedule with single activity whose duration_hr = fd*8 (8hr/day) →
+        # planned_finish_day = fd days. Same convention as test_revision_trends.py.
+        from src.parser.models import Task
+
+        sched = ParsedSchedule()
+        sched.projects.append(
+            Project(
+                proj_id="1",
+                proj_short_name="PROJ-DIR-MR",
+                last_recalc_date=base_dt + timedelta(days=30 * i),
+            )
+        )
+        sched.activities = [
+            Task(
+                task_id="t1",
+                target_drtn_hr_cnt=float(fd) * 8.0,
+                remain_drtn_hr_cnt=float(fd) * 8.0,
+                target_end_date=base_dt + timedelta(days=30 * i),
+            )
+        ]
+        pid = fresh_store.save_project(upload_id=f"u{i}", schedule=sched, user_id="user-w2-test")
+        project_ids.append(pid)
+
+    # Query against the LATEST revision (last project_id); endpoint resolves
+    # siblings via auto-grouped program_id and analyzes all 9 revisions.
     token = _make_token()
     resp = client.get(
-        f"/api/v1/projects/{p1}/revision-trends",
+        f"/api/v1/projects/{project_ids[-1]}/revision-trends",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # Single revision → no change_points. But schema should still validate.
-    assert "change_points" in body
-    # If any change_point existed, the direction field must be present.
+    # The 9-revision construction MUST produce ≥1 change_point per analytic-
+    # level test guarantees; the API surface contract on `direction` is now
+    # actually verified.
+    assert body["change_points"], (
+        f"expected ≥1 change_point on 9-revision construction (API surface "
+        f"contract for direction field); got notes={body['notes']}"
+    )
     for cp in body["change_points"]:
-        assert "direction" in cp
-        assert cp["direction"] in ("slip", "improvement", "flat")
+        assert "direction" in cp, "API surface MUST include direction field"
+        assert cp["direction"] in ("slip", "improvement", "flat"), cp["direction"]
+        # Sign-consistency contract per DA exit-council P0 #1 fix: direction
+        # follows sign(delta_days), NOT sign(cusum_value).
+        if cp["delta_days"] > 0:
+            assert cp["direction"] == "slip"
+        elif cp["delta_days"] < 0:
+            assert cp["direction"] == "improvement"
+        else:
+            assert cp["direction"] == "flat"

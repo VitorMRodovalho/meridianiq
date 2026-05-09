@@ -2027,12 +2027,16 @@ class ChangePointMarkerSchema(BaseModel):
     delta_days: int
     cusum_value: float
     direction: str = Field(
-        default="slip",
         description=(
-            "'slip' (cusum_value > 0, above-mean drift / later finish than trend), "
-            "'improvement' (cusum_value < 0, below-mean drift / earlier finish), "
-            "or 'flat' (degenerate). UI renders 'improvement' in green, 'slip' "
-            "in amber. Issue #89 / DA P3-1 from PR #88."
+            "'slip' (delta_days > 0, this revision plans LATER finish than prior — "
+            "local change is worsening), 'improvement' (delta_days < 0, this revision "
+            "plans EARLIER finish than prior — local change is improving), or 'flat' "
+            "(delta_days == 0). DA exit-council P0 #1 fix on PR #104: direction is "
+            "derived from sign(delta_days) of the LOCAL shift, NOT sign(cusum_value) "
+            "which is a path-dependent cumulative drift signal. UI renders 'improvement' "
+            "in green, 'slip' in amber, 'flat' in neutral. No default — schema and "
+            "dataclass require explicit value (DA exit-council P1 #4 fix). "
+            "Issue #89 / DA P3-1 from PR #88."
         ),
     )
     description: str
@@ -2072,3 +2076,14 @@ class RevisionTrendsResponse(BaseModel):
     slope_band: Optional[SlopeBandSchema] = None
     methodology: str = ""
     notes: list[str] = Field(default_factory=list)
+    skipped_revisions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Sibling project_ids that were skipped during sibling iteration "
+            "because store.get_project() returned None (project missing OR "
+            "RLS-denied — the API does not distinguish). Surfaced as a typed "
+            "list per DA exit-council P2 #8 fix on PR #104; the count also "
+            "appears in `notes` for human-readable surfacing. Issue #91 / "
+            "DA P3-3 from PR #88."
+        ),
+    )
