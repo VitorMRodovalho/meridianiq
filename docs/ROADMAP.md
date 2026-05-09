@@ -6,7 +6,7 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-05-09 (Cycle 4 close — v4.2.0 β-honest path-A discipline tag. Cycle 4 W4 pre-registered calibration gate path-A activated per ADR-0023; optimism-pattern forecast feature ships preview-only. Cycle 3 + Cycle 4 work consolidated in single v4.2.0 release tag. 7.0/9 graceful threshold met at exact floor — no margin per DA exit-council finding).**
+> Last refreshed: **2026-05-09 evening (Cycle 5 entry — Z-shape consolidation + optional W5 outreach per [ADR-0024](adr/0024-cycle-5-entry-z-shape-consolidation.md). Off-list option chosen per Round 2 paired DA+IV adversarial council convergence — all of paths A/B/C in their currently-framed shapes were dominated by an off-list shape. Z-DA primary (tech-debt close-out + dep refresh + mypy hygiene), Z-IV optional W5 parallel (active outreach gated on W0 runway+contacts disclosure). 5-7 nominal waves, 7.5-10.5 actual.)**
 
 ---
 
@@ -31,20 +31,45 @@ architectural decisions in [`docs/adr/`](adr/); structural audits in
 
 ---
 
-## Next — Cycle 5+ (post-v4.2.0)
+## Next — Cycle 5 (in flight, kickoff 2026-05-09 evening)
 
-**No Cycle 5 entry ADR yet authored.** Cycle 5 entry pre-registration runs on the same protocol established Cycle 2: 4-agent council (PV + strategist round 1 parallel; DA + IV round 2 paired adversarially). Date TBD on maintainer schedule.
+**Theme:** Z-shape consolidation ([ADR-0024](adr/0024-cycle-5-entry-z-shape-consolidation.md), Option Z-DA primary + Option Z-IV optional W5 parallel).
+**Tag target:** `v4.3.0` (consolidation + hygiene minor) OR `v4.2.1` (patch class if scope reduces).
 
-**Cycle 5 candidate deeps** (carry-over from prior cycles, gated on demand-validation OR corpus-evidence preconditions):
+The 2026-05-09 evening Cycle 5 entry council ran the 4-agent protocol per cycles 2-4 cadence (PV + strategist Round 1 parallel; DA + IV Round 2 paired adversarial per [ADR-0022 NFM-9](adr/0022-cycle-4-entry-beta-honest.md)). Round 2 reached convergence that **all 3 surviving paths** (Path A Field-surface deep, Path B Owner-rep portfolio dashboard, Path C calibration-discipline + corpus assembly — Path D E1 forensic was dropped Round 1 as TRAP per strategist) **fail in distinct ways**, with both DA and IV independently surfacing an OFF-LIST option. Both Round 2 agents broke from their Round 1 counterparts on substantive grounds (anti-sycophancy convergence): PV's "persona-recovery is structural urgency" framing is unfalsifiable escalation; strategist's "Path C highest-conviction moat play" framing is inside-ideology epistemic circularity (the ideology being audited is the calibration discipline that gives Path C its conviction).
 
-- **A1+A2 — auto-grouping deep + baseline inference** (ADR-0019 §"Reversibility", deferred from Cycle 3 + Cycle 4). Three preconditions per ADR-0021 §"Why NOT the PV deep": (a) merge-cascade migration scoped + ADR; (b) labeled corpus for grouping; (c) labeled corpus for baseline. None satisfied.
-- **E1 — multi-discipline forensic methodology** (ADR-0019 §"Option 3", deferred from Cycle 4). Reactivates when (a) Cycle 5+ W4 sub-gate A passes (corpus N≥30) AND (b) labeled forensic gold-standard corpus is procurable. Same corpus precondition that Cycle 4 W4 path-A confirms is unmet.
-- **Optimism-pattern forecast feature reactivation** (ADR-0023 §"Cycle 5+ preconditions") — gated on ALL of: `n_with_consent_path ≥ 30`, outcome-labeled corpus, calibration pairs JSON, re-run sub-gate B, author Cycle 5+ outcome ADR with paired DA + IV council. **Realistic timeline 12-24 months minimum** per ADR-0023 §"Cycle 5+ preconditions" + IV exit-council finding #3 (operator + LGPD + community triple-bottleneck).
-- **Field-surface deep** — Field Engineer mobile + offline + AIA G702/G703 + sub workflows. Cycle 4 W5 was scoped as a spike, dropped in execution. Could promote to deep with demand-validation evidence (≥3 prospects asking explicitly).
-- **Schedule Viewer Wave 7** — backend engines exist (resource_leveling, evm); Gantt UI integration tracked at #23 + sub-issues #29-#32. Slot-opportunistic shallow inside any cycle.
-- **Plugin sandbox / E3 marketplace** (ADR-0019 §"Option 2") — gated on subprocess/WASM sandbox ADR + ≥5 external plugins + license-attestation flow. None satisfied.
+The chairman synthesis accepted Z-shape OFF-LIST: pure consolidation cycle (Z-DA primary, DA's off-list shape) + active demand-discovery (Z-IV optional W5 parallel, IV's off-list shape) folded as gated optional component dependent on W0 runway + contacts disclosure.
 
-**Cycle 5+ entry framing risk** — per [ADR-0023 §"Pattern check vs. ADR-0009"](adr/0023-cycle-4-w4-outcome.md) the "calibration theater" critique is now CITABLE (two consecutive W4 path-A activations). Cycle 5+ entry ADR MUST address this honestly: either (a) Cycle 5 ships a deep that is corpus-independent (visualization/UX/governance), OR (b) Cycle 5 commits to corpus assembly as the primary deliverable (Operator-paced + LGPD/GDPR + community-supplied), accepting the 12-24 month timeline. Pretending Cycle 5+ will incidentally produce the corpus while shipping another calibration-dependent feature would be calibration theater of its own.
+| Wave | Delivers | Status |
+|------|----------|--------|
+| W0 | This ROADMAP refresh + ADR-0024 + LESSONS_LEARNED Cycle 5 entry header + maintainer financial runway disclosure (bracket: <6mo / 6-12mo / 12-24mo / >24mo) + AACE TCM / PMI-CP contact-path inventory (criterions #2 + #3) | OPEN — entry ADR PR |
+| W1 | Tech-debt close-out batch 1: Cycle 4 W3 backend P3 follow-ups (#92 endpoint integration test, #91 404-vs-RLS-denied, #90 error handling, #89 CUSUM improvement-vs-slip) | NOT STARTED |
+| W2 | Tech-debt close-out batch 2: Cycle 4 W3-B/C frontend P2/P3 follow-ups (#96 locale-aware formatting, #97 SVG a11y, #98 revision-trends polish, #100 W3-C ADR amendment) | NOT STARTED |
+| W3 | Tech-debt close-out batch 3: Cycle 4 W2/W4 + frontend test infra (#82 race condition test, #84/#85/#86 UX polish, #87 Vitest harness for Svelte 5) | NOT STARTED |
+| W4 | Hygiene: dep refresh batch + types-networkx install + dcma14 datetime fix (mypy strict 4 errors → 0) + catalog regen | NOT STARTED |
+| W5 (optional, gated on W0) | Z-IV active outreach: ≥1 of {paid-product conversation, AACE/PMI working group inquiry, Issue #13 community-call refresh}. Each component independently executable | NOT STARTED |
+
+Pre-registered success criteria (≥6/9 graceful threshold, relaxed from Cycle 4 ≥7/9 reflecting Z-shape's lower aggregate ambition + tech-debt-only nature of W1-W4): see [ADR-0024 §"Pre-registered success criteria"](adr/0024-cycle-5-entry-z-shape-consolidation.md).
+
+**Calibration framework status this cycle**: held without modification. ADR-0023 stays load-bearing. Heteroscedasticity formula + sub-gate thresholds (A=30, B=0.20, C=0.75) remain locked. No Cycle 5 attempt to revise.
+
+**Calibration-theater pattern engagement**: pure Z-DA SUSPENDS (NOT extends) the pattern; Z-DA + Z-IV optional W5 ATTEMPTS to engage falsifier #2 (external citation) + #3 (independent attestation) + indirectly #1 (corpus growth via community refresh). Cycle 5 close honestly reports which falsifiers moved (likely zero unless Z-IV components execute and produce inbound signal — base rate ≈ 0% for solo OSS cold outreach to standards bodies per Round 2 IV pattern-match).
+
+---
+
+## Cycle 6+ candidate deeps (deferred from Cycle 5 entry council, post-v4.3.0 / v4.2.1)
+
+Same gating language as the Cycle 5 entry council carried forward:
+
+- **A1+A2 — auto-grouping deep + baseline inference** (deferred 3rd consecutive cycle). Three preconditions per [ADR-0021 §"Why NOT the PV deep"](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) still UNMET.
+- **E1 — multi-discipline forensic methodology** (named TRAP in Cycle 5 Round 1 strategist; deferred). Reactivates Cycle 6+ ONLY if (a) labeled forensic gold-standard corpus is procurable AND (b) demand-validation signal materializes.
+- **Optimism-pattern forecast feature reactivation** ([ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md)) — 12-24 month timeline minimum unchanged.
+- **Field-surface deep** (Cycle 5 Path A least-worst of A/B/C but rejected on DA P0 4-primitive-stack scope risk). Reactivates Cycle 6+ as **deep candidate** IF (a) ≥1 design-partner conversation logged AND (b) pre-W0 audit-spike completes G702/G703 inventory.
+- **Owner-rep program-portfolio dashboard** (Cycle 5 Path B rejected as B-completo-lite). Reactivates Cycle 6+ IF (a) ≥3 prospects ask explicitly per ADR-0022 demand-validation gate AND (b) PMO Director persona pull demonstrably opens (a)-class moat surface.
+- **Schedule Viewer Wave 7** — slot-opportunistic shallow inside any cycle.
+- **Plugin sandbox / E3 marketplace** — preconditions still unmet.
+
+**Cycle 6+ entry framing risk** unchanged from ADR-0023 §"Pattern check vs. ADR-0009". Cycle 5 = Z does not move the falsifier directly; Z-IV W5 components (if executed) attempt indirect movement. Cycle 6+ entry must re-evaluate based on Cycle 5 close evidence — including W0 runway + contacts disclosure outcomes that may materially change the candidate set.
 
 ---
 
