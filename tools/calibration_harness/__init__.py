@@ -516,6 +516,225 @@ def truncated_program_key_hash(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
+# --------------------------------------------------------------------------- #
+# W3-C — optimism_synth fixture hash-lock verification (ADR-0022 HB-D).
+# --------------------------------------------------------------------------- #
+
+
+_OPTIMISM_SYNTH_DIR = Path(__file__).parent / "fixtures" / "optimism_synth"
+_OPTIMISM_SYNTH_LOCK = Path(__file__).parent / "fixtures" / "optimism_synth.lock"
+
+
+class FixtureHashMismatch(RuntimeError):
+    """Raised when an on-disk fixture does not match its hash-lock entry.
+
+    W4 sub-gate C MUST treat this as an evaluation abort: the fixtures
+    have been retuned post-W3-close, so the gate is structurally
+    invalid. ADR-0023 documents the tampering when this fires.
+    """
+
+
+def parse_fixture_lock(lock_path: Path) -> dict[str, str]:
+    """Parse a fixture lock file into ``{filename: sha256}``.
+
+    Lock-file format (W3-C, intentionally minimal — no library
+    dependency, no JSON-schema overhead):
+
+        # comments start with '#'
+        # blank lines ignored
+        <sha256_hex>  <relative_filename>
+
+    Spaces between hash and filename are flexible (≥1 whitespace).
+    """
+    out: dict[str, str] = {}
+    if not lock_path.exists():
+        raise FileNotFoundError(f"fixture lock not found: {lock_path}")
+    for raw in lock_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            raise ValueError(f"malformed lock entry: {raw!r}")
+        sha, name = parts
+        if len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha.lower()):
+            raise ValueError(f"non-sha256 hash in lock: {sha!r}")
+        out[name] = sha.lower()
+    return out
+
+
+def verify_optimism_synth_hash_lock(
+    fixtures_dir: Path | None = None,
+    lock_path: Path | None = None,
+) -> dict[str, str]:
+    """Verify every fixture in ``fixtures_dir`` matches its lock entry.
+
+    Returns the ``{filename: sha256}`` dict on success.
+
+    Raises:
+        FixtureHashMismatch: if any fixture's on-disk SHA256 differs
+            from the lock, OR the lock has entries with no on-disk
+            file, OR the directory has fixtures absent from the lock.
+            All three are tampering signals.
+
+    W4 sub-gate C invocation contract: call this BEFORE any
+    F1-evaluation work begins. A clean return is the only path to
+    proceeding; any raise aborts and lands in ADR-0023.
+    """
+    fdir = fixtures_dir or _OPTIMISM_SYNTH_DIR
+    lpath = lock_path or _OPTIMISM_SYNTH_LOCK
+    expected = parse_fixture_lock(lpath)
+    actual: dict[str, str] = {}
+    for path in sorted(fdir.glob("corner_*.json")):
+        actual[path.name] = sha256_path(path)
+    if set(expected) != set(actual):
+        missing_disk = sorted(set(expected) - set(actual))
+        missing_lock = sorted(set(actual) - set(expected))
+        raise FixtureHashMismatch(
+            f"fixture set mismatch — locked={sorted(expected)} disk={sorted(actual)} "
+            f"missing_disk={missing_disk} missing_lock={missing_lock}"
+        )
+    drift: dict[str, tuple[str, str]] = {}
+    for name, want in expected.items():
+        got = actual[name]
+        if got != want:
+            drift[name] = (want, got)
+    if drift:
+        report = ", ".join(f"{n}: locked={w[:8]}… got={g[:8]}…" for n, (w, g) in drift.items())
+        raise FixtureHashMismatch(f"hash drift detected (W4 sub-gate C MUST abort): {report}")
+    return actual
+
+
+# --------------------------------------------------------------------------- #
+# W3-C — sub-gate C F1 evaluator (DA P1 #1+#3 closure).
+# --------------------------------------------------------------------------- #
+#
+# Locked HERE before the W4 evaluation runs, on the SAME PR as the fixture
+# hash-lock, to close both axes of the circular-tuning attack: fixtures
+# can't be retuned post-W3 (hash-lock) AND the F1 metric definition
+# can't be retuned post-W3 (code-lock). DA exit-council finding P1 #1+#3.
+
+
+@dataclass(frozen=True)
+class CusumF1Result:
+    """Sub-gate C output: cluster-span-match F1 against ground truth.
+
+    Notation:
+    * ``true_positives`` — clusters that overlap at least one truth's
+      tolerance window. Counted per-truth (at most one TP per truth).
+    * ``false_positives`` — clusters that overlap no truth window.
+    * ``false_negatives`` — truths with no overlapping cluster.
+
+    F1 returns 0.0 on undefined cases (zero detections + zero truths,
+    or zero TP). Avoids division-by-zero ambiguity that future
+    evaluators could exploit to redefine the threshold.
+    """
+
+    true_positives: int
+    false_positives: int
+    false_negatives: int
+    precision: float
+    recall: float
+    f1: float
+    matched_truths: tuple[int, ...]
+    fp_cluster_starts: tuple[int, ...]
+
+
+def collapse_detection_clusters(
+    detections: Sequence[int],
+    *,
+    max_gap: int = 1,
+) -> list[tuple[int, int]]:
+    """Collapse adjacent detection indices into ``(first, last)`` spans.
+
+    CUSUM is multi-fire by design (every index where ``|cumsum| ≥ Nσ``
+    appears in the result list — see ``revision_trends.py:312-315``).
+    For F1 evaluation we treat a contiguous run of detections as ONE
+    regime-change signal, not N false positives. ``max_gap=1`` allows
+    a single missing index inside a run (defensive — single index
+    drop-outs are common at threshold boundaries).
+    """
+    if not detections:
+        return []
+    sorted_dets = sorted(detections)
+    clusters: list[tuple[int, int]] = []
+    start = prev = sorted_dets[0]
+    for d in sorted_dets[1:]:
+        if d - prev > max_gap:
+            clusters.append((start, prev))
+            start = d
+        prev = d
+    clusters.append((start, prev))
+    return clusters
+
+
+def evaluate_cusum_f1(
+    detections: Sequence[int],
+    ground_truths: Sequence[int],
+    *,
+    tolerance: int = 1,
+    cluster_max_gap: int = 1,
+) -> CusumF1Result:
+    """F1 against ground-truth change-points using cluster-span match.
+
+    Match rule: a detection cluster ``[first, last]`` matches a truth
+    ``t`` iff its expanded span ``[first - tolerance, last + tolerance]``
+    contains ``t``. Each truth can match at most one cluster (chosen
+    greedily by cluster start index). Each cluster can match at most
+    one truth.
+
+    Span-match (vs first-detection match) chosen because the engine's
+    CUSUM-on-shifts naturally fires across multiple revisions during
+    the same regime shift (the cumsum minimum often lands at the END
+    of pre-CP run, not at the CP itself). Span-match rewards the
+    engine for correctly identifying the WINDOW containing the
+    regime change — which is the user-facing semantic of the
+    revision_trends visualization (vertical change-point markers
+    indicate the contested window, not a single point estimate).
+
+    Returns:
+        ``CusumF1Result`` with TP / FP / FN / precision / recall / F1.
+        ``f1 = 0.0`` on undefined cases (no detections + truths, or
+        zero TP after matching). Returning 0 on undefined is the
+        conservative choice — sub-gate C threshold ≥ 0.75 cannot be
+        "passed by vacuity" via empty inputs.
+    """
+    clusters = collapse_detection_clusters(detections, max_gap=cluster_max_gap)
+    truths = sorted(set(ground_truths))
+    matched_truths: list[int] = []
+    matched_cluster_idx: set[int] = set()
+    for t in truths:
+        for ci, (first, last) in enumerate(clusters):
+            if ci in matched_cluster_idx:
+                continue
+            if (first - tolerance) <= t <= (last + tolerance):
+                matched_truths.append(t)
+                matched_cluster_idx.add(ci)
+                break
+    tp = len(matched_truths)
+    fp = len(clusters) - len(matched_cluster_idx)
+    fn = len(truths) - tp
+    fp_starts = tuple(c[0] for ci, c in enumerate(clusters) if ci not in matched_cluster_idx)
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    if tp == 0 or (precision + recall) == 0:
+        f1 = 0.0
+    else:
+        f1 = 2 * precision * recall / (precision + recall)
+
+    return CusumF1Result(
+        true_positives=tp,
+        false_positives=fp,
+        false_negatives=fn,
+        precision=round(precision, 6),
+        recall=round(recall, 6),
+        f1=round(f1, 6),
+        matched_truths=tuple(matched_truths),
+        fp_cluster_starts=fp_starts,
+    )
+
+
 class _LifecyclePhaseV1Adapter:
     """Adapter for ``src.analytics.lifecycle_phase`` v1 — the engine
     that backed the Wave-4 calibration. Used for the W3 demo run."""

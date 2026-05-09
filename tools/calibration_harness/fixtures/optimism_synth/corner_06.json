@@ -1,0 +1,29 @@
+{
+  "finish_days": [
+    99.8528,
+    101.7538,
+    101.1887,
+    101.4716,
+    105.065,
+    106.0064,
+    105.363,
+    106.3373,
+    112.069,
+    117.586,
+    122.3155,
+    126.3812
+  ],
+  "fixture_id": "corner_06",
+  "ground_truth": {
+    "regime_change_at_revision_index": 7,
+    "tolerance_revisions": 1
+  },
+  "schema_version": 1,
+  "spec": {
+    "baseline_pattern": "B",
+    "ground_truth_cp_revision_index": 7,
+    "n_revisions": 12,
+    "noise_sigma": 0.1,
+    "seed": 642
+  }
+}
