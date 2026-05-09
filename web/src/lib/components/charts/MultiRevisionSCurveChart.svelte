@@ -30,15 +30,35 @@
 	// and pushes methodology disclosure off-screen on first paint. Wrap in
 	// <details> always-in-DOM (LifecyclePhaseCard.svelte pattern); summary
 	// shown only when shouldCollapse=true (sm:hidden via conditional render).
+	//
+	// Initial-mobile-collapse vs resize-to-mobile-preserve (DA exit-council
+	// P0 #2 fix on PR #109): legendOpen defaults to true so the legend is
+	// visible by default on tablet/desktop. On the FIRST detection of
+	// shouldCollapse=true (initial mobile load with N>8), the effect
+	// collapses once. Subsequent resizes (e.g., tablet rotate landscape →
+	// portrait) do NOT re-collapse — `initialCollapseDone` ensures the
+	// auto-collapse runs at most once per chart instance, preserving the
+	// user's manual toggle state across viewport changes.
 	let isMobile = $state(false);
-	let legendOpen = $state(false);
+	let legendOpen = $state(true);
+	let initialCollapseDone = $state(false);
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const mq = window.matchMedia('(max-width: 640px)');
 		isMobile = mq.matches;
+		// Initial-paint check: collapse once if mobile + N>8 at first mount.
+		// Subsequent resize events do NOT trigger this branch.
+		if (!initialCollapseDone) {
+			initialCollapseDone = true;
+			if (mq.matches && curves.length > 8) {
+				legendOpen = false;
+			}
+		}
 		const handler = (e: MediaQueryListEvent) => {
 			isMobile = e.matches;
+			// Intentionally do NOT re-collapse on resize: preserve user's
+			// manual toggle state. P0 #2 fix.
 		};
 		mq.addEventListener('change', handler);
 		return () => mq.removeEventListener('change', handler);
@@ -228,10 +248,18 @@
 	// "no revisions" empty state.
 	//
 	// Issue #98 item 2 (DA P3 #14 from PR #95) + frontend-ux-reviewer entry-
-	// council nice-to-have #11 on PR #109: extend to also cover the
-	// degenerate-X case where points are populated but all day_offsets=0
-	// (single-day project with multiple revisions all at d=0). Renders
-	// explicit empty-state instead of "D+0..D+1" axis with no curves.
+	// council nice-to-have #11 + DA exit-council P2 #9 on PR #109: extend to
+	// also cover the degenerate-X case where points are populated but all
+	// day_offsets=0 (single-day project with multiple revisions all at d=0).
+	// Renders explicit empty-state instead of "D+0..D+1" axis with no curves.
+	//
+	// **Reachability uncertainty acknowledged**: DA P2 #9 flagged that the
+	// backend's ability to emit all-zero day_offset curves has not been
+	// explicitly verified. Adding this defense without proof of need is
+	// regret-bait per DA. Kept here as a one-line guard with this comment;
+	// if backend guarantee says "extract_planned_curve always emits ≥2
+	// distinct day_offsets when activities have non-zero CPM finishes", a
+	// future cleanup PR should drop the second clause.
 	const isAllEmpty = $derived(
 		curves.length > 0 &&
 			(curves.every((c) => c.points.length === 0) ||
@@ -245,12 +273,10 @@
 	// path; the page-level `clientWarnings` derivation surfaces a user-visible
 	// note in trends.notes (frontend-ux-reviewer entry-council SHOULD-FIX #6
 	// on PR #109: console.warn alone hides the bug).
-	const lastExecutedIndex = $derived.by((): number => {
-		for (let i = curves.length - 1; i >= 0; i--) {
-			if (curves[i].is_executed) return i;
-		}
-		return -1;
-	});
+	// findLastIndex (ES2023, target esnext, supported by all modern browsers)
+	// per DA exit-council P1 #6 fix on PR #109: idiomatic 1-line replacement
+	// for the manual reverse-loop earlier draft.
+	const lastExecutedIndex = $derived(curves.findLastIndex((c) => c.is_executed));
 </script>
 
 <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -414,9 +440,12 @@
 			ontoggle={(e) => (legendOpen = e.currentTarget.open)}
 		>
 			{#if shouldCollapse}
-				<summary
-					class="text-xs cursor-pointer text-gray-600 dark:text-gray-400 list-none [&::-webkit-details-marker]:hidden"
-				>
+				<summary class="text-xs cursor-pointer text-gray-600 dark:text-gray-400 list-none">
+					<!-- list-none alone hides the disclosure marker on both webkit
+					     and Firefox/Gecko (verified by frontend-ux-reviewer council
+					     P2 #7). Earlier draft also added [&::-webkit-details-marker]:hidden
+					     which was webkit-only redundant defense; dropped per DA
+					     exit-council P2 #7 fix on PR #109. -->
 					{legendCollapsedSummary(curves.length)}
 				</summary>
 			{/if}

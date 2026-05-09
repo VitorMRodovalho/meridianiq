@@ -79,9 +79,11 @@
 	}
 
 	// Client-side derived warnings — frontend-ux-reviewer entry-council
-	// SHOULD-FIX #6 on PR #109: console.warn for multi-executed invariant
-	// violation is invisible to users + ops; surface alongside trends.notes
-	// so the bug is reportable rather than silently hidden.
+	// SHOULD-FIX #6 + DA exit-council P1 #5 on PR #109: console.warn for
+	// multi-executed invariant violation is invisible to users + ops;
+	// surface alongside trends.notes (user-visible) AND emit a console.warn
+	// for ops/Sentry breadcrumb capture (Sentry browser SDK auto-captures
+	// console.warn into breadcrumbs).
 	const clientWarnings = $derived.by((): string[] => {
 		if (trends == null) return [];
 		const out: string[] = [];
@@ -90,6 +92,18 @@
 			out.push($t('revision_trends.multi_executed_warning'));
 		}
 		return out;
+	});
+
+	// Ops capture: emit console.warn when client-side invariant violation is
+	// detected so the Sentry browser SDK breadcrumbs the event. Without this,
+	// the bug is only visible to the user reading the amber bullet — if they
+	// don't notice or report, the invariant violation goes unobserved.
+	$effect(() => {
+		if (clientWarnings.length === 0) return;
+		for (const w of clientWarnings) {
+			// eslint-disable-next-line no-console
+			console.warn('[revision-trends] client-detected invariant violation:', w);
+		}
 	});
 
 	// Methodology cite-or-fail. Frontend hardcodes the AACE 29R-03 reference
@@ -153,16 +167,22 @@
 	</div>
 
 	<!--
-		CLS guard per issue #98 item 1 / DA P2 #9. Wrapping skeleton + result
-		block in a min-h container reduces page-jump on result arrival. Tuned
-		for the empty-state and slope-band-only cases; full-content layout
-		(slope card + 360px chart + change-points list + methodology) exceeds
-		this min-height — frontend-ux-reviewer entry-council nice-to-have #9
-		acknowledged this only fixes the skeleton-to-empty transition.
+		CLS guard per issue #98 item 1 / DA P2 #9 + DA exit-council P0 #1 fix
+		on PR #109. Earlier draft used min-h-[420px] but default AnalysisSkeleton
+		(4 KPI cards + chart + table) renders ~626px — so 420px was non-binding,
+		and the CLS claim was illusory. Corrected approach:
+		(a) Pass scoped AnalysisSkeleton props matching the actual revision-trends
+		    layout (slope card + chart + change-points list, NO table) to size
+		    skeleton ≈ 600px.
+		(b) Wrapper at min-h-[600px] matches both skeleton and populated baseline
+		    (slope card 80px + chart 360px + lists 100-200px + methodology 40px ≈
+		    600-700px). Eliminates jump in empty-state and slope-band-only cases;
+		    full-content with many change-points may overflow the floor as
+		    additive expansion, not jump.
 	-->
-	<div class="min-h-[420px]">
+	<div class="min-h-[600px]">
 		{#if loading}
-			<AnalysisSkeleton />
+			<AnalysisSkeleton cards={1} showChart={true} showTable={false} />
 		{:else if errMsg}
 			<div
 				class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg p-4 mb-6"
@@ -190,8 +210,21 @@
 						{$t('revision_trends.slope_metric_label')}
 					</p>
 					<div class="flex items-baseline gap-3 flex-wrap">
+						<!--
+							MARKUP-SIDE: formatNumber($locale, ...) MUST be called inline
+							in markup (NOT hoisted to a $derived in <script>) to remain
+							reactive on locale change. Frontend-ux-reviewer entry-council
+							BLOCKING #1 on PR #109; tripwire comment per DA exit-council
+							P1 #3 fix on PR #109.
+
+							-0 normalization (DA exit-council P1 #4): pass `value || 0`
+							to canonicalize IEEE-754 -0 → +0 before formatting. Without
+							this, signDisplay:'always' renders "-0" for a slope of
+							exactly 0 which is internally inconsistent with the
+							"+/-/0 sign always" intent.
+						-->
 						<span class="text-2xl font-bold {slopeColorClass(sb)}">
-							{formatNumber(sb.slope_days_per_revision, $locale, {
+							{formatNumber(sb.slope_days_per_revision || 0, $locale, {
 								maximumFractionDigits: 1,
 								signDisplay: 'always',
 							})}
