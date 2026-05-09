@@ -137,6 +137,13 @@ class ChangePointMarker:
     """Signed days difference from the prior revision's planned_finish."""
     cusum_value: float
     description: str
+    direction: str
+    """``"slip"`` when ``cusum_value > 0`` (accumulated above-mean drift =
+    later finish than the trend); ``"improvement"`` when ``cusum_value < 0``
+    (accumulated below-mean drift = earlier finish than the trend); ``"flat"``
+    only when ``cusum_value == 0`` (which the threshold would not cross —
+    included for type-completeness). UI surfaces "improvement" in green,
+    "slip" in amber. Issue #89 / DA P3-1 from PR #88."""
 
 
 @dataclass
@@ -446,16 +453,21 @@ def analyze_revision_trends(
             # is idx + 1 (the revision AFTER the prior).
             rev_index = idx + 1
             rev_curve = out.curves[rev_index]
+            # Direction per issue #89 / DA P3-1: sign(cusum_value).
+            # cusum_value > 0 = accumulated above-mean drift = SLIP.
+            # cusum_value < 0 = accumulated below-mean drift = IMPROVEMENT.
+            direction = "slip" if cusum_val > 0 else "improvement" if cusum_val < 0 else "flat"
             out.change_points.append(
                 ChangePointMarker(
                     revision_index=rev_index,
                     revision_id=rev_curve.revision_id,
                     delta_days=int(shifts[idx]),
                     cusum_value=cusum_val,
+                    direction=direction,
                     description=(
                         f"shift of {int(shifts[idx])} days vs prior revision; "
                         f"CUSUM={cusum_val:.1f} crosses {_CUSUM_SIGMA_THRESHOLD}σ "
-                        f"threshold — regime change detected"
+                        f"threshold — regime change detected ({direction})"
                     ),
                 )
             )

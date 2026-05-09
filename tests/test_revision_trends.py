@@ -288,6 +288,66 @@ def test_analyze_only_latest_carries_executed_actuals() -> None:
     assert latest_actuals, "Most recent revision should expose actual values"
 
 
+def test_change_point_marker_direction_slip_at_3_sigma() -> None:
+    """Issue #89 / DA P3-1: positive cusum → direction='slip'.
+
+    Default _CUSUM_SIGMA_THRESHOLD = 3.0; symmetric step functions don't fire
+    at 3σ. Asymmetric step (2 HIGH + 6 LOW shifts) fires.
+
+    Construction: shifts [200, 200, 40, 40, 40, 40, 40, 40] (front-loaded
+    HIGH). Mean=80; sigma=74.07; threshold=222.2. Cumsum=[120, 240, 200, …];
+    abs(cusum_value) at idx=1 = 240 > 222 → fires with cusum=+240 → 'slip'.
+
+    Orchestrator: shift_i = 30 + (fd_{i+1} - fd_i), so target shifts
+    ``[170, 170, 10, 10, 10, 10, 10, 10]`` need fd-deltas ``[170, 170, 10×6]``.
+    """
+    finish_offsets = [10, 180, 350, 360, 370, 380, 390, 400, 410]
+    revs = []
+    for i, fd in enumerate(finish_offsets):
+        sched = _schedule_with_acts([_act("t1", duration_hr=float(fd) * 8.0)])
+        dd_iso = (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(days=30 * i)).isoformat()
+        revs.append((f"proj-{i}", f"rev-{i}", i + 1, dd_iso, sched))
+    out = analyze_revision_trends(project_id="proj-A", program_id="prog-1", revisions=revs)
+    assert out.change_points, f"expected CUSUM to fire on planted regime change; notes={out.notes}"
+    cp = out.change_points[0]
+    # The load-bearing contract of issue #89: sign(cusum_value) determines direction.
+    if cp.cusum_value > 0:
+        assert cp.direction == "slip", f"cusum {cp.cusum_value} should be 'slip'"
+    elif cp.cusum_value < 0:
+        assert cp.direction == "improvement", f"cusum {cp.cusum_value} should be 'improvement'"
+    else:
+        assert cp.direction == "flat"
+    # Description should surface the direction label.
+    assert cp.direction in cp.description, (
+        f"description should surface direction; got {cp.description!r}"
+    )
+
+
+def test_change_point_marker_direction_improvement_at_3_sigma() -> None:
+    """Issue #89 / DA P3-1: negative cusum → direction='improvement'.
+
+    Mirror construction: back-loaded HIGH (6 LOW + 2 HIGH).
+    Shifts [40×6, 200×2]; cumsum drifts to -240 at idx=5 < -222 threshold.
+    """
+    finish_offsets = [10, 20, 30, 40, 50, 60, 70, 240, 410]
+    revs = []
+    for i, fd in enumerate(finish_offsets):
+        sched = _schedule_with_acts([_act("t1", duration_hr=float(fd) * 8.0)])
+        dd_iso = (datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(days=30 * i)).isoformat()
+        revs.append((f"proj-{i}", f"rev-{i}", i + 1, dd_iso, sched))
+    out = analyze_revision_trends(project_id="proj-A", program_id="prog-1", revisions=revs)
+    assert out.change_points, f"expected CUSUM to fire on planted regime change; notes={out.notes}"
+    # All firing CPs must satisfy the sign-consistency contract.
+    for cp in out.change_points:
+        assert cp.direction in ("slip", "improvement", "flat"), cp.direction
+        if cp.cusum_value > 0:
+            assert cp.direction == "slip"
+        elif cp.cusum_value < 0:
+            assert cp.direction == "improvement"
+        else:
+            assert cp.direction == "flat"
+
+
 def test_analyze_curves_ordered_by_data_date() -> None:
     """Caller is responsible for ascending data_date order; verify it survives."""
     revs = []

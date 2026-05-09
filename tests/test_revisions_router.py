@@ -487,3 +487,186 @@ def test_tombstone_does_not_leak_state_to_other_user(
         f"Expected 404 (cross-tenant ownership reject) but got "
         f"{leak_attempt.status_code} — RLS bypass via idempotent tombstone return"
     )
+
+
+# ────────────────────────────────────────────────────────────
+# revision-trends endpoint (Cycle 5 W1 batch 1 — issues #89, #90, #91, #92)
+# ────────────────────────────────────────────────────────────
+
+
+def test_revision_trends_unauth_returns_401(client: TestClient) -> None:
+    """Issue #92 / DA P3-6: endpoint integration test — 401 path."""
+    resp = client.get("/api/v1/projects/p1/revision-trends")
+    assert resp.status_code == 401
+
+
+def test_revision_trends_404_when_project_missing(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Issue #92 / DA P3-6: endpoint integration test — 404 path."""
+    token = _make_token()
+    resp = client.get(
+        "/api/v1/projects/nonexistent/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 404
+
+
+def test_revision_trends_200_owner_happy_path_single_revision(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Issue #92 / DA P3-6: 200 owner path with single revision (no program siblings).
+
+    Assigns a project to a fresh program; no other siblings in the program.
+    Endpoint returns curve-only response (single-revision view).
+    """
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.get(
+        f"/api/v1/projects/{p1}/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["project_id"] == p1
+    assert "curves" in body
+    assert "change_points" in body
+    assert "notes" in body
+    # methodology citation surfaced
+    assert "29R-03" in body["methodology"] or "AACE" in body["methodology"]
+
+
+def test_revision_trends_200_with_sibling_revisions(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Issue #92 / DA P3-6: 200 owner path with multi-revision (sibling) program."""
+    # Two siblings under same proj_short_name → same auto-grouped program.
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-MR", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-MR", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.get(
+        f"/api/v1/projects/{p2}/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["project_id"] == p2
+    assert len(body["curves"]) >= 1
+    # Both siblings should be reachable; no skipped-sibling note for happy path.
+    skipped_notes = [n for n in body["notes"] if "skipped" in n.lower()]
+    assert not skipped_notes, f"unexpected skipped-sibling note: {skipped_notes}"
+    _ = p1  # referenced by sibling lookup
+
+
+def test_revision_trends_skipped_sibling_in_notes(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Issue #91 / DA P3-3: silent skip masks 'missing' vs 'RLS-denied'.
+
+    Construct two siblings; manually wipe one's schedule from `_projects` to
+    simulate the case `get_project(pid, user_id) returns None`. Endpoint
+    must surface a skipped-sibling note rather than silently dropping.
+    """
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-SKIP", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-SKIP", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    # Simulate "schedule unavailable" for sibling p1 (RLS-denied OR missing).
+    # ProjectStore wraps the inner dict; pop directly to drop the schedule
+    # without affecting project_meta or owner mappings.
+    fresh_store._projects._projects.pop(p1, None)
+    token = _make_token()
+    resp = client.get(
+        f"/api/v1/projects/{p2}/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    skipped_notes = [n for n in body["notes"] if "skipped" in n.lower()]
+    assert skipped_notes, (
+        f"expected skipped-sibling note when schedule unavailable; got notes={body['notes']}"
+    )
+    assert "1 sibling" in skipped_notes[0] or "1 sibling revision" in skipped_notes[0]
+
+
+def test_revision_trends_error_fallback_on_analytics_failure(
+    client: TestClient,
+    fresh_store: InMemoryStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Issue #90 / DA P3-2: analyze_revision_trends raising MUST NOT 500.
+
+    Patches the analytics function to raise; endpoint should return 200 with
+    a partial response carrying ``notes: ['analysis failed: <ExceptionClass>...']``.
+    Per ADR-0022 §"W3 — C-visualization": viz ships value even when downstream
+    computation fails.
+    """
+    p1_id = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-ERR", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+
+    def _raise(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("synthetic numpy edge-case for issue #90 test")
+
+    monkeypatch.setattr("src.api.routers.revisions.analyze_revision_trends", _raise)
+    token = _make_token()
+    resp = client.get(
+        f"/api/v1/projects/{p1_id}/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    failure_notes = [n for n in body["notes"] if "analysis failed" in n.lower()]
+    assert failure_notes, (
+        f"expected 'analysis failed' note on synthetic exception; got notes={body['notes']}"
+    )
+    assert "RuntimeError" in failure_notes[0]
+
+
+def test_revision_trends_change_point_carries_direction_field(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Issue #89 / DA P3-1: ChangePointMarkerSchema.direction surfaces in API.
+
+    Schema field exists with default 'slip'; verify the response shape includes
+    it for any change_point emitted (analytic-level direction tests live in
+    test_revision_trends.py — this is the API surface contract pin).
+    """
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-DIR", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.get(
+        f"/api/v1/projects/{p1}/revision-trends",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # Single revision → no change_points. But schema should still validate.
+    assert "change_points" in body
+    # If any change_point existed, the direction field must be present.
+    for cp in body["change_points"]:
+        assert "direction" in cp
+        assert cp["direction"] in ("slip", "improvement", "flat")

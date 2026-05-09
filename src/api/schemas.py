@@ -2026,6 +2026,15 @@ class ChangePointMarkerSchema(BaseModel):
     revision_id: Optional[str] = None
     delta_days: int
     cusum_value: float
+    direction: str = Field(
+        default="slip",
+        description=(
+            "'slip' (cusum_value > 0, above-mean drift / later finish than trend), "
+            "'improvement' (cusum_value < 0, below-mean drift / earlier finish), "
+            "or 'flat' (degenerate). UI renders 'improvement' in green, 'slip' "
+            "in amber. Issue #89 / DA P3-1 from PR #88."
+        ),
+    )
     description: str
 
 

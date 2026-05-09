@@ -297,7 +297,7 @@ def revision_trends_endpoint(
         sched = store.get_project(project_id, user_id=user_id)
         if sched is None:
             raise HTTPException(status_code=404, detail="project schedule not available")
-        analysis = analyze_revision_trends(
+        analysis = _analyze_with_fallback(
             project_id=project_id,
             program_id=None,
             revisions=[(project_id, None, None, current.get("data_date"), sched)],
@@ -317,12 +317,16 @@ def revision_trends_endpoint(
     }
 
     # 3. Build (project_id, rev_id, rev_num, data_date_iso, schedule) tuples,
-    #    sorted ascending by data_date for the orchestrator.
+    #    sorted ascending by data_date for the orchestrator. Track skipped
+    #    siblings per issue #91 / DA P3-3 (silent skip masks "missing" vs
+    #    "RLS-denied" cases — surface in notes for operator audit).
     revisions: list[tuple[str, str | None, int | None, str | None, Any]] = []
+    skipped_pids: list[str] = []
     for s in siblings:
         pid = s["project_id"]
         sched = store.get_project(pid, user_id=user_id)
         if sched is None:
+            skipped_pids.append(pid)
             continue
         rh = rh_by_project.get(pid)
         revisions.append(
@@ -337,15 +341,54 @@ def revision_trends_endpoint(
     revisions.sort(key=lambda t: t[3] or "")
 
     if not revisions:
-        analysis = analyze_revision_trends(
+        analysis = _analyze_with_fallback(
             project_id=project_id, program_id=program_id, revisions=[]
         )
+        if skipped_pids:
+            analysis.notes.append(
+                f"{len(skipped_pids)} sibling revision(s) skipped: schedule data not "
+                f"available (project missing OR RLS denied)"
+            )
         return _to_response(analysis)
 
-    analysis = analyze_revision_trends(
+    analysis = _analyze_with_fallback(
         project_id=project_id, program_id=program_id, revisions=revisions
     )
+    if skipped_pids:
+        analysis.notes.append(
+            f"{len(skipped_pids)} sibling revision(s) skipped: schedule data not "
+            f"available (project missing OR RLS denied)"
+        )
     return _to_response(analysis)
+
+
+def _analyze_with_fallback(
+    *,
+    project_id: str,
+    program_id: str | None,
+    revisions: list[tuple[str, str | None, int | None, str | None, Any]],
+) -> Any:
+    """Wrap ``analyze_revision_trends`` with try/except per issue #90 / DA P3-2.
+
+    NumPy edge cases (NaN, zero-variance shifts, malformed CPM output) could
+    raise from inside ``analyze_revision_trends``. Per ADR-0022 §"W3 —
+    C-visualization": viz should ship value even when downstream computation
+    fails (same principle as W4 path-A fallback). Returns a partial analysis
+    with ``notes: ["analysis failed: <ExceptionClassName>"]`` rather than 500.
+    """
+    try:
+        return analyze_revision_trends(
+            project_id=project_id, program_id=program_id, revisions=revisions
+        )
+    except Exception as exc:  # noqa: BLE001 — boundary catch by design
+        from src.analytics.revision_trends import RevisionTrendsAnalysis
+
+        fallback = RevisionTrendsAnalysis(project_id=project_id, program_id=program_id)
+        fallback.notes.append(
+            f"analysis failed: {type(exc).__name__} — partial response per ADR-0022 "
+            f"viz-ships-value principle (issue #90 / DA P3-2)"
+        )
+        return fallback
 
 
 def _to_response(analysis: Any) -> RevisionTrendsResponse:
@@ -377,6 +420,7 @@ def _to_response(analysis: Any) -> RevisionTrendsResponse:
                 revision_id=cp.revision_id,
                 delta_days=cp.delta_days,
                 cusum_value=cp.cusum_value,
+                direction=cp.direction,
                 description=cp.description,
             )
             for cp in analysis.change_points
