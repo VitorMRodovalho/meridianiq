@@ -128,6 +128,13 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
+        env:
+          # Stopgap: cloudflare/wrangler-action@v3.15.0 still uses
+          # `using: node20` (verified 2026-05-09). GitHub deprecates Node 20
+          # actions on 2026-06-02. Force Node 24 runtime until Cloudflare
+          # ships a Node-24-native version of the action. Remove this env
+          # block when wrangler-action declares `using: node24` upstream.
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
