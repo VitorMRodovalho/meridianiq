@@ -1348,4 +1348,6 @@ export default {
 	'revision_trends.empty_no_revisions': 'Nenhuma revisão para exibir. Faça upload de um projeto para começar a tendência.',
 	'revision_trends.empty_single_revision': 'Apenas uma revisão disponível — análises de ponto de mudança e inclinação requerem múltiplas revisões.',
 	'revision_trends.axis_not_calendar_disclosure': 'O eixo X mostra dias a partir da data-status de cada revisão — as revisões NÃO estão alinhadas por calendário. Uma ou mais curvas está sem o metadado data_date.',
+	'revision_trends.legend.collapsed_summary': '{n} revisões — mostrar legenda',
+	'revision_trends.multi_executed_warning': 'Invariante de backend violada: mais de uma revisão sinalizada is_executed=true. O gráfico mostra apenas a mais recente. Reportar em github.com/VitorMRodovalho/meridianiq/issues.',
 } as Record<string, string>;

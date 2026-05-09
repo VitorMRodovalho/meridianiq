@@ -10,6 +10,7 @@
 		emptyLabel?: string;
 		executedLabel?: string;
 		changePointLabel?: string;
+		legendCollapsedSummary?: (n: number) => string;
 	}
 
 	let {
@@ -21,7 +22,33 @@
 		emptyLabel = 'No revisions to display.',
 		executedLabel = 'Executed',
 		changePointLabel = 'Change point',
+		legendCollapsedSummary = (n: number) => `${n} revisions — show legend`,
 	}: Props = $props();
+
+	// Mobile legend-collapse state (issue #97 part 2 / DA P2 #12 from PR #95).
+	// On <640px viewports with N>8 revisions, the legend wraps to 4-5 rows
+	// and pushes methodology disclosure off-screen on first paint. Wrap in
+	// <details> always-in-DOM (LifecyclePhaseCard.svelte pattern); summary
+	// shown only when shouldCollapse=true (sm:hidden via conditional render).
+	let isMobile = $state(false);
+	let legendOpen = $state(false);
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const mq = window.matchMedia('(max-width: 640px)');
+		isMobile = mq.matches;
+		const handler = (e: MediaQueryListEvent) => {
+			isMobile = e.matches;
+		};
+		mq.addEventListener('change', handler);
+		return () => mq.removeEventListener('change', handler);
+	});
+
+	const shouldCollapse = $derived(isMobile && curves.length > 8);
+	// <details open> attribute: when shouldCollapse=false, always open
+	// (renders legend chips inline). When shouldCollapse=true, controlled
+	// by user click on <summary>.
+	const detailsOpen = $derived(!shouldCollapse || legendOpen);
 
 	const WIDTH = 800;
 	const PAD_TOP = 28;
@@ -163,7 +190,13 @@
 				return {
 					x: xPos(0 + shift),
 					description: cp.description,
-					revisionLabel: c.revision_number != null ? `R${c.revision_number}` : `#${cp.revision_index}`,
+					// 1-based fallback aligning with endpointLabels at line 185
+					// + page changePointLabel function. Issue #98 item 5 +
+					// frontend-ux-reviewer entry-council BLOCKING #2 on PR #109:
+					// chart was internally inconsistent (line 166 0-based vs
+					// line 185 1-based); aligned to 1-based per least-surprise.
+					revisionLabel:
+						c.revision_number != null ? `R${c.revision_number}` : `#${cp.revision_index + 1}`,
 				};
 			})
 			.filter((v): v is NonNullable<typeof v> => v !== null);
@@ -193,9 +226,31 @@
 	// points=[] (defensive backend output, e.g., CPM failed for all
 	// revisions). DA exit-council finding P2#7 — distinguish from
 	// "no revisions" empty state.
+	//
+	// Issue #98 item 2 (DA P3 #14 from PR #95) + frontend-ux-reviewer entry-
+	// council nice-to-have #11 on PR #109: extend to also cover the
+	// degenerate-X case where points are populated but all day_offsets=0
+	// (single-day project with multiple revisions all at d=0). Renders
+	// explicit empty-state instead of "D+0..D+1" axis with no curves.
 	const isAllEmpty = $derived(
-		curves.length > 0 && curves.every((c) => c.points.length === 0)
+		curves.length > 0 &&
+			(curves.every((c) => c.points.length === 0) ||
+				curves.every((c) => c.points.every((p) => p.day_offset === 0))),
 	);
+
+	// Multi-executed defensive z-order (issue #98 item 4 / DA P3 #16 from PR #95).
+	// Backend invariant: only the most recent revision should have is_executed=true.
+	// Defensive: find the LAST is_executed curve via findLast (ES2023). If the
+	// invariant is violated, the chart renders only that last curve's actual
+	// path; the page-level `clientWarnings` derivation surfaces a user-visible
+	// note in trends.notes (frontend-ux-reviewer entry-council SHOULD-FIX #6
+	// on PR #109: console.warn alone hides the bug).
+	const lastExecutedIndex = $derived.by((): number => {
+		for (let i = curves.length - 1; i >= 0; i--) {
+			if (curves[i].is_executed) return i;
+		}
+		return -1;
+	});
 </script>
 
 <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -274,13 +329,17 @@
 					{/if}
 				{/each}
 
-				<!-- Executed curve (heavy overlay on top of its planned counterpart) -->
-				{#each curves as c, i}
-					{@const d = buildActualPath(c, i)}
+				<!-- Executed curve (heavy overlay on top of its planned counterpart).
+				     Defensive z-order per issue #98 item 4: render only the LAST
+				     is_executed curve (backend invariant: only most-recent should be
+				     flagged). If multiple are flagged, the page-level clientWarnings
+				     surfaces a user-visible note. -->
+				{#if lastExecutedIndex >= 0}
+					{@const d = buildActualPath(curves[lastExecutedIndex], lastExecutedIndex)}
 					{#if d}
 						<path {d} fill="none" stroke="#3b82f6" stroke-width="3" opacity="0.95" />
 					{/if}
-				{/each}
+				{/if}
 
 				<!-- Change-point vertical markers -->
 				{#each changePointVisuals as cp}
@@ -344,39 +403,56 @@
 			</g>
 		</svg>
 
-		<!-- Legend (chips, flex-wrap for mobile) -->
-		<div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 px-2 text-xs">
-			{#each curves as c, i}
-				<div class="flex items-center gap-1.5">
-					<span
-						class="inline-block w-3 h-0.5"
-						style="background-color: {curveColor(i, curves.length)}"
-					></span>
-					<span class="text-gray-600 dark:text-gray-400">
-						{c.revision_number != null ? `R${c.revision_number}` : `#${i + 1}`}
-						{#if c.data_date}
-							<span class="text-gray-400 dark:text-gray-500">
-								— {c.data_date}
-							</span>
-						{/if}
-					</span>
-				</div>
-			{/each}
-			{#if curves.some((c) => c.is_executed)}
-				<div class="flex items-center gap-1.5">
-					<span class="inline-block w-3 h-1" style="background-color: #3b82f6"></span>
-					<span class="text-gray-600 dark:text-gray-400">{executedLabel}</span>
-				</div>
+		<!-- Legend (chips, flex-wrap for mobile). Issue #97 part 2 / DA P2 #12
+		     mobile collapse: when shouldCollapse=true (mobile <640px AND
+		     curves.length > 8), wrapped in <details> with summary; on
+		     desktop or N≤8 the summary is omitted and legend renders inline.
+		     Always-in-DOM <details> per LifecyclePhaseCard precedent. -->
+		<details
+			class="mt-3"
+			open={detailsOpen}
+			ontoggle={(e) => (legendOpen = e.currentTarget.open)}
+		>
+			{#if shouldCollapse}
+				<summary
+					class="text-xs cursor-pointer text-gray-600 dark:text-gray-400 list-none [&::-webkit-details-marker]:hidden"
+				>
+					{legendCollapsedSummary(curves.length)}
+				</summary>
 			{/if}
-			{#if changePointVisuals.length > 0}
-				<div class="flex items-center gap-1.5">
-					<span
-						class="inline-block w-3 h-px border-t border-dashed"
-						style="border-color: #dc2626"
-					></span>
-					<span class="text-gray-600 dark:text-gray-400">{changePointLabel}</span>
-				</div>
-			{/if}
-		</div>
+			<div class="{shouldCollapse ? 'mt-2' : ''} flex flex-wrap gap-x-4 gap-y-1 px-2 text-xs">
+				{#each curves as c, i}
+					<div class="flex items-center gap-1.5">
+						<span
+							class="inline-block w-3 h-0.5"
+							style="background-color: {curveColor(i, curves.length)}"
+						></span>
+						<span class="text-gray-600 dark:text-gray-400">
+							{c.revision_number != null ? `R${c.revision_number}` : `#${i + 1}`}
+							{#if c.data_date}
+								<span class="text-gray-400 dark:text-gray-500">
+									— {c.data_date}
+								</span>
+							{/if}
+						</span>
+					</div>
+				{/each}
+				{#if curves.some((c) => c.is_executed)}
+					<div class="flex items-center gap-1.5">
+						<span class="inline-block w-3 h-1" style="background-color: #3b82f6"></span>
+						<span class="text-gray-600 dark:text-gray-400">{executedLabel}</span>
+					</div>
+				{/if}
+				{#if changePointVisuals.length > 0}
+					<div class="flex items-center gap-1.5">
+						<span
+							class="inline-block w-3 h-px border-t border-dashed"
+							style="border-color: #dc2626"
+						></span>
+						<span class="text-gray-600 dark:text-gray-400">{changePointLabel}</span>
+					</div>
+				{/if}
+			</div>
+		</details>
 	{/if}
 </div>

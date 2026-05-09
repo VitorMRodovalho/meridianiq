@@ -1350,4 +1350,6 @@ export default {
 	'revision_trends.empty_no_revisions': 'No revisions to display. Upload a project to start trending.',
 	'revision_trends.empty_single_revision': 'Only one revision available — change-point and slope analyses require multiple revisions.',
 	'revision_trends.axis_not_calendar_disclosure': 'X-axis shows days from each revision\'s own data-date — revisions are NOT calendar-aligned. One or more curves is missing data_date metadata.',
+	'revision_trends.legend.collapsed_summary': '{n} revisions — show legend',
+	'revision_trends.multi_executed_warning': 'Backend invariant violated: more than one revision flagged is_executed=true. Chart renders only the latest. Report at github.com/VitorMRodovalho/meridianiq/issues.',
 } as Record<string, string>;

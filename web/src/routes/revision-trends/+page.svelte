@@ -2,7 +2,8 @@
 	import { getProjects, getRevisionTrends } from '$lib/api';
 	import type { RevisionTrendsResponse } from '$lib/types';
 	import { error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
+	import { t, locale } from '$lib/i18n';
+	import { formatNumber } from '$lib/i18n/format';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import MultiRevisionSCurveChart from '$lib/components/charts/MultiRevisionSCurveChart.svelte';
 
@@ -68,11 +69,28 @@
 	// finding P1#2: chart and list previously used divergent identifiers
 	// when revision_number was sparse.
 	function changePointLabel(cp: { revision_index: number }): string {
-		if (trends == null) return `#${cp.revision_index}`;
+		// 1-based fallback aligning with chart endpointLabels (line 185) +
+		// chart changePointVisuals.revisionLabel. Issue #98 item 5 +
+		// frontend-ux-reviewer entry-council BLOCKING #2 on PR #109.
+		if (trends == null) return `#${cp.revision_index + 1}`;
 		const c = trends.curves[cp.revision_index];
 		if (c?.revision_number != null) return `R${c.revision_number}`;
-		return `#${cp.revision_index}`;
+		return `#${cp.revision_index + 1}`;
 	}
+
+	// Client-side derived warnings — frontend-ux-reviewer entry-council
+	// SHOULD-FIX #6 on PR #109: console.warn for multi-executed invariant
+	// violation is invisible to users + ops; surface alongside trends.notes
+	// so the bug is reportable rather than silently hidden.
+	const clientWarnings = $derived.by((): string[] => {
+		if (trends == null) return [];
+		const out: string[] = [];
+		const executedCount = trends.curves.filter((c) => c.is_executed).length;
+		if (executedCount > 1) {
+			out.push($t('revision_trends.multi_executed_warning'));
+		}
+		return out;
+	});
 
 	// Methodology cite-or-fail. Frontend hardcodes the AACE 29R-03 reference
 	// as a defensive fallback; if the backend response ships an empty
@@ -134,15 +152,26 @@
 		</div>
 	</div>
 
-	{#if loading}
-		<AnalysisSkeleton />
-	{:else if errMsg}
-		<div class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg p-4 mb-6">
-			<p class="text-red-700 dark:text-red-400 text-sm">{errMsg}</p>
-		</div>
-	{/if}
+	<!--
+		CLS guard per issue #98 item 1 / DA P2 #9. Wrapping skeleton + result
+		block in a min-h container reduces page-jump on result arrival. Tuned
+		for the empty-state and slope-band-only cases; full-content layout
+		(slope card + 360px chart + change-points list + methodology) exceeds
+		this min-height — frontend-ux-reviewer entry-council nice-to-have #9
+		acknowledged this only fixes the skeleton-to-empty transition.
+	-->
+	<div class="min-h-[420px]">
+		{#if loading}
+			<AnalysisSkeleton />
+		{:else if errMsg}
+			<div
+				class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg p-4 mb-6"
+			>
+				<p class="text-red-700 dark:text-red-400 text-sm">{errMsg}</p>
+			</div>
+		{/if}
 
-	{#if trends && !loading}
+		{#if trends && !loading}
 		{#if isEmpty}
 			<div
 				class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-8 mb-6 text-center"
@@ -162,14 +191,21 @@
 					</p>
 					<div class="flex items-baseline gap-3 flex-wrap">
 						<span class="text-2xl font-bold {slopeColorClass(sb)}">
-							{sb.slope_days_per_revision > 0 ? '+' : ''}{sb.slope_days_per_revision.toFixed(1)}
+							{formatNumber(sb.slope_days_per_revision, $locale, {
+								maximumFractionDigits: 1,
+								signDisplay: 'always',
+							})}
 						</span>
 						<span class="text-sm text-gray-600 dark:text-gray-400">
 							{$t('revision_trends.slope_unit')}
 						</span>
 						<span class="text-sm text-gray-500 dark:text-gray-500">
 							{$t('revision_trends.slope_ci_prefix')}
-							[{sb.ci_lower.toFixed(1)}, {sb.ci_upper.toFixed(1)}]
+							[{formatNumber(sb.ci_lower, $locale, { maximumFractionDigits: 1 })}, {formatNumber(
+								sb.ci_upper,
+								$locale,
+								{ maximumFractionDigits: 1 },
+							)}]
 						</span>
 						<span class="text-xs text-gray-400 dark:text-gray-500">
 							n={sb.horizon_revisions}
@@ -185,6 +221,8 @@
 				ariaLabel={$t('revision_trends.chart_aria_label')}
 				executedLabel={$t('revision_trends.executed_curve_label')}
 				changePointLabel={$t('revision_trends.change_point_label')}
+				legendCollapsedSummary={(n) =>
+					$t('revision_trends.legend.collapsed_summary').replace('{n}', String(n))}
 			/>
 
 			{#if isSingleRev && !hasExecuted}
@@ -224,13 +262,17 @@
 				{methodologyText}
 			</p>
 
-			{#if trends.notes.length > 0}
+			{#if trends.notes.length > 0 || clientWarnings.length > 0}
 				<ul class="text-xs text-gray-500 dark:text-gray-500 mt-2 list-disc pl-5 space-y-0.5">
 					{#each trends.notes as note}
 						<li>{note}</li>
 					{/each}
+					{#each clientWarnings as warning}
+						<li class="text-amber-700 dark:text-amber-400">{warning}</li>
+					{/each}
 				</ul>
 			{/if}
 		{/if}
-	{/if}
+		{/if}
+	</div>
 </main>
