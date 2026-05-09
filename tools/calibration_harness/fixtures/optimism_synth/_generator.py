@@ -67,8 +67,17 @@ _NOISE_DAYS_PER_SIGMA = 10.0  # σ=0.1 → std=1 day, σ=0.4 → std=4 days
 # "step from slow drift to fast drift". The +5 magnitude is calibrated to
 # exceed the 3σ CUSUM gate with the chosen σ noise levels at N=12, NOT
 # to match observed schedule-slip rates from production projects.
-# Literature-derived defaults pending Cycle 5+ corpus growth per ADR-0023
-# §"Cycle 5+ preconditions" reactivation conditions.
+#
+# DA exit-council PR #111 P2 #8: two distinct deferral tracks here, on
+# DIFFERENT timelines:
+#   - **Literature-derived defaults** (e.g., AACE/CII/Construction Industry
+#     Institute survey papers on revision-to-revision schedule slip rates)
+#     are NOT corpus-dependent. Could ship as a Cycle 4.5 / Cycle 5 W0
+#     standalone literature search. No empirical corpus needed.
+#   - **Empirical-corpus-derived defaults** require sub-gate A passing
+#     (N≥30 LGPD-cleared completed projects per ADR-0022 §6) — operator-
+#     paced, ≥6mo realistic timeline. See ADR-0023 §"Cycle 5+ preconditions
+#     for re-evaluation" for the reactivation gate.
 _PATTERN_DRIFT_RATES: dict[str, dict[str, float]] = {
     "A": {"pre_cp_rate": 0.0, "post_cp_rate": 5.0},  # stable → drift
     "B": {"pre_cp_rate": 1.0, "post_cp_rate": 5.0},  # slow drift → fast drift

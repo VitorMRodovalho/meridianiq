@@ -430,3 +430,11 @@ The fixture design at W3-C close (PR #99 + this Amendment) is:
 
 - Amendment is documentation-only. No code change in this ADR; the corresponding code changes ship in PR #111.
 - Future fixture design changes (e.g., extending to 12 corners on Cycle 5+ corpus growth) require Amendment 4 + matching test updates + locked F1 re-baseline.
+
+### Honest framing of retroactive narrowing (DA exit-council PR #111 P2 #7)
+
+PR #99 shipped before this Amendment was authored. The original line 165 (now corrected via the inline corrigendum) said "3 noise levels × 3 ground-truth-CP positions × 2 baseline patterns (8 total after dedup)" — mathematically vacuous because 18 ≠ 8 by any dedup. The pre-registration discipline at PR #99 merge time was therefore weaker than the Amendment retroactively records.
+
+Confirmation that the 8 shipped corners equal the 2³ specification was performed at Amendment 3 authorship time (2026-05-09), not at PR #99 merge time. The 8 shipped corners do match the 2³ corner subset {σ ∈ 0.1, 0.4} × {CP ∈ 3, 7} × {baseline ∈ A, B} — verified by `test_fixture_design_covers_orthogonal_corners` (committed in PR #99). This is good fortune, not pre-registered design.
+
+For Cycle 5+ pre-registration discipline: any new locked spec must be authored AS the locked spec, not retrofitted via amendment after delivery.

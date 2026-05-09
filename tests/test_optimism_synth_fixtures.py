@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -64,12 +65,24 @@ _LOCKED_SUB_GATE_C_F1: float = 0.769231
 # item 2 / DA P2 #8 + backend-reviewer entry-council BLOCKING #2 on PR #111:
 # json.dumps + numpy float-formatting are byte-stable WITHIN a Python minor
 # version but may drift across versions. The committed
-# `optimism_synth.lock` was authored under THIS interpreter version. When
-# CI moves to a newer Python (e.g., 3.13 → 3.14), `test_generator_is_deterministic`
-# is SKIPPED with a clear message rather than failing for a non-tampering
-# reason. Operator ceremony on Python bump: re-run the generator on the
-# new interpreter, verify the lock is still semantically correct, update
-# this constant + the lock + the locked F1 baseline if needed.
+# `optimism_synth.lock` was authored under THIS interpreter version (Python
+# 3.12 — the development host's available interpreter at PR #99 W3-C
+# authoring time, 2026-05-09). CI runs Python 3.14 (canonical CI per
+# CLAUDE.md), so on every CI run `test_generator_is_deterministic`
+# CURRENTLY SKIPS — the operator follow-up issue tracks regenerating the
+# lock under Python 3.14 (the canonical CI Python) so determinism fires
+# in CI. DA exit-council PR #111 P1 #1 + DA P2 #5+#6: skip emits a
+# ``UserWarning`` so pytest's warning summary surfaces the gap on every
+# CI run rather than silently passing. Operator ceremony on regen:
+#
+#     1. Run ``python -m tools.calibration_harness.fixtures.optimism_synth._generator --force``
+#        on the target Python version.
+#     2. Verify ``test_locked_f1_relationship_to_sub_gate_c_threshold``
+#        + ``test_evaluate_cusum_f1_locked_baseline_against_committed_fixtures``
+#        still pass (engine F1 ≥ 0.75 and matches ``_LOCKED_SUB_GATE_C_F1``).
+#     3. Update ``_PYTHON_AUTHORED_AT`` to the new ``(major, minor)``.
+#     4. If F1 changes (engine bumped or numerical drift), bump
+#        ``_LOCKED_SUB_GATE_C_F1`` + amend ADR-0022 §"W4 sub-gate C".
 _PYTHON_AUTHORED_AT: tuple[int, int] = (3, 12)
 
 
@@ -113,13 +126,28 @@ def test_generator_is_deterministic(tmp_path: Path) -> None:
     fail this test for a non-tampering reason. Skip + ceremony engages.
     """
     if sys.version_info[:2] != _PYTHON_AUTHORED_AT:
-        pytest.skip(
-            f"determinism lock authored on Python {_PYTHON_AUTHORED_AT[0]}.{_PYTHON_AUTHORED_AT[1]}; "
-            f"runner is {sys.version_info.major}.{sys.version_info.minor}. "
-            f"Cross-version json.dumps + numpy float-formatting byte-stability is not "
-            f"guaranteed. Operator: re-run _generator.py on new Python + verify lock + "
-            f"update _PYTHON_AUTHORED_AT."
+        message = (
+            f"determinism lock authored on Python {_PYTHON_AUTHORED_AT[0]}."
+            f"{_PYTHON_AUTHORED_AT[1]}; runner is {sys.version_info.major}."
+            f"{sys.version_info.minor}. Cross-version json.dumps + numpy "
+            f"float-formatting byte-stability is not guaranteed. Lock-parity "
+            f"test (test_committed_fixtures_match_lock) still fires every "
+            f"CI run and catches fixture-on-disk tampering; this skip means "
+            f"only generator-CODE tampering is uncaught until the operator "
+            f"regenerates under the canonical CI Python. See _PYTHON_AUTHORED_AT "
+            f"docstring for ceremony."
         )
+        # DA exit-council PR #111 P1 #1: surface the skip in pytest's warning
+        # summary so CI logs flag the gap on every run, not just on first
+        # encounter. Without this, the skip is silent in pytest's default
+        # reporter (single 's' marker) and the W4 sub-gate C "tamper-proof
+        # fixtures" claim becomes theatrical.
+        warnings.warn(
+            f"optimism_synth determinism test SKIPPED in CI: {message}",
+            UserWarning,
+            stacklevel=2,
+        )
+        pytest.skip(message)
     expected_hashes = parse_fixture_lock(_LOCK_PATH)
     regenerated_hashes = regenerate_all(
         out_dir=tmp_path / "fixtures",
@@ -160,7 +188,7 @@ def test_tamper_detection_on_byte_flip(tmp_path: Path) -> None:
         verify_optimism_synth_hash_lock(fixtures_dir=work_dir, lock_path=work_lock)
 
 
-def test_tamper_detection_on_extra_file_within_legitimate_range(tmp_path: Path) -> None:
+def test_tamper_detection_on_extra_file_in_range(tmp_path: Path) -> None:
     """Adding an unlocked fixture WITHIN the legitimate filename range
     triggers FixtureHashMismatch.
 
@@ -173,6 +201,15 @@ def test_tamper_detection_on_extra_file_within_legitimate_range(tmp_path: Path) 
     out-of-range and would still pass at 12 corners by trivial
     numerical-bound check rather than by the intended "lock vs disk"
     invariant.
+
+    DA exit-council PR #111 P2 #4: planted file is a COPY of an existing
+    fixture (renamed) rather than a stub. If future hardening of
+    ``verify_optimism_synth_hash_lock`` reads fixture CONTENT before
+    checking lock parity (legitimate hardening), a stub
+    ``{"fixture_id": ..., "schema_version": 1}`` would raise ``KeyError``
+    on missing ``finish_days`` BEFORE the ``missing_lock`` invariant
+    fires. A real-content copy keeps the test diagnosing the right
+    invariant under plausible hardening.
     """
     work_dir = tmp_path / "work"
     work_dir.mkdir()
@@ -181,12 +218,13 @@ def test_tamper_detection_on_extra_file_within_legitimate_range(tmp_path: Path) 
     work_lock = tmp_path / "work.lock"
     shutil.copy2(_LOCK_PATH, work_lock)
 
-    # Plant an extra corner using the v2-suffix attack (within numeric range
-    # of legitimate corners but not in the lock). Filename: corner_05_v2.json.
-    extra = work_dir / "corner_05_v2.json"
-    extra.write_text(
-        json.dumps({"fixture_id": "corner_05_v2", "schema_version": 1}), encoding="utf-8"
-    )
+    # Plant an extra corner using the v2-suffix attack: copy an existing
+    # legitimate fixture under a new name, simulating "I duplicated a
+    # corner without updating the lock". Filename: corner_05_v2.json
+    # (within numeric range; not in lock).
+    extra_src = work_dir / "corner_05.json"
+    extra_dst = work_dir / "corner_05_v2.json"
+    shutil.copy2(extra_src, extra_dst)
 
     with pytest.raises(FixtureHashMismatch, match="missing_lock"):
         verify_optimism_synth_hash_lock(fixtures_dir=work_dir, lock_path=work_lock)
