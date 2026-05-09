@@ -953,3 +953,49 @@ export interface TombstoneRevisionResponse {
 	tombstoned_at: string;
 	audit_log_id: string | null;
 }
+
+// Cycle 4 W3 — multi-revision S-curve overlay (ADR-0022 §W3 — C-visualization).
+//
+// Mirrors src/api/schemas.py:1990-2065. Visualization-only contract — no
+// forecast curve in W3 (path-A pre-commit pending W4 calibration gate).
+// See src/analytics/revision_trends.py for the AACE RP 29R-03 methodology.
+
+export interface RevisionCurvePoint {
+	day_offset: number;
+	planned_cumulative_pct: number;
+	actual_cumulative_pct: number | null;
+}
+
+export interface RevisionCurveSchema {
+	project_id: string;
+	revision_id: string | null;
+	revision_number: number | null;
+	data_date: string | null;
+	points: RevisionCurvePoint[];
+	is_executed: boolean;
+}
+
+export interface ChangePointMarkerSchema {
+	revision_index: number;
+	revision_id: string | null;
+	delta_days: number;
+	cusum_value: number;
+	description: string;
+}
+
+export interface SlopeBandSchema {
+	slope_days_per_revision: number;
+	ci_lower: number;
+	ci_upper: number;
+	horizon_revisions: number;
+}
+
+export interface RevisionTrendsResponse {
+	project_id: string;
+	program_id: string | null;
+	curves: RevisionCurveSchema[];
+	change_points: ChangePointMarkerSchema[];
+	slope_band: SlopeBandSchema | null;
+	methodology: string;
+	notes: string[];
+}
