@@ -78,7 +78,7 @@ old rows.
 
 from __future__ import annotations
 
-__version__: str = "4.1.0"
+__version__: str = "4.2.0"
 # Re-exported by ``src/materializer/runtime.py::_ENGINE_VERSION``. MUST
 # equal ``pyproject.toml [project.version]`` — pinned by
 # ``tests/test_engine_version_source.py::TestAboutVersionMatchesPyproject``.

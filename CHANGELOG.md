@@ -3,18 +3,20 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — Cycle 3 close-arc + Cycle 4 in-flight (post-v4.1.0)
+## [4.2.0] — 2026-05-09 — β-honest path-A discipline (Cycle 3 close-arc + Cycle 4 close)
 
-Cycle 3 is the **Floor + Field-surface shallow** cycle per [ADR-0021](docs/adr/0021-cycle-3-entry-floor-plus-field-shallow.md). NO deep committed; the cycle ships closure of multi-cycle contractual debts + the W3 reproduction-regression primitive every future calibration-dependent deep depends on. **Pre-registered success criteria status: 3/9 closed** (#1 audit re-run, #5 reproduction test, #6 `_ENGINE_VERSION` code-side migration). Per ADR-0021 graceful threshold (≥5/9), on track once operator runbooks land.
+Two cycles' worth of work merged in one release tag — Cycle 3 (Floor + Field-surface shallow per [ADR-0021](docs/adr/0021-cycle-3-entry-floor-plus-field-shallow.md), NO deep committed) closed mid-stream with audit re-run + W3 reproduction-regression primitive + `_ENGINE_VERSION` source-of-truth migration; Cycle 4 (β-honest per [ADR-0022](docs/adr/0022-cycle-4-entry-beta-honest.md)) closed via PR #101 with auto-revision detection + multi-rev S-curve overlay + W4 pre-registered calibration gate path-A activation per [ADR-0023](docs/adr/0023-cycle-4-w4-outcome.md). The optimism-pattern forecast feature ships **as preview only** — visualization + change-point markers + slope CI bands; **no forecast curve, no "predictive engine" copy** — because the corpus that would validate the claim does not exist (sub-gate A `binding_count=0` < `N≥30`, sub-gate B skipped on precondition, sub-gate C passed F1=0.769231 ≥ 0.75 with margin "1 borderline detection wide" per discrete-metric brittleness analysis).
 
-Cycle 4 (β-honest per [ADR-0022](docs/adr/0022-cycle-4-entry-beta-honest.md)) opened post-v4.1.0 with auto-revision detection + multi-rev S-curve overlay + W4 pre-registered calibration gate. **Cycle 4 success criteria status: 6.0/9 closed** post-W4 (criteria 2+3+4 full credit; 5+6 path-A partial credit; 7 sub-gate C passed; 8 ADR-0023 + DA+IV exit-council). Pending #9 release tag → graceful threshold ≥7/9.
+**Cycle 4 pre-registered success criteria: 7.0/9 closed** post-release-tag (criteria 2+3+4 full credit + 5+6 path-A partial + 7 sub-gate C passed + 8 ADR-0023 + 9 this release). At ADR-0022 graceful threshold (≥7/9) with no margin (per DA exit-council P2 #9). Operator action item #1 (ADR-0022 ratification) opens path to 8.0/9.
+
+**Engine_version bump 4.1.0 → 4.2.0**: per [ADR-0014](docs/adr/0014-derived-artifact-provenance-hash.md) `engine_version` provenance contract, this bump invalidates derived artifacts written under v4.1.0 (read path returns `None` → forced re-mat on next access). Operator coordination required per [`src/__about__.py` bump procedure](src/__about__.py); operator runbook tracking remains via existing issues #54 + Cycle 5+ corpus assembly.
 
 ### Added — Cycle 4 W4 calibration gate (path-A activation per ADR-0022)
 
-- **[ADR-0023 — Cycle 4 W4 outcome record](docs/adr/0023-cycle-4-w4-outcome.md)** documenting the pre-registered calibration gate outcome. Path-A activated on sub-gates A (corpus census `binding_count=0` < `N≥30`) + B (skipped on sub-gate-A precondition); sub-gate C **PASSED at F1=0.769231 ≥ 0.75 (margin "1 borderline detection wide")**. Optimism-pattern forecast feature ships **as preview only** — visualization + change-point markers + slope CI bands, NO forecast curve, NO "predictive engine" copy. ADR addresses DA+IV paired exit-council inline (DA: 3 P0 + 5 P1 + 2 P2 + 4 P3 ≈ 14 findings; IV: 6 strategic findings — including the "calibration theater" pattern-vs-ADR-0009 confrontation, sycophancy-prone partial-credit math acknowledgment, demand-validation signal silence section).
+- **[ADR-0023 — Cycle 4 W4 outcome record](docs/adr/0023-cycle-4-w4-outcome.md)** documenting the pre-registered calibration gate outcome. Path-A activated on sub-gates A (corpus census `binding_count=0` < `N≥30`) + B (skipped on sub-gate-A precondition); sub-gate C **PASSED at F1=0.769231 ≥ 0.75 (margin "1 borderline detection wide" per discrete-metric brittleness)**. Optimism-pattern forecast feature ships **as preview only** — visualization + change-point markers + slope CI bands, NO forecast curve, NO "predictive engine" copy. ADR addresses DA+IV paired exit-council inline per ADR-0022 NFM-9 (DA: 3 P0 + 5 P1 + 2 P2 + 4 P3 ≈ 14 findings; IV: 6 strategic findings — including the "calibration theater" pattern-vs-ADR-0009 confrontation with operational falsifier, sycophancy-prone partial-credit math acknowledgment, demand-validation signal "none" disclosure, Cycle 5+ realistic 12-24 month timeline). Closes [PR #101](https://github.com/VitorMRodovalho/meridianiq/pull/101).
 - **`tools/calibration_harness/gates/revision_trends_w4.py`** (~600 LoC) — pre-registered W4 gate evaluator. Three sub-gate dataclasses (`CorpusCensus`, `CalibrationPair`, `SubGateA/B/CResult`) with locked-threshold guards in `__post_init__` (raises `ValueError` if user attempts override). `evaluate_sub_gate_a/b/c` + aggregator `run_revision_trends_w4`. CLI `python -m tools.calibration_harness.gates.revision_trends_w4` writes manifest + public + private payloads to `--output-dir docs/calibration/`. Heteroscedasticity-aware Brier formula (`w_i = 1 / sqrt(horizon_i + 1)`) pre-registered in ADR-0023 with explicit acknowledgment that the `+1` is a SIGNAL component (1-day-equivalent measurement uncertainty floor), NOT numerical-stability epsilon, and that the lock has zero teeth in this evaluation (sub-gate B skipped). `--run-started-at ISO_STRING` flag (DA P1 #4) enables byte-exact reproducibility of committed JSONs.
 - **`tests/test_revision_trends_w4_evaluator.py`** — 49 regression tests across 11 classes pinning: locked threshold guards (A=30, B=0.20, C=0.75 not user-tunable); CorpusCensus subset chain + attestation provenance discipline; CalibrationPair boundary validation; sub-gate B precondition vs. empty-input skip distinction + heteroscedasticity downweighting; sub-gate C locked baseline F1=0.769231 reproduces against committed fixtures + tamper detection (byte-flip) + offset-100 cross-fixture cluster-bleed structural pin; aggregator path-A activation when any sub-gate fails or skips; public-payload omits raw pair vectors (anti-leak); CLI byte-identical reproducibility + naive-datetime rejection.
-- **`docs/calibration/revision-trends-w4-{manifest,public}.json`** — committed outcome payloads (private gitignored per `*_private.json` glob).
+- **`docs/calibration/revision_trends_w4_{manifest,public}.json`** — committed outcome payloads (private gitignored per `*_private.json` glob).
 
 ### Added — W0 cycle entry + audit re-run
 
@@ -60,19 +62,25 @@ Cycle 4 (β-honest per [ADR-0022](docs/adr/0022-cycle-4-entry-beta-honest.md)) o
 - `.github/workflows/doc-sync-check.yml` trigger paths now include `docs/architecture.md` + `supabase/migrations/**`.
 - `.env.example` now documents `RATE_LIMIT_ENABLED` env var.
 
-### Pending — operator execution required (NOT shipped in this Unreleased section)
+### Pending — operator execution required (carry-over post-v4.2.0)
+
+These Cycle 3 + Cycle 4 operator items remained open at release tag time. None blocked the v4.2.0 ship per ADR-0021 (Cycle 3 graceful threshold ≥5/9 met) and ADR-0022 (Cycle 4 graceful threshold ≥7/9 met). All have runbooks + tracking issues; operator schedules execution.
 
 | # | Criterion | Status | Action |
 |---|---|---|---|
-| #2 | Apply migration 026 to production Supabase | OPEN | Maintainer follows `cycle3.md §W1` |
-| #3 | Ratify ADRs 0017–0021 (5 ADRs) | OPEN | Maintainer comments on `#28` per `cycle3.md §W2-A` |
-| #4 | Archive W4 manifest to `meridianiq-private` | OPEN | Maintainer follows `cycle3.md §W2-B` |
-| #7 | Re-mat OR tombstone 88 prod rows at `engine_version='4.0'` | OPEN | Maintainer chooses Option A vs B per `cycle3.md §W4` |
-| #9 | Release tag (v4.2.0 if W5 ships, else v4.1.1) | NOT STARTED | After #2/#3/#4/#7 + (optional) #8 W5 spike |
+| Cy3 #2 | Apply migration 026 to production Supabase | OPEN | Maintainer follows `cycle3.md §W1` (issue [#26](https://github.com/VitorMRodovalho/meridianiq/issues/26)) |
+| Cy3 #3 | Ratify ADRs 0017–0021 (5 ADRs) | OPEN | Maintainer comments on issue [#28](https://github.com/VitorMRodovalho/meridianiq/issues/28) per `cycle3.md §W2-A` |
+| Cy3 #4 | Archive W4 manifest to `meridianiq-private` | OPEN | Maintainer follows `cycle3.md §W2-B` |
+| Cy3 #7 | Re-mat OR tombstone 88 prod rows at `engine_version='4.0'` | OPEN | Maintainer chooses Option A vs B per `cycle3.md §W4` (issue [#54](https://github.com/VitorMRodovalho/meridianiq/issues/54)) |
+| Cy4 #1 | ADR-0022 ratification + Cycle 4 ROADMAP refresh + L&A review | OPEN | Maintainer ratifies; closes 7.0/9 → 8.0/9 |
+| ⚠️ NEW | Re-mat OR tombstone derived artifacts at `engine_version='4.1.0'` | OPEN | This v4.2.0 bump invalidates v4.1.0 artifacts per ADR-0014; same Option A/B choice as Cy3 #7 — operator may consolidate both bumps in a single re-mat pass |
 
-### Pending — Claude-doable follow-ups (NOT in this Unreleased section)
+### Pending — Claude-doable follow-ups (post-v4.2.0)
 
-- [#46](https://github.com/VitorMRodovalho/meridianiq/issues/46) — Detail page i18n carry-over (defer to Cycle 4 W5 candidate)
+- [#46](https://github.com/VitorMRodovalho/meridianiq/issues/46) — Detail page i18n carry-over (Cycle 5+ slot-opportunistic)
+- W3-B follow-ups: [#96](https://github.com/VitorMRodovalho/meridianiq/issues/96) (locale-aware number formatting), [#97](https://github.com/VitorMRodovalho/meridianiq/issues/97) (SVG chart a11y), [#98](https://github.com/VitorMRodovalho/meridianiq/issues/98) (revision-trends polish)
+- W3-C follow-ups: [#100](https://github.com/VitorMRodovalho/meridianiq/issues/100) (ADR amendment, cross-Python byte-stability)
+- DA P3 deferred from PR #101 (#82, #84-#92 — various)
 
 ### Self-pressure-test bias disclosure (per ADR-0018 Amendment 1)
 

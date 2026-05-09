@@ -242,3 +242,57 @@ Across Cycle 1 + 2 + 3 in-flight (so far), every meta-PR that codifies a policy 
 ---
 
 *Last updated: 2026-04-27 night (Cycle 3 in-flight close-arc — 5 lessons appended from PRs #38, #39, #48, #50, #52, #53, #55, #56, #58)*
+
+---
+
+## Cycle 4 — v4.2.0 β-honest path-A discipline (closed 2026-05-09)
+
+**What shipped:** Cycle 4 entered as Option β-honest per [ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) — auto-revision detection (B-subset) + multi-rev S-curve overlay (C-visualization) + W4 pre-registered calibration gate. Tag `v4.2.0` (also captures Cycle 3 close-arc — Cycle 3 close happened mid-stream and was never tagged separately). **Cycle 4 success criteria 7.0/9 closed at exact graceful-threshold floor** (no margin per DA exit-council finding). W4 path-A activated as expected: sub-gate A `binding_count=0` < `N≥30`, sub-gate B skipped on A precondition, sub-gate C passed F1=0.769231 (margin "1 borderline detection wide" per discrete-metric brittleness). Optimism-pattern forecast feature ships **as preview only** — no forecast curve, no "predictive engine" copy. ADR-0023 outcome record + paired DA + IV exit-council per ADR-0022 NFM-9 (DA: 14 findings; IV: 6 strategic findings; all P0/P1 + IV addressed inline pre-merge).
+
+#### ADR criterion-credit accounting must DEFER to the exit-council it cites
+The first draft of ADR-0023 (PR #101) awarded itself credit for criterion #8 ("ADR-0023 + DA+IV paired exit-council") **before** the council had run — making the ADR self-validating. DA exit-council P0 #1 caught the tautology; the fix was marking criterion #8 OPEN until merge-time review confirms the council fix-ups landed.
+**Lesson:** Pre-registration discipline says: an ADR cannot grant itself the credit for the council that reviews it. Always mark "ADR + paired council" criteria as OPEN at the ADR draft stage; close at merge-time confirmation. Skipping this step collapses the discipline into self-validation.
+
+#### Two consecutive path-A activations is a citable pattern — confront it head-on
+ADR-0009 W4 (Cycle 1) and ADR-0023 W4 (Cycle 4) both activated path-A on a corpus precondition. IV exit-council finding #1 surfaced the "calibration theater" critique: a hostile diligence reviewer can declare a pattern (this team builds gates that reliably permit unship-able features to ship under preview-flag cover). The fix was a new §"Pattern check vs. ADR-0009" section in ADR-0023 that **commits to an operational falsifier** — the discipline ceases to be ritual when at least one of (a) Cycle 5+ sub-gate A passes, (b) external citation, (c) independent attestation lands.
+**Lesson:** When a pattern emerges across cycles that an external reviewer can read uncharitably, defending tacitly invites the read. Confronting head-on with an operational falsifier (NOT a defense) ages better. The falsifier itself becomes a Cycle 5+ commitment.
+
+#### Discrete-metric F1 margins are NOT continuous
+F1 with N=8 ground truths is granular at increments of `2/(detection_count + 8)`. A single TP→FN reclassification (engine bump, fixture rotation, OR numpy/scipy/python minor-version float-arithmetic drift) flips F1 from 0.769 (pass) to 0.667 (path-A). The first ADR-0023 draft framed the margin as "0.019 above threshold"; DA exit-council P0 #2 caught that this misleads ("small but durable" reading). Reframed as **"1 borderline detection wide"**.
+**Lesson:** When pinning a metric margin in an outcome ADR, audit the denominator: integer-counted classification metrics on small N have discrete granularity that "X.XXX above threshold" framing hides. Make the brittleness explicit ("Y borderline events wide") so a future reader understands the regression vector correctly.
+
+#### Pre-registered formula locks with zero teeth (sub-gate skipped → formula unfalsified) are calibration-discipline IOUs
+ADR-0023 pre-registered the heteroscedasticity weight formula `w_i = 1/sqrt(horizon_i + 1)` for sub-gate B. Sub-gate B was SKIPPED on sub-gate A's corpus precondition; the formula NEVER touched data. DA exit-council P0 #3 caught: locking an unfalsified formula in an outcome ADR is ceremonial process-theater unless honestly framed as such. The fix: acknowledge the lock has zero teeth in this evaluation, document the `+1` epsilon as a SIGNAL component (1-day-equivalent uncertainty floor) NOT numerical-stability, and require future Cycle 5+ author to re-pre-register IF corpus evidence indicates the formula is wrong.
+**Lesson:** Pre-registration discipline is meaningful only when data touches the registered choice. When you lock a formula that won't be exercised this cycle, frame the lock as an IOU not a guarantee — the discipline obligation transfers to the next cycle's author, but only if you say so explicitly.
+
+#### Demand-validation signal observed-during-cycle deserves explicit section even when content is "none"
+IV exit-council finding #5: ADR-0023 must speak to whether the cycle produced demand-validation signal even if the answer is "none". Silence is itself a signal. Cycle 4 produced ZERO inbound enterprise inquiries, ZERO design-partner discussions, ZERO contributor PRs touching the W4 calibration code, ZERO external AACE/PMI-CP/peer-project citation of the pre-registration template. Issue #13 (community calibration corpus, opened Cycle 1) has produced ZERO community-supplied corpus across 4 cycles.
+**Lesson:** Cycle close ADRs must include §"Demand-validation signal observed during Cycle <N>" with honest content — even if "none". A blank section is more credible than absence. The reader presumes activity if the section is missing.
+
+#### Substantive outcomes in English LEAD; partial-credit math is FOOTNOTE
+IV exit-council finding #2 — partial-credit math (6.0 → 7.0 → 8.0 / 9) is itself a sycophancy attack vector if it leads the framing. The math was designed by the maintainer (ADR-0022 §"Pre-registered success criteria" pre-cycle authorship); an external reviewer can reject the structure as self-grading. The fix: lead with English-language substantive outcomes ("migration 028 in production; auto-revision UX shipped; multi-rev S-curve visualization shipped; optimism-pattern forecast NOT validated, ships as preview"), keep the credit table as a downstream check against the pre-registered framework — explicitly noting it's self-graded.
+**Lesson:** Self-graded credit accounting is acceptable IF presented as a footnote. Leading with the math invites the read "the team optimized the credit structure to ship at exact threshold". Lead with what shipped; let the math validate against the framework, not define the outcome.
+
+#### Run timestamp non-determinism breaks reproducibility
+DA exit-council P1 #4: committed JSONs with wall-clock `run_started_at` timestamps make byte-identical re-runs impossible. A future reviewer cannot diff the manifest and verify "same evaluation, same outputs". Fix: add `--run-started-at ISO_STRING` CLI flag with naive-datetime rejection, so re-runs with the committed timestamp produce byte-identical output.
+**Lesson:** Any CLI that writes outputs to git-tracked paths needs a determinism-injection point for the time component. Default = wall-clock; override = byte-identical reproduction. The flag costs ~10 LoC; the absence costs an unanswerable "did this re-run match what's in git?" question.
+
+#### Attestation regex is FORMAT validation, not SEMANTIC validation
+DA exit-council P1 #5: `_ATTESTATION_RE` accepts any `ADR-NNNN` or `git@<sha>` shape — including fabricated ADR numbers and arbitrary 7+ hex strings. The first ADR-0023 draft framed this as "structural defense for attestation provenance", overclaiming what the regex provides. Fix: explicitly acknowledge the regex is FORMAT validation only; the structural defense is the audit trail (operator commits census + reviewer verifies citation in PR review).
+**Lesson:** When pinning a regex as a "structural defense", audit what the regex actually checks vs. what the prose claims. Format validation is a useful first-pass; semantic validation requires existence checks or audit-trail discipline. Don't conflate the two in ADR text.
+
+#### File naming convention matters for gitignore globs
+The W4 evaluator initially named output files `revision-trends-w4-{manifest,public,private}.json` (hyphens). The `.gitignore` glob `*_private.json` (underscore) didn't match → private payload would commit. Caught at `git status` time pre-commit; fix was renaming to `revision_trends_w4_*.json` (underscores throughout).
+**Lesson:** When glob-based gitignore patterns exist (`*_private.json`, `*.test.tmp`, etc.), audit any new file naming convention against them BEFORE first commit. The mismatch is silent at the file system level — only `git check-ignore` surfaces it. Cheap to verify; expensive (privacy-incident-class) to miss.
+
+#### Pattern observation — paired DA+IV exit-council exercises both axes of sycophancy risk
+The Cycle 4 W4 outcome ADR was the first deliverable to require BOTH DA AND IV exit-council per ADR-0022 NFM-9 (paired protocol — IV-alone is sycophancy-prone for path-A framing). DA caught code-level / spec-level issues (3 P0 + 5 P1 + 2 P2 + 4 P3 = 14 findings). IV caught strategic / framing issues (6 strategic findings). The two axes had near-zero overlap: DA didn't catch the calibration-theater pattern; IV didn't catch the criterion #8 self-validation tautology. Both axes were load-bearing.
+**Lesson:** When an artifact is most vulnerable to sycophantic framing (path-A outcome ADRs, dual-license ADRs, acquisition-positioning copy), the paired-council protocol is the structurally-correct review pattern. Solo DA misses framing risk; solo IV misses code risk. The two-agent cost is justified for these specific artifact classes.
+
+#### What we would do differently
+- Start the v4.2.0 release tag prep (this work) as a **Cycle 4 W4 PR** rather than a separate `chore/release-v4.2.0` branch, so all the doc updates land in the same PR as the W4 evaluator. The two-PR pattern (PR #101 W4 + this release PR) duplicates CI runs and creates a brief window where main has a "post-W4 / pre-release" state.
+- Pre-register the heteroscedasticity weight formula in **ADR-0022 itself**, not in ADR-0023. Backend-reviewer entry-council surfaced the gap pre-impl; closing it in the entry ADR rather than the outcome ADR would have been the cleaner discipline. Future cycles: pre-registration ADRs should inventory ALL post-evaluation degrees-of-freedom and lock each at entry, not at outcome.
+
+---
+
+*Last updated: 2026-05-09 (Cycle 4 close — v4.2.0 release tag — 9 lessons appended; DA + IV paired exit-council protocol exercised first time on outcome ADR per ADR-0022 NFM-9)*

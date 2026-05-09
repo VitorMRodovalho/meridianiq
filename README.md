@@ -42,7 +42,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Frontend pages | 55 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
 | API endpoints | 127 across 25 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
-| Released versions | v0.1.0 → v4.1.0 |
+| Released versions | v0.1.0 → v4.2.0 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
 
@@ -215,6 +215,7 @@ flowchart LR
 | v3.9 | **Real-Time + Extensibility** | WebSocket progress (Monte Carlo) · plugin architecture + HTTP surface · MCP HTTP/SSE transports · activity grouping · structured calendar exception parser · mobile responsive · KPI cache · slowapi consolidation | ✅ Released |
 | v4.0 | **Materialized Intelligence** | schedule_derived_artifacts + provenance contract · async materializer pipeline (pending/ready/failed) · lifecycle phase inference (preliminary construction indicator per W4 calibration) · WebSocket progress hardening · evolution_optimizer callback · Svelte WS composable · datetime-safe store boundary · pre-registered calibration protocol | ✅ Released |
 | v4.1 | **Consolidation + Primitive (Cycle 2 close)** | rate-limit on `jobs/progress/start` · slowapi in [dev] extras · WS heartbeat + 4401 close on token expiry / API-key revocation · `useWebSocketProgress` recoveryPoller hook · authoritative `is_construction_active` + 5+1 phase preview-flagged (B2 honesty-debt closure) · W4 calibration post-mortem · `tools/calibration_harness.py` reusable primitive (ADR-0020) · ADRs 0017/0018/0019/0020 | ✅ Released |
+| v4.2 | **β-honest path-A discipline (Cycle 3 close-arc + Cycle 4 close)** | audit re-run + W3 reproduction-regression primitive + `_ENGINE_VERSION` source-of-truth migration (Cycle 3) · auto-revision detection (data_date + revision_history + soft-tombstone) · multi-rev S-curve overlay visualization (no forecast curve) · W4 pre-registered calibration gate path-A activation (ADR-0023; sub-gate C F1=0.769231 passed; sub-gates A+B path-A on corpus precondition) · paired DA + IV exit-council protocol exercised · ADRs 0021/0022/0023 | ✅ Released |
 
 See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP_v06_to_v20.md).
 

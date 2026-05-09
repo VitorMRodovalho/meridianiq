@@ -1,24 +1,26 @@
-# Known Issues & Backlog — v4.1.0
+# Known Issues & Backlog — v4.2.0
 
 Bug tracking and feature backlog for MeridianIQ.
 
-The forward plan lives in [`docs/ROADMAP.md`](docs/ROADMAP.md); active
-pre-Cycle-3 tech-debt items are tracked there under "Pre-Cycle-3 hygiene"
-and "Deferred technical follow-ups". This file keeps the historical
-bug index, cross-cutting tech debt, and a prioritised feature backlog.
-Historical entries closed before v4.0 live in
-[`docs/archive/BUGS_HISTORY.md`](docs/archive/BUGS_HISTORY.md). See
+The forward plan lives in [`docs/ROADMAP.md`](docs/ROADMAP.md); deferred
+tech-debt items are tracked there under "Deferred technical follow-ups".
+Cycle 3 + Cycle 4 carry-over operator backlog (post-v4.2.0) is in the
+ROADMAP "Cycle 3 + Cycle 4 carry-over operator backlog" section. This
+file keeps the historical bug index, cross-cutting tech debt, and a
+prioritised feature backlog. Historical entries closed before v4.0 live
+in [`docs/archive/BUGS_HISTORY.md`](docs/archive/BUGS_HISTORY.md). See
 [`docs/audit/`](docs/audit/) for structural audits.
 
 ---
 
 ## Active Bugs
 
-_No critical open bugs at v4.1.0. Active security / architectural findings
-from the 2026-04-22 audit are tracked as GitHub issues under the
-[`audit-2026-04-22`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-22)
-label (umbrella: [#25](https://github.com/VitorMRodovalho/meridianiq/issues/25)).
-Report new issues via GitHub Issues._
+_No critical open bugs at v4.2.0. Active security / architectural findings
+from the 2026-04-22 + 2026-04-26 audits are tracked as GitHub issues under
+the [`audit-2026-04-22`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-22)
++ [`audit-2026-04-26`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-26)
+labels. Cycle 4 W3-B/C/W4 follow-ups: #82, #84-#92, #96-#100. Report new
+issues via GitHub Issues._
 
 ---
 
