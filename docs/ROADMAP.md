@@ -6,194 +6,77 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-04-27 night (Cycle 3 in-flight close-arc — operator runbooks + rate-limit policy + W4 operator-prep + audit follow-ups merged via PRs #52/#53/#55/#56/#58. Main at `820b86a`. Cycle 3 success criteria 3/9 closed; 4 operator-pending criteria with full runbooks at `docs/operator-runbooks/cycle3.md`).**
+> Last refreshed: **2026-05-09 (Cycle 4 close — v4.2.0 β-honest path-A discipline tag. Cycle 4 W4 pre-registered calibration gate path-A activated per ADR-0023; optimism-pattern forecast feature ships preview-only. Cycle 3 + Cycle 4 work consolidated in single v4.2.0 release tag. 7.0/9 graceful threshold met at exact floor — no margin per DA exit-council finding).**
 
 ---
 
-## Current state — Cycle 2 closed
+## Current state — Cycle 4 closed
 
-**Theme:** Consolidation + Primitive ([ADR-0019](adr/0019-cycle-2-entry-consolidation-primitive.md), Option 4).
-**Released as:** [`v4.1.0`](https://github.com/VitorMRodovalho/meridianiq/releases/tag/v4.1.0)
-at commit `aae1bb1`. **6 of 7** pre-registered success criteria closed
-wave-by-wave; the 7th = this release tag itself (per
-[CHANGELOG.md §v4.1.0 → "Pre-registered success criteria"](../CHANGELOG.md)).
-Criterion 5 (`python -m tools.calibration_harness` reproduces a
-coarse-banded report shape) is met with an honest caveat —
-[ADR-0020 §"Decision"](adr/0020-calibration-harness-primitive.md)
-explicitly notes the pipeline ships but does NOT reproduce the W4
-outcome numbers authoritatively until the W4 private manifest is
-archived (see "Operator actions" below).
+**Theme:** β-honest ([ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) — auto-revision + multi-rev S-curve + W4 pre-registered calibration gate).
+**Released as:** [`v4.2.0`](https://github.com/VitorMRodovalho/meridianiq/releases/tag/v4.2.0)
+(release tag pending merge of [PR `chore/release-v4.2.0`](../CHANGELOG.md#420--2026-05-09--%CE%B2-honest-path-a-discipline-cycle-3-close-arc--cycle-4-close)).
+
+**Cycle 4 success criteria: 7.0/9 closed** at release tag. Per [ADR-0022 §"Pre-registered success criteria"](adr/0022-cycle-4-entry-beta-honest.md): graceful threshold ≥7/9 met at exact floor. The path-A activation on sub-gates A + B (corpus census + Brier precondition skip) accounts for 1.0 of the 7.0 partial credit per ADR-0022's locked accounting (each path-A = 0.5). Sub-gate C passed at F1=0.769231 with margin "1 borderline detection wide" per discrete-metric brittleness analysis ([ADR-0023](adr/0023-cycle-4-w4-outcome.md) §"Sub-gate C — discrete-metric brittleness").
 
 | Wave | Delivers |
 |------|----------|
-| W0 | `RATE_LIMIT_READ` on `POST /api/v1/jobs/progress/start` (D1) · slowapi in `[dev]` extras (D10) · `useWebSocketProgress.destroy()` (D11). |
-| W1 | WS server heartbeat + `4401` close on JWT expiry / API-key revocation (D3) · `recoveryPoller` composable hook (D4 contract; backend wiring deferred — feature dormant for users until Cycle 3 lands the by-job endpoint). |
-| W2 | Authoritative `is_construction_active` tri-state on `LifecyclePhaseInferenceSchema` + `LifecyclePhaseSummary` (B2 honesty-debt closure) · `LifecyclePhaseCard` UI split (chip above phase, phase demoted to `(preview)`) · W4 calibration post-mortem published. |
-| W3 | `tools/calibration_harness.py` reusable primitive ([ADR-0020](adr/0020-calibration-harness-primitive.md)). |
+| W0 | [ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) Cycle 4 entry (β-honest) + L&A review of W5 corpus prep. |
+| W1 | Migration `028` (`data_date` + `revision_date` + `revision_history` table + soft-tombstone + cap-enforcement trigger + RLS) staging + production. |
+| W2 | Auto-revision detection + confirmation card UX + soft-tombstone deliverables (column + AST regression test + audit_log + runbook). |
+| W3 | Multi-revision S-curve overlay with calendar-aligned X-axis + slope CI bands + change-point markers + 8 hash-locked synthetic fixtures + locked baseline F1=0.769231. **No forecast curve.** |
+| W4 | Pre-registered calibration gate evaluator (`tools/calibration_harness/gates/revision_trends_w4.py` + 49 tests + ADR-0023 outcome record + DA + IV paired exit-council per NFM-9). Path-A activated as expected. |
+| W5 | Operator-paced (parallel) — corpus assembly start; manifest archive; #54 re-mat decision. Continues post-cycle. |
+
+**Cycle 3** (Floor + Field-surface shallow per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md)) closed mid-stream within this same v4.2.0 release. Cycle 3 contributed: 2026-04-26 audit re-run, W3 reproduction regression test (closes ADR-0020 §"Decision" caveat), `_ENGINE_VERSION` source-of-truth migration (`src/__about__.py`), 5+ ADR-0018-Am.1-disciplined PRs (PR #38 entry, #39 audit, #48 W3, #50 W4 code-side, #52-#58 follow-ups). Cycle 3 W5 (Field Engineer mobile look-ahead spike) DROPPED per the optional-buffer ADR-0021 §"Wave plan" provision.
 
 ---
 
-## Next — Cycle 3 (kickoff 2026-04-27, in flight)
+## Next — Cycle 5+ (post-v4.2.0)
 
-**Theme:** Floor + Field-surface shallow ([ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md), Option α).
-**Tag target:** `v4.2.0` — "Governance + Corpus Foundation".
+**No Cycle 5 entry ADR yet authored.** Cycle 5 entry pre-registration runs on the same protocol established Cycle 2: 4-agent council (PV + strategist round 1 parallel; DA + IV round 2 paired adversarially). Date TBD on maintainer schedule.
 
-The 2026-04-27 council round (4 agents over 2 rounds per the protocol
-established in Cycle 2 and documented in memory `project_v40_cycle_2.md`
-§"Roles + councils for Cycle 2") rejected both ADR-0019 §"Reversibility"
-pre-committed candidate deeps and the strategist-proposed hybrid. Round 2 devils-advocate
-verified A2 baseline inference is **not separable** from A1 grouping
-in the current codebase (`src/database/store.py:252-260` — `save_project`
-auto-creates programs from `proj_short_name` exact-match with no
-baseline modeling primitive); round 2 investor-view confronted its
-own ADR-0019 §"Option 3" caveat as relative-not-absolute and now
-underweighted, citing the absent forensic-corpus precondition for E1.
-Both round 2 agents converged on a floor plan that closes the
-contractual operator-block work (ADR-0018 §5 + ROADMAP §"Operator
-actions") + ships the W4 reproduction regression test as the
-load-bearing primitive that unblocks any future calibration-dependent
-deep.
+**Cycle 5 candidate deeps** (carry-over from prior cycles, gated on demand-validation OR corpus-evidence preconditions):
 
-A1+A2 deferred to Cycle 5+ with corpus-build preconditions; E1
-deferred to Cycle 4 with the corpus-precondition gate. ADR-0022 and
-ADR-0023 reserved for whichever Cycle 4 deep ships.
+- **A1+A2 — auto-grouping deep + baseline inference** (ADR-0019 §"Reversibility", deferred from Cycle 3 + Cycle 4). Three preconditions per ADR-0021 §"Why NOT the PV deep": (a) merge-cascade migration scoped + ADR; (b) labeled corpus for grouping; (c) labeled corpus for baseline. None satisfied.
+- **E1 — multi-discipline forensic methodology** (ADR-0019 §"Option 3", deferred from Cycle 4). Reactivates when (a) Cycle 5+ W4 sub-gate A passes (corpus N≥30) AND (b) labeled forensic gold-standard corpus is procurable. Same corpus precondition that Cycle 4 W4 path-A confirms is unmet.
+- **Optimism-pattern forecast feature reactivation** (ADR-0023 §"Cycle 5+ preconditions") — gated on ALL of: `n_with_consent_path ≥ 30`, outcome-labeled corpus, calibration pairs JSON, re-run sub-gate B, author Cycle 5+ outcome ADR with paired DA + IV council. **Realistic timeline 12-24 months minimum** per ADR-0023 §"Cycle 5+ preconditions" + IV exit-council finding #3 (operator + LGPD + community triple-bottleneck).
+- **Field-surface deep** — Field Engineer mobile + offline + AIA G702/G703 + sub workflows. Cycle 4 W5 was scoped as a spike, dropped in execution. Could promote to deep with demand-validation evidence (≥3 prospects asking explicitly).
+- **Schedule Viewer Wave 7** — backend engines exist (resource_leveling, evm); Gantt UI integration tracked at #23 + sub-issues #29-#32. Slot-opportunistic shallow inside any cycle.
+- **Plugin sandbox / E3 marketplace** (ADR-0019 §"Option 2") — gated on subprocess/WASM sandbox ADR + ≥5 external plugins + license-attestation flow. None satisfied.
 
-| Wave | Delivers | Status |
-|------|----------|--------|
-| W0 | This ROADMAP refresh + ADR-0021 + ADR-0022/0023 reservations + 2026-04-26 audit re-run published as `docs/audit/2026-04-26/` (6-layer per ADR-0018 §5) with findings as `audit-2026-04-26`-labeled issues. | **DONE** — ADR-0021 + ROADMAP merged in PR #38 (`ea4ee4d`); audit re-run merged in PR #39 (`0524db7`); 7 issues created (`#40` meta + `#41`–`#46` individual). [`docs/audit/2026-04-26/`](audit/2026-04-26/) shipped 11 new findings (4 P2, 7 P3, zero P0/P1). |
-| W1 | Migration `026_api_keys_schema_align.sql` applied in production per `docs/audit/HANDOFF.md §H-01` (backup, apply, sample-row inspection, RLS verification, audit-log entry). Closes `#26` (P0). | OPEN — operator-paced |
-| W2 | `#28` ratifications of ADR-0017/0018/0019/0020/0021 (escopo ampliado per audit-2026-04-26 AUDIT-009 — body update needed). W4 manifest archive into `meridianiq-private/calibration/cycle1-w4/` with content-hash verification (re-run W4 protocol against the harness if `/tmp` was rotated). | OPEN — operator-paced |
-| W3 | `tests/test_w4_reproduction.py` — pins equivalence between `scripts/calibration/run_w4_calibration.py` and `tools/calibration_harness.py` on the same input. Asserts byte-identical aggregate numbers. **Closes the [ADR-0020](adr/0020-calibration-harness-primitive.md) §"Decision" caveat outstanding since 2026-04-26.** (One of two load-bearing items in the cycle alongside the multi-wave operator block per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision Drivers" #1.) | **DONE** — PR #48 (`ab35074` + `c18222b`) shipped 19 tests covering observation-level equivalence (incl. dedup-input metadata `activity_count`/`last_recalc_date_iso`), engine identity integrity (engine_version + ruleset_version pinned across pipelines), manifest/public payload equivalence, and harness boundary validation on W4 outputs. DA exit-council caught 3 blocking + 4 non-blocking; all addressed. Closes Cycle 3 success criterion #5. |
-| W4 | `_ENGINE_VERSION` → `src/__about__.py::__version__` per [ADR-0014 §"Decision Outcome"](adr/0014-derived-artifact-provenance-hash.md#decision-outcome). **Pré-requisito (per audit-2026-04-26 AUDIT-011, P2):** criar `src/__about__.py` (file nunca existiu — ADR não-implementable as-written desde 2026-04-18). Operator decision required on re-materialize event (88 prod rows). Closes the multi-cycle divergence documented in [`LESSONS_LEARNED.md` Cycle 2 §"The ADR-0014 implementation has been diverged for multiple cycles"](LESSONS_LEARNED.md) + `#43`. | **CODE-SIDE DONE** — PR #50 (`43b9867` + `394d741`) shipped `src/__about__.py` (literal pinned to pyproject) + runtime.py refactor + 5 regression tests including AST-based literal-rejection check. DA exit-council caught 3 blocking + 5 non-blocking; all addressed. Closes Cycle 3 success criterion #6 sub-clauses 1+2. **Operator step (88-row re-mat) tracked as criterion #7 — pending operator decision: bulk re-mat OR tombstone migration**. |
-| W5 (optional) | Field Engineer mobile look-ahead spike. Sub-pick (deferred to W4 close based on remaining capacity): (a) responsive Schedule Viewer pass, OR (b) 3-week look-ahead view, OR (c) lighter offline cache for already-loaded schedules. Addresses 2-cycle-deep Field/Sub under-service. | NOT STARTED |
-
-Pre-registered success criteria: see [ADR-0021 §"Pre-registered
-success criteria"](adr/0021-cycle-3-entry-floor-plus-field-shallow.md).
-Cycle 3 fails *gracefully* if ≥5 of the 9 criteria close and the rest
-are cleanly documented for Cycle 3.5 or Cycle 4.
+**Cycle 5+ entry framing risk** — per [ADR-0023 §"Pattern check vs. ADR-0009"](adr/0023-cycle-4-w4-outcome.md) the "calibration theater" critique is now CITABLE (two consecutive W4 path-A activations). Cycle 5+ entry ADR MUST address this honestly: either (a) Cycle 5 ships a deep that is corpus-independent (visualization/UX/governance), OR (b) Cycle 5 commits to corpus assembly as the primary deliverable (Operator-paced + LGPD/GDPR + community-supplied), accepting the 12-24 month timeline. Pretending Cycle 5+ will incidentally produce the corpus while shipping another calibration-dependent feature would be calibration theater of its own.
 
 ---
 
-## Cycle 2 carry-over (now Cycle 3 W0-W2 work)
+## Cycle 3 + Cycle 4 carry-over operator backlog (post-v4.2.0)
 
-The four operator-action items below were carried over from Cycle 2
-close. ADR-0021 commits them to specific Cycle 3 waves. Maintainer or
-operator executes; Claude prepares runbooks. Tracked here for audit
-trail; cycle-by-cycle status will move into the wave table above as
-each closes.
+These items remained open at v4.2.0 release tag time. None blocked the cycle close per ADR-0021 (Cycle 3 ≥5/9 graceful threshold) and ADR-0022 (Cycle 4 ≥7/9 graceful threshold). All have runbooks + tracking issues.
 
-**Comprehensive runbooks for all four items below:** [`docs/operator-runbooks/cycle3.md`](operator-runbooks/cycle3.md) — pre-flight diagnostics, backup, execution, verification, rollback, registry per item.
+| # | Item | Tracking | Runbook |
+|---|---|---|---|
+| Cy3 #2 | Apply migration `026_api_keys_schema_align.sql` to production Supabase | [#26](https://github.com/VitorMRodovalho/meridianiq/issues/26) | [`cycle3.md §W1`](operator-runbooks/cycle3.md) |
+| Cy3 #3 | Council ratification of 5 ADRs (0017–0021) | [#28](https://github.com/VitorMRodovalho/meridianiq/issues/28) | [`cycle3.md §W2-A`](operator-runbooks/cycle3.md) |
+| Cy3 #4 | Archive W4 manifest to `meridianiq-private/calibration/cycle1-w4/` | meta `#25` | [`cycle3.md §W2-B`](operator-runbooks/cycle3.md) |
+| Cy3 #7 | Re-mat OR tombstone 88 prod rows at `engine_version='4.0'` | [#54](https://github.com/VitorMRodovalho/meridianiq/issues/54) | [`cycle3.md §W4`](operator-runbooks/cycle3.md) |
+| Cy4 #1 | ADR-0022 ratification + Cycle 4 ROADMAP refresh + L&A review | n/a — operator action | [ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) |
+| ⚠️ NEW | Re-mat OR tombstone artifacts at `engine_version='4.1.0'` (v4.2.0 bump) | n/a — same as Cy3 #7 | Operator may consolidate both bumps in single re-mat pass |
+| ⚠️ NEW | Cycle 4 W5 corpus assembly start (post-v4.2.0, multi-cycle) | issue [#13](https://github.com/VitorMRodovalho/meridianiq/issues/13) (Cycle 1 community ask) | [ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md) |
 
-- **#26 (P0, ops)** — Apply migration `026_api_keys_schema_align.sql` to production Supabase. **Runbook:** [`cycle3.md §W1`](operator-runbooks/cycle3.md#w1--apply-migration-026-to-production). **Cycle 3 W1 / criterion #2.**
-- **#28 (P2, governance)** — Council ratification of **5 ADRs** (scope expanded per AUDIT-2026-04-26-009): [ADR-0017](adr/0017-deduplicate-api-keys-migration.md), [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md) (incl. Amendment 1), [ADR-0019](adr/0019-cycle-2-entry-consolidation-primitive.md), [ADR-0020](adr/0020-calibration-harness-primitive.md), [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md). **Runbook:** [`cycle3.md §W2-A`](operator-runbooks/cycle3.md#w2-a--ratify-adrs-0017-0021-five-adrs). **Cycle 3 W2 / criterion #3.**
-- **W4 manifest archive (no issue — meta #25 tracks)** — move `/tmp/w4_manifest.json` + `/tmp/w4_calibration_private.json` + `/tmp/w4_calibration_public.json` into `meridianiq-private/calibration/cycle1-w4/` with sha256 verification. Pre-flight content hashes recorded 2026-04-27 in the runbook. If `/tmp` was rotated and the manifest is gone, re-run the W4 protocol against the harness as the archive material. **Runbook:** [`cycle3.md §W2-B`](operator-runbooks/cycle3.md#w2-b--archive-w4-manifest-to-private-repo). **Cycle 3 W2 / criterion #4.**
-- **#54 (P1, ops, requires-human-decision)** — Re-materialize OR tombstone 88 prod derived-artifact rows at `engine_version="4.0"` (post PR #50 deploy). Decision: bulk re-mat (Option A, default) vs tombstone migration `027` (Option B). **Runbook:** [`cycle3.md §W4`](operator-runbooks/cycle3.md#w4--re-materialize-or-tombstone-88-prod-rows). **Cycle 3 W4 / criterion #7.**
-- ~~**2026-04-26 audit re-run**~~ — **DONE** at PR #39 (commits `7bfc334` +
-  `0524db7`). 9 layer docs published in `docs/audit/2026-04-26/` following
-  the 6-layer baseline structure. **0 P0 / 0 P1 new**, 4 P2 new (001 README
-  mermaid, 003 DA-protocol gap, 007 `_ENGINE_VERSION` reescalada P3→P2,
-  011 `__about__.py` missing), 7 P3 new. 11 of 18 baseline AUDIT-NNN
-  resolved clean; 3 with regression sub-finding; 1 reaffirmed.
-  Pre-registered Cycle 3 success criterion #1 — **CLOSED**. Findings
-  tracked under label [`audit-2026-04-26`](https://github.com/VitorMRodovalho/meridianiq/issues?q=label%3Aaudit-2026-04-26)
-  (meta #40 + individual #41-#46). **Cycle 3 W0.**
+---
 
-### Pre-Cycle-3 hygiene (Claude-doable, status)
+## Deferred technical follow-ups (parking lot — pull into a wave when relevant)
 
-- ~~**D4 backend wiring**~~ — **DONE** at PR #35 (commits
-  `a392e85` + `dfcc0bd` + `c43483d` + `3de5ee9`). `RiskStore.bind_job`
-  / `get_simulation_id_by_job` indexes added; new
-  `GET /api/v1/risk/simulations/by-job/{job_id}` endpoint;
-  risk page passes `recoveryPoller`; `'recovering'` UI state +
-  i18n × 3 locales; centralised `_assert_channel_owner` helper
-  shared between `run_risk_simulation` and the new endpoint.
-- **`engine_version` source-of-truth dedup** — **PARTIAL** in this
-  cycle. `src/materializer/backfill.py` now imports `_ENGINE_VERSION`
-  from `src/materializer/runtime.py` instead of duplicating the
-  literal. Two regression tests in
-  `tests/test_materializer_runtime.py::TestEngineVersionSingleSource`
-  use a monkeypatch+sentinel pattern to assert that both `backfill`
-  and the lifecycle router pick up the runtime constant at call
-  time (catches future literal-cache regressions even under
-  refactors that change import shape).
-  **Honest disclosure:** ADR-0014 §"engine_version" line 44
-  specifies the source as `src/__about__.py::__version__` — i.e.,
-  the package version IS the engine version per the canonical ADR.
-  The implementation diverges: `src/__about__.py` does not exist
-  and `runtime.py:54` hand-codes `"4.0"`. This PR did NOT close
-  that divergence — it only deduped the cross-module literal.
-  Wiring `_ENGINE_VERSION` to `importlib.metadata.version("meridianiq")`
-  per the ADR would trigger fleet-wide re-materialization (current
-  artifacts at `"4.0"` would be marked stale against `"4.1.0"`),
-  which is a non-trivial deploy event and needs its own PR with
-  operator sign-off. Tracked below.
-- **Mypy strict on `EngineAdapter` Protocol conformance** —
-  **DONE-with-caveat**. `mypy --strict --follow-imports=silent
-  tools/calibration_harness.py` reports `Success: no issues found
-  in 1 source file`. The Protocol conformance of
-  `_LifecyclePhaseV1Adapter` is clean at the harness boundary.
-  **Caveat:** without `--follow-imports=silent` mypy reports 4
-  errors in transitive analytics modules
-  (`src/analytics/dcma14.py` datetime mismatch,
-  `src/analytics/{cpm,tia}.py` networkx untyped imports). These
-  are NOT unrelated to the harness — a future engine adapter
-  that calls into those modules differently could surface real
-  type bugs through them. The honest closure of this item would
-  install `types-networkx` and fix the dcma14 datetime; deferred
-  to its own PR (separates type-stub installation from the dedup
-  intent of this PR).
-
-### Deferred technical follow-ups (parking lot — pull into a wave when relevant)
-
-- Per-user `key_func` on `start_progress_job` (D1 partial — IP keying
-  buys headroom; user-level keying is the structurally-correct fix).
-- `429` alerting / Sentry breadcrumb suppression on heartbeat
-  `auth_check` events (log-noise control).
-- `GET /lifecycle` endpoint smoke test via TestClient (helper-level +
-  summary-level coverage already exists).
-- Source-aware boolean shape on `effective_is_construction_active`
-  (rename only if MCP / external integrations report confusion).
-- W4 reproduction regression test (`tests/test_w4_reproduction.py`),
-  gated on the manifest archive above.
-- Entry-points-based engine discovery for the calibration harness
-  (replace module-level `_REGISTRY` dict with
-  `importlib.metadata.entry_points` so engines self-register via
-  `pyproject.toml`).
-- **`channel_known: bool` field on by-job endpoint** (devils-advocate
-  PR #35 item 2). Differentiate "still running" (channel still in
-  `_channels` registry) from "session lost" (channel reaped or
-  process restart). Today both surface as `simulation_id: null`
-  and the poller waits the full 60s window before declaring
-  failure. Contract change; needs its own PR.
-- **`AbortController` plumbing for `getRiskSimulationByJob`**
-  (devils-advocate PR #35 item 7). On rapid unmount/remount loops
-  (route navigation), `destroy()` flips `recoveryAborted = true`
-  but the in-flight `await getRiskSimulationByJob` continues to
-  completion before the flag is re-checked. Leaks one HTTP
-  roundtrip per dropped instance. Wire `AbortController` through
-  to the underlying `fetch`.
-- **Vitest test for `_attemptRecovery` end-to-end** (devils-advocate
-  PR #35 item 11). The new `TestAssertChannelOwner` covers the
-  ownership helper directly and `TestRiskByJobEndpoint` covers
-  the bind/lookup pair, but no test exercises the actual
-  WS-drop → composable enters `recovering` → poller succeeds →
-  composable flips to `done` path. Needs a Vitest test with a
-  fake `recoveryPoller` and a controlled `error.code` event to
-  drive the state machine.
-- **Wire `_ENGINE_VERSION` to `__about__.py::__version__` per
-  ADR-0014** — close the divergence noted above. Approach:
-  create `src/__about__.py` (or read via `importlib.metadata`),
-  point `runtime.py:54` at it, ship migration-safe (existing
-  `"4.0"` artifacts auto-stale + re-materialize on next access).
-  Operator decision required: the re-materialization is a
-  non-trivial deploy event (88 prod rows). Could be paired with
-  the next legitimate engine algorithm bump rather than shipped
-  as pure plumbing.
-- **Install `types-networkx` + fix `dcma14.py` datetime mismatch**
-  (devils-advocate PR #36 item 3). Closes the 4 transitive mypy
-  strict errors that ``--follow-imports=silent`` currently masks.
-  Small change in `src/analytics/dcma14.py:100-102` (datetime
-  None-handling) plus a `types-networkx` add to `[dev]` extras.
+- Per-user `key_func` on `start_progress_job` (D1 partial — IP keying buys headroom; user-level keying is the structurally-correct fix).
+- `429` alerting / Sentry breadcrumb suppression on heartbeat `auth_check` events (log-noise control).
+- `GET /lifecycle` endpoint smoke test via TestClient (helper-level + summary-level coverage already exists).
+- Source-aware boolean shape on `effective_is_construction_active` (rename only if MCP / external integrations report confusion).
+- Entry-points-based engine discovery for the calibration harness (replace module-level `_REGISTRY` dict with `importlib.metadata.entry_points` so engines self-register via `pyproject.toml`).
+- **`channel_known: bool` field on by-job endpoint** (devils-advocate PR #35 item 2). Differentiate "still running" (channel still in `_channels` registry) from "session lost" (channel reaped or process restart). Today both surface as `simulation_id: null` and the poller waits the full 60s window before declaring failure. Contract change; needs its own PR.
+- **`AbortController` plumbing for `getRiskSimulationByJob`** (devils-advocate PR #35 item 7). On rapid unmount/remount loops (route navigation), `destroy()` flips `recoveryAborted = true` but the in-flight `await getRiskSimulationByJob` continues to completion before the flag is re-checked. Leaks one HTTP roundtrip per dropped instance. Wire `AbortController` through to the underlying `fetch`.
+- **Vitest test for `_attemptRecovery` end-to-end** (devils-advocate PR #35 item 11). No test exercises the actual WS-drop → composable enters `recovering` → poller succeeds → composable flips to `done` path. Needs a Vitest test with a fake `recoveryPoller` and a controlled `error.code` event to drive the state machine.
+- **Install `types-networkx` + fix `dcma14.py` datetime mismatch** (devils-advocate PR #36 item 3). Closes the 4 transitive mypy strict errors that ``--follow-imports=silent`` currently masks. Small change in `src/analytics/dcma14.py:100-102` (datetime None-handling) plus a `types-networkx` add to `[dev]` extras.
+- **Cycle 4 W3 follow-ups** (PR #88/#95/#99 P3 carry-overs): #92 (revision-trends endpoint integration test), #91 (404-vs-RLS-denied), #90 (error handling), #89 (CUSUM improvement-vs-slip distinction), #96 (locale-aware formatting), #97 (SVG chart a11y), #98 (revision-trends polish), #100 (W3-C ADR amendment + cross-Python byte-stability).
+- **Cycle 4 W2 + W4 follow-ups**: #82 (race condition test), #84/#85/#86 (UX polish), #87 (Vitest harness for Svelte 5).
 
 ---
 
@@ -206,20 +89,9 @@ each closes.
   full record of what was tried and why it parked.
 - **Fuzzy-match dependency category** — reserved (ADR-0011 not
   authored). See ADR-0009 §"Wave A" for the original framing.
-- **ADR-0022 + ADR-0023** — reserved for the two Cycle 4 deeps
-  selected at Cycle 3 close per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md)
-  §"Decision". Candidates: A1+A2 deep (corpus-conditional), E1 deep
-  (corpus-conditional), or other if Cycle 3 evidence reframes. Pre-
-  reservation matches the ADR-0010 / ADR-0011 pattern (numbers held;
-  no stub files until the actual ADR is authored at Cycle 4 W0).
-- **Schedule Viewer Wave 7** — backend engines exist
-  (`src/analytics/resource_leveling.py`, `src/analytics/evm.py`); Gantt
-  UI integration tracked at #23 with sub-issues #29 (P1 resource
-  histogram), #30 (P2 cost-loading), #31 (P2 BVA per activity), #32
-  (P3 RCCP highlighting). Re-evaluated at Cycle 3 entry (ADR-0021
-  §"Considered Options" Option 3 — rejected as cycle commitment, kept
-  as slot-opportunistic shallow). Strong candidate for a Cycle 4+
-  shallow.
+- **ADR-0022 + ADR-0023** — **AUTHORED** at Cycle 4 entry + Cycle 4 W4 close (β-honest deep + W4 outcome record). No longer reserved.
+- **ADR-0024+** — next reserved number for whichever Cycle 5+ deep entry ADR ships.
+- **Schedule Viewer Wave 7** — backend engines exist (`src/analytics/resource_leveling.py`, `src/analytics/evm.py`); Gantt UI integration tracked at #23 with sub-issues #29 (P1 resource histogram), #30 (P2 cost-loading), #31 (P2 BVA per activity), #32 (P3 RCCP highlighting). Slot-opportunistic shallow inside any cycle; Cycle 5+ candidate.
 
 ---
 
@@ -250,27 +122,24 @@ contributors don't infer commitment from absence elsewhere.
 
 ## Cadence
 
-Per [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md), every cycle
-close updates five artifacts. The Cycle 2 close did:
+Per [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md), every cycle close updates five artifacts. v4.2.0 Cycle 4 close artifacts:
 
 | Artifact | Status |
 |----------|--------|
-| `docs/ROADMAP.md` | refreshed at Cycle 2 close + this Cycle 3 W0 entry |
-| [`BUGS.md`](../BUGS.md) header + pruning | refreshed at Cycle 2 close |
-| [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) Cycle 2 entry | appended at Cycle 2 close + 5 close-arc lessons appended in PR #37 (2026-04-27) |
-| Catalog regen via `scripts/generate_*.py` | done at `6be1ec8` (pre-bump) + `dfcc0bd` (post-by-job endpoint, 2026-04-27) |
-| `docs/audit/2026-04-26/` re-run | **DONE — Cycle 3 W0** at PR #39 (`0524db7`); 11 findings (4 P2 + 7 P3, zero P0/P1 new); meta-issue `#40` |
+| `docs/ROADMAP.md` | refreshed at v4.2.0 release tag (this commit) |
+| [`BUGS.md`](../BUGS.md) header + pruning | refreshed at v4.2.0 release tag |
+| [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) Cycle 4 entry | appended at v4.2.0 release tag with 9 lessons captured Cycle 4 close |
+| Catalog regen via `scripts/generate_*.py` + `scripts/check_stats_consistency.py` | run at v4.2.0 release tag prep |
+| Audit re-run | **DEFERRED** to Cycle 5 W0 entry (Cycle 4 close-arc consolidated `docs/audit/2026-04-26/`; next baseline to follow Cycle 5 entry kickoff) |
 
-Cycle 3 also implements the Cycle 2 §"What we would do differently"
-lesson — this ROADMAP refresh + ADR-0021 land at Cycle 3 W0 (kickoff),
-not Cycle 3 close. Future cycles follow the same pattern.
+Cycle 4 entry ADR (ADR-0022) was authored 2026-04-28; Cycle 5+ entry ADR will follow the same pattern (4-agent council + scope memo at W0).
 
 ---
 
 ## See also
 
 - [`CHANGELOG.md`](../CHANGELOG.md) — release-by-release record.
-- [`docs/adr/`](adr/) — architectural decisions (current canon: 0001–0020).
+- [`docs/adr/`](adr/) — architectural decisions (current canon: 0001–0023).
 - [`docs/audit/`](audit/) — structural audits + handoff procedures.
 - [`docs/SCHEDULE_VIEWER_ROADMAP.md`](SCHEDULE_VIEWER_ROADMAP.md) —
   feature-specific Gantt roadmap (deeper detail than this top-level
