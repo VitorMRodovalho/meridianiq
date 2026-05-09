@@ -1,0 +1,45 @@
+{
+  "engine_name": "revision_trends",
+  "gate_schema_version": 1,
+  "overall_pass": false,
+  "path_a_activated": true,
+  "path_a_reasons": [
+    "sub-gate A: corpus census below threshold (binding=0, threshold=30)",
+    "sub-gate B: skipped (sub_gate_a_failed)"
+  ],
+  "protocol_name": "revision_trends_w4",
+  "run_started_at": "2026-05-09T18:00:00+00:00",
+  "sub_gate_a": {
+    "attestation_source": "ADR-0009 W4 outcome record \u00a7Aggregate counts (4 multi-revision programs in 103-XER sandbox, 2026-04-19) + ADR-0022 \u00a7Honest disclosures #6 (corpus assembly is operator + LGPD-blocked)",
+    "binding_count": 0,
+    "n_completed_with_outcome": 0,
+    "n_total_multi_revision_programs": 4,
+    "n_with_consent_path": 0,
+    "passed": false,
+    "threshold": 30
+  },
+  "sub_gate_b": {
+    "brier_score": null,
+    "n_pairs": 0,
+    "passed": false,
+    "skipped_reason": "sub_gate_a_failed",
+    "status": "skipped",
+    "threshold": 0.2,
+    "weighted_brier_score": null
+  },
+  "sub_gate_c": {
+    "f1": 0.769231,
+    "hash_drift_error": null,
+    "hash_lock_verified": true,
+    "n_detections_total": 14,
+    "n_false_negatives": 3,
+    "n_false_positives": 0,
+    "n_fixtures": 8,
+    "n_ground_truths_total": 8,
+    "n_true_positives": 5,
+    "passed": true,
+    "precision": 1.0,
+    "recall": 0.625,
+    "threshold": 0.75
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "census_attestation_source": "ADR-0009 W4 outcome record \u00a7Aggregate counts (4 multi-revision programs in 103-XER sandbox, 2026-04-19) + ADR-0022 \u00a7Honest disclosures #6 (corpus assembly is operator + LGPD-blocked)",
+  "engine_name": "revision_trends",
+  "fixture_hash_lock_verified": true,
+  "fixture_n": 8,
+  "gate_schema_version": 1,
+  "overall_pass": false,
+  "path_a_activated": true,
+  "protocol_name": "revision_trends_w4",
+  "run_started_at": "2026-05-09T18:00:00+00:00",
+  "thresholds_locked": {
+    "sub_gate_a": 30,
+    "sub_gate_b": 0.2,
+    "sub_gate_c": 0.75
+  }
+}
