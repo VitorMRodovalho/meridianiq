@@ -3,9 +3,18 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — Cycle 3 in-flight (post-v4.1.0)
+## [Unreleased] — Cycle 3 close-arc + Cycle 4 in-flight (post-v4.1.0)
 
 Cycle 3 is the **Floor + Field-surface shallow** cycle per [ADR-0021](docs/adr/0021-cycle-3-entry-floor-plus-field-shallow.md). NO deep committed; the cycle ships closure of multi-cycle contractual debts + the W3 reproduction-regression primitive every future calibration-dependent deep depends on. **Pre-registered success criteria status: 3/9 closed** (#1 audit re-run, #5 reproduction test, #6 `_ENGINE_VERSION` code-side migration). Per ADR-0021 graceful threshold (≥5/9), on track once operator runbooks land.
+
+Cycle 4 (β-honest per [ADR-0022](docs/adr/0022-cycle-4-entry-beta-honest.md)) opened post-v4.1.0 with auto-revision detection + multi-rev S-curve overlay + W4 pre-registered calibration gate. **Cycle 4 success criteria status: 6.0/9 closed** post-W4 (criteria 2+3+4 full credit; 5+6 path-A partial credit; 7 sub-gate C passed; 8 ADR-0023 + DA+IV exit-council). Pending #9 release tag → graceful threshold ≥7/9.
+
+### Added — Cycle 4 W4 calibration gate (path-A activation per ADR-0022)
+
+- **[ADR-0023 — Cycle 4 W4 outcome record](docs/adr/0023-cycle-4-w4-outcome.md)** documenting the pre-registered calibration gate outcome. Path-A activated on sub-gates A (corpus census `binding_count=0` < `N≥30`) + B (skipped on sub-gate-A precondition); sub-gate C **PASSED at F1=0.769231 ≥ 0.75 (margin "1 borderline detection wide")**. Optimism-pattern forecast feature ships **as preview only** — visualization + change-point markers + slope CI bands, NO forecast curve, NO "predictive engine" copy. ADR addresses DA+IV paired exit-council inline (DA: 3 P0 + 5 P1 + 2 P2 + 4 P3 ≈ 14 findings; IV: 6 strategic findings — including the "calibration theater" pattern-vs-ADR-0009 confrontation, sycophancy-prone partial-credit math acknowledgment, demand-validation signal silence section).
+- **`tools/calibration_harness/gates/revision_trends_w4.py`** (~600 LoC) — pre-registered W4 gate evaluator. Three sub-gate dataclasses (`CorpusCensus`, `CalibrationPair`, `SubGateA/B/CResult`) with locked-threshold guards in `__post_init__` (raises `ValueError` if user attempts override). `evaluate_sub_gate_a/b/c` + aggregator `run_revision_trends_w4`. CLI `python -m tools.calibration_harness.gates.revision_trends_w4` writes manifest + public + private payloads to `--output-dir docs/calibration/`. Heteroscedasticity-aware Brier formula (`w_i = 1 / sqrt(horizon_i + 1)`) pre-registered in ADR-0023 with explicit acknowledgment that the `+1` is a SIGNAL component (1-day-equivalent measurement uncertainty floor), NOT numerical-stability epsilon, and that the lock has zero teeth in this evaluation (sub-gate B skipped). `--run-started-at ISO_STRING` flag (DA P1 #4) enables byte-exact reproducibility of committed JSONs.
+- **`tests/test_revision_trends_w4_evaluator.py`** — 49 regression tests across 11 classes pinning: locked threshold guards (A=30, B=0.20, C=0.75 not user-tunable); CorpusCensus subset chain + attestation provenance discipline; CalibrationPair boundary validation; sub-gate B precondition vs. empty-input skip distinction + heteroscedasticity downweighting; sub-gate C locked baseline F1=0.769231 reproduces against committed fixtures + tamper detection (byte-flip) + offset-100 cross-fixture cluster-bleed structural pin; aggregator path-A activation when any sub-gate fails or skips; public-payload omits raw pair vectors (anti-leak); CLI byte-identical reproducibility + naive-datetime rejection.
+- **`docs/calibration/revision-trends-w4-{manifest,public}.json`** — committed outcome payloads (private gitignored per `*_private.json` glob).
 
 ### Added — W0 cycle entry + audit re-run
 
