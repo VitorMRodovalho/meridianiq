@@ -168,6 +168,66 @@ def test_confirm_409_when_parent_in_different_program(
     assert "not in the same program" in resp.json()["detail"]
 
 
+def test_confirm_409_when_program_id_mutated_after_detect(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Contract probe on the ``get_project_meta.program_id`` read path
+    used by ``confirm-revision-of`` (issue #82, DA P3-15 from PR #78).
+
+    Distinct from ``test_confirm_409_when_parent_in_different_program``
+    in setup shape: that test pre-creates two projects in DIFFERENT
+    programs (PROJ-A vs PROJ-B), then asserts 409. This test pre-creates
+    two projects in the SAME auto-grouped program (both PROJ-A), runs
+    detect (stateless 200), MUTATES p2's ``program_id`` post-detect, and
+    asserts confirm now 409s. Without the mutation the path would 200 —
+    the mutation is the load-bearing step.
+
+    What this pins:
+        ``confirm-revision-of`` reads ``program_id`` from the live store
+        at submission time (via ``get_project_meta``) — not from a value
+        cached at detect time. A refactor introducing a detect-cached
+        token would have to leave this path intact OR explicitly opt out
+        of contract.
+
+    What this does NOT pin (DA exit-council on PR #113 P1 #2):
+        No production API re-groups projects today. The store-level
+        mutation here is artificial; if a future re-grouping API ships,
+        a real-coverage test should land alongside it (touching
+        ``_upload_program`` + ``_programs`` per the actual API surface,
+        not just ``_project_meta``).
+    """
+    user_id = "user-w2-test"
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id=user_id,
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id=user_id,
+    )
+    token = _make_token()
+    # Detect: stateless read; no state captured by the response.
+    client.post(
+        f"/api/v1/projects/{p2}/detect-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    # Mutate: schema-shaped program_id (real prog-NNNN value created via
+    # get_or_create_program) so the test's stand-in matches the actual
+    # FK shape program_id has in production. DA exit-council PR #113 P2 #4.
+    other_program_id = fresh_store.get_or_create_program(user_id, "OTHER-PROG")
+    fresh_store._project_meta[p2]["program_id"] = other_program_id  # noqa: SLF001
+    # Confirm: re-reads program_id from store, sees mismatch, 409s.
+    resp = client.post(
+        f"/api/v1/projects/{p2}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": p1},
+    )
+    assert resp.status_code == 409
+    assert "not in the same program" in resp.json()["detail"]
+
+
 def test_confirm_writes_revision_history_row(
     client: TestClient, fresh_store: InMemoryStore
 ) -> None:
