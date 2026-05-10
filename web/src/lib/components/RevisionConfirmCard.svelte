@@ -38,7 +38,8 @@
 
 	import { confirmRevisionOf, detectRevisionOf } from '$lib/api';
 	import { trackEvent } from '$lib/analytics';
-	import { t } from '$lib/i18n';
+	import { locale, t } from '$lib/i18n';
+	import { formatDate } from '$lib/i18n/format';
 	import { error as toastError, success } from '$lib/toast';
 
 	interface Props {
@@ -191,11 +192,13 @@
 		onSkipped?.();
 	}
 
-	function formatDate(iso: string | null): string {
-		if (!iso) return '—';
-		// Show only the date part (YYYY-MM-DD) — time-of-day is noise here.
-		return iso.slice(0, 10);
-	}
+	// Issue #85 (DA P3-2 from PR #83): legacy ``iso.slice(0, 10)`` returned
+	// raw YYYY-MM-DD. Replaced with ``formatDate(iso, $locale)`` from
+	// ``$lib/i18n/format`` — locale-aware (Apr 15, 2026 / 15 abr. 2026 /
+	// 15 abr 2026 across en/pt-BR/es) with ``timeZone: 'UTC'`` enforced
+	// for P6 data_date TZ-naive semantics. Called markup-side via
+	// ``formatDate(candidateDataDate, $locale)`` so $locale reactivity
+	// re-renders on locale switch.
 </script>
 
 {#if detectState === 'loading'}
@@ -249,7 +252,7 @@
 				>
 					{interpolate($t('revision.confirm_card_body'), {
 						name: candidateProjectName ?? '—',
-						date: formatDate(candidateDataDate),
+						date: formatDate(candidateDataDate, $locale),
 						count: String(candidateRevisionCount)
 					})}
 				</p>
