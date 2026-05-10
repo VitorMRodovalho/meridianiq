@@ -168,6 +168,53 @@ def test_confirm_409_when_parent_in_different_program(
     assert "not in the same program" in resp.json()["detail"]
 
 
+def test_confirm_409_when_program_id_mutated_after_detect(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    """Confirm-time program_id check still fires when program_id mutates
+    BETWEEN a detect call and a confirm call (issue #82, DA P3-15 from
+    PR #78).
+
+    Backend-reviewer entry-council on issue #82 (Cycle 5 W3-A): the detect
+    endpoint is stateless and confirm reads ``program_id`` fresh from the
+    store at submission time, so this case is structurally indistinguishable
+    from ``test_confirm_409_when_parent_in_different_program`` — the detect
+    call is a no-op for the assertion. This test is documented as a
+    REGRESSION PIN against any future refactor that introduces a
+    detect-cached ``program_id`` token confirm trusts. No production API
+    re-groups projects today; the mutation goes through ``_project_meta``
+    direct poke as the future-API stand-in.
+    """
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    # Detect: stateless read; returns candidate (or none). No state captured.
+    client.post(
+        f"/api/v1/projects/{p2}/detect-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    # Mutate: simulate a future support-ticket re-grouping API moving p2 to a
+    # different program. No production call site exists today; this poke is
+    # the future-API stand-in.
+    fresh_store._project_meta[p2]["program_id"] = "different-program"  # noqa: SLF001
+    # Confirm: re-reads program_id from store, sees mismatch, 409s.
+    resp = client.post(
+        f"/api/v1/projects/{p2}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": p1},
+    )
+    assert resp.status_code == 409
+    assert "not in the same program" in resp.json()["detail"]
+
+
 def test_confirm_writes_revision_history_row(
     client: TestClient, fresh_store: InMemoryStore
 ) -> None:
