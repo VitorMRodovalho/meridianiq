@@ -2867,16 +2867,35 @@ class SupabaseStore:
         number of rows deleted. The reconsider mechanism — frontend
         calls this when the user clicks "Confirm as revision of..." on
         the project-detail page.
+
+        DA exit-council PR #118 P1 #1: PostgREST DELETE without explicit
+        ``Prefer: return=representation`` returns an empty body —
+        ``len(res.data or [])`` would always be 0 in production while
+        InMemoryStore tests pass. Two-round-trip (SELECT-then-DELETE,
+        return SELECT count) avoids the silent dev/prod divergence +
+        dodges the supabase-py version-contract question. The cost is
+        an extra round-trip on a manual-button reconsider call (rare,
+        operator-paced) — acceptable.
         """
         try:
-            res = (
+            existing = (
+                self._client.table("revision_skip_log")
+                .select("id")
+                .eq("project_id", project_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            count = len(existing.data or [])
+            if count == 0:
+                return 0
+            (
                 self._client.table("revision_skip_log")
                 .delete()
                 .eq("project_id", project_id)
                 .eq("user_id", user_id)
                 .execute()
             )
-            return len(res.data or [])
+            return count
         except Exception as exc:  # noqa: BLE001
             logger.warning("clear_revision_skips failed: %s", exc)
             return 0

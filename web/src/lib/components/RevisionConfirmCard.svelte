@@ -218,7 +218,16 @@
 		}
 	}
 
+	let skipping = $state(false);
+
 	async function handleSkip(): Promise<void> {
+		// DA exit-council PR #118 P1 #2: disable the button during the
+		// in-flight skipRevisionOf to prevent double-click duplicate
+		// POSTs AND prevent parent dismount from racing the await
+		// continuation. The await completes (success or failure)
+		// BEFORE onSkipped fires + dismounts the component.
+		if (skipping) return;
+		skipping = true;
 		trackEvent('revision_skipped', {
 			project_id: projectId,
 			candidate_project_id: candidateProjectId
@@ -237,6 +246,9 @@
 			}
 		}
 		onSkipped?.();
+		// skipping intentionally NOT reset — onSkipped triggers dismount
+		// in the parent. If a future caller leaves the component mounted,
+		// they should reset skipping themselves.
 	}
 
 	// Issue #85 (DA P3-2 from PR #83): legacy ``iso.slice(0, 10)`` returned
@@ -324,7 +336,7 @@
 			<button
 				type="button"
 				onclick={handleSkip}
-				disabled={confirmState === 'submitting'}
+				disabled={confirmState === 'submitting' || skipping}
 				aria-describedby="revision-confirm-help"
 				class="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
 			>
