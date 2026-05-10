@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **127 endpoints** across **25 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **129 endpoints** across **25 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -31,7 +31,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Observability](#observability) — 1 endpoints
 - [Organizations](#organizations) — 11 endpoints
 - [Plugins](#plugins) — 2 endpoints
-- [Revisions](#revisions) — 4 endpoints
+- [Revisions](#revisions) — 6 endpoints
 - [Ws](#ws) — 1 endpoints
 
 ## Upload
@@ -311,9 +311,11 @@ _Readiness and liveness_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
+| `POST` | `/api/v1/projects/{project_id}/clear-revision-skips` | Delete all skip rows for (project_id, current_user) — the | `ClearRevisionSkipsResponse` | required |
 | `POST` | `/api/v1/projects/{project_id}/confirm-revision-of` | Write a ``revision_history`` row anchoring the current upload as a | `ConfirmRevisionOfResponse` | required |
 | `POST` | `/api/v1/projects/{project_id}/detect-revision-of` | Return candidate parent project per the v1 heuristic. | `DetectRevisionOfResponse` | required |
 | `GET` | `/api/v1/projects/{project_id}/revision-trends` | Return the multi-revision S-curve overlay + change-points + slope band. | `RevisionTrendsResponse` | required |
+| `POST` | `/api/v1/projects/{project_id}/skip-revision-of` | Record that the user dismissed a revision-confirmation candidate. | `SkipRevisionOfResponse` | required |
 | `POST` | `/api/v1/revisions/{revision_id}/tombstone` | Soft-tombstone a revision_history row + write paired audit_log entry. | `TombstoneRevisionResponse` | required |
 
 ## Ws
