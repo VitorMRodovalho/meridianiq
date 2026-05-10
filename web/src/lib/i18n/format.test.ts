@@ -176,5 +176,53 @@ describe('formatDate', () => {
 			const result = formatDate(ISO_2026_04_15, '??invalid?');
 			expect(result).toBe('2026-04-15');
 		});
+
+		it('fallback returns the UTC calendar day for offset-bearing ISOs', () => {
+			// DA exit-council PR #115 P1 #1: the previous
+			// `iso.slice(0, 10)` fallback day-shifted for offset-bearing
+			// inputs. For 2026-04-15T22:00:00-04:00 the UTC instant is
+			// 2026-04-16T02:00:00Z so the UTC calendar day is the 16th —
+			// NOT the 15th from the original-string slice.
+			const result = formatDate('2026-04-15T22:00:00-04:00', '??invalid?');
+			expect(result).toBe('2026-04-16');
+		});
+	});
+
+	describe('ICU-stable numeric ground truth', () => {
+		// DA exit-council PR #115 P2 #5: locale tests above use month: 'short'
+		// (forgiving regex on "Apr"/"abr" etc.) which masks ICU drift. These
+		// numeric-format tests are ground truth — pin month: '2-digit' so an
+		// ICU update changing month-abbrev strings would fail the OTHER tests
+		// noisily while these still anchor the locale-routing contract.
+
+		it('en numeric format', () => {
+			const result = formatDate(ISO_2026_04_15, 'en', {
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+			});
+			// en-US convention is MM/DD/YYYY (with locale-specific separators).
+			expect(result).toMatch(/04[/.-]15[/.-]2026/);
+		});
+
+		it('pt-BR numeric format', () => {
+			const result = formatDate(ISO_2026_04_15, 'pt-BR', {
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+			});
+			// pt-BR convention is DD/MM/YYYY.
+			expect(result).toMatch(/15[/.-]04[/.-]2026/);
+		});
+
+		it('es numeric format', () => {
+			const result = formatDate(ISO_2026_04_15, 'es', {
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+			});
+			// es convention is DD/MM/YYYY.
+			expect(result).toMatch(/15[/.-]04[/.-]2026/);
+		});
 	});
 });

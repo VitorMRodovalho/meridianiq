@@ -53,28 +53,37 @@ export function formatNumber(
  * conventions. The output drops the time-of-day; data_date semantics
  * are calendar-day-only.
  *
- * **Timezone discipline**: data_date in P6 is timezone-naive by domain
- * convention. We force `timeZone: 'UTC'` so an ISO string ending in
- * `Z` (or any explicit offset) is interpreted as the calendar day at
- * UTC, NOT shifted to the viewer's local TZ. Without this, a viewer
- * in UTC-3 looking at `2026-04-15T00:00:00Z` would see "Apr 14" — the
- * exact bug the legacy `iso.slice(0, 10)` shortcut also avoided.
+ * **Timezone discipline (NOT overridable)**: data_date in P6 is
+ * timezone-naive by domain convention. The helper forces
+ * `timeZone: 'UTC'` so an ISO string ending in `Z` (or any explicit
+ * offset) is interpreted as the calendar day at UTC, NOT shifted to the
+ * viewer's local TZ. Without this, a viewer in UTC-3 looking at
+ * `2026-04-15T00:00:00Z` would see "Apr 14".
+ *
+ * The `options` parameter type uses `Omit<..., 'timeZone'>` so the
+ * compiler rejects any caller attempt to pass `timeZone` (DA exit-council
+ * PR #115 P1 #2: silent spread-order override would have lied). Future
+ * non-UTC use cases (e.g., contract-local TZ rendering) need a separate
+ * helper, NOT a `timeZone` option here.
  *
  * Defensive:
  * - `null` / `undefined` / `''` → `'—'`
  * - Unparseable strings → `'—'`
- * - Intl rejection → fallback to the legacy `iso.slice(0, 10)` shape
+ * - Intl rejection → fallback to UTC-canonical `YYYY-MM-DD` via
+ *   `parsed.toISOString().slice(0, 10)` (NOT `iso.slice(0, 10)` —
+ *   DA P1 #1: offset-bearing ISOs day-shift on the original-string slice)
  *
  * @param iso - ISO-8601 datetime string (`'2026-04-15T00:00:00Z'`)
  *   or `null` / `undefined`
  * @param locale - the active locale (`'en'` | `'pt-BR'` | `'es'`)
- * @param options - `Intl.DateTimeFormatOptions` overrides (default
- *   `{ year: 'numeric', month: 'short', day: 'numeric' }`)
+ * @param options - `Intl.DateTimeFormatOptions` overrides MINUS the
+ *   `timeZone` field (the helper enforces UTC). Default
+ *   `{ year: 'numeric', month: 'short', day: 'numeric' }`.
  */
 export function formatDate(
 	iso: string | null | undefined,
 	locale: Locale | string = 'en',
-	options: Intl.DateTimeFormatOptions = {
+	options: Omit<Intl.DateTimeFormatOptions, 'timeZone'> = {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
@@ -87,8 +96,13 @@ export function formatDate(
 		return new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(parsed);
 	} catch {
 		// Fallback if Intl rejects the locale string for any reason —
-		// preserves the legacy `YYYY-MM-DD` shape so consumers don't
-		// suddenly get an empty string in failure modes.
-		return iso.slice(0, 10);
+		// emit the UTC-canonical YYYY-MM-DD via toISOString. DA exit-
+		// council PR #115 P1 #1: the previous `iso.slice(0, 10)` was
+		// day-shifted for offset-bearing inputs (e.g.,
+		// 2026-04-15T22:00:00-04:00 sliced to '2026-04-15' but the UTC
+		// day is 2026-04-16 — same instant, different day). Using
+		// `parsed.toISOString().slice(0, 10)` returns the UTC day
+		// regardless of input offset.
+		return parsed.toISOString().slice(0, 10);
 	}
 }
