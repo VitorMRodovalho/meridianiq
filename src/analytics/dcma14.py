@@ -93,6 +93,10 @@ class DCMA14Analyzer:
         self.schedule = schedule
         self.hours_per_day = hours_per_day
 
+        # Cycle 5 W4 hygiene: explicit attribute type so mypy --strict does
+        # not infer ``datetime`` from the first branch and reject the
+        # nullable assignments in the elif/else branches.
+        self.data_date: datetime | None
         if data_date:
             self.data_date = data_date
         elif schedule.projects:
