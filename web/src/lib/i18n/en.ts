@@ -1335,6 +1335,9 @@ export default {
 	'revision.error_current_not_found': 'This project is no longer available. The card has been dismissed.',
 	'revision.error_parent_not_found': 'The candidate parent project is no longer available. The card has been dismissed.',
 	'revision.error_cross_program': 'Current and parent are not in the same program. Refresh the page or open a support ticket.',
+	'revision.reconsider_button': 'Confirm as revision of…',
+	'revision.reconsidering': 'Re-checking for revision matches…',
+	'revision.reconsider_no_prior_skip': 'No prior skip on this project — re-running detection.',
 
 	// Cycle 4 W3-B — multi-revision S-curve overlay (revision-trends page).
 	'revision_trends.subtitle': 'Multi-revision planned-completion overlay with executed-curve and CUSUM change-point markers (AACE RP 29R-03 §"Window analysis").',

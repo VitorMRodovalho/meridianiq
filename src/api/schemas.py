@@ -1994,6 +1994,45 @@ class ConfirmRevisionOfResponse(BaseModel):
     content_hash: str
 
 
+class SkipRevisionOfRequest(BaseModel):
+    """Request body for POST /api/v1/projects/{id}/skip-revision-of
+    (Cycle 5 W3-E — issue #84).
+
+    Frontend calls this when the user clicks "Treat as new project" on
+    the revision-confirmation card. The skip persists across sessions;
+    detect endpoint filters skipped candidates so the same suggestion
+    doesn't nag forever.
+    """
+
+    candidate_project_id: str = Field(..., min_length=1)
+
+
+class SkipRevisionOfResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/skip-revision-of.
+
+    ``recorded`` is False on idempotent no-op (the (project, candidate,
+    user) triple already exists in revision_skip_log per migration 029
+    UNIQUE). Frontend treats both shapes as success.
+    """
+
+    project_id: str
+    candidate_project_id: str
+    recorded: bool
+
+
+class ClearRevisionSkipsResponse(BaseModel):
+    """Response for POST /api/v1/projects/{id}/clear-revision-skips
+    (Cycle 5 W3-E — issue #84).
+
+    Reconsider mechanism: deletes all skip rows for (project_id,
+    current_user). After clearing, a subsequent detect call surfaces
+    the same candidate the user previously skipped.
+    """
+
+    project_id: str
+    cleared_count: int
+
+
 class TombstoneRevisionRequest(BaseModel):
     """Request body for POST /api/v1/revisions/{id}/tombstone.
 

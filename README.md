@@ -40,7 +40,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 1490 backend + 26 Vitest composables + Playwright E2E |
 | Frontend pages | 55 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
-| API endpoints | 127 across 25 routers |
+| API endpoints | 129 across 25 routers |
 | SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.2.0 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (48)<br/>127 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (48)<br/>129 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -325,12 +325,12 @@ meridianiq/
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
 │       ├── app.py        # FastAPI entry point
-│       ├── routers/      # 127 endpoints across modular routers
+│       ├── routers/      # 129 endpoints across modular routers
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind (55 pages)
 ├── tests/                # 1490+ backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations (28 files)
+│   └── migrations/       # PostgreSQL schema migrations (29 files)
 ├── .github/
 │   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents

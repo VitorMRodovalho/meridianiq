@@ -36,7 +36,7 @@
 	// body + action row). Form pattern (props, $state, $derived, error
 	// surfacing) mirrors ``LifecycleOverrideDialog.svelte``.
 
-	import { ApiError, confirmRevisionOf, detectRevisionOf } from '$lib/api';
+	import { ApiError, confirmRevisionOf, detectRevisionOf, skipRevisionOf } from '$lib/api';
 	import { trackEvent } from '$lib/analytics';
 	import { locale, t } from '$lib/i18n';
 	import { formatDate } from '$lib/i18n/format';
@@ -218,12 +218,37 @@
 		}
 	}
 
-	function handleSkip(): void {
+	let skipping = $state(false);
+
+	async function handleSkip(): Promise<void> {
+		// DA exit-council PR #118 P1 #2: disable the button during the
+		// in-flight skipRevisionOf to prevent double-click duplicate
+		// POSTs AND prevent parent dismount from racing the await
+		// continuation. The await completes (success or failure)
+		// BEFORE onSkipped fires + dismounts the component.
+		if (skipping) return;
+		skipping = true;
 		trackEvent('revision_skipped', {
 			project_id: projectId,
 			candidate_project_id: candidateProjectId
 		});
+		// Cycle 5 W3-E (issue #84): record the skip server-side so detect
+		// stops surfacing this candidate. Reconsider via the project-detail
+		// page's "Confirm as revision of..." action which calls
+		// clear-revision-skips. Best-effort — if the skip-record call
+		// fails (network blip), we still call onSkipped so the UI dismisses
+		// the card; user can re-skip on next visit.
+		if (candidateProjectId) {
+			try {
+				await skipRevisionOf(projectId, candidateProjectId);
+			} catch (err) {
+				console.warn('skipRevisionOf failed (best-effort):', err);
+			}
+		}
 		onSkipped?.();
+		// skipping intentionally NOT reset — onSkipped triggers dismount
+		// in the parent. If a future caller leaves the component mounted,
+		// they should reset skipping themselves.
 	}
 
 	// Issue #85 (DA P3-2 from PR #83): legacy ``iso.slice(0, 10)`` returned
@@ -311,7 +336,7 @@
 			<button
 				type="button"
 				onclick={handleSkip}
-				disabled={confirmState === 'submitting'}
+				disabled={confirmState === 'submitting' || skipping}
 				aria-describedby="revision-confirm-help"
 				class="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
 			>

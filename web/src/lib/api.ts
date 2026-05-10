@@ -1409,6 +1409,44 @@ export async function confirmRevisionOf(
 }
 
 /**
+ * Record a revision-confirmation skip (Cycle 5 W3-E — issue #84).
+ *
+ * Idempotent: repeated calls with the same triple return ``recorded:
+ * false``. Triggers structured 4xx error_code on missing project /
+ * candidate / self-skip — frontend reads ``ApiError.errorCode``.
+ */
+export async function skipRevisionOf(
+	projectId: string,
+	candidateProjectId: string
+): Promise<{ project_id: string; candidate_project_id: string; recorded: boolean }> {
+	return request<{ project_id: string; candidate_project_id: string; recorded: boolean }>(
+		`/api/v1/projects/${projectId}/skip-revision-of`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ candidate_project_id: candidateProjectId })
+		}
+	);
+}
+
+/**
+ * Clear all revision-confirmation skips for a project + current user
+ * (Cycle 5 W3-E — issue #84). Reconsider mechanism: the project-detail
+ * page calls this when the user clicks "Confirm as revision of...".
+ *
+ * After clearing, a subsequent ``detectRevisionOf`` call re-surfaces
+ * the candidate the user previously skipped.
+ */
+export async function clearRevisionSkips(
+	projectId: string
+): Promise<{ project_id: string; cleared_count: number }> {
+	return request<{ project_id: string; cleared_count: number }>(
+		`/api/v1/projects/${projectId}/clear-revision-skips`,
+		{ method: 'POST' }
+	);
+}
+
+/**
  * Soft-tombstone a revision_history row + write paired audit_log entry.
  *
  * Idempotent — re-tombstone returns the existing tombstoned_at without

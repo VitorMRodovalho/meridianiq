@@ -48,6 +48,15 @@ vi.mock('$lib/api', async () => {
 			});
 		}),
 		confirmRevisionOf: confirmMock,
+		// Cycle 5 W3-E (issue #84): handleSkip now calls skipRevisionOf
+		// best-effort. No-op stub is safe — auto-collapse path doesn't
+		// hit Skip button, and the inaugural skip-button test is left
+		// to a follow-up.
+		skipRevisionOf: vi.fn(async () => ({
+			project_id: 'p',
+			candidate_project_id: 'c',
+			recorded: true,
+		})),
 	};
 });
 

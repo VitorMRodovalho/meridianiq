@@ -1333,6 +1333,9 @@ export default {
 	'revision.error_current_not_found': 'Este proyecto ya no está disponible. La tarjeta fue descartada.',
 	'revision.error_parent_not_found': 'El proyecto padre candidato ya no está disponible. La tarjeta fue descartada.',
 	'revision.error_cross_program': 'Actual y padre no están en el mismo programa. Recargue la página o abra un ticket de soporte.',
+	'revision.reconsider_button': 'Confirmar como revisión de…',
+	'revision.reconsidering': 'Re-verificando coincidencias de revisión…',
+	'revision.reconsider_no_prior_skip': 'Sin descarte previo en este proyecto — re-ejecutando detección.',
 
 	// Cycle 4 W3-B — superposición de S-curves multi-revisión (página revision-trends).
 	'revision_trends.subtitle': 'Superposición de S-curves de finalización planificada por revisión, con curva ejecutada y marcadores CUSUM de cambio de régimen (AACE RP 29R-03 §"Window analysis").',

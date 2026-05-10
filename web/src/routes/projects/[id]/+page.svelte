@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV, clearRevisionSkips } from '$lib/api';
+	import { t } from '$lib/i18n';
+	import { error as toastError, success } from '$lib/toast';
+	import { trackEvent } from '$lib/analytics';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
 	import LifecyclePhaseCard from '$lib/components/LifecyclePhaseCard.svelte';
+	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 	import type {
 		ProjectDetailResponse,
@@ -54,6 +58,35 @@
 	let excelExporting = $state(false);
 	let exportDropdownOpen = $state(false);
 	let exportingFormat = $state('');
+
+	// Cycle 5 W3-E (issue #84): revision reconsider mechanism. When user
+	// clicks "Confirm as revision of...", clear the persistent skip log
+	// + mount the RevisionConfirmCard which re-runs detect (now without
+	// skip filter, so the previously-dismissed candidate resurfaces).
+	let revisionReconsiderShown = $state(false);
+	let revisionReconsiderLoading = $state(false);
+
+	async function handleReconsiderRevision(): Promise<void> {
+		revisionReconsiderLoading = true;
+		try {
+			const result = await clearRevisionSkips(projectId);
+			trackEvent('revision_reconsider_started', {
+				project_id: projectId,
+				cleared_count: result.cleared_count
+			});
+			if (result.cleared_count === 0) {
+				// No skips to clear — user gets the card mounted anyway so
+				// they can confirm or skip without prior history.
+				success($t('revision.reconsider_no_prior_skip'));
+			}
+			revisionReconsiderShown = true;
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			toastError(msg);
+		} finally {
+			revisionReconsiderLoading = false;
+		}
+	}
 
 	async function handleExcelExport() {
 		excelExporting = true;
@@ -407,6 +440,38 @@
 		<div class="mb-6">
 			<LifecyclePhaseCard {projectId} />
 		</div>
+
+		<!-- Revision Reconsider (Cycle 5 W3-E — issue #84):
+		     If the user previously skipped a revision-confirmation candidate
+		     for this project, the detect endpoint now filters that candidate
+		     out forever. The "Confirm as revision of..." button clears the
+		     skip log so a subsequent detect call resurfaces the suggestion. -->
+		{#if !revisionReconsiderShown}
+			<div class="mb-6">
+				<button
+					type="button"
+					onclick={handleReconsiderRevision}
+					disabled={revisionReconsiderLoading}
+					class="px-4 py-2 text-sm rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-200 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-amber-500"
+				>
+					{revisionReconsiderLoading
+						? $t('revision.reconsidering')
+						: $t('revision.reconsider_button')}
+				</button>
+			</div>
+		{:else}
+			<div class="mb-6">
+				<RevisionConfirmCard
+					{projectId}
+					onConfirmed={() => {
+						revisionReconsiderShown = false;
+					}}
+					onSkipped={() => {
+						revisionReconsiderShown = false;
+					}}
+				/>
+			</div>
+		{/if}
 
 		<!-- Tabs -->
 		<div class="border-b border-gray-200 dark:border-gray-700 mb-6">
