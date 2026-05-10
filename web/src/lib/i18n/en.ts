@@ -1332,6 +1332,9 @@ export default {
 	'revision.cap_reached': 'Project has reached the revision cap. Tombstone an older revision before linking a new one.',
 	'revision.checking': 'Checking for revision matches…',
 	'revision.auth_expired_hint': 'Could not check for revisions — session may have expired. Refresh the page and re-upload to retry.',
+	'revision.error_current_not_found': 'This project is no longer available. The card has been dismissed.',
+	'revision.error_parent_not_found': 'The candidate parent project is no longer available. The card has been dismissed.',
+	'revision.error_cross_program': 'Current and parent are not in the same program. Refresh the page or open a support ticket.',
 
 	// Cycle 4 W3-B — multi-revision S-curve overlay (revision-trends page).
 	'revision_trends.subtitle': 'Multi-revision planned-completion overlay with executed-curve and CUSUM change-point markers (AACE RP 29R-03 §"Window analysis").',

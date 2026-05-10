@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -1929,6 +1929,36 @@ class DetectRevisionOfResponse(BaseModel):
     candidate_revision_count: int = 0
     confidence: float = 0.0
     reasoning: str = "no candidate found"
+
+
+class ConfirmRevisionOfErrorDetail(BaseModel):
+    """Structured 4xx detail body for POST confirm-revision-of (issue #86,
+    Cycle 5 W3-D).
+
+    Frontend pattern-matches on ``error_code`` to differentiate UX:
+    ``current_not_found`` / ``parent_not_found`` auto-collapse the card
+    (project moved or candidate stale); ``cross_program`` / ``cap_reached``
+    / ``no_xer_bytes`` / ``unique_collision`` keep the card visible with
+    the human-readable ``message``.
+
+    DA exit-council on the original W3 batch entry-council finding: NO
+    ``transient_lookup`` code shipped — Supabase's pooler uses single-PG
+    snapshot isolation per request, so eventual-consistency 404s are
+    theoretical. Adding a retry path for an unobserved failure mode would
+    be premature. If telemetry ever surfaces a transient class, bump
+    schema_version and add the code in a future amendment.
+    """
+
+    error_code: Literal[
+        "current_not_found",
+        "parent_not_found",
+        "cross_program",
+        "no_xer_bytes",
+        "cap_reached",
+        "unique_collision",
+        "permission_denied",
+    ]
+    message: str
 
 
 class ConfirmRevisionOfRequest(BaseModel):

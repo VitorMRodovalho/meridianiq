@@ -141,6 +141,33 @@ def test_confirm_404_when_current_missing(client: TestClient, fresh_store: InMem
         json={"parent_project_id": "also-nonexistent"},
     )
     assert resp.status_code == 404
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "current_not_found"
+    assert "nonexistent" in detail["message"]
+
+
+def test_confirm_404_when_parent_missing(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """Issue #86: parent_not_found differentiated from current_not_found
+    via structured error_code. Frontend auto-collapses on either, but
+    distinguishing them lets the UI eventually surface different toast
+    text + telemetry distinguishes "user's project moved" from "candidate
+    stale".
+    """
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{p1}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": "missing-parent-id"},
+    )
+    assert resp.status_code == 404
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "parent_not_found"
+    assert "missing-parent-id" in detail["message"]
 
 
 def test_confirm_409_when_parent_in_different_program(
@@ -165,7 +192,9 @@ def test_confirm_409_when_parent_in_different_program(
         json={"parent_project_id": p1},
     )
     assert resp.status_code == 409
-    assert "not in the same program" in resp.json()["detail"]
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "cross_program"
+    assert "not in the same program" in detail["message"]
 
 
 def test_confirm_409_when_program_id_mutated_after_detect(
@@ -225,7 +254,9 @@ def test_confirm_409_when_program_id_mutated_after_detect(
         json={"parent_project_id": p1},
     )
     assert resp.status_code == 409
-    assert "not in the same program" in resp.json()["detail"]
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "cross_program"
+    assert "not in the same program" in detail["message"]
 
 
 def test_confirm_writes_revision_history_row(
@@ -299,7 +330,124 @@ def test_confirm_409_on_cap_exceeded(client: TestClient, fresh_store: InMemorySt
         json={"parent_project_id": parent},
     )
     assert resp.status_code == 409
-    assert "cap" in resp.json()["detail"].lower()
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "cap_reached"
+    assert "cap" in detail["message"].lower()
+
+
+def test_confirm_409_on_no_xer_bytes(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """When the upload's XER bytes are missing from storage, confirm cannot
+    compute content_hash and must 409 with structured error_code
+    ``no_xer_bytes`` (DA exit-council PR #116 P1 #1: pin the code so a
+    typo at the dispatch site fails CI).
+    """
+    parent = fresh_store.save_project(
+        upload_id="u-parent",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"parent",
+        user_id="user-w2-test",
+    )
+    # Child with NO xer_bytes — save_project default is empty bytes.
+    child = fresh_store.save_project(
+        upload_id="u-child-no-bytes",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"",  # explicit empty
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{child}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": parent},
+    )
+    assert resp.status_code == 409
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "no_xer_bytes"
+    assert "content_hash" in detail["message"]
+
+
+def test_confirm_409_on_unique_collision(
+    client: TestClient, fresh_store: InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the store helper raises a non-cap ValueError (e.g., the UNIQUE
+    NULLS NOT DISTINCT collision under concurrent confirms), the router
+    must dispatch to error_code ``unique_collision`` (NOT
+    ``cap_reached``). Pin the LITERAL via monkeypatch so a typo at the
+    dispatch site (revisions.py:215-217 ``"cap_reached" if "cap" in
+    message.lower() else "unique_collision"``) fails CI (DA exit-council
+    PR #116 P1 #1).
+
+    Concurrent-confirm race is hard to simulate deterministically in a
+    TestClient single-thread test — monkeypatch is the cheapest path to
+    pin the dispatch literal.
+    """
+    parent = fresh_store.save_project(
+        upload_id="u-parent",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"parent",
+        user_id="user-w2-test",
+    )
+    child = fresh_store.save_project(
+        upload_id="u-c",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"child",
+        user_id="user-w2-test",
+    )
+
+    def _raise_unique_collision(**kwargs: object) -> dict[str, object]:
+        # Real Postgres UNIQUE-violation message style; importantly does
+        # NOT contain "cap" — the dispatch site routes to unique_collision.
+        raise ValueError(
+            "duplicate key value violates unique constraint revision_history_unique_active"
+        )
+
+    monkeypatch.setattr(fresh_store, "insert_revision_history", _raise_unique_collision)
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{child}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": parent},
+    )
+    assert resp.status_code == 409
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "unique_collision"
+    assert "duplicate key" in detail["message"]
+
+
+def test_confirm_403_on_permission_denied(
+    client: TestClient, fresh_store: InMemoryStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the store helper raises PermissionError, the router must
+    surface 403 with structured error_code ``permission_denied`` (DA
+    exit-council PR #116 P1 #1: pin the code at the dispatch site).
+    """
+    parent = fresh_store.save_project(
+        upload_id="u-parent",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"parent",
+        user_id="user-w2-test",
+    )
+    child = fresh_store.save_project(
+        upload_id="u-child",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"child",
+        user_id="user-w2-test",
+    )
+
+    def _raise_permission_error(**kwargs: object) -> dict[str, object]:
+        raise PermissionError("RLS rejected the insert for user user-w2-test")
+
+    monkeypatch.setattr(fresh_store, "insert_revision_history", _raise_permission_error)
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{child}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": parent},
+    )
+    assert resp.status_code == 403
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "permission_denied"
+    assert "RLS" in detail["message"]
 
 
 # ────────────────────────────────────────────────────────────

@@ -61,6 +61,27 @@ function isColdStartError(res: Response | null, err: unknown): boolean {
 	return false;
 }
 
+/**
+ * Error subclass surfacing structured 4xx error_code from backend
+ * responses (issue #86 — Cycle 5 W3-D). Endpoints that return a
+ * `{detail: {error_code, message}}` body produce an `ApiError` with
+ * `errorCode` populated. Endpoints returning legacy string-detail
+ * bodies produce an `ApiError` with `errorCode: null` and the message
+ * preserved as-is, so callers that only care about `.message` stay
+ * source-compatible.
+ */
+export class ApiError extends Error {
+	readonly status: number;
+	readonly errorCode: string | null;
+
+	constructor(message: string, status: number, errorCode: string | null) {
+		super(message);
+		this.name = 'ApiError';
+		this.status = status;
+		this.errorCode = errorCode;
+	}
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -87,8 +108,29 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 				return res.json();
 			}
 			if (!isColdStartError(res, null) || attempt === MAX_RETRIES) {
+				// Issue #86: parse FastAPI's structured `{detail: {error_code, message}}`
+				// body when present so callers can branch on machine-readable
+				// codes rather than fragile text-pattern matching. Legacy
+				// string-detail responses degrade to errorCode=null.
+				const status = res.status;
 				const text = await res.text();
-				throw new Error(text || `Request failed: ${res.status}`);
+				let errorCode: string | null = null;
+				let message = text || `Request failed: ${status}`;
+				try {
+					const parsed = JSON.parse(text);
+					const detail = parsed?.detail;
+					if (detail && typeof detail === 'object' && typeof detail.error_code === 'string') {
+						errorCode = detail.error_code;
+						if (typeof detail.message === 'string') {
+							message = detail.message;
+						}
+					} else if (typeof detail === 'string') {
+						message = detail;
+					}
+				} catch {
+					// Body wasn't JSON — keep the plain text as the message.
+				}
+				throw new ApiError(message, status, errorCode);
 			}
 		} catch (err) {
 			if (!isColdStartError(res, err) || attempt === MAX_RETRIES) {
