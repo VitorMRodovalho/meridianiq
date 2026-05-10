@@ -335,9 +335,7 @@ def test_confirm_409_on_cap_exceeded(client: TestClient, fresh_store: InMemorySt
     assert "cap" in detail["message"].lower()
 
 
-def test_confirm_409_on_no_xer_bytes(
-    client: TestClient, fresh_store: InMemoryStore
-) -> None:
+def test_confirm_409_on_no_xer_bytes(client: TestClient, fresh_store: InMemoryStore) -> None:
     """When the upload's XER bytes are missing from storage, confirm cannot
     compute content_hash and must 409 with structured error_code
     ``no_xer_bytes`` (DA exit-council PR #116 P1 #1: pin the code so a
@@ -400,8 +398,7 @@ def test_confirm_409_on_unique_collision(
         # Real Postgres UNIQUE-violation message style; importantly does
         # NOT contain "cap" — the dispatch site routes to unique_collision.
         raise ValueError(
-            "duplicate key value violates unique constraint "
-            "revision_history_unique_active"
+            "duplicate key value violates unique constraint revision_history_unique_active"
         )
 
     monkeypatch.setattr(fresh_store, "insert_revision_history", _raise_unique_collision)
