@@ -1330,6 +1330,9 @@ export default {
 	'revision.cap_reached': 'El proyecto alcanzó el límite de revisiones. Marque una revisión antigua como tombstone antes de vincular una nueva.',
 	'revision.checking': 'Verificando coincidencias de revisión…',
 	'revision.auth_expired_hint': 'No se pudo verificar revisiones — la sesión puede haber expirado. Recargue la página y vuelva a subir para reintentar.',
+	'revision.error_current_not_found': 'Este proyecto ya no está disponible. La tarjeta fue descartada.',
+	'revision.error_parent_not_found': 'El proyecto padre candidato ya no está disponible. La tarjeta fue descartada.',
+	'revision.error_cross_program': 'Actual y padre no están en el mismo programa. Recargue la página o abra un ticket de soporte.',
 
 	// Cycle 4 W3-B — superposición de S-curves multi-revisión (página revision-trends).
 	'revision_trends.subtitle': 'Superposición de S-curves de finalización planificada por revisión, con curva ejecutada y marcadores CUSUM de cambio de régimen (AACE RP 29R-03 §"Window analysis").',

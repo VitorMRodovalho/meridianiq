@@ -36,7 +36,7 @@
 	// body + action row). Form pattern (props, $state, $derived, error
 	// surfacing) mirrors ``LifecycleOverrideDialog.svelte``.
 
-	import { confirmRevisionOf, detectRevisionOf } from '$lib/api';
+	import { ApiError, confirmRevisionOf, detectRevisionOf } from '$lib/api';
 	import { trackEvent } from '$lib/analytics';
 	import { locale, t } from '$lib/i18n';
 	import { formatDate } from '$lib/i18n/format';
@@ -170,14 +170,48 @@
 			);
 			onConfirmed?.(res.revision_id, res.revision_number);
 		} catch (err) {
+			// Issue #86 (Cycle 5 W3-D): structured error_code drives UX
+			// branching. ``current_not_found`` / ``parent_not_found`` mean
+			// the project moved or the candidate is stale — auto-collapse
+			// the card (call onSkipped) so the user is not stuck staring
+			// at an action they cannot complete. Other 4xx (cross_program,
+			// cap_reached, no_xer_bytes, unique_collision, permission_denied)
+			// keep the card visible with the human-readable message.
+			//
+			// DA exit-council on PR #83 fix-up #P1-2 used a fragile text
+			// regex for cap-class detection — replaced here with the
+			// machine-readable ``error_code``. Legacy string-detail
+			// responses (errorCode === null) fall through to the message.
+			const errorCode = err instanceof ApiError ? err.errorCode : null;
 			const msg = err instanceof Error ? err.message : String(err);
-			// DA exit-council fix-up #P1-2: detect cap-class errors and switch
-			// to the i18n key so non-English users get a friendly message.
-			// Backend 409 detail mentions "revision cap" / "limit" — pattern
-			// match on the substring. A future structured error code would
-			// be cleaner; tracked as a follow-up.
-			const isCapError = /revision cap|reached.*\(\d+\)|limit/i.test(msg);
-			const friendly = isCapError ? $t('revision.cap_reached') : msg;
+
+			if (errorCode === 'current_not_found' || errorCode === 'parent_not_found') {
+				trackEvent('revision_confirm_auto_collapsed', {
+					project_id: projectId,
+					candidate_project_id: candidateProjectId,
+					error_code: errorCode
+				});
+				toastError($t(`revision.error_${errorCode}`));
+				// Auto-collapse:
+				// - Internal DOM: flip detectState to no_candidate so the
+				//   card branch's {#if} collapses regardless of what the
+				//   parent does. Defensive: prevents stuck "Linking…"
+				//   button if the parent forgets to dismount us.
+				// - Parent: call onSkipped so the parent updates lineage
+				//   state (same terminal effect as the user clicking
+				//   "Treat as new project").
+				detectState = 'no_candidate';
+				confirmState = 'idle';
+				onSkipped?.();
+				return;
+			}
+
+			const friendly =
+				errorCode === 'cap_reached'
+					? $t('revision.cap_reached')
+					: errorCode === 'cross_program'
+						? $t('revision.error_cross_program')
+						: msg;
 			confirmError = friendly;
 			toastError(friendly);
 			confirmState = 'idle';

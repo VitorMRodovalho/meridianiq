@@ -141,6 +141,33 @@ def test_confirm_404_when_current_missing(client: TestClient, fresh_store: InMem
         json={"parent_project_id": "also-nonexistent"},
     )
     assert resp.status_code == 404
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "current_not_found"
+    assert "nonexistent" in detail["message"]
+
+
+def test_confirm_404_when_parent_missing(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """Issue #86: parent_not_found differentiated from current_not_found
+    via structured error_code. Frontend auto-collapses on either, but
+    distinguishing them lets the UI eventually surface different toast
+    text + telemetry distinguishes "user's project moved" from "candidate
+    stale".
+    """
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{p1}/confirm-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"parent_project_id": "missing-parent-id"},
+    )
+    assert resp.status_code == 404
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "parent_not_found"
+    assert "missing-parent-id" in detail["message"]
 
 
 def test_confirm_409_when_parent_in_different_program(
@@ -165,7 +192,9 @@ def test_confirm_409_when_parent_in_different_program(
         json={"parent_project_id": p1},
     )
     assert resp.status_code == 409
-    assert "not in the same program" in resp.json()["detail"]
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "cross_program"
+    assert "not in the same program" in detail["message"]
 
 
 def test_confirm_409_when_program_id_mutated_after_detect(
@@ -225,7 +254,9 @@ def test_confirm_409_when_program_id_mutated_after_detect(
         json={"parent_project_id": p1},
     )
     assert resp.status_code == 409
-    assert "not in the same program" in resp.json()["detail"]
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "cross_program"
+    assert "not in the same program" in detail["message"]
 
 
 def test_confirm_writes_revision_history_row(
@@ -299,7 +330,9 @@ def test_confirm_409_on_cap_exceeded(client: TestClient, fresh_store: InMemorySt
         json={"parent_project_id": parent},
     )
     assert resp.status_code == 409
-    assert "cap" in resp.json()["detail"].lower()
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "cap_reached"
+    assert "cap" in detail["message"].lower()
 
 
 # ────────────────────────────────────────────────────────────

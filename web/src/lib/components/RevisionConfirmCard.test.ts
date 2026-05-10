@@ -17,8 +17,9 @@
 // explicitly out of scope for this PR.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, cleanup, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, cleanup, waitFor } from '@testing-library/svelte';
 import RevisionConfirmCard from './RevisionConfirmCard.svelte';
+import { ApiError } from '$lib/api';
 
 // Deferred resolvers so tests can drive the order in which two
 // concurrent detect calls complete (race regression).
@@ -26,16 +27,29 @@ const detectResolvers: Array<(payload: unknown) => void> = [];
 const detectRejecters: Array<(err: Error) => void> = [];
 const detectCalls: string[] = [];
 
-vi.mock('$lib/api', () => ({
-	detectRevisionOf: vi.fn((projectId: string) => {
-		detectCalls.push(projectId);
-		return new Promise((resolve, reject) => {
-			detectResolvers.push(resolve);
-			detectRejecters.push(reject);
-		});
-	}),
-	confirmRevisionOf: vi.fn(),
-}));
+// Confirm-side: the test re-points `confirmRevisionOf.mockImplementation`
+// per-test (some tests reject with ApiError, default is no-op). Decouples
+// detect-mock orchestration from confirm-mock orchestration. Wrapped in
+// vi.hoisted so the function reference is available when vi.mock hoists
+// to the top of the file.
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }));
+
+vi.mock('$lib/api', async () => {
+	// Re-export the real `ApiError` class so tests can construct it AND
+	// the component import sees the same class identity (instanceof works).
+	const actual = await vi.importActual<typeof import('$lib/api')>('$lib/api');
+	return {
+		ApiError: actual.ApiError,
+		detectRevisionOf: vi.fn((projectId: string) => {
+			detectCalls.push(projectId);
+			return new Promise((resolve, reject) => {
+				detectResolvers.push(resolve);
+				detectRejecters.push(reject);
+			});
+		}),
+		confirmRevisionOf: confirmMock,
+	};
+});
 
 vi.mock('$lib/analytics', () => ({
 	trackEvent: vi.fn(),
@@ -50,6 +64,7 @@ beforeEach(() => {
 	detectResolvers.length = 0;
 	detectRejecters.length = 0;
 	detectCalls.length = 0;
+	confirmMock.mockReset();
 });
 
 afterEach(() => {
@@ -122,6 +137,37 @@ describe('RevisionConfirmCard', () => {
 			expect(region.textContent).toContain('NEW Winner');
 			expect(region.textContent).not.toContain('STALE Loser');
 		});
+	});
+
+	it('auto-collapses the card and calls onSkipped when confirm fails with parent_not_found (issue #86)', async () => {
+		// Issue #86 (Cycle 5 W3-D): structured error_code drives
+		// auto-collapse on missing-project class errors. Asserts that the
+		// component calls `onSkipped` (the parent's "treat as new project"
+		// callback) and that the region disappears from the DOM after the
+		// confirm rejection.
+		const onSkipped = vi.fn();
+		confirmMock.mockRejectedValueOnce(
+			new ApiError('parent project xyz not found', 404, 'parent_not_found'),
+		);
+
+		const { findByRole, queryByRole } = render(RevisionConfirmCard, {
+			props: { projectId: 'p-current', onSkipped },
+		});
+		// Resolve detect so the card renders with a candidate + confirm
+		// button is enabled.
+		detectResolvers[0]!(happyPayload());
+		const region = await findByRole('region');
+		const confirmButton = region.querySelector(
+			'button:nth-of-type(2)',
+		) as HTMLButtonElement | null;
+		expect(confirmButton).not.toBeNull();
+		await fireEvent.click(confirmButton!);
+
+		await waitFor(() => {
+			expect(onSkipped).toHaveBeenCalledTimes(1);
+		});
+		// Card collapsed.
+		expect(queryByRole('region')).toBeNull();
 	});
 
 	it('renders nothing when detect returns no candidate', async () => {

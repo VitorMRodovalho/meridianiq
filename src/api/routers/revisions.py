@@ -30,7 +30,7 @@ insert is logged-on-failure but does not roll back the tombstone.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -130,19 +130,35 @@ def confirm_revision_of_endpoint(
 
     current = store.get_project_meta(project_id, user_id=user_id)
     if current is None:
-        raise HTTPException(status_code=404, detail=f"project {project_id} not found")
+        # Structured error detail per ADR / issue #86 (DA P3-5 from PR #83).
+        # Frontend pattern-matches on `error_code` to auto-collapse on
+        # missing-project class errors vs keep-visible on other 4xx.
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "current_not_found",
+                "message": f"project {project_id} not found",
+            },
+        )
     parent = store.get_project_meta(body.parent_project_id, user_id=user_id)
     if parent is None:
         raise HTTPException(
-            status_code=404, detail=f"parent project {body.parent_project_id} not found"
+            status_code=404,
+            detail={
+                "error_code": "parent_not_found",
+                "message": f"parent project {body.parent_project_id} not found",
+            },
         )
     if not current.get("program_id") or current.get("program_id") != parent.get("program_id"):
         raise HTTPException(
             status_code=409,
-            detail=(
-                "current and parent are not in the same program — auto-grouping at upload "
-                "should have placed them together; refresh and retry, or open a support ticket"
-            ),
+            detail={
+                "error_code": "cross_program",
+                "message": (
+                    "current and parent are not in the same program — auto-grouping at upload "
+                    "should have placed them together; refresh and retry, or open a support ticket"
+                ),
+            },
         )
 
     # Compute content_hash from the stored XER bytes. Server-side computation
@@ -157,7 +173,10 @@ def confirm_revision_of_endpoint(
     if not xer_bytes:
         raise HTTPException(
             status_code=409,
-            detail="cannot compute content_hash — XER bytes missing from storage",
+            detail={
+                "error_code": "no_xer_bytes",
+                "message": "cannot compute content_hash — XER bytes missing from storage",
+            },
         )
     content_hash = compute_xer_content_hash(xer_bytes)
     if body.content_hash and body.content_hash != content_hash:
@@ -183,10 +202,23 @@ def confirm_revision_of_endpoint(
             user_id=user_id,
         )
     except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=403,
+            detail={"error_code": "permission_denied", "message": str(exc)},
+        ) from exc
     except ValueError as exc:
         # Cap violation (12+ active rows) OR UNIQUE collision under concurrency.
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        # The two cases share a 409 status; the message text disambiguates.
+        # Cap-reached message starts with "revision cap reached" per the
+        # store helper convention.
+        message = str(exc)
+        code: Literal["cap_reached", "unique_collision"] = (
+            "cap_reached" if "cap" in message.lower() else "unique_collision"
+        )
+        raise HTTPException(
+            status_code=409,
+            detail={"error_code": code, "message": message},
+        ) from exc
 
     return ConfirmRevisionOfResponse(
         revision_id=str(row["id"]),
