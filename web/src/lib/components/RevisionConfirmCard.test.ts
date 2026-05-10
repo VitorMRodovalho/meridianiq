@@ -73,8 +73,14 @@ describe('RevisionConfirmCard', () => {
 		const { findByRole, queryByRole } = render(RevisionConfirmCard, {
 			props: { projectId: 'p-new' },
 		});
-		// Pre-resolve: card has not rendered yet (loading state shows the
-		// checking hint instead).
+		// DA exit-council PR #114 P1 #1+#3: pin BOTH the loading-hint
+		// presence (proves runDetect() actually fired) AND that the mock
+		// was hit (proves vi.mock alias resolution works). Without these,
+		// the queryByRole(region)===null assertion can pass for the
+		// wrong reason (e.g., $effect didn't fire OR the mock was no-op'd
+		// and the real detectRevisionOf is hanging on a network call).
+		expect(detectCalls).toEqual(['p-new']);
+		expect(queryByRole('status')).not.toBeNull();
 		expect(queryByRole('region')).toBeNull();
 
 		// Resolve with a candidate payload.
@@ -86,7 +92,13 @@ describe('RevisionConfirmCard', () => {
 	});
 
 	it('does NOT overwrite state when a stale detect resolves after a newer one (race regression)', async () => {
-		// Mount with projectId p-old — kicks off detect call #0.
+		// DA exit-council PR #114 P1 #2: this test pins ANY staleness-guard
+		// mechanism (e.g., the current ``detectGen`` counter at lines
+		// 87-117 of RevisionConfirmCard.svelte, OR a hypothetical
+		// ``capturedProjectId`` closure check). It does NOT introspect
+		// ``detectGen`` directly. A future refactor could replace the
+		// counter with an equivalent guard and still pass this test —
+		// that's by design (test pins behavior, not implementation).
 		const { rerender, findByRole } = render(RevisionConfirmCard, {
 			props: { projectId: 'p-old' },
 		});
@@ -101,23 +113,29 @@ describe('RevisionConfirmCard', () => {
 		const region = await findByRole('region');
 		expect(region.textContent).toContain('NEW Winner');
 
-		// Now resolve the STALE call. The detectGen counter must reject this
-		// resolution (myGen !== detectGen) and leave the card showing
-		// "NEW Winner" — NOT "STALE Loser".
+		// Now resolve the STALE call. The staleness guard must reject this
+		// resolution and leave the card showing "NEW Winner" — NOT
+		// "STALE Loser". Use waitFor instead of magic Promise.resolve()
+		// counts (DA P3 #9) — the assertion still holds for several ticks.
 		detectResolvers[0]!(happyPayload({ candidate_project_name: 'STALE Loser' }));
-
-		// Yield the microtask queue so the stale .then() runs.
-		await Promise.resolve();
-		await Promise.resolve();
-
-		expect(region.textContent).toContain('NEW Winner');
-		expect(region.textContent).not.toContain('STALE Loser');
+		await waitFor(() => {
+			expect(region.textContent).toContain('NEW Winner');
+			expect(region.textContent).not.toContain('STALE Loser');
+		});
 	});
 
 	it('renders nothing when detect returns no candidate', async () => {
 		const { container, queryByRole } = render(RevisionConfirmCard, {
 			props: { projectId: 'p-orphan' },
 		});
+		// DA exit-council PR #114 P2 #4: pin the loading→no-candidate
+		// TRANSITION (was visible, then disappeared) rather than just the
+		// terminal absence. Without this, waitFor(absence) could resolve
+		// immediately if the loading hint never rendered (e.g., $effect
+		// didn't fire). Pre-resolve assertion forces "loading hint WAS
+		// here" before we test "and now it's not".
+		expect(detectCalls).toEqual(['p-orphan']);
+		expect(container.querySelector('[role="status"]')).not.toBeNull();
 
 		detectResolvers[0]!(happyPayload({ candidate_project_id: null }));
 
