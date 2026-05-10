@@ -383,6 +383,15 @@ class TestRegistry:
             get_protocol("non-existent-protocol")
 
     def test_lifecycle_phase_adapter_metadata(self) -> None:
+        # Issue #100 item 5 / DA P3 #16 + backend-reviewer entry-council
+        # SHOULD-FIX #2 on PR #111: ``get_adapter("lifecycle_phase")``
+        # invokes ``_LifecyclePhaseV1Adapter()`` which fires the lazy
+        # imports of ``src.parser.xer_reader.XERReader`` and
+        # ``src.analytics.lifecycle_phase`` inside ``__init__``. A
+        # ``ModuleNotFoundError`` from a broken W3-C package conversion
+        # would surface here. DA exit-council PR #111 P1 #3: an additional
+        # ``importlib.import_module`` smoke test was rejected as redundant
+        # (the constructor IS the import-chain assertion).
         a = get_adapter("lifecycle_phase")
         assert a.engine_name == "lifecycle_phase"
         assert a.unknown_label == "unknown"

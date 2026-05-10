@@ -162,7 +162,7 @@ W2 budget: **2-2.5 waves** (bumped from 1.5-2 to honestly accommodate the tombst
 
 **W4 fixture authoring (DA HB-D fix — moved here from W4 to prevent circular tuning)**:
 - Author 8 synthetic schedule-revision sequences in `tools/calibration_harness/fixtures/optimism_synth/` with planted regime-changes
-- Spec: 3 noise levels × 3 ground-truth-CP positions × 2 baseline patterns (8 total after dedup)
+- Spec: noise σ × ground-truth-CP position × baseline pattern, 2³ corner subset of the {0.1, 0.2, 0.4} × {3, 5, 7} × {A, B} factorial (= 8 corner cells; middle σ=0.2 + middle CP=5 dropped per Amendment 3 below). Earlier draft of this line read "(8 total after dedup)" which was mathematically incorrect (3×3×2 = 18, not 8 by deduplication); corrigendum per backend-reviewer entry-council BLOCKING #3 on PR #111.
 - Hash-lock: SHA256 of fixture set committed to `tools/calibration_harness/fixtures/optimism_synth.lock` at W3 close
 - W4 evaluation MUST verify the hash matches before running sub-gate C — if hash drifts (fixtures retuned), evaluation aborts and ADR-0023 documents that the gate was tampered with
 
@@ -399,3 +399,42 @@ The endpoint computes the next revision_number as `MAX(revision_number) + 1` ove
 - `src/api/routers/revisions.py` endpoint contract
 - `tests/test_revisions_router.py` regression tests pinning the contract
 - `docs/operator-runbooks/cycle4.md` §"W2-INC-01" tombstone procedure
+
+## Amendment 3 — W3-C fixture design rationale (2026-05-09, W2-B PR-#111)
+
+### Context
+
+W3-C delivery (PR #99) shipped 8 hash-locked synthetic fixtures (`tools/calibration_harness/fixtures/optimism_synth/corner_*.json`) per the W3 fixture authoring spec above (line 165). The DA exit-council on PR #99 surfaced two recordkeeping gaps that this Amendment closes:
+
+1. **2³ corner subset rationale** — original spec line read "3 noise levels × 3 ground-truth-CP positions × 2 baseline patterns" implying 18 cells dedup'd to 8. The actual delivery dropped the middle σ=0.2 and middle CP=5, keeping the 2³ corners {σ ∈ 0.1, 0.4} × {CP ∈ 3, 7} × {baseline ∈ A, B} = 8 corners. Corrigendum applied inline at line 165 above; rationale recorded here.
+
+2. **N=12 revisions per fixture** — implementation choice not documented in the ADR. Driven by `revision_trends.cusum_change_points` `_MIN_REVISIONS_FOR_CUSUM = 5` floor: with CP=7, post-CP shift count = 12-7-1 = 4 revisions of post-CP signal which the engine can detect at 3σ threshold given the +5 days/rev sustained drift magnitude. Hand-verified at W3-C generation time.
+
+### Decision
+
+The fixture design at W3-C close (PR #99 + this Amendment) is:
+
+- **2³ corner factorial**: {σ ∈ 0.1, 0.4} × {ground_truth_CP ∈ 3, 7} × {baseline_pattern ∈ A, B} = 8 fixtures. Middle σ=0.2 and middle CP=5 cells dropped because main-effects + interactions are fully captured at corners for the sub-gate C F1 evaluation rule (cluster-span match within tolerance=1).
+- **N=12 revisions per fixture**: chosen so CP=7 has ≥4 post-CP shifts vs the engine's `_MIN_REVISIONS_FOR_CUSUM=5` floor. CP=3 fixtures have ≥8 post-CP shifts (more sensitivity headroom).
+- **Pattern A vs Pattern B baselines**: A is "stable → drift" (pre_cp_rate=0, post_cp_rate=5); B is "slow drift → fast drift" (pre_cp_rate=1, post_cp_rate=5). Drift magnitudes are CALIBRATION ASSUMPTIONS (not literature-derived); see `tools/calibration_harness/fixtures/optimism_synth/_generator.py::_PATTERN_DRIFT_RATES` for in-line documentation per backend-reviewer entry-council SHOULD-FIX #1 on PR #111.
+- **Locked sub-gate C F1 baseline**: pinned in `tests/test_optimism_synth_fixtures.py::_LOCKED_SUB_GATE_C_F1` as the authoritative pin (test fails CI on drift). This Amendment **does NOT duplicate the F1 value** to avoid future drift between ADR text and code per backend-reviewer entry-council finding NICE-TO-HAVE #3 on PR #111. Operator who needs the value reads the test.
+
+### Cross-references
+
+- `tools/calibration_harness/fixtures/optimism_synth/_generator.py` (CORNERS tuple + `_PATTERN_DRIFT_RATES` dict)
+- `tests/test_optimism_synth_fixtures.py` (`_LOCKED_SUB_GATE_C_F1` constant + `test_generator_is_deterministic` with Python-version-skip guard)
+- W3-C PR #99 (original fixture delivery + hash-lock)
+- W2-B PR #111 (this Amendment + tamper-test rename + adapter smoke + `_cli` rename + Pattern docstring)
+
+### Reversibility
+
+- Amendment is documentation-only. No code change in this ADR; the corresponding code changes ship in PR #111.
+- Future fixture design changes (e.g., extending to 12 corners on Cycle 5+ corpus growth) require Amendment 4 + matching test updates + locked F1 re-baseline.
+
+### Honest framing of retroactive narrowing (DA exit-council PR #111 P2 #7)
+
+PR #99 shipped before this Amendment was authored. The original line 165 (now corrected via the inline corrigendum) said "3 noise levels × 3 ground-truth-CP positions × 2 baseline patterns (8 total after dedup)" — mathematically vacuous because 18 ≠ 8 by any dedup. The pre-registration discipline at PR #99 merge time was therefore weaker than the Amendment retroactively records.
+
+Confirmation that the 8 shipped corners equal the 2³ specification was performed at Amendment 3 authorship time (2026-05-09), not at PR #99 merge time. The 8 shipped corners do match the 2³ corner subset {σ ∈ 0.1, 0.4} × {CP ∈ 3, 7} × {baseline ∈ A, B} — verified by `test_fixture_design_covers_orthogonal_corners` (committed in PR #99). This is good fortune, not pre-registered design.
+
+For Cycle 5+ pre-registration discipline: any new locked spec must be authored AS the locked spec, not retrofitted via amendment after delivery.

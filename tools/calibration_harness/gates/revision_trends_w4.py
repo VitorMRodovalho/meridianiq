@@ -622,10 +622,15 @@ def load_calibration_pairs(path: Path) -> list[CalibrationPair]:
 # --------------------------------------------------------------------------- #
 
 
-def _cli(argv: list[str] | None = None) -> int:
-    # NOTE: ``.claude/rules/backend.md`` requires "no print()" in application
-    # code. CLI tools are the documented exception (operator-facing stdout) —
-    # mirrors the existing harness CLI ``tools/calibration_harness/__init__.py::_cli``.
+def cli(argv: list[str] | None = None) -> int:
+    """Public CLI entry point. Renamed from ``_cli`` per DA exit-council
+    on PR #111 P1 #2: ``gates/__main__.py`` and tests both cross-package-import
+    this symbol, so the leading-underscore "private" name was a docstring
+    fiction. Symmetric with the top-level ``cli`` rename per the same
+    convention. NOTE: ``.claude/rules/backend.md`` requires "no print()"
+    in application code; CLI tools are the documented exception (operator-
+    facing stdout) — mirrors ``tools/calibration_harness/__init__.py::cli``.
+    """
     parser = argparse.ArgumentParser(
         prog="python -m tools.calibration_harness.gates.revision_trends_w4",
         description=(
@@ -746,4 +751,4 @@ def _cli(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(_cli())
+    sys.exit(cli())

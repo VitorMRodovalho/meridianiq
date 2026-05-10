@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import sys
 
-from tools.calibration_harness.gates.revision_trends_w4 import _cli
+from tools.calibration_harness.gates.revision_trends_w4 import cli
 
 
 if __name__ == "__main__":
-    sys.exit(_cli())
+    sys.exit(cli())

@@ -59,6 +59,25 @@ _NOISE_DAYS_PER_SIGMA = 10.0  # σ=0.1 → std=1 day, σ=0.4 → std=4 days
 # (5 − pre_rate) × post_cp_count vs noise std, which exceeds the 3σ gate
 # even at σ=0.4 with N=8 revisions. Hand-verified at W3-C generation time
 # against ``revision_trends.cusum_change_points`` (line 289).
+#
+# **All four rates below are CALIBRATION ASSUMPTIONS, not derived from
+# empirical corpus** (issue #100 item 6 / DA P3 #13 + backend-reviewer
+# entry-council SHOULD-FIX #1 on PR #111). Pattern A pre=0, post=5 chosen
+# as "step from stable to clear drift". Pattern B pre=1, post=5 chosen as
+# "step from slow drift to fast drift". The +5 magnitude is calibrated to
+# exceed the 3σ CUSUM gate with the chosen σ noise levels at N=12, NOT
+# to match observed schedule-slip rates from production projects.
+#
+# DA exit-council PR #111 P2 #8: two distinct deferral tracks here, on
+# DIFFERENT timelines:
+#   - **Literature-derived defaults** (e.g., AACE/CII/Construction Industry
+#     Institute survey papers on revision-to-revision schedule slip rates)
+#     are NOT corpus-dependent. Could ship as a Cycle 4.5 / Cycle 5 W0
+#     standalone literature search. No empirical corpus needed.
+#   - **Empirical-corpus-derived defaults** require sub-gate A passing
+#     (N≥30 LGPD-cleared completed projects per ADR-0022 §6) — operator-
+#     paced, ≥6mo realistic timeline. See ADR-0023 §"Cycle 5+ preconditions
+#     for re-evaluation" for the reactivation gate.
 _PATTERN_DRIFT_RATES: dict[str, dict[str, float]] = {
     "A": {"pre_cp_rate": 0.0, "post_cp_rate": 5.0},  # stable → drift
     "B": {"pre_cp_rate": 1.0, "post_cp_rate": 5.0},  # slow drift → fast drift
