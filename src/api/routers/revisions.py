@@ -45,12 +45,15 @@ from ..deps import RATE_LIMIT_ANALYSIS, RATE_LIMIT_WRITE, get_store, limiter
 from ..revision_detection import compute_xer_content_hash, detect_candidate_parent
 from ..schemas import (
     ChangePointMarkerSchema,
+    ClearRevisionSkipsResponse,
     ConfirmRevisionOfRequest,
     ConfirmRevisionOfResponse,
     DetectRevisionOfResponse,
     RevisionCurvePoint,
     RevisionCurveSchema,
     RevisionTrendsResponse,
+    SkipRevisionOfRequest,
+    SkipRevisionOfResponse,
     SlopeBandSchema,
     TombstoneRevisionRequest,
     TombstoneRevisionResponse,
@@ -89,6 +92,25 @@ def detect_revision_of_endpoint(
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
     snapshot = detect_candidate_parent(store, user_id=user_id, project_id=project_id)
+    # Cycle 5 W3-E (issue #84): filter out skipped candidates so users
+    # are not nagged with the same suggestion forever. Reconsider clears
+    # skips via POST clear-revision-skips. The heuristic itself is
+    # idempotent (same input → same candidate); skip-log is the layer
+    # that tracks user intent.
+    candidate_id = snapshot.get("candidate_project_id")
+    if candidate_id and store.is_revision_skipped(
+        project_id=project_id,
+        candidate_project_id=candidate_id,
+        user_id=user_id,
+    ):
+        return DetectRevisionOfResponse(
+            candidate_project_id=None,
+            candidate_project_name=None,
+            candidate_data_date=None,
+            candidate_revision_count=0,
+            confidence=0.0,
+            reasoning="filtered by user skip — POST clear-revision-skips to reconsider",
+        )
     return DetectRevisionOfResponse(**snapshot)
 
 
@@ -228,6 +250,103 @@ def confirm_revision_of_endpoint(
         data_date=row.get("data_date"),
         content_hash=row["content_hash"],
     )
+
+
+# ────────────────────────────────────────────────────────────
+# 2.5. skip-revision-of + clear-revision-skips (Cycle 5 W3-E — issue #84)
+# ────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/api/v1/projects/{project_id}/skip-revision-of",
+    response_model=SkipRevisionOfResponse,
+)
+@limiter.limit(RATE_LIMIT_WRITE)
+def skip_revision_of_endpoint(
+    request: Request,
+    project_id: str,
+    body: SkipRevisionOfRequest,
+    user: dict[str, Any] = Depends(require_auth),
+) -> SkipRevisionOfResponse:
+    """Record that the user dismissed a revision-confirmation candidate.
+
+    Idempotent: repeated calls with the same triple return ``recorded:
+    False`` (already-skipped). ``current_not_found`` /
+    ``parent_not_found`` 404s mirror the confirm endpoint's structured
+    error_code shape so frontend pattern-matching is consistent.
+    """
+    store = get_store()
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if project_id == body.candidate_project_id:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error_code": "self_skip",
+                "message": "self-skip is meaningless — project cannot be its own revision parent",
+            },
+        )
+    current = store.get_project_meta(project_id, user_id=user_id)
+    if current is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "current_not_found",
+                "message": f"project {project_id} not found",
+            },
+        )
+    candidate = store.get_project_meta(body.candidate_project_id, user_id=user_id)
+    if candidate is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "parent_not_found",
+                "message": f"candidate project {body.candidate_project_id} not found",
+            },
+        )
+    recorded = store.record_revision_skip(
+        project_id=project_id,
+        candidate_project_id=body.candidate_project_id,
+        user_id=user_id,
+    )
+    return SkipRevisionOfResponse(
+        project_id=project_id,
+        candidate_project_id=body.candidate_project_id,
+        recorded=recorded,
+    )
+
+
+@router.post(
+    "/api/v1/projects/{project_id}/clear-revision-skips",
+    response_model=ClearRevisionSkipsResponse,
+)
+@limiter.limit(RATE_LIMIT_WRITE)
+def clear_revision_skips_endpoint(
+    request: Request,
+    project_id: str,
+    user: dict[str, Any] = Depends(require_auth),
+) -> ClearRevisionSkipsResponse:
+    """Delete all skip rows for (project_id, current_user) — the
+    "Confirm as revision of..." reconsider mechanism on the project-
+    detail page. After clearing, a subsequent detect call will surface
+    the same candidate the user previously skipped.
+    """
+    store = get_store()
+    user_id = user.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    current = store.get_project_meta(project_id, user_id=user_id)
+    if current is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error_code": "current_not_found",
+                "message": f"project {project_id} not found",
+            },
+        )
+    cleared = store.clear_revision_skips(project_id=project_id, user_id=user_id)
+    return ClearRevisionSkipsResponse(project_id=project_id, cleared_count=cleared)
 
 
 # ────────────────────────────────────────────────────────────

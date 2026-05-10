@@ -1333,6 +1333,9 @@ export default {
 	'revision.error_current_not_found': 'Este projeto não está mais disponível. O cartão foi descartado.',
 	'revision.error_parent_not_found': 'O projeto pai candidato não está mais disponível. O cartão foi descartado.',
 	'revision.error_cross_program': 'Atual e pai não estão no mesmo programa. Recarregue a página ou abra um chamado de suporte.',
+	'revision.reconsider_button': 'Confirmar como revisão de…',
+	'revision.reconsidering': 'Re-verificando correspondências de revisão…',
+	'revision.reconsider_no_prior_skip': 'Sem dispensa anterior neste projeto — re-executando detecção.',
 
 	// Cycle 4 W3-B — overlay de S-curves multi-revisão (página revision-trends).
 	'revision_trends.subtitle': 'Sobreposição de S-curves de conclusão planejada por revisão, com curva executada e marcadores CUSUM de mudança de regime (AACE RP 29R-03 §"Window analysis").',

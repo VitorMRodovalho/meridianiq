@@ -36,7 +36,7 @@
 	// body + action row). Form pattern (props, $state, $derived, error
 	// surfacing) mirrors ``LifecycleOverrideDialog.svelte``.
 
-	import { ApiError, confirmRevisionOf, detectRevisionOf } from '$lib/api';
+	import { ApiError, confirmRevisionOf, detectRevisionOf, skipRevisionOf } from '$lib/api';
 	import { trackEvent } from '$lib/analytics';
 	import { locale, t } from '$lib/i18n';
 	import { formatDate } from '$lib/i18n/format';
@@ -218,11 +218,24 @@
 		}
 	}
 
-	function handleSkip(): void {
+	async function handleSkip(): Promise<void> {
 		trackEvent('revision_skipped', {
 			project_id: projectId,
 			candidate_project_id: candidateProjectId
 		});
+		// Cycle 5 W3-E (issue #84): record the skip server-side so detect
+		// stops surfacing this candidate. Reconsider via the project-detail
+		// page's "Confirm as revision of..." action which calls
+		// clear-revision-skips. Best-effort — if the skip-record call
+		// fails (network blip), we still call onSkipped so the UI dismisses
+		// the card; user can re-skip on next visit.
+		if (candidateProjectId) {
+			try {
+				await skipRevisionOf(projectId, candidateProjectId);
+			} catch (err) {
+				console.warn('skipRevisionOf failed (best-effort):', err);
+			}
+		}
 		onSkipped?.();
 	}
 

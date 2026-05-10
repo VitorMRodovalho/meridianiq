@@ -58,6 +58,8 @@ def fresh_store() -> InMemoryStore:
         store._upload_revision = {}
         store._project_owners = {}
         store._audit_log = []
+        # Cycle 5 W3-E (issue #84): revision_skip_log
+        store._revision_skip_log = []
     return store  # type: ignore[return-value]
 
 
@@ -412,6 +414,257 @@ def test_confirm_409_on_unique_collision(
     detail = resp.json()["detail"]
     assert detail["error_code"] == "unique_collision"
     assert "duplicate key" in detail["message"]
+
+
+# ────────────────────────────────────────────────────────────
+# Cycle 5 W3-E (issue #84) — skip / clear-skips endpoints + detect-filter
+# ────────────────────────────────────────────────────────────
+
+
+def test_skip_revision_of_records_skip(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """POST skip-revision-of records the (project, candidate, user)
+    triple and surfaces the recorded=True flag."""
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{p2}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p1},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["project_id"] == p2
+    assert body["candidate_project_id"] == p1
+    assert body["recorded"] is True
+    # In-memory check: skip-log row exists.
+    assert fresh_store.is_revision_skipped(
+        project_id=p2, candidate_project_id=p1, user_id="user-w2-test"
+    )
+
+
+def test_skip_revision_of_idempotent(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """Repeated skip calls return recorded=False on the second call."""
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp1 = client.post(
+        f"/api/v1/projects/{p2}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p1},
+    )
+    assert resp1.json()["recorded"] is True
+    resp2 = client.post(
+        f"/api/v1/projects/{p2}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p1},
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["recorded"] is False
+
+
+def test_skip_revision_of_400_on_self_skip(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """Self-skip is meaningless — surfaces structured error_code 'self_skip'."""
+    p = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{p}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p},
+    )
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert detail["error_code"] == "self_skip"
+
+
+def test_skip_revision_of_404_on_missing_current(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    token = _make_token()
+    resp = client.post(
+        "/api/v1/projects/nonexistent/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": "also-nonexistent"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"]["error_code"] == "current_not_found"
+
+
+def test_skip_revision_of_404_on_missing_candidate(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    p = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    resp = client.post(
+        f"/api/v1/projects/{p}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": "missing-candidate"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"]["error_code"] == "parent_not_found"
+
+
+def test_detect_filters_skipped_candidate(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """After skipping, detect must NOT surface the same candidate
+    (issue #84 — the load-bearing user-facing behavior)."""
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    # Pre-skip: detect surfaces p1.
+    resp_before = client.post(
+        f"/api/v1/projects/{p2}/detect-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp_before.json()["candidate_project_id"] == p1
+
+    # Record the skip.
+    client.post(
+        f"/api/v1/projects/{p2}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p1},
+    )
+
+    # Post-skip: detect filters out the candidate.
+    resp_after = client.post(
+        f"/api/v1/projects/{p2}/detect-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    body = resp_after.json()
+    assert body["candidate_project_id"] is None
+    assert "skip" in body["reasoning"]
+
+
+def test_clear_revision_skips_returns_count(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """Clear endpoint deletes all skips for the project + returns count."""
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    # Skip then clear.
+    client.post(
+        f"/api/v1/projects/{p2}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p1},
+    )
+    resp = client.post(
+        f"/api/v1/projects/{p2}/clear-revision-skips",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["project_id"] == p2
+    assert body["cleared_count"] == 1
+    # Idempotent: a second clear returns 0.
+    resp2 = client.post(
+        f"/api/v1/projects/{p2}/clear-revision-skips",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp2.json()["cleared_count"] == 0
+
+
+def test_detect_resurfaces_after_clear(client: TestClient, fresh_store: InMemoryStore) -> None:
+    """After clear-revision-skips, detect surfaces the candidate again
+    — the reconsider mechanism end-to-end."""
+    p1 = fresh_store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    p2 = fresh_store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-w2-test",
+    )
+    token = _make_token()
+    client.post(
+        f"/api/v1/projects/{p2}/skip-revision-of",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"candidate_project_id": p1},
+    )
+    # Skip filters detect.
+    assert (
+        client.post(
+            f"/api/v1/projects/{p2}/detect-revision-of",
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["candidate_project_id"]
+        is None
+    )
+    # Clear restores.
+    client.post(
+        f"/api/v1/projects/{p2}/clear-revision-skips",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert (
+        client.post(
+            f"/api/v1/projects/{p2}/detect-revision-of",
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["candidate_project_id"]
+        == p1
+    )
+
+
+def test_clear_revision_skips_404_on_missing_project(
+    client: TestClient, fresh_store: InMemoryStore
+) -> None:
+    token = _make_token()
+    resp = client.post(
+        "/api/v1/projects/nonexistent/clear-revision-skips",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"]["error_code"] == "current_not_found"
+
+
+def test_skip_unauth_returns_401(client: TestClient) -> None:
+    resp = client.post(
+        "/api/v1/projects/p1/skip-revision-of",
+        json={"candidate_project_id": "p2"},
+    )
+    assert resp.status_code == 401
+
+
+def test_clear_unauth_returns_401(client: TestClient) -> None:
+    resp = client.post("/api/v1/projects/p1/clear-revision-skips")
+    assert resp.status_code == 401
 
 
 def test_confirm_403_on_permission_denied(

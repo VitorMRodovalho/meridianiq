@@ -122,6 +122,13 @@ class InMemoryStore:
         # for the W2 detect heuristic. Persisted only in InMemoryStore for tests
         # (SupabaseStore reads from the projects table directly).
         self._project_meta: dict[str, dict[str, Any]] = {}
+        # Cycle 5 W3-E — issue #84 revision_skip_log. Per-user skip ledger
+        # for revision-confirmation candidates. Storage shape mirrors
+        # migration 029: list of {project_id, candidate_project_id,
+        # user_id, skipped_at} dicts. Detect endpoint filters skipped
+        # candidates so users are not nagged with the same suggestion
+        # forever; reconsider clears entries via clear_revision_skips.
+        self._revision_skip_log: list[dict[str, Any]] = []
 
     # -- programs --------------------------------------------------------
 
@@ -480,6 +487,91 @@ class InMemoryStore:
                 "original_baseline_lock_at": original_baseline_lock_at,
             }
         return None
+
+    # -- revision_skip_log (Cycle 5 W3-E — issue #84) -------------------
+
+    def record_revision_skip(
+        self,
+        project_id: str,
+        candidate_project_id: str,
+        user_id: str,
+    ) -> bool:
+        """Record that the user skipped a revision-confirmation candidate.
+
+        Returns True on first insert, False if the (project_id,
+        candidate_project_id, user_id) triple already exists (idempotent).
+        Raises ValueError on self-skip (project_id == candidate_project_id).
+        Mirrors migration 029 ``chk_revision_skip_not_self`` constraint
+        + ``ON CONFLICT DO NOTHING`` UPSERT semantics.
+        """
+        if project_id == candidate_project_id:
+            raise ValueError("self-skip is meaningless — project cannot be its own revision parent")
+        for row in self._revision_skip_log:
+            if (
+                row["project_id"] == project_id
+                and row["candidate_project_id"] == candidate_project_id
+                and row["user_id"] == user_id
+            ):
+                return False
+        self._revision_skip_log.append(
+            {
+                "project_id": project_id,
+                "candidate_project_id": candidate_project_id,
+                "user_id": user_id,
+                "skipped_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        return True
+
+    def is_revision_skipped(
+        self,
+        project_id: str,
+        candidate_project_id: str,
+        user_id: str,
+    ) -> bool:
+        """Check whether a (project_id, candidate, user) skip exists."""
+        return any(
+            row["project_id"] == project_id
+            and row["candidate_project_id"] == candidate_project_id
+            and row["user_id"] == user_id
+            for row in self._revision_skip_log
+        )
+
+    def list_skipped_candidates(
+        self,
+        project_id: str,
+        user_id: str,
+    ) -> list[str]:
+        """Return all candidate_project_ids the user has skipped FOR
+        the given project. Used by the detect endpoint to filter
+        suggestions.
+        """
+        return [
+            row["candidate_project_id"]
+            for row in self._revision_skip_log
+            if row["project_id"] == project_id and row["user_id"] == user_id
+        ]
+
+    def clear_revision_skips(
+        self,
+        project_id: str,
+        user_id: str,
+    ) -> int:
+        """Delete all skip rows for (project_id, user_id). Returns the
+        number of rows deleted.
+
+        This is the load-bearing reconsider mechanism — frontend calls
+        this when the user clicks "Confirm as revision of..." on the
+        project-detail page after previously skipping. The migration
+        029 DELETE policy enforces RLS scope at the DB layer.
+        """
+        before = len(self._revision_skip_log)
+        self._revision_skip_log = [
+            row
+            for row in self._revision_skip_log
+            if not (row["project_id"] == project_id and row["user_id"] == user_id)
+        ]
+        return before - len(self._revision_skip_log)
 
     # -- upload / project ------------------------------------------------
 
@@ -2688,6 +2780,106 @@ class SupabaseStore:
             "audit_log_id": audit_id,
             "original_baseline_lock_at": original_baseline_lock_at,
         }
+
+    # -- revision_skip_log (Cycle 5 W3-E — issue #84) -------------------
+
+    def record_revision_skip(
+        self,
+        project_id: str,
+        candidate_project_id: str,
+        user_id: str,
+    ) -> bool:
+        """Record a revision-confirmation skip. Returns True on first
+        insert, False on idempotent no-op (UNIQUE collision).
+
+        Migration 029 enforces ``UNIQUE (project_id, candidate_project_id,
+        user_id)`` + ``CHECK (project_id <> candidate_project_id)``;
+        the helper raises ValueError on self-skip BEFORE the round-trip.
+        """
+        if project_id == candidate_project_id:
+            raise ValueError("self-skip is meaningless — project cannot be its own revision parent")
+        try:
+            self._client.table("revision_skip_log").insert(
+                {
+                    "project_id": project_id,
+                    "candidate_project_id": candidate_project_id,
+                    "user_id": user_id,
+                }
+            ).execute()
+            return True
+        except Exception as exc:  # noqa: BLE001
+            # PostgREST encodes UNIQUE violations as 23505. Treat as
+            # idempotent no-op (caller's intent: "ensure skipped").
+            if "23505" in str(exc) or "duplicate" in str(exc).lower():
+                return False
+            logger.warning("record_revision_skip failed: %s", exc)
+            raise
+
+    def is_revision_skipped(
+        self,
+        project_id: str,
+        candidate_project_id: str,
+        user_id: str,
+    ) -> bool:
+        """Check whether a (project_id, candidate, user) skip exists."""
+        try:
+            res = (
+                self._client.table("revision_skip_log")
+                .select("id")
+                .eq("project_id", project_id)
+                .eq("candidate_project_id", candidate_project_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            return bool(res.data)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("is_revision_skipped failed: %s", exc)
+            return False
+
+    def list_skipped_candidates(
+        self,
+        project_id: str,
+        user_id: str,
+    ) -> list[str]:
+        """Return all candidate_project_ids the user has skipped FOR
+        the given project. Used by the detect endpoint to filter.
+        """
+        try:
+            res = (
+                self._client.table("revision_skip_log")
+                .select("candidate_project_id")
+                .eq("project_id", project_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            return [str(r["candidate_project_id"]) for r in (res.data or [])]
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("list_skipped_candidates failed: %s", exc)
+            return []
+
+    def clear_revision_skips(
+        self,
+        project_id: str,
+        user_id: str,
+    ) -> int:
+        """Delete all skip rows for (project_id, user_id). Returns the
+        number of rows deleted. The reconsider mechanism — frontend
+        calls this when the user clicks "Confirm as revision of..." on
+        the project-detail page.
+        """
+        try:
+            res = (
+                self._client.table("revision_skip_log")
+                .delete()
+                .eq("project_id", project_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            return len(res.data or [])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("clear_revision_skips failed: %s", exc)
+            return 0
 
     # -- legacy aliases for app.py compatibility -------------------------
 
