@@ -14,6 +14,8 @@ This document collects the **operator-paced** items relevant to Cycle 6 H-shape 
 
 **Standing protocol:** Each operator action ends with a "Registry" step. Update tracking issue [#134](https://github.com/VitorMRodovalho/meridianiq/issues/134) as evidence accumulates. Cycle 7 entry council reads issue #134 + this runbook to judge GATE outcome on Pathway A/B HONEST criteria.
 
+**ADR slot reservation discipline (per DA exit-council on PR #136 P2 #2):** Both Pathway B persona-retirement-ADR (§W2-OPS-02) and Cycle 6.5 amendment ADR (§W2-OPS-04) reserve **ADR-0026** in their templates. If both trigger (Pathway B retirement used AND outcome judged cosmetic-met by operator self-honesty → Cycle 6.5 amendment also needed), **the one that ships first claims ADR-0026; the second claims ADR-0027**. Either order is operator's call at the time; document the order in the second ADR's "cites" header.
+
 ---
 
 ## W0-OPS-01 — Operator decisions at ratification — ✅ DONE 2026-05-17
