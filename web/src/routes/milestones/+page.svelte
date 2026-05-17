@@ -5,12 +5,13 @@
 		getValueMilestones,
 		createValueMilestone,
 		updateValueMilestone,
+		getMilestones,
 		type ValueMilestone,
 		type ValueMilestoneCreate
 	} from '$lib/api';
 	import { success, error as toastError } from '$lib/toast';
 	import { t, locale } from '$lib/i18n';
-	import type { ProjectListItem } from '$lib/types';
+	import type { ProjectListItem, MilestoneSchema } from '$lib/types';
 
 	const TYPE_KEYS: Record<string, string> = {
 		payment: 'milestones.type_payment',
@@ -30,6 +31,12 @@
 	let projects: ProjectListItem[] = $state([]);
 	let selectedProjectId = $state('');
 	let milestones: ValueMilestone[] = $state([]);
+	// Schedule milestones for the picker (populated alongside value-milestones).
+	// Drives the <datalist> bound to the task_code input — replaces typing
+	// from memory with a native HTML5 combobox. See issue filed for the
+	// WBS-tree picker follow-up (requires `MilestoneSchema.wbs_id` schema
+	// extension that's deferred from this PR).
+	let availableMilestones: MilestoneSchema[] = $state([]);
 	let loading = $state(true);
 	let milestonesLoading = $state(false);
 	let error = $state('');
@@ -75,19 +82,33 @@
 
 	async function loadMilestones() {
 		if (!selectedProjectId) return;
+		// Capture the project id at request time so a race (user changes
+		// project mid-fetch) doesn't write stale data into either array
+		// after `selectedProjectId` has already moved. Frontend-reviewer
+		// entry-council P0-1 on this PR.
+		const requestedId = selectedProjectId;
 		milestonesLoading = true;
 		try {
-			const res = await getValueMilestones(selectedProjectId);
-			milestones = res.milestones;
+			const [valueRes, scheduleRes] = await Promise.all([
+				getValueMilestones(requestedId),
+				getMilestones(requestedId),
+			]);
+			if (requestedId !== selectedProjectId) return;
+			milestones = valueRes.milestones;
+			availableMilestones = scheduleRes.milestones;
 		} catch (e: unknown) {
+			if (requestedId !== selectedProjectId) return;
 			toastError(e instanceof Error ? e.message : $t('milestones.load_milestones_failed'));
 		} finally {
-			milestonesLoading = false;
+			if (requestedId === selectedProjectId) {
+				milestonesLoading = false;
+			}
 		}
 	}
 
 	async function handleProjectChange() {
 		milestones = [];
+		availableMilestones = [];
 		editingId = null;
 		showForm = false;
 		await loadMilestones();
@@ -284,7 +305,18 @@
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 					<div>
 						<label for="task-code" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_task_code')}</label>
-						<input id="task-code" type="text" bind:value={formData.task_code} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_task_code')} />
+						<input id="task-code" type="text" list="schedule-milestones-picker" bind:value={formData.task_code} class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={$t('milestones.placeholder_task_code')} />
+						<!-- Native HTML5 combobox: type-ahead search + arrow affordance,
+						     falls back to free-text input on browsers without datalist UI.
+						     Auto-fill of task_name intentionally NOT implemented per
+						     frontend-reviewer entry-council P0-2 (the guard is wrong in
+						     both directions; datalist option content surfaces task_name
+						     as secondary text so users can read + copy). -->
+						<datalist id="schedule-milestones-picker">
+							{#each availableMilestones as m (m.task_id)}
+								<option value={m.task_code}>{m.task_name}</option>
+							{/each}
+						</datalist>
 					</div>
 					<div>
 						<label for="task-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('milestones.field_task_name')}</label>
