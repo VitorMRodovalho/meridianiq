@@ -364,6 +364,11 @@ export default {
 	'recovery.col_activity': 'Actividad',
 	'recovery.col_description': 'Descripcion',
 	'recovery.all_pass': 'No se encontraron problemas. El cronograma de recuperacion paso todas las verificaciones.',
+	'recovery.or_upload_scenario': 'O subir un archivo de escenario hipotético (.xer o .xml)',
+	'recovery.upload_processing': 'Subiendo y procesando escenario...',
+	'recovery.upload_invalid_format': 'Por favor seleccione un archivo .xer o .xml',
+	'recovery.upload_failed': 'Error al subir escenario',
+	'recovery.processing_failed': 'Error al procesar escenario',
 
 	// IPS Reconciliation page
 	'ips.subtitle': 'Verifica la consistencia entre un cronograma maestro y sub-cronogramas. Segun AACE Recommended Practice 71R-12.',

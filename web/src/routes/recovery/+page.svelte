@@ -2,11 +2,13 @@
 	import { onMount } from 'svelte';
 	import {
 		getProjects,
+		uploadXER,
 		validateRecovery,
 		type RecoveryValidationResult
 	} from '$lib/api';
+	import { useProjectStatusPolling } from '$lib/composables/useProjectStatusPolling';
 	import { t } from '$lib/i18n';
-	import type { ProjectListItem } from '$lib/types';
+	import type { ProjectListItem, ProjectSummary } from '$lib/types';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
@@ -18,6 +20,16 @@
 	let recoveryId = $state('');
 	let validating = $state(false);
 	let result: RecoveryValidationResult | null = $state(null);
+	// Ad-hoc scenario upload (operator's 2026-05-17 triage): users want
+	// to upload a hypothetical recovery XER/XML directly on this page
+	// rather than going through the upload page first. uploadXER returns
+	// 202 + pending status when async materialization is in flight; the
+	// global computingProjects store (driven by `useProjectStatusPolling`)
+	// polls until the project flips to ready or failed.
+	let uploading = $state(false);
+	let uploadError = $state('');
+	let activeUploadId = 0;
+	let pendingScenarioProject: ProjectSummary | null = $state(null);
 
 	onMount(async () => {
 		try {
@@ -29,6 +41,83 @@
 			loading = false;
 		}
 	});
+
+	// Reactive watcher: when an upload finishes its sync round-trip but
+	// the project is still 'pending', we set `pendingScenarioProject` and
+	// this effect subscribes via the composable. The composable handles
+	// its own `onDestroy` cleanup, so multiple back-to-back uploads leave
+	// stale watchers harmlessly attached until the component unmounts —
+	// the `activeUploadId` snapshot blocks stale callbacks from writing
+	// state, so the leak is bounded and side-effect-free.
+	$effect(() => {
+		const proj = pendingScenarioProject;
+		if (!proj) return;
+		const snapshotUploadId = activeUploadId;
+		useProjectStatusPolling(proj.project_id, {
+			onTerminal: (status) => {
+				if (snapshotUploadId !== activeUploadId) return;
+				if (proj !== pendingScenarioProject) return;
+				if (status === 'ready') {
+					appendAndSelectScenario(proj);
+				} else {
+					uploadError = $t('recovery.processing_failed');
+					uploading = false;
+				}
+				pendingScenarioProject = null;
+			},
+		});
+	});
+
+	function appendAndSelectScenario(proj: ProjectSummary) {
+		projects = [
+			...projects,
+			{
+				project_id: proj.project_id,
+				name: proj.name,
+				activity_count: proj.activity_count,
+				relationship_count: proj.relationship_count,
+				data_date: proj.data_date,
+				status: 'ready',
+			},
+		];
+		recoveryId = proj.project_id;
+		uploading = false;
+	}
+
+	async function handleScenarioUpload(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		// Pre-validate extension to avoid the backend 400 round-trip + an
+		// opaque error toast. Backend `upload.py` accepts only .xer / .xml.
+		const name = file.name.toLowerCase();
+		if (!name.endsWith('.xer') && !name.endsWith('.xml')) {
+			uploadError = $t('recovery.upload_invalid_format');
+			input.value = '';
+			return;
+		}
+		uploading = true;
+		uploadError = '';
+		const uploadId = ++activeUploadId;
+		try {
+			// Hypothetical scenarios → sandbox so they don't pollute the
+			// user's primary project list per entry-council S1.
+			const uploaded = await uploadXER(file, true);
+			if (uploadId !== activeUploadId) return;
+			if (uploaded.status === 'ready') {
+				appendAndSelectScenario(uploaded);
+			} else {
+				pendingScenarioProject = uploaded;
+			}
+		} catch (e: unknown) {
+			if (uploadId === activeUploadId) {
+				uploadError = e instanceof Error ? e.message : $t('recovery.upload_failed');
+				uploading = false;
+			}
+		} finally {
+			input.value = '';
+		}
+	}
 
 	async function runValidation() {
 		if (!impactedId || !recoveryId) return;
@@ -98,18 +187,39 @@
 				</label>
 				<label class="block">
 					<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('recovery.label_recovery')}</span>
-					<select bind:value={recoveryId} class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
+					<select bind:value={recoveryId} disabled={uploading} class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
 						<option value="">{$t('recovery.select_recovery')}</option>
 						{#each projects.filter(p => p.project_id !== impactedId) as p}
 							<option value={p.project_id}>{p.name || p.project_id} ({p.activity_count} {$t('recovery.act_suffix')})</option>
 						{/each}
 					</select>
+					<div class="mt-2">
+						<label class="block text-xs text-gray-600 dark:text-gray-400">
+							{$t('recovery.or_upload_scenario')}
+							<input
+								type="file"
+								accept=".xer,.xml"
+								onchange={handleScenarioUpload}
+								disabled={uploading || validating}
+								class="mt-1 block w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+								aria-busy={uploading}
+								aria-describedby="scenario-upload-status"
+							/>
+						</label>
+						<div id="scenario-upload-status" aria-live="polite">
+							{#if uploading}
+								<p class="text-xs text-blue-600 mt-1 animate-pulse">{$t('recovery.upload_processing')}</p>
+							{:else if uploadError}
+								<p class="text-xs text-red-600 mt-1">{uploadError}</p>
+							{/if}
+						</div>
+					</div>
 				</label>
 			</div>
 			<div class="mt-4">
 				<button
 					onclick={runValidation}
-					disabled={!impactedId || !recoveryId || validating}
+					disabled={!impactedId || !recoveryId || validating || uploading}
 					class="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 				>
 					{validating ? $t('recovery.btn_validating') : $t('recovery.btn_validate')}
