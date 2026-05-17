@@ -364,6 +364,11 @@ export default {
 	'recovery.col_activity': 'Activity',
 	'recovery.col_description': 'Description',
 	'recovery.all_pass': 'No issues found. Recovery schedule passed all validation checks.',
+	'recovery.or_upload_scenario': 'Or upload a hypothetical scenario file (.xer or .xml)',
+	'recovery.upload_processing': 'Uploading and processing scenario...',
+	'recovery.upload_invalid_format': 'Please select a .xer or .xml file',
+	'recovery.upload_failed': 'Scenario upload failed',
+	'recovery.processing_failed': 'Scenario processing failed',
 
 	// IPS Reconciliation page
 	'ips.subtitle': 'Verify consistency between a master schedule and sub-schedules. Per AACE Recommended Practice 71R-12.',

@@ -245,8 +245,21 @@ export async function uploadXER(file: File, isSandbox: boolean = false): Promise
 	return request<ProjectSummary>('/api/v1/upload', { method: 'POST', body: form });
 }
 
-export async function getProjects(): Promise<ProjectListResponse> {
-	return request<ProjectListResponse>('/api/v1/projects');
+/**
+ * List the current user's projects. Sandbox-flagged projects are
+ * excluded by default (backend `include_sandbox=false`); pages that
+ * specifically need to surface sandbox projects (e.g. `/recovery` for
+ * hypothetical scenario uploads) pass ``includeSandbox=true``.
+ *
+ * DA P1-1 on PR #148: scenarios uploaded with ``isSandbox=true`` on
+ * the recovery page were invisible on next page reload because
+ * `getProjects` defaulted to filtering sandbox. Adding the parameter
+ * lets recovery (or other scenario-oriented pages) opt in without
+ * polluting the dropdowns on every other page.
+ */
+export async function getProjects(includeSandbox: boolean = false): Promise<ProjectListResponse> {
+	const qs = includeSandbox ? '?include_sandbox=true' : '';
+	return request<ProjectListResponse>(`/api/v1/projects${qs}`);
 }
 
 // Re-export commonly used schema types so consumer pages don't have to
