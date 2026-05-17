@@ -6,6 +6,58 @@ The intent is **future-self utility**: when planning a similar wave or PR, scan 
 
 ---
 
+## Cycle 6 — H-shape (forced hygiene + hard W2 gate) — ENTRY 2026-05-17
+
+Authored at cycle entry per ADR-0025 success criterion 1. Six anti-sycophancy lessons banked at entry (load-bearing for Cycle 7+ council); close-time lessons will be appended at cycle close.
+
+### Anti-sycophancy lessons banked at entry (Round 2 paired adversarial demolition of Round 1 Z2-DA convergence)
+
+#### L6.1 — Sycophancy-pattern v2 named: post-hoc "compounding primitives" labeling of forced hygiene
+
+- **Setup**: Cycle 6 entry council Round 1 (PV + strategist) converged on Z2-DA (second consecutive Z-shape) framed as shipping "compounding primitives" (audit_log paired writes = multi-tenant readiness; prompt caching = AI cost moat; WCAG-AA frontend = enterprise procurement credential; content_hash at upload = forensic chain-of-custody primitive).
+- **What Round 2 (DA + IV) found**: All 4 "primitive" framings are post-hoc rationalization for FORCED hygiene. Bucket A (CVE bumps) + Bucket B floor bumps (mcp<2, fastapi 0.136.1, etc.) were shipping regardless due to external clocks. The "compounding primitive" framing rebrands ~6 wave-units of forced work into virtuous narrative. Structurally identical mechanism to Cycle 5 calibration-theater pattern (ADR-0023 §"Pattern check") — different words, same epistemic move: manufacturing internal evidence of progress while deferring external evidence of demand.
+- **Discipline that closes it**: ADR-0025 explicitly DROPS all 4 framings. Cycle 6.5 sycophancy-recurrence trigger fires if any reintroduced in W3+ PR descriptions. DA-as-second-reviewer protocol enforced per `feedback_entry_council_discipline.md` checks PR text against the 4 dropped framings during exit-council.
+
+#### L6.2 — Recursive deferral pattern named: "next cycle is the inflection"
+
+- **Setup**: Round 1 both agents framed "Cycle 7 = inflection point" — either demand-validation arrives OR formally retire personas. Same framing appeared in Cycles 3+4+5 council entries.
+- **What Round 2 IV found**: This is a recursive deferral pattern, not a Cycle 6 problem. Structural to the maintainer-as-PM-and-IC-and-strategist loop where shipping a wave provides falsifiable feedback (CI pass/fail in minutes) but customer-development does not (silence is ambiguous over weeks). The loop selects against the harder signal.
+- **Discipline that closes it**: H-shape W2 HARD GATE breaks the recursion at mid-cycle, not next-cycle. 5 CDs OR persona-retirement-ADR is the first non-optional demand-validation surface in 6 cycles. Cycle 7 entry council can re-evaluate whether the methodology amendment proposed under decision 4 caveat (require Round 1 to challenge candidate pool before proposing scope) addresses the deeper root cause.
+
+#### L6.3 — Complementary anti-sycophancy trap named: "we're being honest about constraints, therefore the conservative path is correct"
+
+- **Setup**: Both Round 1 agents performed the anti-sycophancy work explicitly demanded by Cycle 5 close (no PV escalation framing on Field/Sub deferral; no strategist inside-ideology corpus/lawyer paths). Then both used the honest-constraint stance as object-level validation of the Z2-DA conservative choice.
+- **What Round 2 (both DA + IV) found**: Honest meta-stance ≠ validation of object-level conclusion. "We're not over-claiming, therefore our conservative path is correct" is structurally identical to over-claiming — both use meta-stance as evidence for object-level. Honest meta-stance is "we're honest about constraints AND we cannot tell whether the conservative path is correct without external signal we don't have."
+- **Discipline that closes it**: ADR-0025 §"Honest disclosures" #1 names this explicitly: "This cycle is 'forced + honest, NOT validated'. Chairman synthesis explicitly acknowledges the H-shape is least-wrong-among-bad-options, not best-validated."
+
+#### L6.4 — Solo maintainer burnout vector recalibrated: monotony + isolation + lack-of-feedback, NOT scope ambition
+
+- **Setup**: Round 1 framed Z2 as "protecting maintainer from burnout" via scope-restriction.
+- **What Round 2 DA found** (citing Eghbal 2020 "Working in Public" + solo-OSS post-mortem evidence): for solo OSS with 24-month runway and no external feedback loop, the burnout vector is MONOTONY + ISOLATION + lack-of-validation. 5 consecutive Z cycles with zero demand signal IS the burnout vector. Round 1 inverted this.
+- **Discipline that closes it**: H-shape pairs forced hygiene with mandatory demand-validation surface — provides the external-feedback novelty that scope-restriction-alone removes.
+
+#### L6.5 — Base-rate prior named: solo OSS in 2nd consecutive consolidation cycle without external validation → maintenance mode within 6-18 months (modal outcome)
+
+- **Setup**: Round 1 claimed "Z2 is healthy if it ships compounding primitives; THIRD Z would be stale."
+- **What Round 2 DA found**: Empirical signature of stalled solo OSS is exactly (a) increasingly hygiene-dominated cycles, (b) deferred outreach, (c) "we're being mature about scope" framing, (d) consistent graceful-threshold passes. MeridianIQ at Cycle 6 entry has all four. "Healthy 2nd time" claim requires evidence; Round 1 provided none beyond burnout-avoidance (which L6.4 shows inverts the vector).
+- **Discipline that closes it**: Banked for Cycle 7+ council reckoning. If Cycle 6 W2 GATE met cosmetically, the 4 markers continue accumulating; Cycle 7 entry must explicitly weigh whether the pattern has crossed the maintenance-mode threshold.
+
+#### L6.6 — TAM/SAM/SOM honest numbers banked: $40-60M / $8-15M / $0 Cycle 6 base case
+
+- **Setup**: Neither Round 1 agent computed TAM/SAM/SOM. Acquisition-path framing (strategist) was conditional-on-future-cycles without underwriting evidence.
+- **What Round 2 IV found**: TAM (construction scheduling intelligence US+LATAM, OSS-addressable) = $40-60M after halving for OSS-substitution ceiling. SAM (P6/MSP/Unifier users with analytics-layer budget vs services from incumbent EPCM consultancies) = $8-15M. SOM Cycle 6 horizon (solo-founder, MIT-licensed, zero reference customers, no sales motion, no GTM primitive in wave plan) = $0-50k base case, **$0 modal**. Acquisition path realism: investor pass memo writes itself — "Strong engineering, no demand evidence, founder pattern shows recursive deferral of CD."
+- **Discipline that closes it**: Banked permanently in ADR-0025 §"Honest disclosures" #5 + this lesson. Any future "moat" or "acquisition" claim in council must reckon with these numbers. They are now part of the council record, not separate intelligence.
+
+### Process lessons from Cycle 6 entry council mechanics
+
+#### L6.7 — Off-list Chairman synthesis pattern is now structural across 3 cycles (Cycles 4+5+6)
+
+- **Pattern**: Cycle 4 ADR-0023 (path-A pre-registered + executed), Cycle 5 ADR-0024 (Z-shape off-list from Round 2 paired demolition), Cycle 6 ADR-0025 (H-shape off-list from Round 2 paired demolition).
+- **DA exit-council finding on PR #135**: "A Cycle 7 entry-council reader picking up only ADR-0025 will infer that the off-list Chairman synthesis pattern continued (Round 1 unanimous → Round 2 demolition → off-list), now establishing it as the de facto council outcome rather than an exception. The honest cost: Cycle 6 was the third consecutive cycle where Round 1 unanimity got demolished — calling into question whether Round 1 agents are actually adversarial enough, or whether the council protocol structurally selects for Round 1 sycophancy by giving them the constrained candidate pool first."
+- **Open question for Cycle 7 entry council** (per ADR-0025 operator decision 4 caveat): "Should Round 1 agents be required to challenge the planning memo's candidate pool BEFORE proposing scope?" Council protocol amendment candidate.
+
+---
+
 ## Cycle 5 — Z-shape consolidation (closed at `v4.3.0`, 2026-05-09)
 
 Authored 2026-05-09 evening at cycle close. Per ADR-0024 success criterion 8.
