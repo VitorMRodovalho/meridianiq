@@ -163,12 +163,13 @@ export default {
 	'sidebar.close_menu': 'Cerrar menu',
 	'sidebar.user_fallback': 'Usuario',
 
-	// Error boundary
+	// Error boundary (diacritics restored to match rest-of-file convention — DA P2-5 check)
 	'error.skip_to_content': 'Saltar al contenido',
-	'error.title': 'Algo salio mal',
-	'error.subtitle': 'Ocurrio un error inesperado',
+	'error.title': 'Algo salió mal',
+	'error.subtitle': 'Ocurrió un error inesperado',
 	'error.try_again': 'Reintentar',
 	'error.go_home': 'Ir al Inicio',
+	'error.request_timeout': 'Tiempo de espera agotado. Vuelva a intentar.',
 
 	// Login page
 	'login.page_title': 'Iniciar Sesion',

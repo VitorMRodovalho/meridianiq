@@ -169,6 +169,7 @@ export default {
 	'error.subtitle': 'An unexpected error occurred',
 	'error.try_again': 'Try Again',
 	'error.go_home': 'Go Home',
+	'error.request_timeout': 'Request timed out. Please retry.',
 
 	// Login page
 	'login.page_title': 'Sign In',
