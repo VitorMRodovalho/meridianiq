@@ -48,12 +48,19 @@
 			const headers: Record<string, string> = session?.access_token
 				? { Authorization: `Bearer ${session.access_token}` }
 				: {};
-			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/duration-prediction`, { headers });
+			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/duration-prediction`, {
+				headers,
+				signal: AbortSignal.timeout(12_000),
+			});
 			if (!res.ok) throw new Error(await res.text());
 			result = await res.json();
 			toastSuccess(`Predicted: ${result!.predicted_duration_days} days (${result!.confidence_low}-${result!.confidence_high})`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			if ((e as Error)?.name === 'TimeoutError') {
+				error = $t('error.request_timeout');
+			} else {
+				error = e instanceof Error ? e.message : 'Failed';
+			}
 			toastError(error);
 		} finally {
 			loading = false;

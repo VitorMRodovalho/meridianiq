@@ -169,6 +169,7 @@ export default {
 	'error.subtitle': 'Ocurrio un error inesperado',
 	'error.try_again': 'Reintentar',
 	'error.go_home': 'Ir al Inicio',
+	'error.request_timeout': 'Tiempo de espera agotado. Vuelva a intentar.',
 
 	// Login page
 	'login.page_title': 'Iniciar Sesion',

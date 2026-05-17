@@ -28,23 +28,40 @@
 	const chartW = $derived(WIDTH - PAD.left - PAD.right);
 	const chartH = $derived(height - PAD.top - PAD.bottom);
 
-	const xMin = $derived(Math.min(...points.map((p) => p.x)) * 0.95);
-	const xMax = $derived(Math.max(...points.map((p) => p.x)) * 1.05);
-	const yMin = $derived(Math.min(...points.map((p) => p.y)) * 0.95);
-	const yMax = $derived(Math.max(...points.map((p) => p.y)) * 1.05);
+	// Filter non-finite point values so a malformed backend payload
+	// (single NaN entry) doesn't propagate Infinity/NaN through the
+	// `$derived` graph into SVG `y1`/`y2`/`y` attributes.
+	const finitePoints = $derived(
+		points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+	);
+
+	const xMin = $derived(
+		finitePoints.length > 0 ? Math.min(...finitePoints.map((p) => p.x)) * 0.95 : 0
+	);
+	const xMax = $derived(
+		finitePoints.length > 0 ? Math.max(...finitePoints.map((p) => p.x)) * 1.05 : 100
+	);
+	const yMin = $derived(
+		finitePoints.length > 0 ? Math.min(...finitePoints.map((p) => p.y)) * 0.95 : 0
+	);
+	const yMax = $derived(
+		finitePoints.length > 0 ? Math.max(...finitePoints.map((p) => p.y)) * 1.05 : 100
+	);
 
 	function xScale(v: number): number {
 		const range = xMax - xMin || 1;
-		return PAD.left + ((v - xMin) / range) * chartW;
+		const scaled = PAD.left + ((v - xMin) / range) * chartW;
+		return Number.isFinite(scaled) ? scaled : PAD.left;
 	}
 
 	function yScale(v: number): number {
 		const range = yMax - yMin || 1;
-		return PAD.top + chartH - ((v - yMin) / range) * chartH;
+		const scaled = PAD.top + chartH - ((v - yMin) / range) * chartH;
+		return Number.isFinite(scaled) ? scaled : PAD.top;
 	}
 
 	const frontier = $derived(
-		points.filter((p) => p.isOptimal).sort((a, b) => a.x - b.x)
+		finitePoints.filter((p) => p.isOptimal).sort((a, b) => a.x - b.x)
 	);
 
 	const frontierPath = $derived(
@@ -92,8 +109,8 @@
 				<path d={frontierPath} fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="6,3" />
 			{/if}
 
-			<!-- Points -->
-			{#each points as point}
+			<!-- Points (filtered to finite values to avoid SVG NaN attributes) -->
+			{#each finitePoints as point}
 				<circle
 					cx={xScale(point.x)}
 					cy={yScale(point.y)}

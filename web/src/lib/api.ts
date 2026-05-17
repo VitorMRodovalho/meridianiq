@@ -82,6 +82,27 @@ export class ApiError extends Error {
 	}
 }
 
+/**
+ * Thrown when a request exceeds its wall-clock budget across all retries.
+ * Pages catching this should display a localized retry message via
+ * ``$t('error.request_timeout')`` rather than the raw browser message
+ * ("signal is aborted without reason").
+ */
+export class TimeoutError extends ApiError {
+	constructor(message: string = 'Request timed out') {
+		super(message, 0, 'request_timeout');
+		this.name = 'TimeoutError';
+	}
+}
+
+// Per-attempt fetch timeout. Bounds a single fetch invocation; combined
+// with MAX_RETRIES + backoff sleeps below this gives ~85s worst-case
+// wall-clock (5 * 12s + 22.5s backoff). REQUEST_TOTAL_BUDGET_MS bails
+// earlier if the cumulative time exceeds the budget — protects users
+// from open-ended hangs when the backend is degraded but not 502'ing.
+const PER_ATTEMPT_TIMEOUT_MS = 12_000;
+const REQUEST_TOTAL_BUDGET_MS = 60_000;
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -98,11 +119,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 		}
 	};
 
+	const requestStart = Date.now();
 	let lastError: unknown;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		// Bail if the total wall-clock budget is exhausted.
+		if (Date.now() - requestStart >= REQUEST_TOTAL_BUDGET_MS) {
+			throw lastError instanceof Error ? lastError : new TimeoutError();
+		}
+		// Fresh AbortSignal per attempt — a reused signal would abort every
+		// subsequent retry immediately if the first one fires.
+		const attemptSignal = init?.signal ?? AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS);
 		let res: Response | null = null;
 		try {
-			res = await fetch(`${BASE}${url}`, mergedInit);
+			res = await fetch(`${BASE}${url}`, { ...mergedInit, signal: attemptSignal });
 			if (res.ok) {
 				isWarmingUp.set(false);
 				return res.json();
@@ -133,6 +162,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 				throw new ApiError(message, status, errorCode);
 			}
 		} catch (err) {
+			// Surface per-attempt timeout as TimeoutError on the final attempt;
+			// earlier attempts fall through to retry. AbortSignal.timeout()
+			// produces a DOMException with name 'TimeoutError'.
+			if (err instanceof DOMException && err.name === 'TimeoutError') {
+				if (attempt === MAX_RETRIES) {
+					throw new TimeoutError();
+				}
+				lastError = err;
+				// Treat as cold-start-like — retry with backoff.
+				isWarmingUp.set(true);
+				await sleep(INITIAL_DELAY_MS * Math.pow(2, attempt));
+				continue;
+			}
 			if (!isColdStartError(res, err) || attempt === MAX_RETRIES) {
 				throw err;
 			}

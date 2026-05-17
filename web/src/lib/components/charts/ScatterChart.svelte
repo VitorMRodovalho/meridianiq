@@ -31,10 +31,16 @@
 	const chartWidth = $derived(WIDTH - PADDING.left - PADDING.right);
 	const chartHeight = $derived(height - PADDING.top - PADDING.bottom);
 
-	const xMin = $derived(data.length > 0 ? Math.min(...data.map((d) => d.x)) : 0);
-	const xMax = $derived(data.length > 0 ? Math.max(...data.map((d) => d.x)) : 100);
-	const yMin = $derived(data.length > 0 ? Math.min(...data.map((d) => d.y)) : 0);
-	const yMax = $derived(data.length > 0 ? Math.max(...data.map((d) => d.y)) : 100);
+	// Filter non-finite values so a malformed backend payload (NaN x/y)
+	// doesn't propagate through the `$derived` graph into SVG attributes.
+	const finiteData = $derived(
+		data.filter((d) => Number.isFinite(d.x) && Number.isFinite(d.y))
+	);
+
+	const xMin = $derived(finiteData.length > 0 ? Math.min(...finiteData.map((d) => d.x)) : 0);
+	const xMax = $derived(finiteData.length > 0 ? Math.max(...finiteData.map((d) => d.x)) : 100);
+	const yMin = $derived(finiteData.length > 0 ? Math.min(...finiteData.map((d) => d.y)) : 0);
+	const yMax = $derived(finiteData.length > 0 ? Math.max(...finiteData.map((d) => d.y)) : 100);
 
 	const xRange = $derived(xMax - xMin || 1);
 	const yRange = $derived(yMax - yMin || 1);
@@ -95,8 +101,8 @@
 				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" />
 				<line x1="0" y1="0" x2="0" y2={chartHeight} stroke="#d1d5db" stroke-width="1" />
 
-				<!-- Points -->
-				{#each data as pt}
+				<!-- Points (filtered to finite values to avoid SVG NaN attributes) -->
+				{#each finiteData as pt}
 					{@const r = pt.size ? Math.max(3, Math.min(12, pt.size)) : 5}
 					<circle
 						cx={px(pt.x)}

@@ -56,9 +56,12 @@
 			const headers: Record<string, string> = session?.access_token
 				? { Authorization: `Bearer ${session.access_token}` }
 				: {};
-			const res = await fetch(`${BASE}/api/v1/benchmarks/summary`, { headers });
+			const res = await fetch(`${BASE}/api/v1/benchmarks/summary`, {
+				headers,
+				signal: AbortSignal.timeout(12_000),
+			});
 			if (res.ok) summary = await res.json();
-		} catch { /* ignore */ }
+		} catch { /* ignore — summary is optional context, not load-bearing */ }
 	}
 
 	async function compare() {
@@ -72,12 +75,19 @@
 			const headers: Record<string, string> = session?.access_token
 				? { Authorization: `Bearer ${session.access_token}` }
 				: {};
-			const res = await fetch(`${BASE}/api/v1/benchmarks/compare/${selectedProject}`, { headers });
+			const res = await fetch(`${BASE}/api/v1/benchmarks/compare/${selectedProject}`, {
+				headers,
+				signal: AbortSignal.timeout(12_000),
+			});
 			if (!res.ok) throw new Error(await res.text());
 			compareResult = await res.json();
 			toastSuccess(`Compared against ${compareResult!.sample_size} benchmarks`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed';
+			if ((e as Error)?.name === 'TimeoutError') {
+				error = $t('error.request_timeout');
+			} else {
+				error = e instanceof Error ? e.message : 'Failed';
+			}
 			toastError(error);
 		} finally {
 			loading = false;
@@ -96,12 +106,17 @@
 			const res = await fetch(`${BASE}/api/v1/benchmarks/contribute?project_id=${selectedProject}`, {
 				method: 'POST',
 				headers,
+				signal: AbortSignal.timeout(12_000),
 			});
 			if (!res.ok) throw new Error(await res.text());
 			toastSuccess('Benchmark contributed (anonymized)');
 			loadSummary();
 		} catch (e) {
-			toastError(e instanceof Error ? e.message : 'Failed');
+			if ((e as Error)?.name === 'TimeoutError') {
+				toastError($t('error.request_timeout'));
+			} else {
+				toastError(e instanceof Error ? e.message : 'Failed');
+			}
 		} finally {
 			contributing = false;
 		}

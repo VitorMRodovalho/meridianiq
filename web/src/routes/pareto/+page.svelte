@@ -52,12 +52,17 @@
 				method: 'POST',
 				headers,
 				body: JSON.stringify({}),
+				signal: AbortSignal.timeout(12_000),
 			});
 			if (!res.ok) throw new Error(await res.text());
 			data = await res.json();
 			toastSuccess(`${data!.scenarios_evaluated} ${$t('pareto.toast_evaluated')}`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : $t('pareto.error_generic');
+			if ((e as Error)?.name === 'TimeoutError') {
+				error = $t('error.request_timeout');
+			} else {
+				error = e instanceof Error ? e.message : $t('pareto.error_generic');
+			}
 			toastError(error);
 		} finally {
 			loading = false;
