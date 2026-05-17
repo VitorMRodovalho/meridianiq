@@ -163,12 +163,13 @@ export default {
 	'sidebar.close_menu': 'Fechar menu',
 	'sidebar.user_fallback': 'Usuario',
 
-	// Error boundary
-	'error.skip_to_content': 'Pular para o conteudo',
+	// Error boundary (diacritics restored to match rest-of-file convention — DA P2-5 check)
+	'error.skip_to_content': 'Pular para o conteúdo',
 	'error.title': 'Algo deu errado',
 	'error.subtitle': 'Ocorreu um erro inesperado',
 	'error.try_again': 'Tentar Novamente',
-	'error.go_home': 'Ir para o Inicio',
+	'error.go_home': 'Ir para o Início',
+	'error.request_timeout': 'Tempo de requisição esgotado. Tente novamente.',
 
 	// Login page
 	'login.page_title': 'Entrar',

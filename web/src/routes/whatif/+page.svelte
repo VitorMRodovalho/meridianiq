@@ -54,7 +54,13 @@
 			);
 			toastSuccess(`Scenario complete: ${result.delta_days > 0 ? '+' : ''}${result.delta_days}d`);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Scenario failed';
+			// Detects TimeoutError thrown by api.ts request() — see api.ts
+			// collision comment for why string match instead of instanceof.
+			if ((e as Error)?.name === 'TimeoutError') {
+				error = $t('error.request_timeout');
+			} else {
+				error = e instanceof Error ? e.message : 'Scenario failed';
+			}
 			toastError(error);
 		} finally {
 			loading = false;

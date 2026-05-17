@@ -82,6 +82,37 @@ export class ApiError extends Error {
 	}
 }
 
+/**
+ * Thrown when a request exceeds its wall-clock budget across retries
+ * (issue #144). Page catches detect this via `e.name === 'TimeoutError'`
+ * to display a localized retry message via `$t('error.request_timeout')`.
+ *
+ * NAME COLLISION (intentional, DA exit-council on closed PR #143):
+ * `AbortSignal.timeout()` emits a `DOMException` whose name is also
+ * `'TimeoutError'`. Pages that bypass `request()` and use raw `fetch()`
+ * with `signal: AbortSignal.timeout(...)` will catch the bare
+ * DOMException directly — but its `.name === 'TimeoutError'` matches
+ * this class's `.name`, so the string-match in page catches handles
+ * both code paths uniformly. Renaming THIS class without also routing
+ * raw-fetch pages through `request()` would silently break the catches.
+ */
+export class TimeoutError extends ApiError {
+	constructor(message: string = 'Request timed out') {
+		super(message, 0, 'request_timeout');
+		this.name = 'TimeoutError';
+	}
+}
+
+// Per-attempt fetch timeout. Bounds a single fetch invocation;
+// REQUEST_TOTAL_BUDGET_MS bails earlier when the cumulative time across
+// retries exceeds the budget. Budget = 120s accommodates the full
+// 5-retry tolerance documented at MAX_RETRIES line above:
+//   6 attempts * 12s/attempt + (1.5+3+6+12+24)s backoff ≈ 119s ≤ 120s
+// If MAX_RETRIES is ever reduced (e.g., back to 3), reduce the budget
+// commensurately or the budget becomes dead code.
+const PER_ATTEMPT_TIMEOUT_MS = 12_000;
+const REQUEST_TOTAL_BUDGET_MS = 120_000;
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -98,11 +129,27 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 		}
 	};
 
+	const requestStart = Date.now();
 	let lastError: unknown;
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		// Bail if the total wall-clock budget is exhausted. Always throw
+		// TimeoutError here — falling through to `lastError` would surface
+		// a stale (e.g. 502) ApiError as the raw "Request failed: 502"
+		// instead of the localized timeout UX. DA P1-4 fix on closed PR #143.
+		if (Date.now() - requestStart >= REQUEST_TOTAL_BUDGET_MS) {
+			throw new TimeoutError();
+		}
+		// Fresh AbortSignal per attempt. A signal created once at the top
+		// of `request()` and reused across retries would abort every
+		// subsequent attempt immediately the moment the first one fires.
+		// DA P1-1 fix on closed PR #143. Caller-provided `init.signal`
+		// takes precedence and disables the per-attempt timeout — document
+		// this as a deliberate foot-gun for the rare caller that knows
+		// what they're doing.
+		const attemptSignal = init?.signal ?? AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS);
 		let res: Response | null = null;
 		try {
-			res = await fetch(`${BASE}${url}`, mergedInit);
+			res = await fetch(`${BASE}${url}`, { ...mergedInit, signal: attemptSignal });
 			if (res.ok) {
 				isWarmingUp.set(false);
 				return res.json();
@@ -133,6 +180,18 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 				throw new ApiError(message, status, errorCode);
 			}
 		} catch (err) {
+			// Per-attempt timeout fires as DOMException(name='TimeoutError').
+			// Treat as cold-start-like (retry); final-attempt timeout throws
+			// the typed TimeoutError so pages can detect it uniformly.
+			if (err instanceof DOMException && err.name === 'TimeoutError') {
+				if (attempt === MAX_RETRIES) {
+					throw new TimeoutError();
+				}
+				lastError = err;
+				isWarmingUp.set(true);
+				await sleep(INITIAL_DELAY_MS * Math.pow(2, attempt));
+				continue;
+			}
 			if (!isColdStartError(res, err) || attempt === MAX_RETRIES) {
 				throw err;
 			}
