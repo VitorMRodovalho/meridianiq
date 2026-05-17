@@ -29,7 +29,19 @@ dependencies = [
     # Floor bumped 2026-04-26: pydantic 2.13 audited against
     # tests/test_canonical_hash.py::TestByteExactPin (both minimal + rich
     # fixtures held). Safe within 2.x.
-    "pydantic>=2.13,<3.0",
+    # Floor bumped 2026-05-17 (Cycle 6 W1 Bucket B): pydantic 2.13.4
+    # re-audited against TestByteExactPin + TestDeterminism + TestProjectScoping
+    # + TestContentSensitivity + TestChainFilters + TestCanonicalJsonRules
+    # (28/28 pass). No RootModel usage in src/ → 2.13.4 RootModel core-metadata
+    # change is moot. Safe within 2.13.x.
+    #
+    # Upper bound tightened to ``<2.14`` per Cycle 6 W1 exit-council DA
+    # finding: a floor ``>=2.13.4,<3.0`` allows resolvers to pick 2.14+
+    # silently — but the ADR-0014 byte-exact contract has only been
+    # audited against 2.13.x. Tightening the cap converts a silent
+    # serialization-drift risk into a Dependabot bump that forces a
+    # conscious re-audit at every minor.
+    "pydantic>=2.13.4,<2.14",
     "networkx>=3.6",
     "numpy>=2.4",
     "supabase>=2.30",
@@ -41,12 +53,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-api = ["fastapi>=0.136", "uvicorn[standard]>=0.46", "slowapi>=0.1.9", "psutil>=5.9"]
+api = ["fastapi>=0.136.1", "uvicorn[standard]>=0.46", "slowapi>=0.1.9", "psutil>=5.9"]
 export = ["pandas>=2.2", "openpyxl>=3.1"]
 reports = ["weasyprint>=68.0"]
 ai = ["anthropic>=0.100"]
 ml = ["scikit-learn>=1.8"]
-mcp = ["mcp>=1.27"]
+# Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
+# replaces the ``FastMCP`` API used at ``src/mcp_server.py:61`` with
+# ``McpServer`` (breaking change).  Cap at 1.x until a conscious v2
+# migration ADR lands.  Patch floor 1.27.1 picks up upstream fixes
+# without leaving the audited 1.x line.
+mcp = ["mcp>=1.27.1,<2"]
 dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1",
