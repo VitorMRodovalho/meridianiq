@@ -26,6 +26,9 @@ jobs:
           ruff check src/ tests/ tools/
           ruff format --check src/ tests/ tools/
 
+      - name: Canonical-hash byte-exact contract (ADR-0014)
+        run: python -m pytest tests/test_canonical_hash.py -q --no-header --tb=short
+
       - name: Test
         run: python -m pytest tests/ -q --tb=short
 
