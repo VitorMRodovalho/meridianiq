@@ -40,6 +40,15 @@
 	let loading = $state(true);
 	let milestonesLoading = $state(false);
 	let error = $state('');
+	// Monotonic load-token. Each `loadMilestones()` call claims a fresh id;
+	// only the most-recent id is "active" — older calls (from rapid project
+	// switches OR project clears) detect they're stale via `loadId !==
+	// activeLoadId` and skip both data writes AND the spinner reset. Plain
+	// `let` (not `$state`) because no UI binding needs to observe it.
+	// DA P1 fix on PR #147 — prior `requestedId === selectedProjectId`
+	// check left `milestonesLoading=true` forever when user cleared the
+	// project mid-load (captured 'A' !== current '').
+	let activeLoadId = 0;
 
 	// Create form state
 	let showForm = $state(false);
@@ -82,25 +91,31 @@
 
 	async function loadMilestones() {
 		if (!selectedProjectId) return;
-		// Capture the project id at request time so a race (user changes
-		// project mid-fetch) doesn't write stale data into either array
-		// after `selectedProjectId` has already moved. Frontend-reviewer
-		// entry-council P0-1 on this PR.
+		// Capture both the project id (for the actual fetch) and a
+		// monotonic load-token (for stale-call detection). The token
+		// pattern handles BOTH project-switch (A → B) AND clear-project
+		// (A → '') cases — the prior `requestedId === selectedProjectId`
+		// check was correct for the data race but broken for the spinner
+		// state (DA P1 on PR #147 — spinner stuck true forever when user
+		// cleared the project mid-load because the early-return in the
+		// fresh call didn't touch the spinner and the old call's finally
+		// check failed).
 		const requestedId = selectedProjectId;
+		const loadId = ++activeLoadId;
 		milestonesLoading = true;
 		try {
 			const [valueRes, scheduleRes] = await Promise.all([
 				getValueMilestones(requestedId),
 				getMilestones(requestedId),
 			]);
-			if (requestedId !== selectedProjectId) return;
+			if (loadId !== activeLoadId) return;
 			milestones = valueRes.milestones;
 			availableMilestones = scheduleRes.milestones;
 		} catch (e: unknown) {
-			if (requestedId !== selectedProjectId) return;
+			if (loadId !== activeLoadId) return;
 			toastError(e instanceof Error ? e.message : $t('milestones.load_milestones_failed'));
 		} finally {
-			if (requestedId === selectedProjectId) {
+			if (loadId === activeLoadId) {
 				milestonesLoading = false;
 			}
 		}
