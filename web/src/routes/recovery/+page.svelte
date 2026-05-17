@@ -33,7 +33,13 @@
 
 	onMount(async () => {
 		try {
-			const res = await getProjects();
+			// Include sandbox-flagged projects so hypothetical recovery
+			// scenarios (uploaded with isSandbox=true via the inline file
+			// input below) remain visible in the dropdown across sessions.
+			// DA P1-1 on PR #148: scenarios were invisible on page reload
+			// without this opt-in. Other pages keep the default filtered
+			// view to avoid clutter.
+			const res = await getProjects(true);
 			projects = res.projects;
 		} catch {
 			error = $t('recovery.load_failed');
