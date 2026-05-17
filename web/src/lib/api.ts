@@ -97,9 +97,15 @@ export class ApiError extends Error {
  * raw-fetch pages through `request()` would silently break the catches.
  */
 export class TimeoutError extends ApiError {
-	constructor(message: string = 'Request timed out') {
+	constructor(message: string = 'Request timed out', options?: ErrorOptions) {
 		super(message, 0, 'request_timeout');
 		this.name = 'TimeoutError';
+		// Preserve upstream error chain (ES2022 Error.cause). Lets debuggers
+		// trace timeout back to the last 502/network error that exhausted
+		// the retry budget — addresses DA P1 follow-on in PR #145.
+		if (options?.cause !== undefined) {
+			this.cause = options.cause;
+		}
 	}
 }
 
@@ -136,8 +142,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 		// TimeoutError here — falling through to `lastError` would surface
 		// a stale (e.g. 502) ApiError as the raw "Request failed: 502"
 		// instead of the localized timeout UX. DA P1-4 fix on closed PR #143.
+		// Preserve upstream cause for DevTools debugging via Error.cause
+		// chain — DA P1 follow-on on PR #145.
 		if (Date.now() - requestStart >= REQUEST_TOTAL_BUDGET_MS) {
-			throw new TimeoutError();
+			throw new TimeoutError('Request timed out', { cause: lastError });
 		}
 		// Fresh AbortSignal per attempt. A signal created once at the top
 		// of `request()` and reused across retries would abort every
@@ -185,7 +193,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 			// the typed TimeoutError so pages can detect it uniformly.
 			if (err instanceof DOMException && err.name === 'TimeoutError') {
 				if (attempt === MAX_RETRIES) {
-					throw new TimeoutError();
+					// Preserve the DOMException as cause so debuggers can trace
+					// the timeout back to its origin (DA P1 follow-on on PR #145).
+					throw new TimeoutError('Request timed out', { cause: err });
 				}
 				lastError = err;
 				isWarmingUp.set(true);
