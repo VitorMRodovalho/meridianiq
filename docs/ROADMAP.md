@@ -6,86 +6,97 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-05-09 evening (Cycle 5 entry — Z-shape consolidation + optional W5 outreach per [ADR-0024](adr/0024-cycle-5-entry-z-shape-consolidation.md). Off-list option chosen per Round 2 paired DA+IV adversarial council convergence — all of paths A/B/C in their currently-framed shapes were dominated by an off-list shape. Z-DA primary (tech-debt close-out + dep refresh + mypy hygiene), Z-IV optional W5 parallel (active outreach gated on W0 runway+contacts disclosure). 5-7 nominal waves, 7.5-10.5 actual.)**
+> Last refreshed: **2026-05-17 evening (Cycle 6 entry — H-shape: forced hygiene + hard W2 gate per [ADR-0025](adr/0025-cycle-6-entry-h-shape.md). Off-list option chosen per Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence — both Round 2 agents refused to validate the "compounding primitives" framing as sycophancy-pattern v2; demanded non-optional demand-validation surface. H-shape ships forced Bucket B floor bumps W0-W1 (mcp<2, fastapi 0.136.1, pydantic 2.13.4, sveltekit/vite/svelte defensive), HARD GATE at W2 (5 CD conversations OR 1 persona formally retired with ADR per Pathway A/B HONEST), conditional W3-W5. 5 nominal waves; W3+ gated on W2 outcome.)**
 
 ---
 
-## Current state — Cycle 4 closed
+## Current state — Cycle 5 closed at `v4.3.0`
 
-**Theme:** β-honest ([ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) — auto-revision + multi-rev S-curve + W4 pre-registered calibration gate).
-**Released as:** [`v4.2.0`](https://github.com/VitorMRodovalho/meridianiq/releases/tag/v4.2.0)
-(release tag pending merge of [PR `chore/release-v4.2.0`](../CHANGELOG.md#420--2026-05-09--%CE%B2-honest-path-a-discipline-cycle-3-close-arc--cycle-4-close)).
+**Theme:** Z-shape consolidation ([ADR-0024](adr/0024-cycle-5-entry-z-shape-consolidation.md) — tech-debt close-out + dep refresh + mypy hygiene + Z-IV outreach optional).
+**Released as:** [`v4.3.0`](https://github.com/VitorMRodovalho/meridianiq/releases/tag/v4.3.0) (commit `89e0f53`, 2026-05-09).
 
-**Cycle 4 success criteria: 7.0/9 closed** at release tag. Per [ADR-0022 §"Pre-registered success criteria"](adr/0022-cycle-4-entry-beta-honest.md): graceful threshold ≥7/9 met at exact floor. The path-A activation on sub-gates A + B (corpus census + Brier precondition skip) accounts for 1.0 of the 7.0 partial credit per ADR-0022's locked accounting (each path-A = 0.5). Sub-gate C passed at F1=0.769231 with margin "1 borderline detection wide" per discrete-metric brittleness analysis ([ADR-0023](adr/0023-cycle-4-w4-outcome.md) §"Sub-gate C — discrete-metric brittleness").
+**Cycle 5 success criteria: 7/9 graceful with margin** at release tag per [ADR-0024 §"Pre-registered success criteria"](adr/0024-cycle-5-entry-z-shape-consolidation.md). Z-IV W5 outreach (active AACE/PMI working-group inquiry) DEFERRED at Cycle 5 close as operator-paced; pre-ratification disclosures stand (runway > 24mo, AACE/PMI member with prior contacts).
 
 | Wave | Delivers |
 |------|----------|
-| W0 | [ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) Cycle 4 entry (β-honest) + L&A review of W5 corpus prep. |
-| W1 | Migration `028` (`data_date` + `revision_date` + `revision_history` table + soft-tombstone + cap-enforcement trigger + RLS) staging + production. |
-| W2 | Auto-revision detection + confirmation card UX + soft-tombstone deliverables (column + AST regression test + audit_log + runbook). |
-| W3 | Multi-revision S-curve overlay with calendar-aligned X-axis + slope CI bands + change-point markers + 8 hash-locked synthetic fixtures + locked baseline F1=0.769231. **No forecast curve.** |
-| W4 | Pre-registered calibration gate evaluator (`tools/calibration_harness/gates/revision_trends_w4.py` + 49 tests + ADR-0023 outcome record + DA + IV paired exit-council per NFM-9). Path-A activated as expected. |
-| W5 | Operator-paced (parallel) — corpus assembly start; manifest archive; #54 re-mat decision. Continues post-cycle. |
+| W0 | [ADR-0024](adr/0024-cycle-5-entry-z-shape-consolidation.md) Cycle 5 entry (Z-shape) + ROADMAP refresh + LESSONS_LEARNED Cycle 5 header + maintainer disclosures (runway + contacts inventory). |
+| W1-W3 | Tech-debt close-out (Cycle 4 W2/W3/W4 P3 follow-ups: #84, #82, #85, #86, #87, #89, #90, #91, #92, #96, #97, #98, #100). 6 PRs (#113/#114/#115/#116/#118). |
+| W4 | Hygiene wave (dep refresh + types-networkx + dcma14 datetime + catalog regen) per [PR #122](https://github.com/VitorMRodovalho/meridianiq/pull/122). |
+| W5 | Z-IV DEFERRED (operator-paced; explicit defer). |
 
-**Cycle 3** (Floor + Field-surface shallow per [ADR-0021](adr/0021-cycle-3-entry-floor-plus-field-shallow.md)) closed mid-stream within this same v4.2.0 release. Cycle 3 contributed: 2026-04-26 audit re-run, W3 reproduction regression test (closes ADR-0020 §"Decision" caveat), `_ENGINE_VERSION` source-of-truth migration (`src/__about__.py`), 5+ ADR-0018-Am.1-disciplined PRs (PR #38 entry, #39 audit, #48 W3, #50 W4 code-side, #52-#58 follow-ups). Cycle 3 W5 (Field Engineer mobile look-ahead spike) DROPPED per the optional-buffer ADR-0021 §"Wave plan" provision.
+**Cycle 6 pre-W0 unconditional wave** shipped post-Cycle-5 close: 45-day ecosystem scan (2026-05-17, 5 parallel agents) surfaced 3 P0 items with external clocks (Claude Sonnet 4 retired 2026-06-15, weasyprint CVE-2025-68616 SSRF, PyJWT CVE-2026-32597). Shipped via [PR #129](https://github.com/VitorMRodovalho/meridianiq/pull/129) before Cycle 6 entry council — Bucket A. 4 follow-up issues filed (#130/#131/#132/#133).
 
 ---
 
-## Next — Cycle 5 (in flight, kickoff 2026-05-09 evening)
+## Next — Cycle 6 (in flight, kickoff 2026-05-17 evening)
 
-**Theme:** Z-shape consolidation ([ADR-0024](adr/0024-cycle-5-entry-z-shape-consolidation.md), Option Z-DA primary + Option Z-IV optional W5 parallel).
-**Tag target:** `v4.3.0` (consolidation + hygiene minor) OR `v4.2.1` (patch class if scope reduces).
+**Theme:** H-shape — forced hygiene + hard W2 gate ([ADR-0025](adr/0025-cycle-6-entry-h-shape.md), off-list per Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence).
+**Tag target:** `v4.4.0` (consolidation + hygiene minor IF GATE met) OR `v4.3.1` (patch class IF Cycle 6.5 pivot triggered).
 
-The 2026-05-09 evening Cycle 5 entry council ran the 4-agent protocol per cycles 2-4 cadence (PV + strategist Round 1 parallel; DA + IV Round 2 paired adversarial per [ADR-0022 NFM-9](adr/0022-cycle-4-entry-beta-honest.md)). Round 2 reached convergence that **all 3 surviving paths** (Path A Field-surface deep, Path B Owner-rep portfolio dashboard, Path C calibration-discipline + corpus assembly — Path D E1 forensic was dropped Round 1 as TRAP per strategist) **fail in distinct ways**, with both DA and IV independently surfacing an OFF-LIST option. Both Round 2 agents broke from their Round 1 counterparts on substantive grounds (anti-sycophancy convergence): PV's "persona-recovery is structural urgency" framing is unfalsifiable escalation; strategist's "Path C highest-conviction moat play" framing is inside-ideology epistemic circularity (the ideology being audited is the calibration discipline that gives Path C its conviction).
+The 2026-05-17 evening Cycle 6 entry council ran the 4-agent protocol per cycles 2-5 cadence (PV + strategist Round 1 parallel; DA + IV Round 2 paired adversarial per [ADR-0022 NFM-9](adr/0022-cycle-4-entry-beta-honest.md)). Round 1 converged strongly on Z2-DA (second consecutive Z-shape framed as "compounding primitives"). Round 2 REFUSED to validate. Both DA and IV independently surfaced six anti-sycophancy findings:
 
-The chairman synthesis accepted Z-shape OFF-LIST: pure consolidation cycle (Z-DA primary, DA's off-list shape) + active demand-discovery (Z-IV optional W5 parallel, IV's off-list shape) folded as gated optional component dependent on W0 runway + contacts disclosure.
+1. **Sycophancy-pattern v2 named** — "compounding primitives" labeling of FORCED hygiene = post-hoc rationalization; same calibration-theater mechanism as Cycle 5 Path C, different words.
+2. **Recursive deferral pattern** — "next cycle = inflection" appeared in cycles 3+4+5+6; structural to maintainer-as-PM loop selecting against external signals.
+3. **Complementary anti-sycophancy trap** — honest acknowledgment of constraints used as object-level validation.
+4. **Solo maintainer burnout vector recalibrated** — monotony + isolation + lack-of-feedback (Eghbal 2020), NOT scope ambition.
+5. **Base-rate prior** — solo OSS in 2nd consecutive consolidation cycle without external validation → maintenance mode 6-18 months modal outcome; MeridianIQ has all 4 empirical signature markers.
+6. **TAM/SAM/SOM honest numbers** — $40-60M / $8-15M / $0 SOM Cycle 6 base case.
+
+Chairman synthesis accepted H-shape OFF-LIST: forced hygiene W0-W1 (honestly framed, "primitive" labeling DROPPED) + HARD GATE at W2 (5 CD conversations OR 1 persona formally retired with ADR per Pathway A/B HONEST criteria pre-registered against Goodhart) + conditional W3-W5.
 
 | Wave | Delivers | Status |
 |------|----------|--------|
-| W0 | This ROADMAP refresh + ADR-0024 + LESSONS_LEARNED Cycle 5 entry header + maintainer financial runway disclosure (bracket: <6mo / 6-12mo / 12-24mo / >24mo) + AACE TCM / PMI-CP contact-path inventory (criterions #2 + #3) | OPEN — entry ADR PR |
-| W1 | Tech-debt close-out batch 1: Cycle 4 W3 backend P3 follow-ups (#92 endpoint integration test, #91 404-vs-RLS-denied, #90 error handling, #89 CUSUM improvement-vs-slip) | NOT STARTED |
-| W2 | Tech-debt close-out batch 2: Cycle 4 W3-B/C frontend P2/P3 follow-ups (#96 locale-aware formatting, #97 SVG a11y, #98 revision-trends polish, #100 W3-C ADR amendment) | NOT STARTED |
-| W3 | Tech-debt close-out batch 3: Cycle 4 W2/W4 + frontend test infra (#82 race condition test, #84/#85/#86 UX polish, #87 Vitest harness for Svelte 5) | NOT STARTED |
-| W4 | Hygiene: dep refresh batch + types-networkx install + dcma14 datetime fix (mypy strict 4 errors → 0) + catalog regen | NOT STARTED |
-| W5 (optional, gated on W0) | Z-IV active outreach: ≥1 of {paid-product conversation, AACE/PMI working group inquiry, Issue #13 community-call refresh}. Each component independently executable | NOT STARTED |
+| W0 | This ROADMAP refresh + [ADR-0025](adr/0025-cycle-6-entry-h-shape.md) + LESSONS_LEARNED Cycle 6 entry header (6 anti-sycophancy lessons banked) + operator runbook ([cycle6.md](operator-runbooks/cycle6.md)) | IN FLIGHT — this PR |
+| Pre-W0 | Bucket A unconditional CVE + Claude model migration ([PR #129](https://github.com/VitorMRodovalho/meridianiq/pull/129) — already shipped 2026-05-17, deployed live) | DONE |
+| W1 | Bucket B forced floor bumps (mcp<2, fastapi 0.136.1, pydantic 2.13.4 with ADR-0014 byte-exact re-verify, sveltekit>=2.57.1, vite>=8.0.5, svelte>=5.55.7 [Dependabot XSS #133]) — single hygiene PR | NOT STARTED |
+| W2 | **HARD GATE close** — operator delivers 5 CD conversations logged OR 1 persona formally retired with ADR. Pathway A/B HONEST criteria pre-registered per [ADR-0025 §"Honest GATE vs cosmetic GATE distinction"](adr/0025-cycle-6-entry-h-shape.md). IF MET → continue W3-W5; IF NOT MET → BLOCK + amend ADR-0025 → Cycle 6.5 pivot to discovery-only | NOT STARTED — issue #134 tracks |
+| W3 (conditional) | Frontend DA cluster (#105/#106/#107/#108 + #110 + #46) — SHIP ON a11y intrinsic merit (DROPPED "WCAG-AA enterprise procurement" framing) | NOT STARTED |
+| W4 (conditional) | Backend P3 (#117 + #119 single-tenant framing + #120 BLE001) + Fly autosuspend evaluation. **Prompt caching ADR DEFERRED to Cycle 7** per operator decision 3 at ADR-0025 ratification ($0 SOM = $0 ROI; coherent with DROPPED "AI cost moat" framing). | NOT STARTED |
+| W5 (conditional) | Hygiene close (mypy slice #121 first cut; CI floor-verify step #131; release tag) | NOT STARTED |
 
-Pre-registered success criteria (≥6/9 graceful threshold, relaxed from Cycle 4 ≥7/9 reflecting Z-shape's lower aggregate ambition + tech-debt-only nature of W1-W4): see [ADR-0024 §"Pre-registered success criteria"](adr/0024-cycle-5-entry-z-shape-consolidation.md).
+Pre-registered success criteria (≥6/9 graceful threshold; criterion #3 W2 GATE is MANDATORY): see [ADR-0025 §"Decision"](adr/0025-cycle-6-entry-h-shape.md) + [`memory/project_v40_cycle_6.md`](https://github.com) (private operator memory).
 
-**Calibration framework status this cycle**: held without modification. ADR-0023 stays load-bearing. Heteroscedasticity formula + sub-gate thresholds (A=30, B=0.20, C=0.75) remain locked. No Cycle 5 attempt to revise.
+**Operator decisions made at ratification (2026-05-17)**: A/A/B/B/A — keep W2 GATE criteria as-written; all 7 personas eligible for Pathway B; defer prompt caching to Cycle 7; sign-off ADR lineage with caveat that Round 1 council protocol may need amendment (3 consecutive off-list Chairman syntheses); accept Pathway A/B HONEST distinction as-written. Audit trail at [PR #135 comment](https://github.com/VitorMRodovalho/meridianiq/pull/135#issuecomment-4469468635).
 
-**Calibration-theater pattern engagement**: pure Z-DA SUSPENDS (NOT extends) the pattern; Z-DA + Z-IV optional W5 ATTEMPTS to engage falsifier #2 (external citation) + #3 (independent attestation) + indirectly #1 (corpus growth via community refresh). Cycle 5 close honestly reports which falsifiers moved (likely zero unless Z-IV components execute and produce inbound signal — base rate ≈ 0% for solo OSS cold outreach to standards bodies per Round 2 IV pattern-match).
+**Calibration framework status this cycle**: held without modification (3rd consecutive cycle held). ADR-0023 stays load-bearing.
+
+**4 framings DROPPED with sycophancy-recurrence trigger**: compounding primitives / multi-tenant readiness / WCAG-AA enterprise procurement / AI cost moat. Reintroduction in any W3+ PR description triggers Cycle 6.5 amendment via DA-as-second-reviewer protocol per `feedback_entry_council_discipline.md`.
 
 ---
 
-## Cycle 6+ candidate deeps (deferred from Cycle 5 entry council, post-v4.3.0 / v4.2.1)
+## Cycle 7+ candidate deeps (deferred from Cycle 6 entry council, post-v4.4.0 / v4.3.1)
 
-Same gating language as the Cycle 5 entry council carried forward:
+Same gating language as the Cycle 6 entry council carried forward:
 
-- **A1+A2 — auto-grouping deep + baseline inference** (deferred 3rd consecutive cycle). Three preconditions per [ADR-0021 §"Why NOT the PV deep"](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) still UNMET.
-- **E1 — multi-discipline forensic methodology** (named TRAP in Cycle 5 Round 1 strategist; deferred). Reactivates Cycle 6+ ONLY if (a) labeled forensic gold-standard corpus is procurable AND (b) demand-validation signal materializes.
+- **A1+A2 — auto-grouping deep + baseline inference** (deferred 4th consecutive cycle). Three preconditions per [ADR-0021 §"Why NOT the PV deep"](adr/0021-cycle-3-entry-floor-plus-field-shallow.md) still UNMET.
+- **E1 — multi-discipline forensic methodology** (named TRAP in Cycle 5 Round 1 strategist; #79 content_hash explicitly DROPPED from Cycle 6 scope by Cycle 6 DA exit-council to avoid trap-compounding). Reactivates Cycle 7+ ONLY if (a) labeled forensic gold-standard corpus is procurable AND (b) demand-validation signal materializes.
 - **Optimism-pattern forecast feature reactivation** ([ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md)) — 12-24 month timeline minimum unchanged.
-- **Field-surface deep** (Cycle 5 Path A least-worst of A/B/C but rejected on DA P0 4-primitive-stack scope risk). Reactivates Cycle 6+ as **deep candidate** IF (a) ≥1 design-partner conversation logged AND (b) pre-W0 audit-spike completes G702/G703 inventory.
-- **Owner-rep program-portfolio dashboard** (Cycle 5 Path B rejected as B-completo-lite). Reactivates Cycle 6+ IF (a) ≥3 prospects ask explicitly per ADR-0022 demand-validation gate AND (b) PMO Director persona pull demonstrably opens (a)-class moat surface.
+- **Field-surface deep** — gating preconditions: (a) ≥1 design-partner conversation logged AND (b) pre-W0 audit-spike completes G702/G703 inventory. Cycle 6 W2 GATE outcome materially affects whether (a) can be checked off.
+- **Owner-rep program-portfolio dashboard** — gating: (a) ≥3 prospects ask explicitly per ADR-0022 demand-validation gate AND (b) PMO Director persona pull demonstrably opens (a)-class moat surface beyond commodity rollup.
+- **Anthropic prompt caching ADR** — deferred Cycle 6 W4 → Cycle 7 per operator decision 3 at ADR-0025 ratification. Reactivates when (a) usage emerges OR (b) Cycle 6 W2 GATE outcome shifts priorities.
 - **Schedule Viewer Wave 7** — slot-opportunistic shallow inside any cycle.
 - **Plugin sandbox / E3 marketplace** — preconditions still unmet.
+- **Council protocol amendment** (open question banked at Cycle 6 entry per operator decision 4 caveat): "Should Round 1 agents be required to challenge the planning memo's candidate pool BEFORE proposing scope?" 3 consecutive cycles (4+5+6) have produced off-list Chairman syntheses from Round 2 paired demolition. Cycle 7 entry council should evaluate whether this pattern indicates Round 1 council protocol structurally selects for sycophancy.
 
-**Cycle 6+ entry framing risk** unchanged from ADR-0023 §"Pattern check vs. ADR-0009". Cycle 5 = Z does not move the falsifier directly; Z-IV W5 components (if executed) attempt indirect movement. Cycle 6+ entry must re-evaluate based on Cycle 5 close evidence — including W0 runway + contacts disclosure outcomes that may materially change the candidate set.
+**Cycle 7 entry framing risks** carried forward:
+- Cycle 6 W2 GATE outcome determines candidate set materially. GATE met honestly → Cycle 7 inherits one validated persona path (Field/Owner/Sub viable as deep with evidence base). GATE met cosmetically → Cycle 7 inherits Cycle 6.5 obligations (discovery-only pivot delayed one cycle, not avoided).
+- If Cycle 7 becomes Cycle 6+1 also H-shape OR Z-shape, three consecutive consolidation cycles crosses base-rate stall-signature threshold per [ADR-0025 §"Decision Drivers" #6](adr/0025-cycle-6-entry-h-shape.md). Cycle 7 entry council must explicitly weigh "third consolidation cycle stale or forced" with the 4 markers as evidence.
+- Persona retirement ADR pathway (per ADR-0025 §"Decision" Pathway B): if Cycle 6 retires 1 persona, Cycle 7+ pool contracts irreversibly to 6 personas. Cycle 7 entry must explicitly reckon with which persona was retired and how that affects deep candidate set.
 
 ---
 
-## Cycle 3 + Cycle 4 carry-over operator backlog (post-v4.2.0)
+## Cycle 5 + Cycle 6 carry-over operator backlog (post-v4.3.0)
 
-These items remained open at v4.2.0 release tag time. None blocked the cycle close per ADR-0021 (Cycle 3 ≥5/9 graceful threshold) and ADR-0022 (Cycle 4 ≥7/9 graceful threshold). All have runbooks + tracking issues.
+Cycle 3+4 operator items closed during Cycle 5 close-arc (per Cycle 5 LESSONS_LEARNED). Currently open operator items:
 
 | # | Item | Tracking | Runbook |
 |---|---|---|---|
-| Cy3 #2 | Apply migration `026_api_keys_schema_align.sql` to production Supabase | [#26](https://github.com/VitorMRodovalho/meridianiq/issues/26) | [`cycle3.md §W1`](operator-runbooks/cycle3.md) |
-| Cy3 #3 | Council ratification of 5 ADRs (0017–0021) | [#28](https://github.com/VitorMRodovalho/meridianiq/issues/28) | [`cycle3.md §W2-A`](operator-runbooks/cycle3.md) |
-| Cy3 #4 | Archive W4 manifest to `meridianiq-private/calibration/cycle1-w4/` | meta `#25` | [`cycle3.md §W2-B`](operator-runbooks/cycle3.md) |
-| Cy3 #7 | Re-mat OR tombstone 88 prod rows at `engine_version='4.0'` | [#54](https://github.com/VitorMRodovalho/meridianiq/issues/54) | [`cycle3.md §W4`](operator-runbooks/cycle3.md) |
-| Cy4 #1 | ADR-0022 ratification + Cycle 4 ROADMAP refresh + L&A review | n/a — operator action | [ADR-0022](adr/0022-cycle-4-entry-beta-honest.md) |
-| ⚠️ NEW | Re-mat OR tombstone artifacts at `engine_version='4.1.0'` (v4.2.0 bump) | n/a — same as Cy3 #7 | Operator may consolidate both bumps in single re-mat pass |
-| ⚠️ NEW | Cycle 4 W5 corpus assembly start (post-v4.2.0, multi-cycle) | issue [#13](https://github.com/VitorMRodovalho/meridianiq/issues/13) (Cycle 1 community ask) | [ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md) |
+| Cy5 #1 | Z-IV active outreach (AACE/PMI working-group inquiry) — operator-paced; converted to W2 HARD GATE in Cycle 6 per ADR-0025 | Cycle 6 issue [#134](https://github.com/VitorMRodovalho/meridianiq/issues/134) | [`cycle6.md`](operator-runbooks/cycle6.md) |
+| Cy6 #1 | **W2 HARD GATE (MANDATORY)** — 5 CD conversations logged OR 1 persona formally retired with ADR per Pathway A/B HONEST. W2 close ~2026-05-31. | [#134](https://github.com/VitorMRodovalho/meridianiq/issues/134) | [`cycle6.md`](operator-runbooks/cycle6.md) |
+| Cy6 #2 | ADR-0025 ratification + Cycle 6 ROADMAP refresh + LESSONS_LEARNED Cycle 6 entry header + Cycle 6 operator runbook | this PR + [PR #135](https://github.com/VitorMRodovalho/meridianiq/pull/135) merged | [`cycle6.md`](operator-runbooks/cycle6.md) |
+| Cy6 #3 | Cycle 6.5 amendment ADR (IF W2 GATE fails OR cosmetic-met) | ADR-0026 reserved | template in [`cycle6.md`](operator-runbooks/cycle6.md) |
+| Cy6 #4 | Cycle 7 entry council protocol amendment question (per operator decision 4 caveat) | deferred Cycle 7 W0 | n/a |
+| Cy5+ multi-cycle | Corpus assembly via Issue [#13](https://github.com/VitorMRodovalho/meridianiq/issues/13) (Cycle 1 community ask) — base rate ≈ 0% per IV pattern-match | issue #13 | [ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md) |
 
 ---
 
@@ -114,8 +125,10 @@ These items remained open at v4.2.0 release tag time. None blocked the cycle clo
   full record of what was tried and why it parked.
 - **Fuzzy-match dependency category** — reserved (ADR-0011 not
   authored). See ADR-0009 §"Wave A" for the original framing.
-- **ADR-0022 + ADR-0023** — **AUTHORED** at Cycle 4 entry + Cycle 4 W4 close (β-honest deep + W4 outcome record). No longer reserved.
-- **ADR-0024+** — next reserved number for whichever Cycle 5+ deep entry ADR ships.
+- **ADR-0022 + ADR-0023** — **AUTHORED** at Cycle 4 entry + Cycle 4 W4 close. No longer reserved.
+- **ADR-0024** — **AUTHORED** at Cycle 5 entry (Z-shape consolidation). No longer reserved.
+- **ADR-0025** — **AUTHORED** at Cycle 6 entry (H-shape: forced hygiene + hard W2 gate). No longer reserved.
+- **ADR-0026+** — next reserved for either Cycle 6.5 amendment (if W2 GATE fails OR cosmetic-met) OR Cycle 7 entry ADR (whichever ships first).
 - **Schedule Viewer Wave 7** — backend engines exist (`src/analytics/resource_leveling.py`, `src/analytics/evm.py`); Gantt UI integration tracked at #23 with sub-issues #29 (P1 resource histogram), #30 (P2 cost-loading), #31 (P2 BVA per activity), #32 (P3 RCCP highlighting). Slot-opportunistic shallow inside any cycle; Cycle 5+ candidate.
 
 ---
@@ -147,24 +160,24 @@ contributors don't infer commitment from absence elsewhere.
 
 ## Cadence
 
-Per [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md), every cycle close updates five artifacts. v4.2.0 Cycle 4 close artifacts:
+Per [ADR-0018](adr/0018-cycle-cadence-doc-artifacts.md), every cycle close updates five artifacts. v4.3.0 Cycle 5 close artifacts (shipped via [PR #124](https://github.com/VitorMRodovalho/meridianiq/pull/124)):
 
 | Artifact | Status |
 |----------|--------|
-| `docs/ROADMAP.md` | refreshed at v4.2.0 release tag (this commit) |
-| [`BUGS.md`](../BUGS.md) header + pruning | refreshed at v4.2.0 release tag |
-| [`docs/LESSONS_LEARNED.md`](LESSONS_LEARNED.md) Cycle 4 entry | appended at v4.2.0 release tag with 9 lessons captured Cycle 4 close |
-| Catalog regen via `scripts/generate_*.py` + `scripts/check_stats_consistency.py` | run at v4.2.0 release tag prep |
-| Audit re-run | **DEFERRED** to Cycle 5 W0 entry (Cycle 4 close-arc consolidated `docs/audit/2026-04-26/`; next baseline to follow Cycle 5 entry kickoff) |
+| `docs/ROADMAP.md` | refreshed at v4.3.0 release tag |
+| [`BUGS.md`](../BUGS.md) header + pruning | refreshed at v4.3.0 release tag |
+| [`LESSONS_LEARNED.md`](../LESSONS_LEARNED.md) Cycle 5 entry | appended at v4.3.0 release tag with 7 lessons captured Cycle 5 close |
+| Catalog regen via `scripts/generate_*.py` + `scripts/check_stats_consistency.py` | run at v4.3.0 release tag prep |
+| Audit re-run | DEFERRED — last baseline `docs/audit/2026-04-26/`; next baseline to follow Cycle 6 close or Cycle 7 entry kickoff |
 
-Cycle 4 entry ADR (ADR-0022) was authored 2026-04-28; Cycle 5+ entry ADR will follow the same pattern (4-agent council + scope memo at W0).
+Cycle 5 entry ADR (ADR-0024) was authored 2026-05-09; Cycle 6 entry ADR (ADR-0025) authored 2026-05-17 with the same 4-agent council pattern. Cycle 6 W0 closure artifacts (this PR): ROADMAP refresh + LESSONS_LEARNED Cycle 6 entry header + `docs/operator-runbooks/cycle6.md`. v4.4.0 / v4.3.1 close artifacts will follow at Cycle 6 close (W5 conditional).
 
 ---
 
 ## See also
 
 - [`CHANGELOG.md`](../CHANGELOG.md) — release-by-release record.
-- [`docs/adr/`](adr/) — architectural decisions (current canon: 0001–0023).
+- [`docs/adr/`](adr/) — architectural decisions (current canon: 0001–0025).
 - [`docs/audit/`](audit/) — structural audits + handoff procedures.
 - [`docs/SCHEDULE_VIEWER_ROADMAP.md`](SCHEDULE_VIEWER_ROADMAP.md) —
   feature-specific Gantt roadmap (deeper detail than this top-level
