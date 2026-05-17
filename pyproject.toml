@@ -34,7 +34,14 @@ dependencies = [
     # + TestContentSensitivity + TestChainFilters + TestCanonicalJsonRules
     # (28/28 pass). No RootModel usage in src/ → 2.13.4 RootModel core-metadata
     # change is moot. Safe within 2.13.x.
-    "pydantic>=2.13.4,<3.0",
+    #
+    # Upper bound tightened to ``<2.14`` per Cycle 6 W1 exit-council DA
+    # finding: a floor ``>=2.13.4,<3.0`` allows resolvers to pick 2.14+
+    # silently — but the ADR-0014 byte-exact contract has only been
+    # audited against 2.13.x. Tightening the cap converts a silent
+    # serialization-drift risk into a Dependabot bump that forces a
+    # conscious re-audit at every minor.
+    "pydantic>=2.13.4,<2.14",
     "networkx>=3.6",
     "numpy>=2.4",
     "supabase>=2.30",
