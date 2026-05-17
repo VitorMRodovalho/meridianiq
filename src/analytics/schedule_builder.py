@@ -60,7 +60,7 @@ User's project description:
 async def build_schedule(
     description: str,
     api_key: str | None = None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-sonnet-4-6",
 ) -> BuilderResult:
     """Build a schedule from a natural language project description.
 

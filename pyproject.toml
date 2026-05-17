@@ -36,14 +36,14 @@ dependencies = [
     "python-dotenv>=1.2",
     "python-multipart",
     "sentry-sdk[fastapi]>=2.59",
-    "PyJWT[crypto]>=2.12",
+    "PyJWT[crypto]>=2.12.1",
     "defusedxml>=0.7",
 ]
 
 [project.optional-dependencies]
 api = ["fastapi>=0.136", "uvicorn[standard]>=0.46", "slowapi>=0.1.9", "psutil>=5.9"]
 export = ["pandas>=2.2", "openpyxl>=3.1"]
-reports = ["weasyprint>=62.0"]
+reports = ["weasyprint>=68.0"]
 ai = ["anthropic>=0.100"]
 ml = ["scikit-learn>=1.8"]
 mcp = ["mcp>=1.27"]
