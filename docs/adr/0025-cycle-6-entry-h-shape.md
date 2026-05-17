@@ -101,6 +101,8 @@ H-shape preserves Z-IV's intent via W2 HARD GATE as criterion #3.
 
 Adopt **H-shape — forced hygiene W0-W1 + HARD GATE W2 + conditional W3-W5**. This is the OFF-LIST synthesis that survives both Round 2 findings (forced Bucket B floor bumps must ship; demand-validation surface must be non-optional).
 
+**H-shape metaphor (defined for future cycle readers)**: two vertical legs (forced-hygiene W0-W1 leg + conditional W3-W5 leg) connected by a horizontal HARD GATE bar at W2. Legs are independently executable; the bar gates the second leg on demand-validation evidence. Contrast with ADR-0024 Z-shape (consolidation + optional parallel outreach W5) and ADR-0021 Floor-shape (floor + shallow).
+
 **Wave plan:**
 
 ```
@@ -134,10 +136,37 @@ W5 (conditional) — hygiene close, mypy slice (#121 first slice), CI floor-veri
 **Honest disclosures (mandatory per ADR-0022 NFM-9 spirit)**:
 
 1. **This cycle is "forced + honest, NOT validated"**. Chairman synthesis explicitly acknowledges the H-shape is least-wrong-among-bad-options, not best-validated.
-2. **MeridianIQ at Cycle 6 entry has the empirical signature of stalled solo OSS** (4 markers from DA P0 #4 all present). W2 HARD GATE is the first non-optional demand-validation surface in 6 cycles.
-3. **5 named personas remain deferred 5 cycles without external evidence**. No escalation framing this cycle. Falsifiers named per persona in `memory/project_v40_cycle_6.md`.
+2. **MeridianIQ at Cycle 6 entry has the empirical signature of stalled solo OSS** (4 markers from DA P0 #4 all present: increasingly hygiene-dominated cycles + deferred outreach + "being mature about scope" framing + consistent graceful-threshold passes). W2 HARD GATE is the first non-optional demand-validation surface in 6 cycles.
+3. **7 named personas remain deferred 5 cycles without external evidence**. No escalation framing this cycle. Falsifiers named per persona in `memory/project_v40_cycle_6.md`.
 4. **All 4 "compounding primitive" framings are DROPPED** with explicit triggers: Cycle 6.5 patch triggers if any reintroduced in PR descriptions (sycophancy-recurrence trigger).
 5. **TAM/SAM/SOM honest numbers ($40-60M / $8-15M / $0 Cycle 6) are now banked** for future council reckoning.
+
+**Anti-sycophancy lessons banked (numbered, load-bearing for Cycle 7+ council)**:
+
+1. **Sycophancy-pattern v2** — post-hoc "compounding primitives" labeling of forced hygiene mimics Cycle 5's calibration-theater mechanism. Different words, same epistemic move (manufacturing internal evidence of progress while deferring external evidence of demand).
+2. **Recursive deferral pattern** — "next cycle is the inflection" appeared in cycles 3+4+5+6. Structural to the maintainer-as-PM loop selecting against external signals (CI feedback fast + falsifiable; customer-development feedback slow + ambiguous). NOT a Cycle 6 problem — methodology problem.
+3. **Complementary anti-sycophancy trap** — honest acknowledgment of constraints used as object-level validation. "We're being honest, therefore the conservative path is correct" is structurally identical to over-claiming. Honest meta-stance is "we're honest AND cannot tell whether conservative path is correct without external signal."
+4. **Solo maintainer burnout vector recalibrated** — monotony + isolation + lack-of-feedback (Eghbal 2020 + solo-OSS post-mortems), NOT scope ambition. Round 1's "Z2 protects from burnout" framing inverts the actual base-rate.
+5. **Base-rate prior named explicitly** — solo OSS in 2nd consecutive consolidation cycle without external validation → maintenance mode within 6-18 months (modal outcome). MeridianIQ at Cycle 6 entry has all 4 empirical signature markers.
+6. **TAM/SAM/SOM honest numbers banked** — TAM $40-60M / SAM $8-15M / SOM Cycle 6 = $0 base case. Any future "moat" claim must reckon with these.
+
+**Honest GATE vs cosmetic GATE distinction (pre-registered for Cycle 7+ council judgment)**:
+
+Per DA exit-council biggest-concern finding on this ADR: the W2 binary GATE outcome is Goodhart-able. Distinction pre-registered NOW so Cycle 7 entry council can judge the GATE outcome on this distinction rather than headcount alone.
+
+*Pathway A (5 CD conversations) — HONEST requires each conversation to include:*
+- External party with no prior MeridianIQ relationship OR documented prior interest signal
+- Topic substantively engaging MeridianIQ's specific value proposition (not generic scheduling-tools conversation; not a conversation that could have happened without MeridianIQ existing)
+- Outcome surfacing one of: specific feature request, persona-validating quote-grade observation, explicit interest/disinterest signal, named next action
+
+*Pathway B (persona retirement ADR) — HONEST requires the retired persona to satisfy:*
+- ≥1 actual outreach attempt made AND received no response OR explicit disinterest (NOT retire already-implicitly-dead persona to satisfy criterion)
+- Retirement creates closed scope (specific issues to close, specific features to deprecate)
+- Cycle 7+ reactivation pre-condition named OR explicit "no reactivation path"
+
+**Cycle 7 entry council will judge W2 GATE outcome on the above distinction.** If GATE met cosmetically (headcount or persona retirement gaming the criterion), Cycle 7 inherits Cycle 6.5 obligations — discovery-only pivot still applies, just delayed one cycle.
+
+**Sycophancy-recurrence trigger enforcement owner**: DA-as-second-reviewer protocol per `feedback_entry_council_discipline.md` is owner. DA exit-council on ANY substantive Cycle 6 PR (W3+) MUST grep PR description + commit messages + ADR text for any of the 4 rejected framings or sub-variants thereof. Reintroduction triggers Cycle 6.5 amendment via DA flagging.
 
 ## Consequences
 
@@ -168,9 +197,10 @@ W5 (conditional) — hygiene close, mypy slice (#121 first slice), CI floor-veri
 
 **Operator decisions required at this ADR's ratification (W0)**:
 
-1. Confirm W2 HARD GATE criteria (5 CDs OR persona-retirement-ADR) OR amend (e.g., 3 CDs + Issue #13 refresh; different alternative pathway; different W2 deadline)
-2. Confirm which 5 personas-in-scope are eligible for retirement path (all 6 from cycle_6.md persona table? Or subset?)
+1. Confirm W2 HARD GATE criteria (5 CDs OR 1 persona-retirement-ADR per Pathway A/B pre-registration above) OR amend (e.g., 3 CDs + Issue #13 refresh; different alternative pathway; different W2 deadline)
+2. Confirm which of the 7 personas-in-scope (Owner / Program Director / Cost Engineer / Subcontractor / Field Engineer / Consultant-Claims SME / PMO Director per `memory/project_v40_cycle_6.md` §"Personas under-served") are eligible for retirement Pathway B — all 7 or subset?
 3. Confirm prompt caching ADR is scoped Cycle 6 W4 (or defer to Cycle 7 if W2 GATE outcome shifts priorities)
 4. Sign-off on ADR-0024 + ADR-0025 lineage (both reserved-then-authored on entry; pattern continues)
+5. Accept the Pathway A/B HONEST distinction pre-registration above as governing Cycle 7 entry council judgment of GATE outcome (or amend the distinction criteria at this ratification)
 
 ADR-0026+ NEWLY RESERVED for future cycle entries.
