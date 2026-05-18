@@ -1362,4 +1362,11 @@ export default {
 	'revision_trends.axis_not_calendar_disclosure': 'El eje X muestra días desde la data-date de cada revisión — las revisiones NO están alineadas por calendario. Una o más curvas no tiene el metadato data_date.',
 	'revision_trends.legend.collapsed_summary': '{n} revisiones — mostrar leyenda',
 	'revision_trends.multi_executed_warning': 'Invariante del backend violada: más de una revisión marcada is_executed=true. El gráfico muestra solo la más reciente. Reportar en github.com/VitorMRodovalho/meridianiq/issues.',
+
+	// Cycle 6 W3 wave 4 — issue #105 dirección de los puntos de cambio CUSUM.
+	'revision_trends.direction.slip': 'Atraso',
+	'revision_trends.direction.improvement': 'Mejora',
+	'revision_trends.direction.flat': 'Sin variación',
+	'revision_trends.direction_legend':
+		'Ámbar = atraso (finalización más tardía), verde = mejora (finalización más temprana), gris = sin variación. Los patrones de trazo repiten la codificación para lectores con daltonismo.',
 } as Record<string, string>;

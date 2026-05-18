@@ -6,6 +6,7 @@
 	import { formatNumber } from '$lib/i18n/format';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import MultiRevisionSCurveChart from '$lib/components/charts/MultiRevisionSCurveChart.svelte';
+	import { directionTextClass } from '$lib/utils/revisionTrendsDirection';
 
 	let projects = $state<{ project_id: string; name: string }[]>([]);
 	let selectedProject = $state<string>('');
@@ -77,6 +78,7 @@
 		if (c?.revision_number != null) return `R${c.revision_number}`;
 		return `#${cp.revision_index + 1}`;
 	}
+
 
 	// Client-side derived warnings — frontend-ux-reviewer entry-council
 	// SHOULD-FIX #6 + DA exit-council P1 #5 on PR #109: console.warn for
@@ -256,6 +258,11 @@
 				changePointLabel={$t('revision_trends.change_point_label')}
 				legendCollapsedSummary={(n) =>
 					$t('revision_trends.legend.collapsed_summary').replace('{n}', String(n))}
+				directionLabels={{
+					slip: $t('revision_trends.direction.slip'),
+					improvement: $t('revision_trends.direction.improvement'),
+					flat: $t('revision_trends.direction.flat'),
+				}}
 			/>
 
 			{#if isSingleRev && !hasExecuted}
@@ -274,13 +281,16 @@
 					<ul class="space-y-1">
 						{#each trends.change_points as cp}
 							<li class="text-sm text-gray-700 dark:text-gray-300 flex gap-2">
-								<span class="text-red-500 dark:text-red-400 font-medium min-w-12">
+								<span class={directionTextClass(cp.direction)}>
 									{changePointLabel(cp)}
 								</span>
 								<span>{cp.description}</span>
 							</li>
 						{/each}
 					</ul>
+					<p class="text-xs text-gray-500 dark:text-gray-400 mt-3 italic">
+						{$t('revision_trends.direction_legend')}
+					</p>
 				</div>
 			{/if}
 

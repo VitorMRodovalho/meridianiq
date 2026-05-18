@@ -11,6 +11,7 @@
 		executedLabel?: string;
 		changePointLabel?: string;
 		legendCollapsedSummary?: (n: number) => string;
+		directionLabels?: { slip: string; improvement: string; flat: string };
 	}
 
 	let {
@@ -23,6 +24,7 @@
 		executedLabel = 'Executed',
 		changePointLabel = 'Change point',
 		legendCollapsedSummary = (n: number) => `${n} revisions — show legend`,
+		directionLabels = { slip: 'Slip', improvement: 'Improvement', flat: 'Flat' },
 	}: Props = $props();
 
 	// Mobile legend-collapse state (issue #97 part 2 / DA P2 #12 from PR #95).
@@ -195,6 +197,63 @@
 		return ticks;
 	});
 
+	// Direction → visual mapping. Color + dasharray both vary so the
+	// encoding is not color-only (WCAG 1.4.1). The dotted flat dasharray
+	// also disambiguates flat markers from the single-revision gray
+	// planned-curve fallback at line 167.
+	function directionVisual(direction: string): {
+		color: string;
+		darkStrokeClass: string;
+		darkFillClass: string;
+		dashArray: string;
+	} {
+		switch (direction) {
+			case 'slip':
+				return {
+					color: '#b45309',
+					darkStrokeClass: 'dark:stroke-amber-400',
+					darkFillClass: 'dark:fill-amber-400',
+					dashArray: '4 3',
+				};
+			case 'improvement':
+				return {
+					color: '#047857',
+					darkStrokeClass: 'dark:stroke-emerald-400',
+					darkFillClass: 'dark:fill-emerald-400',
+					dashArray: '2 2 6 2',
+				};
+			case 'flat':
+				return {
+					color: '#4b5563',
+					darkStrokeClass: 'dark:stroke-gray-400',
+					darkFillClass: 'dark:fill-gray-400',
+					dashArray: '1 3',
+				};
+			default:
+				// Unknown direction — likely a future backend value the frontend
+				// hasn't been updated for. Render flat-styled but log so the
+				// regression surfaces in Sentry breadcrumbs (auto-captured from
+				// console.warn) rather than failing silent.
+				// eslint-disable-next-line no-console
+				console.warn(
+					'[MultiRevisionSCurveChart] unknown change-point direction:',
+					direction,
+				);
+				return {
+					color: '#4b5563',
+					darkStrokeClass: 'dark:stroke-gray-400',
+					darkFillClass: 'dark:fill-gray-400',
+					dashArray: '1 3',
+				};
+		}
+	}
+
+	function directionLabelOf(direction: string): string {
+		if (direction === 'slip') return directionLabels.slip;
+		if (direction === 'improvement') return directionLabels.improvement;
+		return directionLabels.flat;
+	}
+
 	// Change-point markers — vertical lines positioned at the START
 	// (data_date) of the curve at `revision_index`, NOT at its planned-finish
 	// day. The CUSUM fires at the moment the new revision is detected to
@@ -207,9 +266,16 @@
 				const c = curves[cp.revision_index];
 				if (!c) return null;
 				const shift = curveShift(cp.revision_index);
+				const visual = directionVisual(cp.direction);
 				return {
 					x: xPos(0 + shift),
 					description: cp.description,
+					direction: cp.direction,
+					directionLabel: directionLabelOf(cp.direction),
+					strokeColor: visual.color,
+					darkStrokeClass: visual.darkStrokeClass,
+					darkFillClass: visual.darkFillClass,
+					dashArray: visual.dashArray,
 					// 1-based fallback aligning with endpointLabels at line 185
 					// + page changePointLabel function. Issue #98 item 5 +
 					// frontend-ux-reviewer entry-council BLOCKING #2 on PR #109:
@@ -367,27 +433,32 @@
 					{/if}
 				{/if}
 
-				<!-- Change-point vertical markers -->
+				<!-- Change-point vertical markers — direction-aware color + dasharray
+				     per issue #105. Color encodes direction (slip/improvement/flat),
+				     dasharray provides the non-color redundancy required by WCAG 1.4.1
+				     (frontend-ux-reviewer entry-council P1-1). `<title>` carries the
+				     direction word for AT users. -->
 				{#each changePointVisuals as cp}
 					<line
 						x1={cp.x}
 						y1="0"
 						x2={cp.x}
 						y2={chartH}
-						stroke="#dc2626"
+						stroke={cp.strokeColor}
+						class={cp.darkStrokeClass}
 						stroke-width="1"
-						stroke-dasharray="4 3"
+						stroke-dasharray={cp.dashArray}
 						opacity="0.55"
 					>
-						<title>{cp.revisionLabel}: {cp.description}</title>
+						<title>{cp.revisionLabel}: {cp.directionLabel} — {cp.description}</title>
 					</line>
 					<text
 						x={cp.x}
 						y="-6"
 						text-anchor="middle"
 						font-size="8"
-						fill="#dc2626"
-						class="dark:fill-red-400"
+						fill={cp.strokeColor}
+						class={cp.darkFillClass}
 					>
 						{cp.revisionLabel}
 					</text>
@@ -475,8 +546,7 @@
 				{#if changePointVisuals.length > 0}
 					<div class="flex items-center gap-1.5">
 						<span
-							class="inline-block w-3 h-px border-t border-dashed"
-							style="border-color: #dc2626"
+							class="inline-block w-3 h-px border-t border-dashed border-gray-500 dark:border-gray-400"
 						></span>
 						<span class="text-gray-600 dark:text-gray-400">{changePointLabel}</span>
 					</div>

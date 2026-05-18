@@ -980,6 +980,7 @@ export interface ChangePointMarkerSchema {
 	revision_id: string | null;
 	delta_days: number;
 	cusum_value: number;
+	direction: 'slip' | 'improvement' | 'flat';
 	description: string;
 }
 
