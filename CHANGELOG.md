@@ -3,6 +3,35 @@
 All notable changes to MeridianIQ are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — Cycle 6 H-shape (in-flight, target tag v4.4.0 or v4.3.1)
+
+Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: Pathway D (cosmetic-met per ADR-0025 §"Honest GATE vs cosmetic GATE distinction"); Cycle 7 inherits Cycle 6.5 obligations.
+
+### Added — Cycle 6 W0-W1 hygiene
+
+- **Bucket A pre-W0 floor bumps** (PR #129) — `mcp<2` upper bound + Claude model migration window; security CVE patches for `PyJWT` / `weasyprint` / `starlette`; pre-council ship because external clocks could not wait.
+- **ADR-0025 + Cycle 6 ROADMAP refresh + LESSONS_LEARNED Cycle 6 header** (PR #135, PR #136). 9 success criteria pre-registered (≥6/9 graceful); criterion 6 (prompt-caching ADR) removed at ratification per operator decision 3 — deferred to Cycle 7 with $0-SOM rationale.
+- **Bucket B forced floor bumps** (PR #137) — `fastapi>=0.136.1` (Starlette 1.0.0), `pydantic>=2.13.4` with ADR-0014 byte-exact pin re-verified pre-merge, `@sveltejs/kit>=2.59.1` + `vite>=8.0.5` defensive, `svelte>=5.55.7` (XSS GHSAs).
+
+### Added — Cycle 6 W3 wave 4 frontend cluster (1 of 6 cluster items closed)
+
+- **Standalone canonical-hash byte-exact CI step** (PR #142) — duplicate of `tests/test_canonical_hash.py` placed before full pytest in the backend job for ~4-minute earlier failure surface during Dependabot pydantic bumps. DA exit-council returned 30/70 displacement-activity verdict — PR body re-framed to honest load-bearing value pre-merge per L6.8 banked discipline. Partial #131.
+- **Fetch timeout + chart NaN guards** (PR #145) — `MAX_RETRIES=5` with `REQUEST_TOTAL_BUDGET_MS=120s` (math + comment alignment), template guards on chart finite-data length 0, `Error.cause` preserved for upstream debug context. 5 P1 corrections from DA exit-councils (paired closed-#143 + open-#145) baked in pre-merge. Closes #144.
+- **Milestones picker via HTML5 datalist** (PR #147) — native browser primitive replacing custom dropdown; `activeLoadId` monotonic counter pattern fixes spinner-stuck-forever state machine on clear-project-mid-load. Refs #146 (WBS-tree picker deferred).
+- **Recovery ad-hoc scenario upload** (PR #148) — `getProjects(includeSandbox=true)` on recovery page surfaces sandbox scenarios across reloads. 5 entry-council fixes pre-edit + 1 DA P1-1 fix (sandbox-invisibility) pre-merge.
+- **Direction-aware change-point markers** (PR #152) — frontend now consumes `ChangePointMarker.direction` field (emitted backend-side since PR #104, previously unused). Amber/emerald/gray color with stroke-dasharray non-color redundancy per WCAG 1.4.1; nav icon swap disambiguates `/revision-trends` from `/float-trends`. `directionTextClass` helper extracted to `web/src/lib/utils/revisionTrendsDirection.ts` with 3 unit tests; new `MultiRevisionSCurveChart.test.ts` with 3 component tests including DOM `compareDocumentPosition` z-order assertion. DA exit-council 55/45 — first cycle-6 PR with all DA-mandatory HOLD-list items applied pre-PR-open. Closes #105 (refs #110 — operator browser-verify in light + dark mode pending).
+
+### Process discipline (Cycle 6)
+
+- **L6.8-L6.13 anti-sycophancy candidates banked** across W3 wave PRs for Cycle 7 entry-council protocol amendment: explicit honest load-bearing value <50 words pre-scope-lock (L6.8) · Route D (pause) default during gate / trajectory contexts (L6.9) · one clarifying question when operator self-reports gate without trail (L6.10) · detection-by-shape (not verbatim) for rejected framings (L6.11) · trajectory regression + sub-variant framing as hard trigger threshold (L6.12) · detection-by-formatting on prominent process-discipline displays (L6.13).
+- **DA-as-second-reviewer protocol** per `feedback_entry_council_discipline.md` ran on every substantive W3 PR. Trajectory across W3 wave: 30 → 40 → 50 → 45 → 45 → 55 (cycle-level recovery after mid-cycle dip).
+
+### Follow-up issues filed (Cycle 6)
+
+- [#131](https://github.com/VitorMRodovalho/meridianiq/issues/131) (dep-floor verify CI step portion still open after canonical-hash extension) · [#138](https://github.com/VitorMRodovalho/meridianiq/issues/138) · [#139](https://github.com/VitorMRodovalho/meridianiq/issues/139) · [#140](https://github.com/VitorMRodovalho/meridianiq/issues/140) · [#141](https://github.com/VitorMRodovalho/meridianiq/issues/141) · [#149](https://github.com/VitorMRodovalho/meridianiq/issues/149) · [#150](https://github.com/VitorMRodovalho/meridianiq/issues/150) · [#151](https://github.com/VitorMRodovalho/meridianiq/issues/151)
+
+---
+
 ## [4.3.0] — 2026-05-09 — Z-shape consolidation (Cycle 5 close)
 
 Cycle 5 entry was a **Z-shape consolidation** (off-list per Round 2 paired DA+IV adversarial council per ADR-0024) — Z-DA primary track of structural follow-up closure across the prior cycles' DA/entry-council backlog. Z-IV active outreach (AACE/PMI working group inquiry) deferred as W5 OPTIONAL pending operator pacing. **NO new deep committed**, NO new calibration gate; each PR landed via the established entry-council + DA exit-council protocol per `feedback_entry_council_discipline.md` + ADR-0018 Amendment 1.

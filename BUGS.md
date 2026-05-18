@@ -1,4 +1,4 @@
-# Known Issues & Backlog — v4.2.0
+# Known Issues & Backlog — v4.3.0 (Cycle 6 W3 wave 4 in-flight)
 
 Bug tracking and feature backlog for MeridianIQ.
 
@@ -15,12 +15,14 @@ in [`docs/archive/BUGS_HISTORY.md`](docs/archive/BUGS_HISTORY.md). See
 
 ## Active Bugs
 
-_No critical open bugs at v4.2.0. Active security / architectural findings
+_No critical open bugs at v4.3.0. Active security / architectural findings
 from the 2026-04-22 + 2026-04-26 audits are tracked as GitHub issues under
 the [`audit-2026-04-22`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-22)
 + [`audit-2026-04-26`](https://github.com/VitorMRodovalho/meridianiq/issues?q=is%3Aissue+label%3Aaudit-2026-04-26)
-labels. Cycle 4 W3-B/C/W4 follow-ups: #82, #84-#92, #96-#100. Report new
-issues via GitHub Issues._
+labels. Cycle 4 W3-B/C/W4 follow-ups: #82, #84-#92, #96-#100. Cycle 5 / 6
+follow-ups: #117, #119, #120, #121, #138-#141, #146, #149, #150, #151.
+W3 wave 4 cluster open: #46, #106, #107, #108, #110 (visual closure
+pending). Report new issues via GitHub Issues._
 
 ---
 

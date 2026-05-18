@@ -6,7 +6,7 @@ This document describes how MeridianIQ is maintained and how decisions are made.
 
 | Role | Person | Contact |
 |---|---|---|
-| Lead maintainer | Vitor Maia Rodovalho | `vitor.rodovalho@outlook.com` |
+| Lead maintainer | Vitor Maia Rodovalho | `vitor@vitormr.dev` |
 | Security contact | Same | See `SECURITY.md` |
 
 A single maintainer holds the commit bit. Additional maintainers are added by the lead maintainer when a regular contributor demonstrates sustained quality over multiple releases.

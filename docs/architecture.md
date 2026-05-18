@@ -1,11 +1,11 @@
-<!-- Last updated: 2026-04-27 (post-Cycle-3 W4 code-side close) -->
+<!-- Last updated: 2026-05-17 (v4.3.0; Cycle 6 W3 wave 4 in-flight) -->
 # MeridianIQ — System Architecture
 
 ## System Overview
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v4.2.0** (β-honest path-A discipline — Cycle 3 close-arc + Cycle 4 close): 48 analysis engines + 1 export module, 129 API endpoints across 25 routers, 55 SvelteKit pages, 11 hand-crafted SVG chart components, 29 Supabase migrations, 22 MCP tools, 15 PDF report types, 1652 tests.
+As of **v4.3.0** (Z-shape consolidation — Cycle 5 close per ADR-0024; Cycle 6 W3 wave 4 in-flight): 48 analysis engines + 1 export module, 129 API endpoints across 25 routers, 55 SvelteKit pages, 12 hand-crafted SVG chart components, 29 Supabase migrations, 22 MCP tools, 15 PDF report types, 1687 tests.
 
 ```mermaid
 graph TB
@@ -63,7 +63,8 @@ src/
   database/          InMemoryStore + SupabaseStore abstraction, Supabase client
   api/
     app.py           FastAPI shell — all domain logic in routers/
-    routers/         23 modular routers (see docs/api-reference.md)
+    routers/         24 modular routers (see docs/api-reference.md for the
+                     full endpoint catalog including the app-level routes)
     schemas.py       Pydantic v2 request/response models
     auth.py          JWT + optional_auth / require_auth dependencies
     deps.py          Shared store + limiter singletons
@@ -81,7 +82,11 @@ web/
     routes/          54 SvelteKit pages (file-based routing)
     lib/
       components/
-        charts/      11 hand-crafted SVG chart components
+        charts/      12 hand-crafted SVG chart components
+                     (BarChart · EVMSCurveChart · GanttChart · GaugeChart ·
+                      HeatMapChart · MultiRevisionSCurveChart · ParetoChart ·
+                      PieChart · ResourceChart · ScatterChart · TimelineChart ·
+                      WaterfallChart)
         ScheduleViewer/  Interactive Gantt (WBS tree, baseline, float,
                          dependencies, resource histogram panel)
       stores/        auth (lazy init), theme, i18n

@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.12"
 authors = [
-    {name = "Vitor Maia Rodovalho", email = "vitor.rodovalho@outlook.com"},
+    {name = "Vitor Maia Rodovalho", email = "vitor@vitormr.dev"},
 ]
 keywords = ["primavera", "p6", "xer", "schedule", "cpm", "construction"]
 classifiers = [

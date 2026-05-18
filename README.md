@@ -8,10 +8,10 @@ Open-source schedule intelligence platform — from validation to prediction to 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.135-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![SvelteKit](https://img.shields.io/badge/SvelteKit-2.56-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-2.59-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/Tests-1679%2B%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-1687%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
 
@@ -38,10 +38,10 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 48 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 1679 backend + 58 Vitest (composables + Svelte 5 components) + Playwright E2E |
+| Tests passing | 1687 backend + 64 Vitest (composables + Svelte 5 components + direction-aware chart) + 64 Playwright E2E |
 | Frontend pages | 55 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
 | API endpoints | 129 across 25 routers |
-| SVG chart components | 11 (incl. EVM S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
+| SVG chart components | 12 (incl. EVM S-Curve + Multi-Revision S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.3.0 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
@@ -216,6 +216,8 @@ flowchart LR
 | v4.0 | **Materialized Intelligence** | schedule_derived_artifacts + provenance contract · async materializer pipeline (pending/ready/failed) · lifecycle phase inference (preliminary construction indicator per W4 calibration) · WebSocket progress hardening · evolution_optimizer callback · Svelte WS composable · datetime-safe store boundary · pre-registered calibration protocol | ✅ Released |
 | v4.1 | **Consolidation + Primitive (Cycle 2 close)** | rate-limit on `jobs/progress/start` · slowapi in [dev] extras · WS heartbeat + 4401 close on token expiry / API-key revocation · `useWebSocketProgress` recoveryPoller hook · authoritative `is_construction_active` + 5+1 phase preview-flagged (B2 honesty-debt closure) · W4 calibration post-mortem · `tools/calibration_harness.py` reusable primitive (ADR-0020) · ADRs 0017/0018/0019/0020 | ✅ Released |
 | v4.2 | **β-honest path-A discipline (Cycle 3 close-arc + Cycle 4 close)** | audit re-run + W3 reproduction-regression primitive + `_ENGINE_VERSION` source-of-truth migration (Cycle 3) · auto-revision detection (data_date + revision_history + soft-tombstone) · multi-rev S-curve overlay visualization (no forecast curve) · W4 pre-registered calibration gate path-A activation (ADR-0023; sub-gate C F1=0.769231 passed; sub-gates A+B path-A on corpus precondition) · paired DA + IV exit-council protocol exercised · ADRs 0021/0022/0023 | ✅ Released |
+| v4.3 | **Z-shape consolidation (Cycle 5 close)** | revision-detection contract regression + `formatDate` locale helper + structured `error_code` on confirm 4xx + `revision_skip_log` ledger with reconsider mechanism (migration 029) + Vitest + `@testing-library/svelte` component-test harness · type-stubs (networkx/openpyxl/defusedxml) · `engine_version` bump 4.2→4.3 · paired DA+IV protocol per ADR-0024 · ADR-0024 | ✅ Released |
+| v4.4 | **Cycle 6 H-shape (forced hygiene + hard W2 gate)** | mcp<2 + fastapi 0.136 + pydantic 2.13.4 + sveltekit/vite/svelte defensive floor bumps · W2 HARD GATE outcome (Pathway D operator-declared) · W3 frontend a11y cluster (direction-aware change-point markers, fetch timeout + chart NaN guards, milestones picker via HTML5 datalist, recovery ad-hoc scenario upload, standalone canonical-hash CI step) · ADR-0025 | 🚧 In-flight |
 
 See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP_v06_to_v20.md).
 
@@ -278,7 +280,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (1679+ passing) · Vitest (58 — composables + Svelte 5 components) · Playwright E2E |
+| **Testing** | pytest (1687+ passing) · Vitest (64 — composables + Svelte 5 components + direction-aware chart) · Playwright E2E (64) |
 
 ---
 
@@ -328,7 +330,7 @@ meridianiq/
 │       ├── routers/      # 129 endpoints across modular routers
 │       └── schemas.py    # Request/response models
 ├── web/                  # SvelteKit + Tailwind (55 pages)
-├── tests/                # 1679+ backend tests
+├── tests/                # 1687+ backend tests
 ├── supabase/
 │   └── migrations/       # PostgreSQL schema migrations (29 files)
 ├── .github/

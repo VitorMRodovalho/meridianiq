@@ -9,7 +9,7 @@ MeridianIQ handles scheduling data that may include sensitive project informatio
 Report suspected vulnerabilities privately via one of:
 
 - GitHub's [private vulnerability reporting](https://github.com/VitorMRodovalho/meridianiq/security/advisories/new) (preferred — enables coordinated disclosure)
-- Email: `vitorodovalho@gmail.com` with subject `[MeridianIQ security] <short description>`
+- Email: `vitor@vitormr.dev` with subject `[MeridianIQ security] <short description>`
 
 Include:
 
