@@ -162,7 +162,7 @@ describe('MultiRevisionSCurveChart change-point direction encoding (issue #105)'
 // heavy palette/contrast/CVD verification lives in
 // `MultiRevisionSCurveChart.palette.test.ts`.
 
-import { PALETTE_11 } from './MultiRevisionSCurveChart.palette';
+import { PALETTE_10 } from './MultiRevisionSCurveChart.palette';
 
 function plannedPaths(container: HTMLElement): SVGPathElement[] {
 	// Planned-curve paths are the <path> elements with stroke attribute
@@ -191,10 +191,10 @@ describe('MultiRevisionSCurveChart palette + stroke-width-as-age (issue #108)', 
 		expect(paths.length).toBe(3);
 		for (const p of paths) {
 			const stroke = p.getAttribute('stroke') ?? '';
-			// Must be a 6-char hex from PALETTE_11 — the prior HSL palette
+			// Must be a 6-char hex from PALETTE_10 — the prior HSL palette
 			// rendered as `hsl(...)` strings which start with 'hsl'.
 			expect(stroke.startsWith('hsl(')).toBe(false);
-			expect(PALETTE_11).toContain(stroke);
+			expect(PALETTE_10).toContain(stroke);
 		}
 	});
 
@@ -236,6 +236,26 @@ describe('MultiRevisionSCurveChart palette + stroke-width-as-age (issue #108)', 
 			// compositing made composited contrast fall below WCAG 3:1
 			// at low α. The current chart removes the attribute entirely.
 			expect(p.hasAttribute('opacity')).toBe(false);
+		}
+	});
+
+	it('pins planned-curve strokes to device pixels via vector-effect="non-scaling-stroke"', () => {
+		// DA exit-council finding 4 on PR #108: the 1.0px STROKE_WIDTH_MIN
+		// would ghost on responsive viewports where the SVG scales below
+		// 1× (e.g. mobile widths around 400px against viewBox 800×360).
+		// `vector-effect="non-scaling-stroke"` keeps the stroke at the
+		// declared width in DEVICE pixels regardless of SVG transform.
+		const { container } = render(MultiRevisionSCurveChart, {
+			props: {
+				curves: [curve(1, '2026-01-01'), curve(2, '2026-02-01')],
+				changePoints: [],
+				directionLabels: { slip: 'Slip', improvement: 'Improvement', flat: 'Flat' },
+			},
+		});
+		const paths = plannedPaths(container);
+		expect(paths.length).toBeGreaterThan(0);
+		for (const p of paths) {
+			expect(p.getAttribute('vector-effect')).toBe('non-scaling-stroke');
 		}
 	});
 

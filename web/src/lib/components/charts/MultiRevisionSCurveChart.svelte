@@ -416,7 +416,12 @@
 				     thickest); opacity is fixed at 1.0 so the curve's rendered
 				     contrast equals the palette swatch's measured contrast and
 				     each curve clears WCAG 1.4.11 against bg-white and
-				     bg-gray-900. Issue #108. -->
+				     bg-gray-900. `vector-effect="non-scaling-stroke"` pins the
+				     stroke at device-pixel width even after the SVG viewBox is
+				     scaled by the responsive `w-full` wrapper — without it, a
+				     1.0px stroke at a small viewport (SVG scaled <1.0×) drops
+				     below 1 device pixel and antialiases into a contrast-lossy
+				     ghost. Issue #108. -->
 				{#each curves as c, i}
 					{@const d = buildPlannedPath(c, i)}
 					{#if d}
@@ -425,6 +430,7 @@
 							fill="none"
 							stroke={getCurveColor(i, curves.length)}
 							stroke-width={getCurveStrokeWidth(i, curves.length)}
+							vector-effect="non-scaling-stroke"
 						/>
 					{/if}
 				{/each}
@@ -437,7 +443,18 @@
 				{#if lastExecutedIndex >= 0}
 					{@const d = buildActualPath(curves[lastExecutedIndex], lastExecutedIndex)}
 					{#if d}
-						<path {d} fill="none" stroke="#3b82f6" stroke-width="3" opacity="0.95" />
+						<!-- Executed-overlay opacity 0.95 keeps the stroke ≥3:1
+						     against both bg-white and bg-gray-900 (Y_blue≈0.219
+						     composited at α=0.95). vector-effect parallels the
+						     planned-curve treatment. Issue #108. -->
+						<path
+							{d}
+							fill="none"
+							stroke="#3b82f6"
+							stroke-width="3"
+							opacity="0.95"
+							vector-effect="non-scaling-stroke"
+						/>
 					{/if}
 				{/if}
 
