@@ -1,5 +1,10 @@
 <script lang="ts">
 	import type { RevisionCurveSchema, ChangePointMarkerSchema } from '$lib/types';
+	import {
+		getCurveColor,
+		getCurveStrokeWidth,
+		getLegendChipHeight,
+	} from './MultiRevisionSCurveChart.palette';
 
 	interface Props {
 		curves: RevisionCurveSchema[];
@@ -156,24 +161,14 @@
 		return segments.join(' ');
 	}
 
-	// HSL hue rotation across N planned curves. Sweep restricted to 0..180°
-	// (red→cyan, EXCLUDING the blue band 200-240° reserved for the executed
-	// curve overlay #3b82f6). DA exit-council finding P2#6: full 0..270°
-	// produced cyan-blue planned curves visually indistinguishable from the
-	// executed overlay at N≥8. Recent revisions get the higher hue + fuller
-	// opacity; oldest fade in opacity.
-	function curveColor(index: number, total: number): string {
-		if (total <= 1) return '#6b7280';
-		const t = index / (total - 1);
-		const hue = Math.round(t * 180);
-		return `hsl(${hue}, 60%, 45%)`;
-	}
-
-	function curveOpacity(index: number, total: number): number {
-		if (total <= 1) return 0.85;
-		// Older revisions slightly faded; most recent at full opacity.
-		return 0.55 + 0.45 * (index / (total - 1));
-	}
+	// Palette + per-revision encoding (color + stroke-width + legend-chip
+	// height) are sourced from `./MultiRevisionSCurveChart.palette` so the
+	// 11-swatch hex list, the WCAG measurement methodology, and the
+	// stroke-width-as-age rationale all live behind one auditable import.
+	// Issue #108: prior HSL hue-cycle palette was replaced because (a) it
+	// failed WCAG 1.4.11 around hue~80° and (b) any opacity weighting on
+	// the old curves made composited contrast fall below 3:1 for every
+	// swatch in the feasible Y band — see palette file header.
 
 	// Y-axis ticks (0%, 25%, 50%, 75%, 100%).
 	const yTicks = $derived.by(() => {
@@ -200,7 +195,7 @@
 	// Direction → visual mapping. Color + dasharray both vary so the
 	// encoding is not color-only (WCAG 1.4.1). The dotted flat dasharray
 	// also disambiguates flat markers from the single-revision gray
-	// planned-curve fallback at line 167.
+	// planned-curve fallback (`SINGLE_CURVE_COLOR` in the palette module).
 	function directionVisual(direction: string): {
 		color: string;
 		darkStrokeClass: string;
@@ -276,11 +271,11 @@
 					darkStrokeClass: visual.darkStrokeClass,
 					darkFillClass: visual.darkFillClass,
 					dashArray: visual.dashArray,
-					// 1-based fallback aligning with endpointLabels at line 185
-					// + page changePointLabel function. Issue #98 item 5 +
-					// frontend-ux-reviewer entry-council BLOCKING #2 on PR #109:
-					// chart was internally inconsistent (line 166 0-based vs
-					// line 185 1-based); aligned to 1-based per least-surprise.
+					// 1-based fallback aligning with the endpoint-label and page
+					// changePointLabel rendering. Issue #98 item 5 + frontend-
+					// ux-reviewer entry-council BLOCKING #2 on PR #109: chart
+					// was internally inconsistent (one site 0-based, another
+					// 1-based); aligned to 1-based per least-surprise.
 					revisionLabel:
 						c.revision_number != null ? `R${c.revision_number}` : `#${cp.revision_index + 1}`,
 				};
@@ -291,6 +286,15 @@
 	// Endpoint labels (R1..RN) at each curve's terminal point. Hidden when
 	// N>8 to avoid pixel-collision pile-up at upper-right; legend chips
 	// below carry the same identification. DA exit-council finding P2#11.
+	//
+	// `color` is the curve hex (used for the endpoint DOT, which is a
+	// graphical object covered by WCAG 1.4.11 at 3:1 and verified at
+	// palette-construction time). The endpoint TEXT label is decoupled
+	// from this color in the template via a fixed `fill="#374151"` +
+	// `class="dark:fill-gray-300"` pair so 1.4.3 (4.5:1) for normal text
+	// is satisfied independently of the palette swatch's luminance — see
+	// palette file header for the dual-bg infeasibility derivation that
+	// forces the decoupling. Issue #108.
 	const endpointLabels = $derived.by(() => {
 		if (curves.length > 8) return [];
 		return curves
@@ -302,7 +306,7 @@
 					x: xPos(last.day_offset + shift),
 					y: yPos(last.planned_cumulative_pct),
 					label: c.revision_number != null ? `R${c.revision_number}` : `#${i + 1}`,
-					color: curveColor(i, curves.length),
+					color: getCurveColor(i, curves.length),
 				};
 			})
 			.filter((v): v is NonNullable<typeof v> => v !== null);
@@ -407,16 +411,26 @@
 					</text>
 				{/each}
 
-				<!-- Planned curves (z-order: oldest first, most recent on top) -->
+				<!-- Planned curves (z-order: oldest first, most recent on top).
+				     Stroke-width encodes revision age (oldest=thinnest, newest=
+				     thickest); opacity is fixed at 1.0 so the curve's rendered
+				     contrast equals the palette swatch's measured contrast and
+				     each curve clears WCAG 1.4.11 against bg-white and
+				     bg-gray-900. `vector-effect="non-scaling-stroke"` pins the
+				     stroke at device-pixel width even after the SVG viewBox is
+				     scaled by the responsive `w-full` wrapper — without it, a
+				     1.0px stroke at a small viewport (SVG scaled <1.0×) drops
+				     below 1 device pixel and antialiases into a contrast-lossy
+				     ghost. Issue #108. -->
 				{#each curves as c, i}
 					{@const d = buildPlannedPath(c, i)}
 					{#if d}
 						<path
 							{d}
 							fill="none"
-							stroke={curveColor(i, curves.length)}
-							stroke-width="1.5"
-							opacity={curveOpacity(i, curves.length)}
+							stroke={getCurveColor(i, curves.length)}
+							stroke-width={getCurveStrokeWidth(i, curves.length)}
+							vector-effect="non-scaling-stroke"
 						/>
 					{/if}
 				{/each}
@@ -429,7 +443,18 @@
 				{#if lastExecutedIndex >= 0}
 					{@const d = buildActualPath(curves[lastExecutedIndex], lastExecutedIndex)}
 					{#if d}
-						<path {d} fill="none" stroke="#3b82f6" stroke-width="3" opacity="0.95" />
+						<!-- Executed-overlay opacity 0.95 keeps the stroke ≥3:1
+						     against both bg-white and bg-gray-900 (Y_blue≈0.219
+						     composited at α=0.95). vector-effect parallels the
+						     planned-curve treatment. Issue #108. -->
+						<path
+							{d}
+							fill="none"
+							stroke="#3b82f6"
+							stroke-width="3"
+							opacity="0.95"
+							vector-effect="non-scaling-stroke"
+						/>
 					{/if}
 				{/if}
 
@@ -464,14 +489,18 @@
 					</text>
 				{/each}
 
-				<!-- Endpoint labels (R1..RN) -->
+				<!-- Endpoint labels (R1..RN). Dot keeps the curve color (3:1
+				     graphical object per WCAG 1.4.11). Text fill decoupled to
+				     gray-700 / gray-300 so it clears 4.5:1 against either bg
+				     mode regardless of palette swatch — issue #108. -->
 				{#each endpointLabels as ep}
 					<circle cx={ep.x} cy={ep.y} r="3" fill={ep.color} />
 					<text
 						x={ep.x + 6}
 						y={ep.y + 3}
 						font-size="9"
-						fill={ep.color}
+						fill="#374151"
+						class="dark:fill-gray-300"
 						font-weight="500"
 					>
 						{ep.label}
@@ -521,11 +550,17 @@
 				</summary>
 			{/if}
 			<div class="{shouldCollapse ? 'mt-2' : ''} flex flex-wrap gap-x-4 gap-y-1 px-2 text-xs">
+				<!-- Legend chip height mirrors curve stroke-width so legend +
+				     chart encode age via the same channel (oldest thinnest,
+				     newest thickest). Width fixed at 16px. Background color is
+				     the palette swatch (WCAG 1.4.11 graphical, ≥3:1 dual-bg
+				     verified). Text uses Tailwind text-gray-600/-400 which is
+				     already 1.4.3-compliant. Issue #108. -->
 				{#each curves as c, i}
 					<div class="flex items-center gap-1.5">
 						<span
-							class="inline-block w-3 h-0.5"
-							style="background-color: {curveColor(i, curves.length)}"
+							class="inline-block"
+							style="width: 16px; height: {getLegendChipHeight(i, curves.length)}px; background-color: {getCurveColor(i, curves.length)}"
 						></span>
 						<span class="text-gray-600 dark:text-gray-400">
 							{c.revision_number != null ? `R${c.revision_number}` : `#${i + 1}`}
@@ -539,7 +574,7 @@
 				{/each}
 				{#if curves.some((c) => c.is_executed)}
 					<div class="flex items-center gap-1.5">
-						<span class="inline-block w-3 h-1" style="background-color: #3b82f6"></span>
+						<span class="inline-block w-4 h-1" style="background-color: #3b82f6"></span>
 						<span class="text-gray-600 dark:text-gray-400">{executedLabel}</span>
 					</div>
 				{/if}
