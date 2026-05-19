@@ -462,7 +462,15 @@
 				     per issue #105. Color encodes direction (slip/improvement/flat),
 				     dasharray provides the non-color redundancy required by WCAG 1.4.1
 				     (frontend-ux-reviewer entry-council P1-1). `<title>` carries the
-				     direction word for AT users. -->
+				     direction word for AT users.
+
+				     Opacity intentionally NOT set: a prior opacity="0.55" failed WCAG
+				     1.4.11 Non-text Contrast (3:1) — for any color in our feasible Y∈
+				     [0.128, 0.300] band the alpha-composited marker drops to ~1.5–2.5:1
+				     against bg-white (#155). Visual subordination to the curves is
+				     achieved structurally via stroke-width=1 (vs the bolder curve
+				     widths) + dashed pattern; opacity-as-emphasis is incompatible with
+				     the dual-bg 3:1 threshold and must not be reintroduced. -->
 				{#each changePointVisuals as cp}
 					<line
 						x1={cp.x}
@@ -473,7 +481,6 @@
 						class={cp.darkStrokeClass}
 						stroke-width="1"
 						stroke-dasharray={cp.dashArray}
-						opacity="0.55"
 					>
 						<title>{cp.revisionLabel}: {cp.directionLabel} — {cp.description}</title>
 					</line>
