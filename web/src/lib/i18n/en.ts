@@ -44,6 +44,11 @@ export default {
 	'upload.parsing': 'Parsing XER file...',
 	'upload.success': 'Upload Successful',
 	'upload.view': 'View Project Details',
+	'upload.signin_required_title': 'Sign in to analyze your file',
+	'upload.signin_required_body':
+		'Uploading a schedule needs a free account — your file is parsed and stored privately under your account so you can compare revisions, track delivery trends, and run forensic analysis over time.',
+	'upload.signin_cta': 'Sign in to continue',
+	'upload.try_demo': 'Or explore the live demo with sample data →',
 
 	// Common UI elements
 	'common.loading': 'Loading...',
@@ -598,7 +603,7 @@ export default {
 	'demo.col_tf': 'Total Float (days)',
 	'demo.activities_suffix': 'activities',
 	'demo.cta_title': 'Ready to analyze your own schedules?',
-	'demo.cta_hint': 'Upload your Primavera P6 XER files and unlock all 10 analysis engines.',
+	'demo.cta_hint': 'Upload your Primavera P6 XER files and unlock the full analysis suite.',
 	'demo.cta_get_started': 'Get started free',
 
 	// Visualization page

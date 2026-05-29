@@ -55,7 +55,12 @@ TABLE_MAP: dict[str, tuple[type[Any], str]] = {
     "TASKFIN": (TaskFinancial, "task_financials"),
 }
 
-ENCODINGS: list[str] = ["utf-8", "windows-1252", "latin-1", "iso-8859-1"]
+# Ordered most-strict → catch-all. ``latin-1`` is a *total* codec (never
+# raises): reaching it means the file was neither valid UTF-8 nor Windows-1252,
+# so it is the mojibake-risk signal surfaced at WARNING in ``_read_lines``.
+# ``iso-8859-1`` was dropped — it is an alias of ``latin-1`` and could never be
+# reached behind it.
+ENCODINGS: list[str] = ["utf-8", "windows-1252", "latin-1"]
 
 # Common P6 date formats ordered from most to least common
 DATE_FORMATS: list[str] = [
@@ -204,8 +209,13 @@ class XERReader:
     def _read_lines(self) -> list[str]:
         """Read file with encoding detection.
 
-        Tries each encoding in ``ENCODINGS`` until one succeeds. Falls back
-        to UTF-8 with ``errors='replace'`` as a last resort.
+        Tries each encoding in ``ENCODINGS`` in order until one decodes the
+        whole file. ``latin-1`` is the final entry and is a *total* codec — it
+        never raises — so reaching it means the file was neither valid UTF-8
+        nor valid Windows-1252, and accented / non-Latin characters in activity,
+        WBS and project names may be mojibaked. That case is logged at WARNING
+        (rather than failing silently) because localized PT-BR / ES P6 exports
+        are exactly where it bites.
 
         Returns:
             List of raw text lines from the file.
@@ -214,13 +224,22 @@ class XERReader:
             try:
                 with open(self.file_path, encoding=encoding) as fh:
                     lines = fh.readlines()
-                self._encoding = encoding
-                logger.debug("Read %s with encoding %s", self.file_path, encoding)
-                return lines
             except (UnicodeDecodeError, UnicodeError):
                 continue
+            self._encoding = encoding
+            if encoding == "latin-1":
+                logger.warning(
+                    "%s is not valid UTF-8 or Windows-1252; decoded as latin-1 "
+                    "(catch-all) — accented/non-Latin characters may be incorrect "
+                    "(mojibake risk).",
+                    self.file_path,
+                )
+            else:
+                logger.debug("Read %s with encoding %s", self.file_path, encoding)
+            return lines
 
-        # Last resort: replace bad characters
+        # Defensive last resort — unreachable while latin-1 (a total codec) is
+        # in ENCODINGS, but kept so removing it can never turn into a crash.
         logger.warning("All preferred encodings failed; using utf-8 with error replacement")
         with open(self.file_path, encoding="utf-8", errors="replace") as fh:
             lines = fh.readlines()
