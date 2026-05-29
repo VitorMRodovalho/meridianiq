@@ -44,6 +44,11 @@ export default {
 	'upload.parsing': 'Analisando arquivo XER...',
 	'upload.success': 'Upload Realizado com Sucesso',
 	'upload.view': 'Ver Detalhes do Projeto',
+	'upload.signin_required_title': 'Entre para analisar seu arquivo',
+	'upload.signin_required_body':
+		'Carregar um cronograma exige uma conta gratuita — seu arquivo é processado e armazenado de forma privada na sua conta para você comparar revisões, acompanhar tendências de entrega e rodar análise forense ao longo do tempo.',
+	'upload.signin_cta': 'Entrar para continuar',
+	'upload.try_demo': 'Ou explore a demonstração com dados de exemplo →',
 
 	// Common UI elements
 	'common.loading': 'Carregando...',
@@ -598,7 +603,7 @@ export default {
 	'demo.col_tf': 'Folga Total (dias)',
 	'demo.activities_suffix': 'atividades',
 	'demo.cta_title': 'Pronto para analisar seus proprios cronogramas?',
-	'demo.cta_hint': 'Carregue seus arquivos XER do Primavera P6 e desbloqueie todos os 10 motores de analise.',
+	'demo.cta_hint': 'Carregue seus arquivos XER do Primavera P6 e desbloqueie a suíte completa de análise.',
 	'demo.cta_get_started': 'Comece gratis',
 
 	// Visualization page

@@ -59,6 +59,7 @@ README_MD = ROOT / "README.md"
 ARCH_MD = ROOT / "docs" / "architecture.md"
 ROUTES_DIR = ROOT / "web" / "src" / "routes"
 MIGRATIONS_DIR = ROOT / "supabase" / "migrations"
+LANDING_SVELTE = ROOT / "web" / "src" / "routes" / "+page.svelte"
 
 
 @dataclass
@@ -325,6 +326,44 @@ def find_architecture_md_mismatches(stats: Stats, architecture_text: str) -> lis
     return mismatches
 
 
+def find_landing_page_mismatches(stats: Stats, landing_text: str) -> list[str]:
+    """Return mismatch messages for the marketing landing-page hero stats.
+
+    Closes the gap that let ``web/src/routes/+page.svelte`` advertise stale
+    "37 engines / 85 endpoints" while the canonical catalogs said 48 / 129 —
+    neither the §Key Numbers / mermaid / ASCII-tree scans nor
+    ``landing.spec.ts`` (which asserts the stat *labels*, not the numbers)
+    caught it. Only the engine + endpoint counts are validated here: they are
+    canonical and drift every cycle. The test-count stat is an intentional
+    "+floor" claim (kept honest by the suite itself) and is deliberately not
+    auto-validated, consistent with this script's test-count policy.
+
+    The hero numbers are anchored to their i18n label keys
+    (``landing.stats.engines`` / ``landing.stats.endpoints``) so the pattern
+    survives Tailwind class churn.
+    """
+    mismatches: list[str] = []
+
+    def _check(label_key: str, expected: int, label: str) -> None:
+        pattern = (
+            r">\s*([\d,]+)\+?\s*</p>\s*<p[^>]*>\s*\{\$t\('landing\.stats\." + label_key + r"'\)\}"
+        )
+        m = re.search(pattern, landing_text)
+        if m is None:
+            return  # claim not present — nothing to validate
+        actual = int(m.group(1).replace(",", ""))
+        if actual != expected:
+            mismatches.append(
+                f"web/src/routes/+page.svelte: landing hero {label} stat claims "
+                f"{actual}, canonical is {expected}"
+            )
+
+    _check("engines", stats.engines, "engines")
+    _check("endpoints", stats.endpoints, "endpoints")
+
+    return mismatches
+
+
 def main() -> int:
     stats = canonical_stats()
 
@@ -344,8 +383,16 @@ def main() -> int:
         arch_text = _read(ARCH_MD)
         arch_mismatches = find_architecture_md_mismatches(stats, arch_text)
 
+    landing_mismatches: list[str] = []
+    if LANDING_SVELTE.exists():
+        landing_mismatches = find_landing_page_mismatches(stats, _read(LANDING_SVELTE))
+
     all_mismatches = (
-        claude_mismatches + readme_mismatches + readme_mermaid_mismatches + arch_mismatches
+        claude_mismatches
+        + readme_mismatches
+        + readme_mermaid_mismatches
+        + arch_mismatches
+        + landing_mismatches
     )
     if all_mismatches:
         print("Stats drift detected:\n")
@@ -363,7 +410,8 @@ def main() -> int:
 
     print(
         "Stats consistent across CLAUDE.md, README.md (Key Numbers + mermaid + "
-        f"tree), and docs/architecture.md: {stats.describe()}"
+        "tree), docs/architecture.md, and the landing +page.svelte hero: "
+        f"{stats.describe()}"
     )
     return 0
 

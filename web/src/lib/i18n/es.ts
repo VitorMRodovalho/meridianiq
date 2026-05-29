@@ -44,6 +44,11 @@ export default {
 	'upload.parsing': 'Analizando archivo XER...',
 	'upload.success': 'Subida Exitosa',
 	'upload.view': 'Ver Detalles del Proyecto',
+	'upload.signin_required_title': 'Inicia sesión para analizar tu archivo',
+	'upload.signin_required_body':
+		'Subir un cronograma requiere una cuenta gratuita — tu archivo se procesa y almacena de forma privada en tu cuenta para que puedas comparar revisiones, seguir tendencias de entrega y ejecutar análisis forense a lo largo del tiempo.',
+	'upload.signin_cta': 'Inicia sesión para continuar',
+	'upload.try_demo': 'O explora la demostración con datos de ejemplo →',
 
 	// Common UI elements
 	'common.loading': 'Cargando...',
@@ -598,7 +603,7 @@ export default {
 	'demo.col_tf': 'Holgura Total (dias)',
 	'demo.activities_suffix': 'actividades',
 	'demo.cta_title': 'Listo para analizar tus propios cronogramas?',
-	'demo.cta_hint': 'Sube tus archivos XER de Primavera P6 y desbloquea los 10 motores de analisis.',
+	'demo.cta_hint': 'Sube tus archivos XER de Primavera P6 y desbloquea la suite completa de análisis.',
 	'demo.cta_get_started': 'Empieza gratis',
 
 	// Visualization page
