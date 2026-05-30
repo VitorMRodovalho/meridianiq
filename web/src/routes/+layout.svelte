@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { user, isLoading, initAuth, signOut } from '$lib/auth';
 	import { isWarmingUp, warmUp } from '$lib/api';
-	import { initAnalytics } from '$lib/analytics';
+	import { initAnalytics, trackEvent } from '$lib/analytics';
 	import { isDark, toggleTheme, initTheme } from '$lib/stores/theme';
 	import Breadcrumb from '$lib/components/Breadcrumb.svelte';
 	import ComputingBanner from '$lib/components/ComputingBanner.svelte';
@@ -57,6 +57,23 @@
 
 	function closeSidebar() {
 		sidebarOpen = false;
+	}
+
+	// Error-boundary reporter. A throw inside a reactive effect bubbles through
+	// Svelte's <svelte:boundary> (a different path than SvelteKit's
+	// hooks.client.ts handleError), so without this the real error is invisible
+	// — it only surfaced as a masked "Cannot read properties of null (reading
+	// 'error')" from Svelte's own propagation when no boundary handled it. Log
+	// the genuine error (console + PostHog) so client crashes are diagnosable,
+	// while the boundary's `failed` snippet degrades the UI gracefully.
+	function reportClientError(error: unknown): void {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error('[MeridianIQ boundary]', error);
+		trackEvent('client_render_error', {
+			message,
+			stack: error instanceof Error ? error.stack?.slice(0, 2000) : undefined,
+			path: browser ? window.location.pathname : undefined,
+		});
 	}
 
 	interface NavItem { href: string; labelKey: string; icon: string; auth?: boolean; }
@@ -367,9 +384,9 @@
 				{$t('warmup.message')}
 			</div>
 		{/if}
-		<Breadcrumb />
-		<ComputingBanner />
-		<svelte:boundary>
+		<svelte:boundary onerror={reportClientError}>
+			<Breadcrumb />
+			<ComputingBanner />
 			{@render children()}
 			{#snippet failed(error, reset)}
 				<div class="max-w-2xl mx-auto px-4 py-16 text-center">
