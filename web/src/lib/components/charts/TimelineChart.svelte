@@ -61,7 +61,7 @@
 	})());
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-medium text-gray-700 mb-3">{title}</p>
 	{/if}
@@ -74,8 +74,8 @@
 			<g transform="translate({PADDING.left}, {PADDING.top})">
 				<!-- Time axis ticks -->
 				{#each timeTicks as tick}
-					<line x1={tick.x} y1="0" x2={tick.x} y2={chartHeight} stroke="#f3f4f6" stroke-width="1" />
-					<text x={tick.x} y={chartHeight + 16} text-anchor="middle" font-size="9" fill="#9ca3af">{tick.label}</text>
+					<line x1={tick.x} y1="0" x2={tick.x} y2={chartHeight} stroke="#f3f4f6" stroke-width="1" class="dark:stroke-gray-800" />
+					<text x={tick.x} y={chartHeight + 16} text-anchor="middle" font-size="9" fill="#9ca3af" class="dark:fill-gray-500">{tick.label}</text>
 				{/each}
 
 				<!-- Items -->
@@ -84,7 +84,7 @@
 					{@const color = item.color ?? defaultColors[i % defaultColors.length]}
 
 					<!-- Label -->
-					<text x="-8" y={y + rowH / 2} text-anchor="end" dominant-baseline="middle" font-size="10" fill="#374151">
+					<text x="-8" y={y + rowH / 2} text-anchor="end" dominant-baseline="middle" font-size="10" fill="#374151" class="dark:fill-gray-300">
 						{item.label.length > 16 ? item.label.slice(0, 16) + '..' : item.label}
 					</text>
 
@@ -117,7 +117,7 @@
 				{/each}
 
 				<!-- Baseline -->
-				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" />
+				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
 			</g>
 		</svg>
 	{/if}

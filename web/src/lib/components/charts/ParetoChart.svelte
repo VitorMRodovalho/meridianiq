@@ -90,7 +90,7 @@
 	}
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-semibold text-gray-700 mb-2">{title}</p>
 	{/if}
@@ -104,7 +104,7 @@
 				<line
 					x1={PAD.left} y1={PAD.top + pct * chartH}
 					x2={WIDTH - PAD.right} y2={PAD.top + pct * chartH}
-					stroke="#f3f4f6" stroke-width="1"
+					stroke="#f3f4f6" stroke-width="1" class="dark:stroke-gray-800"
 				/>
 				<text x={PAD.left - 5} y={PAD.top + pct * chartH + 3} text-anchor="end" class="text-[8px] fill-gray-400">
 					{formatCost(yMax - pct * (yMax - yMin))}
@@ -147,8 +147,8 @@
 			<text x="12" y={height / 2} text-anchor="middle" transform="rotate(-90, 12, {height / 2})" class="text-[9px] fill-gray-400 font-medium">{yLabel}</text>
 
 			<!-- Axes -->
-			<line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
-			<line x1={PAD.left} y1={PAD.top + chartH} x2={WIDTH - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
+			<line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
+			<line x1={PAD.left} y1={PAD.top + chartH} x2={WIDTH - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
 		</svg>
 
 		<div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
