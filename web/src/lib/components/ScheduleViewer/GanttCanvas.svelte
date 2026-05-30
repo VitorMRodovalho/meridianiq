@@ -2,6 +2,7 @@
 	import type { ActivityView, RelationshipView, WBSAggregate, FlatRow } from './types';
 	import { daysBetween, parseDate, getBarColor, formatDateShort, generateTimeTicks } from './utils';
 	import TimeScale from './TimeScale.svelte';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		flatRows: FlatRow[];
@@ -229,7 +230,7 @@
 				<g
 					role="button"
 					tabindex="0"
-					aria-label="{act.task_name} (milestone)"
+					aria-label="{act.task_name} ({$t('schedule.viewer.aria_milestone')})"
 					transform="translate({x}, {y + rowHeight / 2})"
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}

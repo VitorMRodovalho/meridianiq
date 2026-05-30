@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { generateTimeTicks } from './utils';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		startDate: string;
@@ -76,7 +77,7 @@
 	<!-- Today line -->
 	{#if todayX() >= 0}
 		<line x1={todayX()} y1="0" x2={todayX()} y2="9999" stroke="#10b981" stroke-width="1.5" opacity="0.6" />
-		<text x={todayX()} y="10" text-anchor="middle" class="text-[7px] fill-green-600 font-bold select-none">Today</text>
+		<text x={todayX()} y="10" text-anchor="middle" class="text-[7px] fill-green-600 font-bold select-none">{$t('schedule.viewer.today')}</text>
 	{/if}
 
 	<!-- Bottom border -->

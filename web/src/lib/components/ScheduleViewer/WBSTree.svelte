@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { WBSAggregate, FlatRow } from './types';
 	import { formatDateCompact } from './utils';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		flatRows: FlatRow[];
@@ -53,13 +54,13 @@
 	<!-- Header — height matches GanttCanvas HEADER_H (40px, two-tier axis) so
 	     the left-panel rows align with the right-panel bars. -->
 	<div class="h-10 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-end pb-1 text-[9px] font-semibold text-gray-500 dark:text-gray-400 uppercase">
-		<span class="w-[72px] text-center shrink-0 px-1">ID</span>
-		<span class="flex-1 min-w-0 px-1">Name</span>
-		<span class="w-9 text-center shrink-0">Dur</span>
-		<span class="w-[62px] text-center shrink-0">Start</span>
-		<span class="w-[62px] text-center shrink-0">Finish</span>
-		<span class="w-9 text-center shrink-0">TF</span>
-		<span class="w-8 text-center shrink-0 pr-1">%</span>
+		<span class="w-[72px] text-center shrink-0 px-1">{$t('schedule.col_code')}</span>
+		<span class="flex-1 min-w-0 px-1">{$t('schedule.col_name')}</span>
+		<span class="w-9 text-center shrink-0">{$t('schedule.col_od')}</span>
+		<span class="w-[62px] text-center shrink-0">{$t('schedule.col_es')}</span>
+		<span class="w-[62px] text-center shrink-0">{$t('schedule.col_ef')}</span>
+		<span class="w-9 text-center shrink-0">{$t('schedule.col_tf')}</span>
+		<span class="w-8 text-center shrink-0 pr-1">{$t('schedule.col_pct')}</span>
 	</div>
 
 	<!-- Scrollable content (virtual scrolling) -->
@@ -115,11 +116,11 @@
 						<span class="w-[72px] text-[7px] font-mono text-blue-500 dark:text-blue-400 truncate text-center shrink-0 px-1">{act.task_code}</span>
 						<div class="flex items-center flex-1 min-w-0 overflow-hidden" style="padding-left: {row.indent * 14 + 4}px;">
 							{#if act.task_type === 'milestone'}
-								<span class="w-2 h-2 rotate-45 bg-amber-500 shrink-0 mr-1.5" title="Milestone"></span>
+								<span class="w-2 h-2 rotate-45 bg-amber-500 shrink-0 mr-1.5" title={$t('schedule.viewer.legend_milestone')}></span>
 							{:else if act.task_type === 'loe'}
-								<span class="w-2.5 h-1.5 shrink-0 mr-1 border border-dashed border-gray-400 bg-gray-100 dark:bg-gray-700 rounded-sm" title="LOE"></span>
+								<span class="w-2.5 h-1.5 shrink-0 mr-1 border border-dashed border-gray-400 bg-gray-100 dark:bg-gray-700 rounded-sm" title={$t('schedule.viewer.legend_loe')}></span>
 							{:else}
-								<span class="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 {act.is_critical ? 'bg-red-500' : act.status === 'complete' ? 'bg-green-500' : act.status === 'active' ? 'bg-blue-500' : 'bg-gray-300'}" title="{act.status}"></span>
+								<span class="w-1.5 h-1.5 rounded-full shrink-0 mr-1.5 {act.is_critical ? 'bg-red-500' : act.status === 'complete' ? 'bg-green-500' : act.status === 'active' ? 'bg-blue-500' : 'bg-gray-300'}" title={act.status === 'complete' ? $t('schedule.status_complete') : act.status === 'active' ? $t('schedule.status_active') : $t('schedule.status_not_started')}></span>
 							{/if}
 							<span class="text-[9px] text-gray-600 dark:text-gray-400 truncate">{act.task_name || act.task_code}</span>
 						</div>
