@@ -149,6 +149,74 @@ class TestScheduleView:
         w3_indices = [i for i, w in enumerate(wbs_ids) if w == "W3"]
         assert max(w2_indices) < min(w3_indices)
 
+    def test_wbs_natural_code_ordering(self) -> None:
+        """WBS siblings + activities must order by code NUMERICALLY (1.2 before
+        1.10, not lexically), and roots 1 before 2 — the P6 outline order GAO /
+        DCMA presentation review assumes."""
+
+        def _task(tid: str, wbs: str) -> Task:
+            return Task(
+                task_id=tid,
+                proj_id="P",
+                wbs_id=wbs,
+                task_code=tid,
+                task_name=tid,
+                task_type="TT_Task",
+                status_code="TK_NotStart",
+                early_start_date=_date(0),
+                early_end_date=_date(1),
+                target_drtn_hr_cnt=8,
+            )
+
+        schedule = ParsedSchedule(
+            projects=[Project(proj_id="P", proj_short_name="Coded", last_recalc_date=_date(0))],
+            calendars=[Calendar(clndr_id="C", day_hr_cnt=8, week_hr_cnt=40, default_flag="Y")],
+            wbs_nodes=[
+                WBS(
+                    wbs_id="R1", proj_id="P", wbs_short_name="1", wbs_name="One", proj_node_flag="Y"
+                ),
+                WBS(
+                    wbs_id="R2", proj_id="P", wbs_short_name="2", wbs_name="Two", proj_node_flag="Y"
+                ),
+                WBS(
+                    wbs_id="W_1_1",
+                    proj_id="P",
+                    parent_wbs_id="R1",
+                    wbs_short_name="1.1",
+                    wbs_name="A",
+                ),
+                WBS(
+                    wbs_id="W_1_2",
+                    proj_id="P",
+                    parent_wbs_id="R1",
+                    wbs_short_name="1.2",
+                    wbs_name="B",
+                ),
+                WBS(
+                    wbs_id="W_1_10",
+                    proj_id="P",
+                    parent_wbs_id="R1",
+                    wbs_short_name="1.10",
+                    wbs_name="C",
+                ),
+            ],
+            # inserted deliberately out of order to prove ordering is computed
+            activities=[
+                _task("T10", "W_1_10"),
+                _task("T2", "W_1_2"),
+                _task("T1", "W_1_1"),
+                _task("Troot2", "R2"),
+            ],
+        )
+        result = build_schedule_view(schedule)
+
+        # roots ordered by code: 1 before 2
+        assert [n.short_name for n in result.wbs_tree] == ["1", "2"]
+        # children of "1" natural-ordered: 1.1, 1.2, 1.10 (NOT 1.1, 1.10, 1.2)
+        assert [c.short_name for c in result.wbs_tree[0].children] == ["1.1", "1.2", "1.10"]
+        # activities follow the corrected outline order
+        assert [a.task_id for a in result.activities] == ["T1", "T2", "T10", "Troot2"]
+
     def test_activity_types(self) -> None:
         result = build_schedule_view(_make_schedule())
         types = {a.task_id: a.task_type for a in result.activities}
