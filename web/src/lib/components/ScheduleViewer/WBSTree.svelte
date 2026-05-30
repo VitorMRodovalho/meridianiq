@@ -50,8 +50,9 @@
 	class="wbs-tree overflow-hidden border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
 	style="width: 550px; min-width: 550px; height: 100%; position: relative;"
 >
-	<!-- Header -->
-	<div class="h-7 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center text-[9px] font-semibold text-gray-500 dark:text-gray-400 uppercase">
+	<!-- Header — height matches GanttCanvas HEADER_H (40px, two-tier axis) so
+	     the left-panel rows align with the right-panel bars. -->
+	<div class="h-10 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-end pb-1 text-[9px] font-semibold text-gray-500 dark:text-gray-400 uppercase">
 		<span class="w-[72px] text-center shrink-0 px-1">ID</span>
 		<span class="flex-1 min-w-0 px-1">Name</span>
 		<span class="w-9 text-center shrink-0">Dur</span>
@@ -62,7 +63,7 @@
 	</div>
 
 	<!-- Scrollable content (virtual scrolling) -->
-	<div class="overflow-hidden" style="height: calc(100% - 28px); position: relative;">
+	<div class="overflow-hidden" style="height: calc(100% - 40px); position: relative;">
 		<!-- Spacer for full scroll height -->
 		<div style="height: {totalHeight}px; position: relative; transform: translateY(-{scrollTop}px);">
 			{#each renderedRows as row, i}
