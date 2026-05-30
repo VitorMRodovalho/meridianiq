@@ -133,6 +133,8 @@
 								demandByDay={profile.demand_by_day}
 								maxUnits={profile.peak_demand}
 								rsrcName={profile.rsrc_name}
+								yAxisLabel="units"
+								xAxisLabel="Day"
 								title=""
 								height={180}
 							/>

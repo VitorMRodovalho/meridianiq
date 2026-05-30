@@ -2,12 +2,23 @@
 	import { onMount } from 'svelte';
 	import type { DemoProjectResponse } from '$lib/api';
 	import { t } from '$lib/i18n';
+	import { dcmaMarginBars, thresholdComparator } from './dcmaChart';
 
 	let data: DemoProjectResponse | null = $state(null);
 	let loading = $state(true);
 	let error = $state('');
 
 	const BASE = import.meta.env.VITE_API_URL || '';
+
+	// DCMA margin chart geometry — three fixed columns: check name | diverging
+	// bar (around a zero = at-threshold baseline) | value-vs-threshold readout.
+	const CHART_W = 600;
+	const ZERO_X = 300;
+	const CHART_HALF = 158; // px each side of zero for the longest bar
+	const NAME_X = 122;
+	const VALUE_X = 470;
+	const ROW_H = 24;
+	const CHART_TOP = 26;
 
 	onMount(async () => {
 		try {
@@ -61,6 +72,8 @@
 	{:else if error}
 		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
 	{:else if data}
+		<!-- Percentage-based DCMA checks as signed margin-to-threshold bars (worst-first). -->
+		{@const marginBars = dcmaMarginBars(data.validation.metrics)}
 		<!-- Project Overview -->
 		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
@@ -90,6 +103,43 @@
 					<p class="text-xs text-gray-500 dark:text-gray-400">{data.validation.passed_count} {$t('demo.pass_suffix')} / {data.validation.failed_count} {$t('demo.fail_suffix')}</p>
 				</div>
 			</div>
+			<!-- DCMA 14-Point margin-to-threshold chart (W2) -->
+			{#if marginBars.length > 0}
+				{@const maxAbs = Math.max(1, ...marginBars.map((b) => Math.abs(b.margin)))}
+				{@const scale = CHART_HALF / maxAbs}
+				{@const chartH = CHART_TOP + marginBars.length * ROW_H + 10}
+				<div class="mb-6">
+					<div class="flex items-center justify-between mb-1">
+						<h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{$t('demo.dcma_chart_title')}</h3>
+						<a href="/login" class="text-xs font-medium text-blue-600 hover:underline">{$t('demo.dcma_chart_signin')}</a>
+					</div>
+					<svg viewBox="0 0 {CHART_W} {chartH}" class="w-full" role="img" aria-label={$t('demo.dcma_chart_title')}>
+						<line x1={ZERO_X} y1={CHART_TOP - 6} x2={ZERO_X} y2={chartH - 6} stroke="#9ca3af" stroke-width="1" class="dark:stroke-gray-600" />
+						<text x={ZERO_X} y={CHART_TOP - 10} text-anchor="middle" class="text-[9px] fill-gray-400 dark:fill-gray-500">0</text>
+						{#each marginBars as b, i}
+							{@const y = CHART_TOP + i * ROW_H}
+							{@const barH = ROW_H - 9}
+							{@const len = Math.abs(b.margin) * scale}
+							{@const barLen = Math.max(2, len)}
+							{@const x = b.passed ? ZERO_X : ZERO_X - barLen}
+							{@const fill = b.passed ? '#16a34a' : '#dc2626'}
+							{@const name = b.name.length > 18 ? b.name.slice(0, 18) + '…' : b.name}
+							<text x={NAME_X} y={y + barH / 2 + 3} text-anchor="end" class="text-[10px] fill-gray-600 dark:fill-gray-300">{name}</text>
+							<rect x={x} y={y} width={barLen} height={barH} rx="2" fill={fill} opacity="0.85">
+								<title>{b.name}: {b.value}{b.unit} {thresholdComparator(b.direction)} {b.threshold}{b.unit} {'—'} {b.passed ? $t('common.pass') : $t('common.fail')}</title>
+							</rect>
+							<text x={VALUE_X} y={y + barH / 2 + 3} text-anchor="start" class="text-[10px] fill-gray-500 dark:fill-gray-400">{b.value}{b.unit} {thresholdComparator(b.direction)} {b.threshold}{b.unit}</text>
+						{/each}
+					</svg>
+					<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{$t('demo.dcma_chart_caption')}</p>
+					<div class="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+						<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-600"></span> {$t('demo.dcma_chart_pass')}</div>
+						<div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-600"></span> {$t('demo.dcma_chart_fail')}</div>
+					</div>
+				</div>
+			{:else}
+				<p class="text-sm text-gray-400 dark:text-gray-500 mb-6">{$t('demo.dcma_chart_empty')}</p>
+			{/if}
 			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 				{#each data.validation.metrics as m}
 					<div class="rounded-lg border p-3 {m.passed ? 'bg-green-50 dark:bg-green-950 border-green-200' : 'bg-red-50 dark:bg-red-950 border-red-200'}">

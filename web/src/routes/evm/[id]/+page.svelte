@@ -163,6 +163,7 @@
 				value={analysis.metrics.spi ?? 0}
 				min={0}
 				max={1.5}
+				valueFormat={(v) => v.toFixed(2)}
 				title="Schedule Performance Index (SPI)"
 				label={analysis.metrics.spi >= 1.0 ? 'On/Ahead of Schedule' : 'Behind Schedule'}
 				size={180}
@@ -176,6 +177,7 @@
 				value={analysis.metrics.cpi ?? 0}
 				min={0}
 				max={1.5}
+				valueFormat={(v) => v.toFixed(2)}
 				title="Cost Performance Index (CPI)"
 				label={analysis.metrics.cpi >= 1.0 ? 'Under Budget' : 'Over Budget'}
 				size={180}
