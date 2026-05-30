@@ -54,7 +54,15 @@
 			else if (f <= 44) buckets['21-44']++;
 			else buckets['>44']++;
 		}
-		return Object.entries(buckets).map(([label, value]) => ({ label, value }));
+		// DCMA 14-Point colour cues: the >44-working-day bucket is the High-Float
+		// population (amber) and the <0 bucket is Negative Float (red). The pass
+		// THRESHOLDS are population percentages (≤5% / 0%), not these per-activity
+		// cutoffs — see the caption below the chart.
+		return Object.entries(buckets).map(([label, value]) => ({
+			label,
+			value,
+			color: label === '>44' ? '#f59e0b' : label === 'Negative' ? '#ef4444' : undefined,
+		}));
 	})() : []);
 
 	const statusCounts = $derived(data ? {
@@ -449,6 +457,11 @@
 				<summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700">{$t('schedule.float_dist_summary')}</summary>
 				<div class="mt-2">
 					<BarChart data={floatDistribution} title={$t('schedule.float_dist_title')} height={140} />
+					<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+						<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> {$t('schedule.float_dcma_high')}</span>
+						<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-500"></span> {$t('schedule.float_dcma_neg')}</span>
+						<span>{$t('schedule.float_dcma_note')}</span>
+					</div>
 				</div>
 			</details>
 		{/if}

@@ -135,6 +135,8 @@
 						maxUnits={profile.max_units}
 						title={$t('resources.profile_chart_title')}
 						rsrcName={profile.rsrc_name || profile.rsrc_id}
+						yAxisLabel={$t('resources.axis_units')}
+						xAxisLabel={$t('resources.axis_day')}
 						height={240}
 					/>
 				</div>
