@@ -83,9 +83,9 @@
 	}));
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
-		<p class="text-sm font-medium text-gray-700 mb-3">{title}</p>
+		<p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{title}</p>
 	{/if}
 	{#if finiteData.length === 0}
 		<div class="flex items-center justify-center text-gray-400 text-sm" style="height: {height}px">
@@ -96,21 +96,21 @@
 			<g transform="translate({PADDING.left}, {PADDING.top})">
 				<!-- Grid -->
 				{#each gridLinesY as gl}
-					<line x1="0" y1={gl.y} x2={chartWidth} y2={gl.y} stroke="#f3f4f6" stroke-width="1" />
-					<text x="-6" y={gl.y} text-anchor="end" dominant-baseline="middle" font-size="9" fill="#9ca3af">
+					<line x1="0" y1={gl.y} x2={chartWidth} y2={gl.y} stroke="#f3f4f6" stroke-width="1" class="dark:stroke-gray-800" />
+					<text x="-6" y={gl.y} text-anchor="end" dominant-baseline="middle" font-size="9" fill="#9ca3af" class="dark:fill-gray-500">
 						{gl.val.toFixed(0)}
 					</text>
 				{/each}
 				{#each gridLinesX as gl}
-					<line x1={gl.x} y1="0" x2={gl.x} y2={chartHeight} stroke="#f3f4f6" stroke-width="1" />
-					<text x={gl.x} y={chartHeight + 14} text-anchor="middle" font-size="9" fill="#9ca3af">
+					<line x1={gl.x} y1="0" x2={gl.x} y2={chartHeight} stroke="#f3f4f6" stroke-width="1" class="dark:stroke-gray-800" />
+					<text x={gl.x} y={chartHeight + 14} text-anchor="middle" font-size="9" fill="#9ca3af" class="dark:fill-gray-500">
 						{gl.val.toFixed(0)}
 					</text>
 				{/each}
 
 				<!-- Axes -->
-				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" />
-				<line x1="0" y1="0" x2="0" y2={chartHeight} stroke="#d1d5db" stroke-width="1" />
+				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
+				<line x1="0" y1="0" x2="0" y2={chartHeight} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
 
 				<!-- Points (filtered to finite values to avoid SVG NaN attributes) -->
 				{#each finiteData as pt}
@@ -130,10 +130,10 @@
 
 				<!-- Axis labels -->
 				{#if xLabel}
-					<text x={chartWidth / 2} y={chartHeight + 32} text-anchor="middle" font-size="10" fill="#6b7280">{xLabel}</text>
+					<text x={chartWidth / 2} y={chartHeight + 32} text-anchor="middle" font-size="10" fill="#6b7280" class="dark:fill-gray-400">{xLabel}</text>
 				{/if}
 				{#if yLabel}
-					<text x="-36" y={chartHeight / 2} text-anchor="middle" font-size="10" fill="#6b7280"
+					<text x="-36" y={chartHeight / 2} text-anchor="middle" font-size="10" fill="#6b7280" class="dark:fill-gray-400"
 						transform="rotate(-90, -36, {chartHeight / 2})">{yLabel}</text>
 				{/if}
 			</g>

@@ -64,7 +64,7 @@
 	})());
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-medium text-gray-700 mb-3">{title}</p>
 	{/if}
@@ -76,15 +76,15 @@
 		<div class="flex items-center gap-4 flex-wrap justify-center">
 			<svg viewBox="0 0 {size} {size}" class="shrink-0" style="width: {size}px; height: {size}px" role="img" aria-label="{title}">
 				{#each arcs as arc}
-					<path d={arc.path} fill={arc.color} stroke="white" stroke-width="2">
+					<path d={arc.path} fill={arc.color} stroke="white" stroke-width="2" class="dark:stroke-gray-900">
 						<title>{arc.label}: {arc.value} ({arc.pct}%)</title>
 					</path>
 				{/each}
 				{#if donut}
-					<text x={cx} y={cy - 6} text-anchor="middle" font-size="20" font-weight="700" fill="#1f2937">
+					<text x={cx} y={cy - 6} text-anchor="middle" font-size="20" font-weight="700" fill="#1f2937" class="dark:fill-gray-200">
 						{total}
 					</text>
-					<text x={cx} y={cy + 12} text-anchor="middle" font-size="10" fill="#9ca3af">
+					<text x={cx} y={cy + 12} text-anchor="middle" font-size="10" fill="#9ca3af" class="dark:fill-gray-500">
 						total
 					</text>
 				{/if}

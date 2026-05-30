@@ -69,9 +69,9 @@
 	})());
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4 text-center">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 	{#if title}
-		<p class="text-sm font-medium text-gray-700 mb-2">{title}</p>
+		<p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</p>
 	{/if}
 	<svg viewBox="0 0 {size} {size / 2 + 30}" class="mx-auto" style="width: {size}px; height: {size / 2 + 30}px" role="img" aria-label="{title}: {value}">
 		<!-- Band arcs -->
@@ -96,13 +96,13 @@
 			{Math.round(value)}
 		</text>
 		{#if label}
-			<text x={cx} y={cy + 14} text-anchor="middle" font-size="11" fill="#9ca3af">
+			<text x={cx} y={cy + 14} text-anchor="middle" font-size="11" fill="#9ca3af" class="dark:fill-gray-500">
 				{label}
 			</text>
 		{/if}
 
 		<!-- Min/Max labels -->
-		<text x={cx - r} y={cy + 14} text-anchor="middle" font-size="9" fill="#d1d5db">{min}</text>
-		<text x={cx + r} y={cy + 14} text-anchor="middle" font-size="9" fill="#d1d5db">{max}</text>
+		<text x={cx - r} y={cy + 14} text-anchor="middle" font-size="9" fill="#d1d5db" class="dark:fill-gray-600">{min}</text>
+		<text x={cx + r} y={cy + 14} text-anchor="middle" font-size="9" fill="#d1d5db" class="dark:fill-gray-600">{max}</text>
 	</svg>
 </div>

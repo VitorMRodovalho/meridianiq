@@ -60,7 +60,7 @@
 	});
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-semibold text-gray-700 mb-2">{title}{rsrcName ? ` — ${rsrcName}` : ''}</p>
 	{/if}
@@ -68,8 +68,8 @@
 		<!-- Y axis ticks -->
 		{#each yTicks() as tick}
 			<line x1={PAD.left} y1={yScale(tick)} x2={WIDTH - PAD.right} y2={yScale(tick)}
-				stroke="#f3f4f6" stroke-width="1" />
-			<text x={PAD.left - 5} y={yScale(tick) + 3} text-anchor="end" class="text-[9px] fill-gray-400">
+				stroke="#f3f4f6" stroke-width="1" class="dark:stroke-gray-800" />
+			<text x={PAD.left - 5} y={yScale(tick) + 3} text-anchor="end" class="text-[9px] fill-gray-400 dark:fill-gray-500">
 				{tick}
 			</text>
 		{/each}
@@ -102,14 +102,14 @@
 
 		<!-- X axis labels -->
 		{#each xLabels() as label}
-			<text x={label.x} y={height - 8} text-anchor="middle" class="text-[9px] fill-gray-400">
+			<text x={label.x} y={height - 8} text-anchor="middle" class="text-[9px] fill-gray-400 dark:fill-gray-500">
 				{label.text}
 			</text>
 		{/each}
 
 		<!-- Axes -->
-		<line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
-		<line x1={PAD.left} y1={PAD.top + chartH} x2={WIDTH - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" />
+		<line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
+		<line x1={PAD.left} y1={PAD.top + chartH} x2={WIDTH - PAD.right} y2={PAD.top + chartH} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
 	</svg>
 
 	<!-- Legend -->
