@@ -22,17 +22,78 @@ export function formatDateFull(iso: string): string {
 	return iso?.slice(0, 10) || '';
 }
 
-/** Generate tick marks for the time axis with dynamic density. */
+export interface TimeTick {
+	date: string;
+	label: string;
+	x: number; // fraction 0..1 of the chart width
+}
+
+export interface MajorTick {
+	label: string;
+	x: number; // fraction 0..1 — left edge of the band
+	xEnd: number; // fraction 0..1 — right edge of the band
+}
+
+export interface TimeAxis {
+	minor: TimeTick[];
+	major: MajorTick[];
+}
+
+/** Build the coarse "major" tier: contiguous year (or month) bands for context. */
+function buildMajorTier(
+	start: Date,
+	end: Date,
+	startIso: string,
+	totalDays: number,
+	unit: 'year' | 'month',
+): MajorTick[] {
+	// Boundary dates: the chart start, then each first-of-next-unit up to end.
+	const boundaries: Date[] = [new Date(start)];
+	const cursor = new Date(start);
+	if (unit === 'year') {
+		cursor.setMonth(0, 1);
+		cursor.setFullYear(cursor.getFullYear() + 1);
+	} else {
+		cursor.setDate(1);
+		cursor.setMonth(cursor.getMonth() + 1);
+	}
+	while (cursor <= end) {
+		boundaries.push(new Date(cursor));
+		if (unit === 'year') cursor.setFullYear(cursor.getFullYear() + 1);
+		else cursor.setMonth(cursor.getMonth() + 1);
+	}
+
+	const major: MajorTick[] = [];
+	for (let i = 0; i < boundaries.length; i++) {
+		const b = boundaries[i];
+		// First band starts at the chart's left edge regardless of where the
+		// start date falls within its unit.
+		const x = i === 0 ? 0 : daysBetween(startIso, b.toISOString().slice(0, 10)) / totalDays;
+		const next = boundaries[i + 1];
+		const xEnd = next ? daysBetween(startIso, next.toISOString().slice(0, 10)) / totalDays : 1;
+		const label =
+			unit === 'year'
+				? String(b.getFullYear())
+				: b.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+		major.push({ label, x, xEnd });
+	}
+	return major;
+}
+
+/** Generate a TWO-TIER time axis: a coarse `major` tier (year over month, or
+ *  month over week/day) for context, plus a fine `minor` tier with adaptive
+ *  density. A single flat tier is the most-cited reason a Gantt "looks off".
+ */
 export function generateTimeTicks(
 	startDate: string,
 	endDate: string,
 	zoomLevel: 'day' | 'week' | 'month',
 	svgWidth: number = 1200,
-): { date: string; label: string; x: number }[] {
+): TimeAxis {
 	const start = parseDate(startDate);
 	const end = parseDate(endDate);
 	const totalDays = Math.max(1, daysBetween(startDate, endDate));
-	const ticks: { date: string; label: string; x: number }[] = [];
+	const minor: TimeTick[] = [];
 
 	// Minimum pixel distance between labels (prevents overlap)
 	const MIN_PX = 48;
@@ -48,28 +109,27 @@ export function generateTimeTicks(
 	}
 
 	const current = new Date(start);
-
 	while (current <= end) {
 		const iso = current.toISOString().slice(0, 10);
-		const dayOffset = daysBetween(startDate, iso);
-		const x = dayOffset / totalDays;
+		const x = daysBetween(startDate, iso) / totalDays;
 
+		// The year/long context now lives in the major tier, so the minor label
+		// stays compact (month name, or month+day at finer zooms).
 		let label: string;
-		if (stepDays >= 90) {
-			label = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-		} else if (stepDays >= 28 || zoomLevel === 'month') {
-			label = current.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+		if (stepDays >= 28 || zoomLevel === 'month') {
+			label = current.toLocaleDateString('en-US', { month: 'short' });
 		} else if (stepDays >= 5) {
 			label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 		} else {
 			label = current.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
 		}
 
-		ticks.push({ date: iso, label, x });
+		minor.push({ date: iso, label, x });
 		current.setDate(current.getDate() + stepDays);
 	}
 
-	return ticks;
+	const majorUnit: 'year' | 'month' = zoomLevel === 'month' ? 'year' : 'month';
+	return { minor, major: buildMajorTier(start, end, startDate, totalDays, majorUnit) };
 }
 
 /** Format date as compact column label (e.g. "15-Jan-26"). */
