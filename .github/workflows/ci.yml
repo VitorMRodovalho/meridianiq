@@ -53,6 +53,12 @@ jobs:
       - name: Type check
         run: npm run check
 
+      # Runs the Vitest suite (incl. the i18n key-parity guard in
+      # src/lib/i18n/parity.test.ts). Previously these unit tests ran only
+      # locally and did not gate CI; the parity guard requires them to run here.
+      - name: Unit tests
+        run: npm run test
+
       - name: Build
         run: npm run build
 

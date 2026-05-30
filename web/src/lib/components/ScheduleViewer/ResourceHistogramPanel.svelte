@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResourceChart from '$lib/components/charts/ResourceChart.svelte';
 	import { supabase } from '$lib/supabase';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		projectId: string;
@@ -48,7 +49,7 @@
 			totalDays = payload.total_days || 0;
 			loaded = true;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load resources';
+			error = e instanceof Error ? e.message : $t('schedule.viewer.resource_load_failed');
 		} finally {
 			loading = false;
 		}
@@ -78,16 +79,16 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 			</svg>
 			<span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-				Resource Histograms
+				{$t('schedule.viewer.resource_histograms')}
 			</span>
 			{#if loaded}
 				<span class="text-xs text-gray-500 dark:text-gray-400">
-					({resources.length} resource{resources.length === 1 ? '' : 's'}, {totalDays} days)
+					({resources.length} {resources.length === 1 ? $t('schedule.viewer.resource_one') : $t('schedule.viewer.resource_many')}, {totalDays} {$t('schedule.viewer.days')})
 				</span>
 			{/if}
 		</div>
 		<span class="text-xs text-gray-500 dark:text-gray-400">
-			{expanded ? 'Hide' : 'Show'}
+			{expanded ? $t('schedule.viewer.hide') : $t('schedule.viewer.show')}
 		</span>
 	</button>
 
@@ -95,7 +96,7 @@
 		<div class="border-t border-gray-200 dark:border-gray-700 p-4">
 			{#if loading}
 				<div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-					Loading resource demand…
+					{$t('schedule.viewer.loading_resources')}
 				</div>
 			{:else if error}
 				<div class="py-4 text-sm text-red-600 dark:text-red-400">
@@ -103,12 +104,11 @@
 				</div>
 			{:else if !hasResources}
 				<div class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-					No resource assignments found in this schedule.
+					{$t('schedule.viewer.no_resources')}
 				</div>
 			{:else}
 				<p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-					As-scheduled demand curves (no leveling applied). Units distributed
-					uniformly across each activity's duration from CPM early dates.
+					{$t('schedule.viewer.resource_description')}
 				</p>
 				<div class="space-y-4">
 					{#each resources as profile}
@@ -123,7 +123,7 @@
 									</p>
 								</div>
 								<div class="text-right">
-									<p class="text-[10px] text-gray-500 dark:text-gray-400">Peak demand</p>
+									<p class="text-[10px] text-gray-500 dark:text-gray-400">{$t('schedule.viewer.peak_demand')}</p>
 									<p class="text-xs font-semibold text-gray-900 dark:text-gray-100">
 										{profile.peak_demand.toFixed(1)}
 									</p>
@@ -133,8 +133,8 @@
 								demandByDay={profile.demand_by_day}
 								maxUnits={profile.peak_demand}
 								rsrcName={profile.rsrc_name}
-								yAxisLabel="units"
-								xAxisLabel="Day"
+								yAxisLabel={$t('resources.axis_units')}
+								xAxisLabel={$t('resources.axis_day')}
 								title=""
 								height={180}
 							/>
