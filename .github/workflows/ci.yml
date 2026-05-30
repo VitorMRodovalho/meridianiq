@@ -60,6 +60,14 @@ jobs:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Run inside the official Playwright image so the browser binaries are
+    # PRE-INSTALLED — this removes the `playwright install` download that
+    # depends on the Playwright CDN (a sustained CDN/apt outage hung that step
+    # across 6 CI runs, on a step that normally takes ~24s). The tag MUST match
+    # the pinned @playwright/test version (web/package.json) so browser
+    # revisions align.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
     defaults:
       run:
         working-directory: web
@@ -75,29 +83,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Cache the downloaded browser binaries so a flaky Playwright CDN can't
-      # stall CI: on a cache hit `playwright install` skips the binary download
-      # and only runs the apt system-deps step. Key busts when web deps change.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
-
-      # Retry so a transient CDN/apt hiccup self-heals instead of hanging the
-      # job indefinitely (combined with the job-level timeout-minutes guard).
-      - name: Install Playwright
-        run: |
-          for attempt in 1 2 3; do
-            if npx playwright install --with-deps chromium; then
-              exit 0
-            fi
-            echo "::warning::playwright install attempt ${attempt} failed; retrying in 15s"
-            sleep 15
-          done
-          echo "::error::playwright install failed after 3 attempts"
-          exit 1
-
+      # No `playwright install` step — the browsers ship pre-installed in the
+      # container image above, so there is no CDN download that can stall CI.
       - name: Run E2E tests
         run: npx playwright test
 
