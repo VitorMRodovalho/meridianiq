@@ -267,7 +267,11 @@ def build_schedule_view(
         group_by: How to group activities in the WBS tree. One of
             ``GROUP_BY_OPTIONS`` (``wbs`` is the default and preserves the
             project's real WBS hierarchy). Non-``wbs`` modes flatten activities
-            into one synthetic root per group label (no nesting).
+            into one synthetic root per group label (no nesting). Retained for
+            direct API / MCP consumers; the web viewer now regroups client-side
+            (it always requests ``wbs`` and applies the transform in the browser),
+            so this server path has no web caller — see ``ScheduleViewer`` /
+            ``applyClientGrouping``.
 
     Returns:
         ScheduleViewResult with WBS tree, flattened activities, and relationships.
