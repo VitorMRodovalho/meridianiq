@@ -8,6 +8,17 @@ export interface WBSNode {
 	children: WBSNode[];
 }
 
+/** How the viewer groups activities into the left-panel tree. `wbs` keeps the real
+ *  project hierarchy; every other value flattens activities into synthetic single-level
+ *  groups, computed client-side (W3 — no server round-trip). */
+export type GroupDimension =
+	| 'wbs'
+	| 'status'
+	| 'critical'
+	| 'task_type'
+	| 'calendar'
+	| 'float_bucket';
+
 export interface ActivityView {
 	task_id: string;
 	task_code: string;

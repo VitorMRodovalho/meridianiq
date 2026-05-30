@@ -362,7 +362,9 @@ def get_schedule_view(
         group_by: Tree grouping mode. ``wbs`` (default) preserves the project's
             real WBS hierarchy. Other accepted values: ``status``, ``critical``,
             ``task_type``, ``calendar``, ``float_bucket``. Unknown values fall
-            back to ``wbs``.
+            back to ``wbs``. API-only surface — the web viewer regroups
+            client-side (always requests ``wbs``); this param is retained for
+            direct API / MCP consumers.
 
     Returns:
         ScheduleViewResult with WBS tree, activities, relationships, summary.

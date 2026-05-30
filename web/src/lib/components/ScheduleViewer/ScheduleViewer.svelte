@@ -1,10 +1,11 @@
 <script lang="ts">
-	import type { ScheduleViewData } from './types';
+	import type { ScheduleViewData, GroupDimension, WBSNode } from './types';
 	import WBSTree from './WBSTree.svelte';
 	import GanttCanvas from './GanttCanvas.svelte';
 	import ActivityTooltip from './ActivityTooltip.svelte';
-	import { onMount } from 'svelte';
-	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, getWbsIdsBeyondDepth, collectActivitiesByWbs } from './utils';
+	import { onMount, untrack } from 'svelte';
+	import { t } from '$lib/i18n';
+	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, collectActivitiesByWbs, applyClientGrouping, presetCollapse, defaultGroupLabel } from './utils';
 
 	interface Props {
 		data: ScheduleViewData;
@@ -40,34 +41,36 @@
 	const ROW_HEIGHT = 24;
 	let viewerHeight = $state(500);
 
-	// Smart defaults based on data
+	// One-shot smart defaults — keyed on a STABLE DATA TOKEN (project identity + size), NOT object
+	// identity. The page hands us a freshly-spread `data` object on every status-filter change; keying
+	// on identity would re-fire init and stomp the user's manual collapse + zoom. The token is stable
+	// across those filtered re-derivations (same project / dates / total), so defaults run exactly once
+	// per real project load.
+	let initedToken = $state('');
+	function dataToken(d: ScheduleViewData): string {
+		return `${d.project_name}|${d.data_date}|${d.project_start}|${d.project_finish}|${d.summary.total_activities}`;
+	}
 	function initDefaults() {
-		// Auto-collapse if >100 activities
-		if (data.summary.total_activities > 100) {
-			const all = new Set<string>();
-			function collectWbs(nodes: typeof data.wbs_tree) {
-				for (const n of nodes) {
-					if (n.children.length > 0) all.add(n.wbs_id);
-					collectWbs(n.children);
-				}
-			}
-			collectWbs(data.wbs_tree);
-			collapsedWbs = all;
-		}
+		collapsedWbs = presetCollapse(groupBy, wbsDepthFilter, data.wbs_tree, data.summary.total_activities);
 		// Auto-zoom based on project duration
 		if (data.project_start && data.project_finish) {
 			const days = daysBetween(data.project_start, data.project_finish);
-			if (days > 365) zoomLevel = 'month';
-			else if (days > 60) zoomLevel = 'week';
-			else zoomLevel = 'day';
+			zoomLevel = days > 365 ? 'month' : days > 60 ? 'week' : 'day';
 		}
 	}
 
-	$effect(() => { initDefaults(); });
+	$effect(() => {
+		const token = dataToken(data);
+		if (token !== initedToken) {
+			initedToken = token;
+			untrack(() => initDefaults());
+		}
+	});
 
 	// State
 	let collapsedWbs = $state<Set<string>>(new Set());
 	let zoomLevel = $state<'day' | 'week' | 'month'>('week');
+	let groupBy = $state<GroupDimension>('wbs');
 	let scrollTop = $state(0);
 	let hoveredId = $state('');
 	let searchQuery = $state('');
@@ -88,31 +91,74 @@
 		return { ...base, activities: matchedActivities };
 	});
 
-	// WBS aggregates (computed once, shared by WBSTree and GanttCanvas)
-	const wbsAggregates = $derived(computeWBSAggregates(searchFilteredData.activities, searchFilteredData.wbs_tree));
+	// Translated label for a synthetic group node (falls back to the built-in English label).
+	function bucketLabel(dim: GroupDimension, key: string): string {
+		if (dim === 'calendar') {
+			return key === 'default' ? $t('schedule.bucket.calendar_default', 'Default') : key;
+		}
+		return $t(`schedule.bucket.${dim}.${key}`, defaultGroupLabel(dim, key));
+	}
 
-	// WBS depth filter (0 = all levels) — sets collapsedWbs directly as a preset
+	// W3: instant client-side regroup. group_by=wbs is identity (the real hierarchy); any other
+	// dimension is a pure $derived transform — zero refetch. Reading $t inside keeps the synthetic
+	// node labels reactive to locale changes.
+	const viewData = $derived(
+		groupBy === 'wbs'
+			? searchFilteredData
+			: applyClientGrouping(searchFilteredData, groupBy, bucketLabel)
+	);
+
+	// WBS aggregates (computed once, shared by WBSTree and GanttCanvas)
+	const wbsAggregates = $derived(computeWBSAggregates(viewData.activities, viewData.wbs_tree));
+
+	// WBS roll-up-to-level filter (0 = all levels) — only meaningful under the wbs dimension.
 	let wbsDepthFilter = $state(0);
 	const maxWbsDepth = $derived(getMaxWBSDepth(data.wbs_tree));
 
-	// When depth filter changes, SET collapsedWbs directly. User can then manually toggle on top.
+	// Dimension display label for the "grouped by …" indicator.
+	const GROUP_LABEL_KEY: Record<GroupDimension, string> = {
+		wbs: 'schedule.group_wbs',
+		status: 'schedule.group_status',
+		critical: 'schedule.group_critical',
+		task_type: 'schedule.group_task_type',
+		calendar: 'schedule.group_calendar',
+		float_bucket: 'schedule.group_float_bucket',
+	};
+
+	// Reset collapse + transient view state on a dimension switch OR a roll-up-level change. Both are
+	// presets the user can then toggle on top of. collapsedWbs is keyed by real wbs_id, so it MUST NOT
+	// carry across a switch to a synthetic '_grp_*' tree. Only groupBy + wbsDepthFilter are tracked
+	// (read outside untrack); every state write and the prev/data reads are untracked, so the effect is
+	// data-change-independent and settles deterministically — it re-runs ONLY on a genuine input change.
+	let prevGroupBy = $state<GroupDimension>('wbs');
 	let prevDepthFilter = $state(0);
 	$effect(() => {
-		if (wbsDepthFilter !== prevDepthFilter) {
-			prevDepthFilter = wbsDepthFilter;
-			if (wbsDepthFilter === 0) {
-				collapsedWbs = new Set();
-			} else {
-				collapsedWbs = getWbsIdsBeyondDepth(data.wbs_tree, wbsDepthFilter);
+		const dim = groupBy;
+		const depth = wbsDepthFilter;
+		untrack(() => {
+			const dimChanged = dim !== prevGroupBy;
+			const depthChanged = depth !== prevDepthFilter;
+			if (!dimChanged && !depthChanged) return;
+			if (dimChanged) {
+				prevGroupBy = dim;
+				// flatRows becomes a different array — reset scroll + hover so the viewport and
+				// highlight don't point at unrelated rows. zoom/height are dimension-independent.
+				if (scrollContainer) scrollContainer.scrollTop = 0;
+				scrollTop = 0;
+				hoveredId = '';
+				// roll-up depth only applies under wbs; snap it back so the select matches the reset view
+				wbsDepthFilter = 0;
 			}
-		}
+			prevDepthFilter = wbsDepthFilter;
+			collapsedWbs = presetCollapse(dim, wbsDepthFilter, data.wbs_tree, data.summary.total_activities);
+		});
 	});
 
 	// Single source of truth: flat row list shared by WBSTree and GanttCanvas
-	const isFiltered = $derived(criticalOnly || searchQuery.trim() !== '');
+	const isFiltered = $derived(criticalOnly || searchQuery.trim() !== '' || groupBy !== 'wbs');
 	const flatRows = $derived(buildFlatRows(
-		searchFilteredData.wbs_tree,
-		searchFilteredData.activities,
+		viewData.wbs_tree,
+		viewData.activities,
 		collapsedWbs,
 		isFiltered,
 	));
@@ -132,14 +178,16 @@
 	}
 
 	function collapseAll() {
+		// Operate on the CURRENT view tree (real WBS or a synthetic grouped tree), not the
+		// raw server payload — otherwise collapse-all does nothing under a non-WBS grouping.
 		const all = new Set<string>();
-		function collect(nodes: typeof data.wbs_tree) {
+		function collect(nodes: WBSNode[]) {
 			for (const n of nodes) {
 				all.add(n.wbs_id);
 				collect(n.children);
 			}
 		}
-		collect(data.wbs_tree);
+		collect(viewData.wbs_tree);
 		collapsedWbs = all;
 	}
 
@@ -189,6 +237,10 @@
 	// Keyboard shortcuts
 	onMount(() => {
 		function handleKey(e: KeyboardEvent) {
+			// Don't hijack keystrokes while a form control is focused (search box, the new
+			// group-by / roll-up selects) — typing 'e'/'c'/'+'/'-' there must not fire viewer actions.
+			const tgt = e.target;
+			if (tgt instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(tgt.tagName)) return;
 			if (e.key === '+' || e.key === '=') {
 				if (zoomLevel === 'month') zoomLevel = 'week';
 				else if (zoomLevel === 'week') zoomLevel = 'day';
@@ -441,7 +493,7 @@ ${sections.join('\n')}
 
 	// Tooltip data
 	const hoveredActivity = $derived(
-		hoveredId ? searchFilteredData.activities.find(a => a.task_id === hoveredId) : null
+		hoveredId ? viewData.activities.find(a => a.task_id === hoveredId) : null
 	);
 </script>
 
@@ -463,6 +515,14 @@ ${sections.join('\n')}
 					<span>{daysBetween(data.project_start, data.project_finish)}d</span>
 				{/if}
 			</span>
+			{#if groupBy !== 'wbs'}
+				<span
+					class="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 whitespace-nowrap"
+					title={$t('schedule.flattened_hint')}
+				>
+					{$t('schedule.grouped_by')}: {$t(GROUP_LABEL_KEY[groupBy])}
+				</span>
+			{/if}
 		</div>
 		<div class="flex items-center gap-2">
 			<!-- Search -->
@@ -509,16 +569,31 @@ ${sections.join('\n')}
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M15 15h4.5M15 15v4.5m0-4.5l5.5 5.5" />
 				</svg>
 			</button>
-			<!-- WBS Depth filter -->
-			{#if maxWbsDepth > 1}
+			<!-- Group-by dimension (instant, client-side regroup — no server round-trip) -->
+			<select
+				bind:value={groupBy}
+				aria-label={$t('schedule.group_by_label')}
+				title={$t('schedule.group_by_label')}
+				class="text-[10px] rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-1 py-0.5"
+			>
+				<option value="wbs">{$t('schedule.group_wbs')}</option>
+				<option value="status">{$t('schedule.group_status')}</option>
+				<option value="critical">{$t('schedule.group_critical')}</option>
+				<option value="task_type">{$t('schedule.group_task_type')}</option>
+				<option value="calendar">{$t('schedule.group_calendar')}</option>
+				<option value="float_bucket">{$t('schedule.group_float_bucket')}</option>
+			</select>
+			<!-- WBS roll-up to level (only meaningful under the WBS dimension) -->
+			{#if groupBy === 'wbs' && maxWbsDepth > 1}
 				<select
 					bind:value={wbsDepthFilter}
+					aria-label={$t('schedule.roll_up_level')}
+					title={$t('schedule.roll_up_level')}
 					class="text-[10px] rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-1 py-0.5"
-					title="WBS depth filter"
 				>
-					<option value={0}>All Levels</option>
+					<option value={0}>{$t('schedule.all_levels')}</option>
 					{#each Array(maxWbsDepth) as _, i}
-						<option value={i + 1}>Level {i + 1}</option>
+						<option value={i + 1}>{$t('schedule.level')} {i + 1}</option>
 					{/each}
 				</select>
 			{/if}
@@ -586,11 +661,11 @@ ${sections.join('\n')}
 		>
 			<GanttCanvas
 				{flatRows}
-				activities={searchFilteredData.activities}
-				relationships={showDependencies ? searchFilteredData.relationships : []}
-				startDate={searchFilteredData.project_start}
-				endDate={searchFilteredData.project_finish}
-				dataDate={searchFilteredData.data_date}
+				activities={viewData.activities}
+				relationships={showDependencies && groupBy === 'wbs' ? viewData.relationships : []}
+				startDate={viewData.project_start}
+				endDate={viewData.project_finish}
+				dataDate={viewData.data_date}
 				holidays={data.holidays || []}
 				{wbsAggregates}
 				{zoomLevel}

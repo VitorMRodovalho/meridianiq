@@ -13,7 +13,6 @@
 	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
 	let selectedProject: string = $state('');
 	let baselineProject: string = $state('');
-	let groupBy: string = $state('wbs');
 	let data = $state<ScheduleViewData | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
@@ -91,7 +90,8 @@
 				: {};
 			const queryParts: string[] = [];
 			if (baselineProject) queryParts.push(`baseline_id=${baselineProject}`);
-			if (groupBy && groupBy !== 'wbs') queryParts.push(`group_by=${groupBy}`);
+			// Grouping is now an instant client-side transform inside ScheduleViewer (W3) —
+			// the page always fetches the real WBS hierarchy (group_by=wbs, the API default).
 			const params = queryParts.length ? `?${queryParts.join('&')}` : '';
 			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/schedule-view${params}`, { headers });
 			if (!res.ok) throw new Error(await res.text());
@@ -311,17 +311,6 @@
 					{#each projects as p}
 						<option value={p.project_id}>{p.name || p.project_id}{p.tags?.length ? ` [${p.tags.slice(0, 3).join(', ')}]` : ''}</option>
 					{/each}
-				</select>
-			</div>
-			<div class="min-w-44">
-				<label for="groupBy" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('schedule.group_by_label')}</label>
-				<select id="groupBy" bind:value={groupBy} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
-					<option value="wbs">{$t('schedule.group_wbs')}</option>
-					<option value="status">{$t('schedule.group_status')}</option>
-					<option value="critical">{$t('schedule.group_critical')}</option>
-					<option value="task_type">{$t('schedule.group_task_type')}</option>
-					<option value="calendar">{$t('schedule.group_calendar')}</option>
-					<option value="float_bucket">{$t('schedule.group_float_bucket')}</option>
 				</select>
 			</div>
 			<button onclick={loadSchedule} disabled={!selectedProject || loading}
