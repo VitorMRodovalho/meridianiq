@@ -155,6 +155,40 @@ describe('MultiRevisionSCurveChart change-point direction encoding (issue #105)'
 		// renders BEFORE the marker, so the marker paints on top.
 		expect(cmp & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
 	});
+
+	it('omits any opacity attribute on change-point markers (WCAG 1.4.11 dual-bg 3:1 — issue #155)', () => {
+		// Pre-#155 the marker `<line>` carried opacity="0.55" for visual
+		// subordination. Under sRGB alpha compositing that drops the
+		// rendered contrast for any color in the Y∈[0.128, 0.300] band to
+		// ~1.5–2.5:1 against bg-white — failing WCAG 1.4.11 Non-text
+		// Contrast (3:1 AA). All three direction colors (amber-700,
+		// emerald-700, gray-600) live in that band, so check every
+		// direction here. Subordination is now structural (stroke-width +
+		// dasharray) — a silent reintroduction of opacity-as-emphasis must
+		// trip this test.
+		const directions: Array<'slip' | 'improvement' | 'flat'> = [
+			'slip',
+			'improvement',
+			'flat',
+		];
+		for (const dir of directions) {
+			const { container } = render(MultiRevisionSCurveChart, {
+				props: {
+					curves: [curve(1, '2026-01-01'), curve(2, '2026-02-01')],
+					changePoints: [changePoint(1, dir, dir === 'flat' ? 0 : 40)],
+					directionLabels: {
+						slip: 'Slip',
+						improvement: 'Improvement',
+						flat: 'Flat',
+					},
+				},
+			});
+			const lines = markerLines(container);
+			expect(lines.length).toBe(1);
+			expect(lines[0].hasAttribute('opacity')).toBe(false);
+			cleanup();
+		}
+	});
 });
 
 // WCAG palette + stroke-width-as-age + decoupled endpoint-text-fill
