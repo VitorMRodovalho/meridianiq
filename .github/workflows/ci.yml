@@ -144,7 +144,7 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         env:
           # Stopgap: cloudflare/wrangler-action@v3.15.0 still uses
           # `using: node20` (verified 2026-05-09). GitHub deprecates Node 20
