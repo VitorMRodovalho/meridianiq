@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { generateTimeTicks } from './utils';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		startDate: string;
@@ -20,7 +21,7 @@
 	}: Props = $props();
 
 	const chartWidth = $derived(width - padLeft);
-	const ticks = $derived(generateTimeTicks(startDate, endDate, zoomLevel));
+	const axis = $derived(generateTimeTicks(startDate, endDate, zoomLevel));
 
 	const todayX = $derived(() => {
 		if (!startDate || !endDate) return -1;
@@ -42,14 +43,27 @@
 </script>
 
 <g class="time-scale">
-	<!-- Background -->
-	<rect x={padLeft} y="0" width={chartWidth} height="28" fill="#f8fafc" class="dark:fill-gray-800" />
+	<!-- Background (two-tier header: coarse band over fine band) -->
+	<rect x={padLeft} y="0" width={chartWidth} height="40" fill="#f8fafc" class="dark:fill-gray-800" />
 
-	<!-- Tick lines and labels -->
-	{#each ticks as tick}
+	<!-- Major tier: coarse context bands (year over month, or month over week/day) -->
+	{#each axis.major as m}
+		{@const mx = padLeft + m.x * chartWidth}
+		{@const mxEnd = padLeft + m.xEnd * chartWidth}
+		<line x1={mx} y1="0" x2={mx} y2="40" stroke="#e5e7eb" stroke-width="1" class="dark:stroke-gray-700" />
+		<text x={(mx + mxEnd) / 2} y="13" text-anchor="middle" class="text-[9px] font-semibold fill-gray-600 dark:fill-gray-300 select-none">
+			{m.label}
+		</text>
+	{/each}
+
+	<!-- Divider between the two tiers -->
+	<line x1={padLeft} y1="20" x2={width} y2="20" stroke="#e5e7eb" stroke-width="1" class="dark:stroke-gray-700" />
+
+	<!-- Minor tier: fine ticks + labels -->
+	{#each axis.minor as tick}
 		{@const x = padLeft + tick.x * chartWidth}
-		<line x1={x} y1="28" x2={x} y2="32" stroke="#d1d5db" stroke-width="1" />
-		<text {x} y="18" text-anchor="middle" class="text-[8px] fill-gray-500 dark:fill-gray-400 select-none">
+		<line x1={x} y1="34" x2={x} y2="40" stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
+		<text {x} y="31" text-anchor="middle" class="text-[8px] fill-gray-500 dark:fill-gray-400 select-none">
 			{tick.label}
 		</text>
 	{/each}
@@ -63,9 +77,9 @@
 	<!-- Today line -->
 	{#if todayX() >= 0}
 		<line x1={todayX()} y1="0" x2={todayX()} y2="9999" stroke="#10b981" stroke-width="1.5" opacity="0.6" />
-		<text x={todayX()} y="10" text-anchor="middle" class="text-[7px] fill-green-600 font-bold select-none">Today</text>
+		<text x={todayX()} y="10" text-anchor="middle" class="text-[7px] fill-green-600 font-bold select-none">{$t('schedule.viewer.today')}</text>
 	{/if}
 
 	<!-- Bottom border -->
-	<line x1={padLeft} y1="28" x2={width} y2="28" stroke="#e5e7eb" stroke-width="1" />
+	<line x1={padLeft} y1="40" x2={width} y2="40" stroke="#e5e7eb" stroke-width="1" class="dark:stroke-gray-700" />
 </g>

@@ -6,7 +6,7 @@ release-by-release detail lives in [`CHANGELOG.md`](../CHANGELOG.md);
 architectural decisions in [`docs/adr/`](adr/); structural audits in
 [`docs/audit/`](audit/).
 
-> Last refreshed: **2026-05-17 evening (Cycle 6 entry — H-shape: forced hygiene + hard W2 gate per [ADR-0025](adr/0025-cycle-6-entry-h-shape.md). Off-list option chosen per Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence — both Round 2 agents refused to validate the "compounding primitives" framing as sycophancy-pattern v2; demanded non-optional demand-validation surface. H-shape ships forced Bucket B floor bumps W0-W1 (mcp<2, fastapi 0.136.1, pydantic 2.13.4, sveltekit/vite/svelte defensive), HARD GATE at W2 (5 CD conversations OR 1 persona formally retired with ADR per Pathway A/B HONEST), conditional W3-W5. 5 nominal waves; W3+ gated on W2 outcome.)**
+> Last refreshed: **2026-05-17 (Cycle 6 entry — H-shape per [ADR-0025](adr/0025-cycle-6-entry-h-shape.md): forced dependency-hygiene floor bumps W0-W1 (mcp<2, fastapi 0.136.1, pydantic 2.13.4, sveltekit/vite/svelte defensive), a demand-validation gate at W2, and conditional feature waves W3-W5; W3+ gated on the W2 outcome.)**
 
 ---
 
@@ -33,25 +33,16 @@ architectural decisions in [`docs/adr/`](adr/); structural audits in
 **Theme:** H-shape — forced hygiene + hard W2 gate ([ADR-0025](adr/0025-cycle-6-entry-h-shape.md), off-list per Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence).
 **Tag target:** `v4.4.0` (consolidation + hygiene minor IF GATE met) OR `v4.3.1` (patch class IF Cycle 6.5 pivot triggered).
 
-The 2026-05-17 evening Cycle 6 entry council ran the 4-agent protocol per cycles 2-5 cadence (PV + strategist Round 1 parallel; DA + IV Round 2 paired adversarial per [ADR-0022 NFM-9](adr/0022-cycle-4-entry-beta-honest.md)). Round 1 converged strongly on Z2-DA (second consecutive Z-shape framed as "compounding primitives"). Round 2 REFUSED to validate. Both DA and IV independently surfaced six anti-sycophancy findings:
-
-1. **Sycophancy-pattern v2 named** — "compounding primitives" labeling of FORCED hygiene = post-hoc rationalization; same calibration-theater mechanism as Cycle 5 Path C, different words.
-2. **Recursive deferral pattern** — "next cycle = inflection" appeared in cycles 3+4+5+6; structural to maintainer-as-PM loop selecting against external signals.
-3. **Complementary anti-sycophancy trap** — honest acknowledgment of constraints used as object-level validation.
-4. **Solo maintainer burnout vector recalibrated** — monotony + isolation + lack-of-feedback (Eghbal 2020), NOT scope ambition.
-5. **Base-rate prior** — solo OSS in 2nd consecutive consolidation cycle without external validation → maintenance mode 6-18 months modal outcome; MeridianIQ has all 4 empirical signature markers.
-6. **TAM/SAM/SOM honest numbers** — $40-60M / $8-15M / $0 SOM Cycle 6 base case.
-
-Chairman synthesis accepted H-shape OFF-LIST: forced hygiene W0-W1 (honestly framed, "primitive" labeling DROPPED) + HARD GATE at W2 (5 CD conversations OR 1 persona formally retired with ADR per Pathway A/B HONEST criteria pre-registered against Goodhart) + conditional W3-W5.
+The Cycle 6 entry council (4-agent protocol per the cycles 2-5 cadence) selected the **H-shape**: forced dependency-hygiene floor bumps in W0-W1, a demand-validation gate at W2 (net-new feature deeps are gated on evidence of validated user demand — 5 customer-discovery conversations logged, OR one persona formally retired with an ADR), and conditional feature waves W3-W5. (Internal council deliberation, market sizing, and operator decisions are tracked privately.)
 
 | Wave | Delivers | Status |
 |------|----------|--------|
-| W0 | This ROADMAP refresh + [ADR-0025](adr/0025-cycle-6-entry-h-shape.md) + LESSONS_LEARNED Cycle 6 entry header (6 anti-sycophancy lessons banked) + operator runbook ([cycle6.md](operator-runbooks/cycle6.md)) | IN FLIGHT — this PR |
+| W0 | This ROADMAP refresh + [ADR-0025](adr/0025-cycle-6-entry-h-shape.md) + LESSONS_LEARNED Cycle 6 entry header (6 entry lessons banked) + operator runbook ([cycle6.md](operator-runbooks/cycle6.md)) | IN FLIGHT — this PR |
 | Pre-W0 | Bucket A unconditional CVE + Claude model migration ([PR #129](https://github.com/VitorMRodovalho/meridianiq/pull/129) — already shipped 2026-05-17, deployed live) | DONE |
 | W1 | Bucket B forced floor bumps (mcp<2, fastapi 0.136.1, pydantic 2.13.4 with ADR-0014 byte-exact re-verify, sveltekit>=2.57.1, vite>=8.0.5, svelte>=5.55.7 [Dependabot XSS #133]) — single hygiene PR | NOT STARTED |
 | W2 | **HARD GATE close** — operator delivers 5 CD conversations logged OR 1 persona formally retired with ADR. Pathway A/B HONEST criteria pre-registered per [ADR-0025 §"Honest GATE vs cosmetic GATE distinction"](adr/0025-cycle-6-entry-h-shape.md). IF MET → continue W3-W5; IF NOT MET → BLOCK + amend ADR-0025 → Cycle 6.5 pivot to discovery-only | NOT STARTED — issue #134 tracks |
 | W3 (conditional) | Frontend DA cluster (#105/#106/#107/#108 + #110 + #46) — SHIP ON a11y intrinsic merit (DROPPED "WCAG-AA enterprise procurement" framing) | NOT STARTED |
-| W4 (conditional) | Backend P3 (#117 + #119 single-tenant framing + #120 BLE001) + Fly autosuspend evaluation. **Prompt caching ADR DEFERRED to Cycle 7** per operator decision 3 at ADR-0025 ratification ($0 SOM = $0 ROI; coherent with DROPPED "AI cost moat" framing). | NOT STARTED |
+| W4 (conditional) | Backend P3 (#117 + #119 single-tenant framing + #120 BLE001) + Fly autosuspend evaluation. **Prompt caching ADR DEFERRED to Cycle 7** per operator decision 3 at ADR-0025 ratification (no current ROI; coherent with the DROPPED "AI cost moat" framing). | NOT STARTED |
 | W5 (conditional) | Hygiene close (mypy slice #121 first cut; CI floor-verify step #131; release tag) | NOT STARTED |
 
 Pre-registered success criteria (≥6/9 graceful threshold; criterion #3 W2 GATE is MANDATORY): see [ADR-0025 §"Decision"](adr/0025-cycle-6-entry-h-shape.md) + [`memory/project_v40_cycle_6.md`](https://github.com) (private operator memory).
@@ -60,7 +51,7 @@ Pre-registered success criteria (≥6/9 graceful threshold; criterion #3 W2 GATE
 
 **Calibration framework status this cycle**: held without modification (3rd consecutive cycle held). ADR-0023 stays load-bearing.
 
-**4 framings DROPPED with sycophancy-recurrence trigger**: compounding primitives / multi-tenant readiness / WCAG-AA enterprise procurement / AI cost moat. Reintroduction in any W3+ PR description triggers Cycle 6.5 amendment via DA-as-second-reviewer protocol per `feedback_entry_council_discipline.md`.
+**4 framings DROPPED at Cycle 6 entry**: compounding primitives / multi-tenant readiness / WCAG-AA enterprise procurement / AI cost moat. Reintroduction in any W3+ PR description triggers a Cycle 6.5 amendment via the DA-as-second-reviewer protocol per `feedback_entry_council_discipline.md`.
 
 ---
 
@@ -76,11 +67,11 @@ Same gating language as the Cycle 6 entry council carried forward:
 - **Anthropic prompt caching ADR** — deferred Cycle 6 W4 → Cycle 7 per operator decision 3 at ADR-0025 ratification. Reactivates when (a) usage emerges OR (b) Cycle 6 W2 GATE outcome shifts priorities.
 - **Schedule Viewer Wave 7** — slot-opportunistic shallow inside any cycle.
 - **Plugin sandbox / E3 marketplace** — preconditions still unmet.
-- **Council protocol amendment** (open question banked at Cycle 6 entry per operator decision 4 caveat): "Should Round 1 agents be required to challenge the planning memo's candidate pool BEFORE proposing scope?" 3 consecutive cycles (4+5+6) have produced off-list Chairman syntheses from Round 2 paired demolition. Cycle 7 entry council should evaluate whether this pattern indicates Round 1 council protocol structurally selects for sycophancy.
+- **Council protocol amendment** (open question banked at Cycle 6 entry per operator decision 4 caveat): "Should Round 1 agents be required to challenge the planning memo's candidate pool BEFORE proposing scope?" 3 consecutive cycles (4+5+6) have produced off-list Chairman syntheses from the Round 2 paired-adversarial step. Cycle 7 entry council should evaluate whether this pattern indicates the Round 1 council protocol structurally over-validates its own planning memo.
 
 **Cycle 7 entry framing risks** carried forward:
 - Cycle 6 W2 GATE outcome determines candidate set materially. GATE met honestly → Cycle 7 inherits one validated persona path (Field/Owner/Sub viable as deep with evidence base). GATE met cosmetically → Cycle 7 inherits Cycle 6.5 obligations (discovery-only pivot delayed one cycle, not avoided).
-- If Cycle 7 becomes Cycle 6+1 also H-shape OR Z-shape, three consecutive consolidation cycles crosses base-rate stall-signature threshold per [ADR-0025 §"Decision Drivers" #6](adr/0025-cycle-6-entry-h-shape.md). Cycle 7 entry council must explicitly weigh "third consolidation cycle stale or forced" with the 4 markers as evidence.
+- If Cycle 7 is also a consolidation cycle, the entry council should explicitly weigh whether feature-validation has stalled and re-prioritize demand-validation accordingly (see [ADR-0025](adr/0025-cycle-6-entry-h-shape.md)).
 - Persona retirement ADR pathway (per ADR-0025 §"Decision" Pathway B): if Cycle 6 retires 1 persona, Cycle 7+ pool contracts irreversibly to 6 personas. Cycle 7 entry must explicitly reckon with which persona was retired and how that affects deep candidate set.
 
 ---
@@ -96,7 +87,7 @@ Cycle 3+4 operator items closed during Cycle 5 close-arc (per Cycle 5 LESSONS_LE
 | Cy6 #2 | ADR-0025 ratification + Cycle 6 ROADMAP refresh + LESSONS_LEARNED Cycle 6 entry header + Cycle 6 operator runbook | this PR + [PR #135](https://github.com/VitorMRodovalho/meridianiq/pull/135) merged | [`cycle6.md`](operator-runbooks/cycle6.md) |
 | Cy6 #3 | Cycle 6.5 amendment ADR (IF W2 GATE fails OR cosmetic-met) | ADR-0026 reserved | template in [`cycle6.md`](operator-runbooks/cycle6.md) |
 | Cy6 #4 | Cycle 7 entry council protocol amendment question (per operator decision 4 caveat) | deferred Cycle 7 W0 | n/a |
-| Cy5+ multi-cycle | Corpus assembly via Issue [#13](https://github.com/VitorMRodovalho/meridianiq/issues/13) (Cycle 1 community ask) — base rate ≈ 0% per IV pattern-match | issue #13 | [ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md) |
+| Cy5+ multi-cycle | Corpus assembly via Issue [#13](https://github.com/VitorMRodovalho/meridianiq/issues/13) (Cycle 1 community ask) | issue #13 | [ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md) |
 
 ---
 

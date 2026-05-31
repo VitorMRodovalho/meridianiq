@@ -4,46 +4,73 @@
 
 from __future__ import annotations
 
+import functools
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
+from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
 from src.parser.xer_reader import XERReader
 
 from ..auth import optional_auth
 from ..cache import invalidate_namespace
-from ..deps import RATE_LIMIT_MODERATE, _sandbox_projects, get_materializer, get_store, limiter
+from ..deps import (
+    RATE_LIMIT_MODERATE,
+    RATE_LIMIT_READ,
+    _sandbox_projects,
+    get_materializer,
+    get_store,
+    limiter,
+)
 from ..schemas import ProjectSummary, ScheduleMetadataSchema
 
 router = APIRouter()
 
 
-@router.get("/api/v1/demo/project")
-def demo_project():
-    """Return a pre-analyzed demo project from the sample XER fixture.
+def _demo_sample_path() -> Path:
+    # Ship the demo fixture INSIDE the package (src/api/demo_data/) so it is
+    # copied into the production image by the Dockerfile's `COPY src/ src/`
+    # and bundled by hatchling. The old tests/fixtures/ path 404'd in prod —
+    # `tests/` is never copied into the container.
+    return Path(__file__).resolve().parents[1] / "demo_data" / "sample.xer"
 
-    No authentication required. Used by the landing page "Try with sample data" flow.
+
+@functools.lru_cache(maxsize=1)
+def _demo_payload() -> dict[str, Any]:
+    """Parse + analyze the bundled sample XER once and memoize the result.
+
+    The sample fixture is immutable, so the parse, DCMA 14-Point assessment
+    (per DCMA EVMS guidelines) and CPM forward/backward pass are computed a
+    single time per process. Memoizing keeps this public, unauthenticated
+    endpoint cheap and removes it as an anonymous-compute abuse surface.
     """
-    sample_path = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "sample.xer"
-    if not sample_path.exists():
-        raise HTTPException(status_code=404, detail="Demo data not available")
+    schedule = XERReader(_demo_sample_path()).parse()
+    dcma = DCMA14Analyzer(schedule).analyze()
+    cpm_result = CPMCalculator(schedule).calculate()
 
-    from src.parser.xer_reader import XerReader
-    from src.analytics.cpm import CPMEngine
+    # critical_path is a list of task_id node IDs — map back to the Task rows.
+    task_map = {t.task_id: t for t in schedule.activities}
+    cp_activities: list[dict[str, Any]] = []
+    for task_id in cpm_result.critical_path[:20]:
+        task = task_map.get(task_id)
+        if task is None:
+            continue
+        cp_activities.append(
+            {
+                "task_code": task.task_code,
+                "task_name": task.task_name,
+                "total_float": round((task.total_float_hr_cnt or 0) / 8, 1),
+            }
+        )
 
-    reader = XerReader()
-    schedule = reader.parse(sample_path.read_text(encoding="utf-8"))
-    analyzer = DCMA14Analyzer(schedule)
-    dcma = analyzer.analyze()
-
-    cpm = CPMEngine(schedule)
-    cpm_result = cpm.calculate()
+    project_name = schedule.projects[0].proj_short_name if schedule.projects else "Demo Project"
 
     return {
         "project": {
-            "name": schedule.project.proj_short_name if schedule.project else "Demo Project",
+            "name": project_name,
             "activity_count": len(schedule.activities),
             "relationship_count": len(schedule.relationships),
             "calendar_count": len(schedule.calendars),
@@ -68,16 +95,24 @@ def demo_project():
         },
         "critical_path": {
             "length": len(cpm_result.critical_path),
-            "activities": [
-                {
-                    "task_code": a.task_code,
-                    "task_name": a.task_name,
-                    "total_float": round((a.total_float_hr_cnt or 0) / 8, 1),
-                }
-                for a in cpm_result.critical_path[:20]
-            ],
+            "activities": cp_activities,
         },
     }
+
+
+@router.get("/api/v1/demo/project")
+@limiter.limit(RATE_LIMIT_READ)
+def demo_project(request: Request) -> dict[str, Any]:
+    """Return a pre-analyzed demo project from the sample XER fixture.
+
+    No authentication required — powers the landing-page "Try with sample data"
+    flow so a visitor sees real DCMA 14-Point + critical-path output with zero
+    account. The parse + analysis is memoized (see ``_demo_payload``); the rate
+    limit is defence-in-depth on the one public, unauthenticated compute path.
+    """
+    if not _demo_sample_path().exists():
+        raise HTTPException(status_code=404, detail="Demo data not available")
+    return _demo_payload()
 
 
 @router.post("/api/v1/upload", response_model=ProjectSummary)

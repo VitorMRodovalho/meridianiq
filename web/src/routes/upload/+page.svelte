@@ -1,11 +1,33 @@
 <script lang="ts">
-	import { uploadXER } from '$lib/api';
+	import { onMount } from 'svelte';
+	import { uploadXER, ApiError } from '$lib/api';
+	import { supabase } from '$lib/supabase';
 	import { trackEvent } from '$lib/analytics';
 	import { success, error as toastError } from '$lib/toast';
 	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { ProjectSummary } from '$lib/types';
 	import { t } from '$lib/i18n';
+
+	// Auth gate — uploading a file requires an account in production. Resolve
+	// the session up front so a logged-out visitor sees a sign-in affordance
+	// (+ a link to the no-login demo) instead of dragging a file and hitting a
+	// raw 401 after the spinner.
+	let authChecked = $state(false);
+	let authenticated = $state(false);
+
+	onMount(async () => {
+		try {
+			const {
+				data: { session }
+			} = await supabase.auth.getSession();
+			authenticated = !!session;
+		} catch {
+			authenticated = false;
+		} finally {
+			authChecked = true;
+		}
+	});
 
 	let dragging = $state(false);
 	let loading = $state(false);
@@ -65,6 +87,13 @@
 			});
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Upload failed';
+			// A 401 means the session expired mid-page — surface the sign-in
+			// gate instead of a raw error. Branch on the typed HTTP status, not
+			// the human-readable message (which is freeform/localized).
+			if (e instanceof ApiError && e.status === 401) {
+				authenticated = false;
+				authChecked = true;
+			}
 			toastError(error);
 			trackEvent('xer_upload_error', { error });
 		} finally {
@@ -78,8 +107,37 @@
 </svelte:head>
 
 <div class="p-8 max-w-3xl mx-auto">
-	<h1 class="text-2xl font-bold text-gray-900 mb-6">{$t('upload.title')}</h1>
+	<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{$t('upload.title')}</h1>
 
+	{#if !authChecked}
+		<!-- Resolving auth — neutral state so a logged-out visitor never sees
+			 the dropzone flash before it is replaced by the sign-in gate. -->
+		<div class="flex items-center justify-center py-16 text-gray-400">
+			<svg class="animate-spin h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
+				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+			</svg>
+		</div>
+	{:else if !authenticated}
+		<!-- Sign-in gate: replaces the raw 401 dead-end with a clear path
+			 (sign in) plus the zero-friction escape hatch (the live demo). -->
+		<div class="border border-gray-200 dark:border-gray-700 rounded-lg p-10 text-center bg-white dark:bg-gray-900">
+			<svg class="mx-auto h-12 w-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+			</svg>
+			<h2 class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('upload.signin_required_title')}</h2>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">{$t('upload.signin_required_body')}</p>
+			<a
+				href="/login"
+				class="mt-6 inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+			>
+				{$t('upload.signin_cta')}
+			</a>
+			<p class="mt-4">
+				<a href="/demo" class="text-sm text-blue-600 hover:underline">{$t('upload.try_demo')}</a>
+			</p>
+		</div>
+	{:else}
 	<!-- Drop zone -->
 	<div
 		role="button"
@@ -122,6 +180,7 @@
 			<p class="text-xs text-gray-400">Hidden from other users and org views. For testing and development only.</p>
 		</div>
 	</label>
+	{/if}
 
 	<!-- Error -->
 	{#if error}

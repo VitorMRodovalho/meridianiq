@@ -47,7 +47,7 @@
 	}
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-medium text-gray-700 mb-3">{title}</p>
 	{/if}
@@ -63,7 +63,7 @@
 					{@const y = i * (hBarH + 4)}
 					{@const w = (item.value / yMax) * (chartWidth - 40)}
 					<!-- Label -->
-					<text x="-4" y={y + hBarH / 2} text-anchor="end" dominant-baseline="middle" font-size="10" fill="#6b7280">
+					<text x="-4" y={y + hBarH / 2} text-anchor="end" dominant-baseline="middle" font-size="10" fill="#6b7280" class="dark:fill-gray-400">
 						{item.label.length > 12 ? item.label.slice(0, 12) + '...' : item.label}
 					</text>
 					<!-- Bar -->
@@ -77,7 +77,7 @@
 					{/if}
 					<!-- Value label -->
 					{#if showValues}
-						<text x={Math.max(0, w) + 4} y={y + hBarH / 2} dominant-baseline="middle" font-size="10" fill="#374151">
+						<text x={Math.max(0, w) + 4} y={y + hBarH / 2} dominant-baseline="middle" font-size="10" fill="#374151" class="dark:fill-gray-300">
 							{formatValue(item.value)}
 						</text>
 					{/if}
@@ -103,18 +103,18 @@
 					{/if}
 					<!-- Value label -->
 					{#if showValues}
-						<text x={x + vBarW / 2} y={y - 4} text-anchor="middle" font-size="9" fill="#374151">
+						<text x={x + vBarW / 2} y={y - 4} text-anchor="middle" font-size="9" fill="#374151" class="dark:fill-gray-300">
 							{formatValue(item.value)}
 						</text>
 					{/if}
 					<!-- X label -->
-					<text x={x + vBarW / 2} y={chartHeight + 14} text-anchor="middle" font-size="9" fill="#6b7280"
+					<text x={x + vBarW / 2} y={chartHeight + 14} text-anchor="middle" font-size="9" fill="#6b7280" class="dark:fill-gray-400"
 						transform="rotate(-30, {x + vBarW / 2}, {chartHeight + 14})">
 						{item.label.length > 10 ? item.label.slice(0, 10) + '..' : item.label}
 					</text>
 				{/each}
 				<!-- Baseline -->
-				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" />
+				<line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
 			</g>
 		</svg>
 	{/if}

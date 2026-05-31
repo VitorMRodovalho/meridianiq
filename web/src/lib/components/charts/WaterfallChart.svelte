@@ -79,7 +79,7 @@
 	const gap = $derived((chartWidth - barW * data.length) / (data.length + 1));
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-medium text-gray-700 mb-3">{title}</p>
 	{/if}
@@ -91,7 +91,7 @@
 		<svg viewBox="0 0 {WIDTH} {height}" preserveAspectRatio="xMidYMid meet" class="w-full" style="height: {height}px" role="img" aria-label="{title}">
 			<g transform="translate({PADDING.left}, {PADDING.top})">
 				<!-- Zero line -->
-				<line x1="0" y1={py(0)} x2={chartWidth} y2={py(0)} stroke="#d1d5db" stroke-width="1" />
+				<line x1="0" y1={py(0)} x2={chartWidth} y2={py(0)} stroke="#d1d5db" stroke-width="1" class="dark:stroke-gray-600" />
 
 				{#each bars as bar, i}
 					{@const x = gap + i * (barW + gap)}
@@ -124,6 +124,7 @@
 						text-anchor="middle"
 						font-size="9"
 						fill="#374151"
+						class="dark:fill-gray-300"
 					>
 						{bar.value >= 0 ? '+' : ''}{formatValue(bar.value)}
 					</text>
@@ -135,6 +136,7 @@
 						text-anchor="middle"
 						font-size="9"
 						fill="#6b7280"
+						class="dark:fill-gray-400"
 						transform="rotate(-30, {x + barW / 2}, {chartHeight + 14})"
 					>
 						{bar.label.length > 10 ? bar.label.slice(0, 10) + '..' : bar.label}

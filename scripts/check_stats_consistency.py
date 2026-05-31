@@ -59,6 +59,9 @@ README_MD = ROOT / "README.md"
 ARCH_MD = ROOT / "docs" / "architecture.md"
 ROUTES_DIR = ROOT / "web" / "src" / "routes"
 MIGRATIONS_DIR = ROOT / "supabase" / "migrations"
+LANDING_SVELTE = ROOT / "web" / "src" / "routes" / "+page.svelte"
+CHARTS_DIR = ROOT / "web" / "src" / "lib" / "components" / "charts"
+I18N_DIR = ROOT / "web" / "src" / "lib" / "i18n"
 
 
 @dataclass
@@ -70,13 +73,14 @@ class Stats:
     mcp_tools: int
     pages: int
     migrations: int
+    charts: int
 
     def describe(self) -> str:
         return (
             f"{self.engines} engines + {self.export_modules} export module, "
             f"{self.endpoints} endpoints across {self.routers} routers, "
             f"{self.mcp_tools} MCP tools, {self.pages} pages, "
-            f"{self.migrations} migrations"
+            f"{self.migrations} migrations, {self.charts} chart components"
         )
 
 
@@ -121,6 +125,7 @@ def canonical_stats() -> Stats:
 
     pages = sum(1 for _ in ROUTES_DIR.rglob("+page.svelte"))
     migrations = sum(1 for _ in MIGRATIONS_DIR.glob("*.sql"))
+    charts = sum(1 for _ in CHARTS_DIR.glob("*.svelte"))
 
     return Stats(
         endpoints=endpoints,
@@ -130,6 +135,7 @@ def canonical_stats() -> Stats:
         mcp_tools=mcp_tools,
         pages=pages,
         migrations=migrations,
+        charts=charts,
     )
 
 
@@ -211,6 +217,8 @@ def find_readme_mismatches(stats: Stats, key_numbers_block: str) -> list[str]:
     _check(r"API\s+endpoints\s*\|\s*(\d+)\b", stats.endpoints, "endpoints")
     _check(r"across\s+(\d+)\s+routers?", stats.routers, "routers")
     _check(r"Frontend\s+pages\s*\|\s*(\d+)\b", stats.pages, "pages")
+    # | SVG chart components | 11 (incl. EVM S-Curve …) + ScheduleViewer … |
+    _check(r"SVG\s+chart\s+components\s*\|\s*(\d+)\b", stats.charts, "SVG chart components")
 
     return mismatches
 
@@ -325,6 +333,73 @@ def find_architecture_md_mismatches(stats: Stats, architecture_text: str) -> lis
     return mismatches
 
 
+def find_landing_page_mismatches(stats: Stats, landing_text: str) -> list[str]:
+    """Return mismatch messages for the marketing landing-page hero stats.
+
+    Closes the gap that let ``web/src/routes/+page.svelte`` advertise stale
+    "37 engines / 85 endpoints" while the canonical catalogs said 48 / 129 —
+    neither the §Key Numbers / mermaid / ASCII-tree scans nor
+    ``landing.spec.ts`` (which asserts the stat *labels*, not the numbers)
+    caught it. Only the engine + endpoint counts are validated here: they are
+    canonical and drift every cycle. The test-count stat is an intentional
+    "+floor" claim (kept honest by the suite itself) and is deliberately not
+    auto-validated, consistent with this script's test-count policy.
+
+    The hero numbers are anchored to their i18n label keys
+    (``landing.stats.engines`` / ``landing.stats.endpoints``) so the pattern
+    survives Tailwind class churn.
+    """
+    mismatches: list[str] = []
+
+    def _check(label_key: str, expected: int, label: str) -> None:
+        pattern = (
+            r">\s*([\d,]+)\+?\s*</p>\s*<p[^>]*>\s*\{\$t\('landing\.stats\." + label_key + r"'\)\}"
+        )
+        m = re.search(pattern, landing_text)
+        if m is None:
+            return  # claim not present — nothing to validate
+        actual = int(m.group(1).replace(",", ""))
+        if actual != expected:
+            mismatches.append(
+                f"web/src/routes/+page.svelte: landing hero {label} stat claims "
+                f"{actual}, canonical is {expected}"
+            )
+
+    _check("engines", stats.engines, "engines")
+    _check("endpoints", stats.endpoints, "endpoints")
+
+    return mismatches
+
+
+def find_i18n_landing_mismatches(stats: Stats) -> list[str]:
+    """Return mismatch messages for the engine count baked into the landing
+    ``landing.capabilities.title`` i18n string (en / pt-BR / es).
+
+    Closes the gap that let ``'landing.capabilities.title': '37 Analysis
+    Engines'`` ship while the canonical catalog said 48: that string is
+    rendered via ``$t(...)`` from the locale dicts, so it lives in
+    ``web/src/lib/i18n/*.ts`` — out of reach of both the ``+page.svelte`` hero
+    scan (which only sees ``landing.stats.*`` literals) and the parity test
+    (which compares key *sets*, never values). Validated per-locale.
+    """
+    mismatches: list[str] = []
+    pattern = re.compile(r"'landing\.capabilities\.title':\s*'(\d+)\b")
+    for name in ("en.ts", "pt-BR.ts", "es.ts"):
+        path = I18N_DIR / name
+        if not path.exists():
+            continue
+        m = pattern.search(path.read_text(encoding="utf-8"))
+        if m is None:
+            continue  # key not present / restructured — nothing to validate
+        actual = int(m.group(1))
+        if actual != stats.engines:
+            mismatches.append(
+                f"web/src/lib/i18n/{name}: landing.capabilities.title claims "
+                f"{actual} engines, canonical is {stats.engines}"
+            )
+    return mismatches
+
+
 def main() -> int:
     stats = canonical_stats()
 
@@ -344,8 +419,19 @@ def main() -> int:
         arch_text = _read(ARCH_MD)
         arch_mismatches = find_architecture_md_mismatches(stats, arch_text)
 
+    landing_mismatches: list[str] = []
+    if LANDING_SVELTE.exists():
+        landing_mismatches = find_landing_page_mismatches(stats, _read(LANDING_SVELTE))
+
+    i18n_landing_mismatches = find_i18n_landing_mismatches(stats)
+
     all_mismatches = (
-        claude_mismatches + readme_mismatches + readme_mermaid_mismatches + arch_mismatches
+        claude_mismatches
+        + readme_mismatches
+        + readme_mermaid_mismatches
+        + arch_mismatches
+        + landing_mismatches
+        + i18n_landing_mismatches
     )
     if all_mismatches:
         print("Stats drift detected:\n")
@@ -363,7 +449,8 @@ def main() -> int:
 
     print(
         "Stats consistent across CLAUDE.md, README.md (Key Numbers + mermaid + "
-        f"tree), and docs/architecture.md: {stats.describe()}"
+        "tree), docs/architecture.md, and the landing +page.svelte hero: "
+        f"{stats.describe()}"
     )
     return 0
 

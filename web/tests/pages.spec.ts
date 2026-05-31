@@ -60,10 +60,13 @@ test.describe('Login page', () => {
 });
 
 test.describe('Upload page', () => {
-  test('shows drag-and-drop zone', async ({ page }) => {
+  test('shows the sign-in gate when logged out', async ({ page }) => {
     await page.goto('/upload');
-    await expect(page.locator('main').getByText('Drag and drop')).toBeVisible();
-    await expect(page.locator('main').getByText('Browse files')).toBeVisible();
+    // A logged-out visitor gets the sign-in affordance (+ a link to the
+    // no-login demo) instead of the dropzone — which would 401 on upload.
+    // The dropzone is only shown to authenticated users. (#164 H0 auth gate.)
+    await expect(page.locator('main').getByText('Sign in to analyze your file')).toBeVisible();
+    await expect(page.locator('main').getByText('explore the live demo')).toBeVisible();
   });
 });
 
