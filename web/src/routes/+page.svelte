@@ -169,15 +169,15 @@
 			<!-- Key numbers -->
 			<div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
 				<div>
-					<p class="text-3xl font-bold text-gray-900">37</p>
+					<p class="text-3xl font-bold text-gray-900">48</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">85</p>
+					<p class="text-3xl font-bold text-gray-900">129</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">870+</p>
+					<p class="text-3xl font-bold text-gray-900">1,600+</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.tests')}</p>
 				</div>
 				<div>

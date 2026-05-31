@@ -67,7 +67,7 @@
 	});
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
 	{#if title}
 		<p class="text-sm font-semibold text-gray-700 mb-2">{title}</p>
 	{/if}
@@ -86,6 +86,7 @@
 					stroke="#e5e7eb"
 					stroke-width="0.5"
 					rx="2"
+					class="dark:stroke-gray-700"
 				>
 					<title>{probLabels[row]} / {impactLabels[col]}: {count} risks</title>
 				</rect>
@@ -94,7 +95,7 @@
 						x={x + cellW / 2}
 						y={y + cellH / 2 + 5}
 						text-anchor="middle"
-						class="text-[12px] font-bold fill-gray-700"
+						class="text-[12px] font-bold fill-gray-700 dark:fill-gray-300"
 					>{count}</text>
 				{/if}
 			{/each}
@@ -106,7 +107,7 @@
 				x={PAD.left - 5}
 				y={PAD.top + (gridSize - 1 - i) * cellH + cellH / 2 + 3}
 				text-anchor="end"
-				class="text-[8px] fill-gray-500"
+				class="text-[8px] fill-gray-500 dark:fill-gray-400"
 			>{label}</text>
 		{/each}
 
@@ -116,18 +117,18 @@
 				x={PAD.left + i * cellW + cellW / 2}
 				y={size - PAD.bottom + 15}
 				text-anchor="middle"
-				class="text-[8px] fill-gray-500"
+				class="text-[8px] fill-gray-500 dark:fill-gray-400"
 			>{label}</text>
 		{/each}
 
 		<!-- Axis titles -->
-		<text x={size / 2} y={size - 5} text-anchor="middle" class="text-[9px] fill-gray-400 font-medium">{xLabel}</text>
+		<text x={size / 2} y={size - 5} text-anchor="middle" class="text-[9px] fill-gray-400 dark:fill-gray-500 font-medium">{xLabel}</text>
 		<text
 			x="12"
 			y={size / 2}
 			text-anchor="middle"
 			transform="rotate(-90, 12, {size / 2})"
-			class="text-[9px] fill-gray-400 font-medium"
+			class="text-[9px] fill-gray-400 dark:fill-gray-500 font-medium"
 		>{yLabel}</text>
 
 		<!-- Risk dots -->

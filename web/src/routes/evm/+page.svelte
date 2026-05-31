@@ -9,7 +9,6 @@
 	import { error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import EVMSCurveChart from '$lib/components/charts/EVMSCurveChart.svelte';
 
 	let analyses: EVMAnalysisSummary[] = $state([]);

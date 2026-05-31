@@ -38,10 +38,10 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Analysis engines | 48 + 1 export module |
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
-| Tests passing | 1687 backend + 64 Vitest (composables + Svelte 5 components + direction-aware chart) + 64 Playwright E2E |
+| Tests passing | 1687 backend + 175 Vitest (composables + Svelte 5 components + i18n key-parity + charts) + 64 Playwright E2E |
 | Frontend pages | 55 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
 | API endpoints | 129 across 25 routers |
-| SVG chart components | 12 (incl. EVM S-Curve + Multi-Revision S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
+| SVG chart components | 11 (incl. EVM S-Curve + Multi-Revision S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.3.0 |
 | Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
 | Monthly infra cost | $0 (free tier) |
@@ -280,7 +280,7 @@ The platform is deployed and available at **[meridianiq.vitormr.dev](https://mer
 | **Authentication** | Supabase Auth (Google · LinkedIn · Microsoft OAuth) |
 | **Backend Hosting** | Fly.io (Docker, auto-deploy) |
 | **Frontend Hosting** | Cloudflare Pages (global edge) |
-| **Testing** | pytest (1687+ passing) · Vitest (64 — composables + Svelte 5 components + direction-aware chart) · Playwright E2E (64) |
+| **Testing** | pytest (1687+ passing) · Vitest (175 — composables + Svelte 5 components + i18n key-parity + charts) · Playwright E2E (64) |
 
 ---
 

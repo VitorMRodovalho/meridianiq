@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { ActivityView, RelationshipView, WBSAggregate, FlatRow } from './types';
-	import { daysBetween, parseDate, getBarColor, formatDateShort } from './utils';
+	import { daysBetween, parseDate, getBarColor, formatDateShort, generateTimeTicks } from './utils';
 	import TimeScale from './TimeScale.svelte';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		flatRows: FlatRow[];
@@ -47,7 +48,7 @@
 
 	const WIDTH = 1200;
 	const PAD_LEFT = 0;
-	const HEADER_H = 28;
+	const HEADER_H = 40; // two-tier time-axis header (coarse band over fine band)
 	const BAR_H = 14;
 	const BAR_PAD = $derived((rowHeight - BAR_H) / 2);
 	const BUFFER_ROWS = 20;
@@ -60,6 +61,9 @@
 	}
 
 	const totalDays = $derived(Math.max(1, daysBetween(startDate, endDate)));
+	// Same two-tier axis the header uses — drives gridlines so they align under
+	// the labels and span the whole schedule (no fixed day-count cap).
+	const axis = $derived(generateTimeTicks(startDate, endDate, zoomLevel, WIDTH));
 
 	function xPos(dateStr: string): number {
 		if (!dateStr) return 0;
@@ -131,12 +135,13 @@
 		{dataDate}
 	/>
 
-	<!-- Grid lines (every tick) -->
-	{#each Array(Math.min(totalDays + 1, 100)) as _, d}
-		{@const x = (d / totalDays) * WIDTH}
-		{#if d % (zoomLevel === 'day' ? 1 : zoomLevel === 'week' ? 7 : 30) === 0}
-			<line x1={x} y1={HEADER_H} x2={x} y2={svgHeight} stroke="#f3f4f6" stroke-width="0.5" class="dark:stroke-gray-800" />
-		{/if}
+	<!-- Grid lines: one per axis tick, spanning the FULL schedule (the old
+	     Array(min(totalDays,100)) loop left everything past day 100 ungridded). -->
+	{#each axis.minor as tick}
+		<line x1={tick.x * WIDTH} y1={HEADER_H} x2={tick.x * WIDTH} y2={svgHeight} stroke="#f3f4f6" stroke-width="0.5" class="dark:stroke-gray-800" />
+	{/each}
+	{#each axis.major as m}
+		<line x1={m.x * WIDTH} y1={HEADER_H} x2={m.x * WIDTH} y2={svgHeight} stroke="#e5e7eb" stroke-width="0.75" class="dark:stroke-gray-700" />
 	{/each}
 
 	<!-- Weekend shading -->
@@ -225,7 +230,7 @@
 				<g
 					role="button"
 					tabindex="0"
-					aria-label="{act.task_name} (milestone)"
+					aria-label="{act.task_name} ({$t('schedule.viewer.aria_milestone')})"
 					transform="translate({x}, {y + rowHeight / 2})"
 					onmouseenter={() => onHover(act.task_id)}
 					onmouseleave={() => onHover('')}

@@ -53,12 +53,27 @@ jobs:
       - name: Type check
         run: npm run check
 
+      # Runs the Vitest suite (incl. the i18n key-parity guard in
+      # src/lib/i18n/parity.test.ts). Previously these unit tests ran only
+      # locally and did not gate CI; the parity guard requires them to run here.
+      - name: Unit tests
+        run: npm run test
+
       - name: Build
         run: npm run build
 
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Run inside the official Playwright image so the browser binaries are
+    # PRE-INSTALLED — this removes the `playwright install` download that
+    # depends on the Playwright CDN (a sustained CDN/apt outage hung that step
+    # across 6 CI runs, on a step that normally takes ~24s). The tag MUST match
+    # the pinned @playwright/test version (web/package.json) so browser
+    # revisions align.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
     defaults:
       run:
         working-directory: web
@@ -74,9 +89,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
-
+      # No `playwright install` step — the browsers ship pre-installed in the
+      # container image above, so there is no CDN download that can stall CI.
       - name: Run E2E tests
         run: npx playwright test
 

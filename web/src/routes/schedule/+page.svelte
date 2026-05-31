@@ -13,7 +13,6 @@
 	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
 	let selectedProject: string = $state('');
 	let baselineProject: string = $state('');
-	let groupBy: string = $state('wbs');
 	let data = $state<ScheduleViewData | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
@@ -55,7 +54,15 @@
 			else if (f <= 44) buckets['21-44']++;
 			else buckets['>44']++;
 		}
-		return Object.entries(buckets).map(([label, value]) => ({ label, value }));
+		// DCMA 14-Point colour cues: the >44-working-day bucket is the High-Float
+		// population (amber) and the <0 bucket is Negative Float (red). The pass
+		// THRESHOLDS are population percentages (≤5% / 0%), not these per-activity
+		// cutoffs — see the caption below the chart.
+		return Object.entries(buckets).map(([label, value]) => ({
+			label,
+			value,
+			color: label === '>44' ? '#f59e0b' : label === 'Negative' ? '#ef4444' : undefined,
+		}));
 	})() : []);
 
 	const statusCounts = $derived(data ? {
@@ -91,7 +98,8 @@
 				: {};
 			const queryParts: string[] = [];
 			if (baselineProject) queryParts.push(`baseline_id=${baselineProject}`);
-			if (groupBy && groupBy !== 'wbs') queryParts.push(`group_by=${groupBy}`);
+			// Grouping is now an instant client-side transform inside ScheduleViewer (W3) —
+			// the page always fetches the real WBS hierarchy (group_by=wbs, the API default).
 			const params = queryParts.length ? `?${queryParts.join('&')}` : '';
 			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/schedule-view${params}`, { headers });
 			if (!res.ok) throw new Error(await res.text());
@@ -313,17 +321,6 @@
 					{/each}
 				</select>
 			</div>
-			<div class="min-w-44">
-				<label for="groupBy" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{$t('schedule.group_by_label')}</label>
-				<select id="groupBy" bind:value={groupBy} class="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 px-3 py-2 text-sm">
-					<option value="wbs">{$t('schedule.group_wbs')}</option>
-					<option value="status">{$t('schedule.group_status')}</option>
-					<option value="critical">{$t('schedule.group_critical')}</option>
-					<option value="task_type">{$t('schedule.group_task_type')}</option>
-					<option value="calendar">{$t('schedule.group_calendar')}</option>
-					<option value="float_bucket">{$t('schedule.group_float_bucket')}</option>
-				</select>
-			</div>
 			<button onclick={loadSchedule} disabled={!selectedProject || loading}
 				class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
 				{loading ? $t('schedule.loading') : $t('schedule.view_button')}
@@ -460,6 +457,11 @@
 				<summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700">{$t('schedule.float_dist_summary')}</summary>
 				<div class="mt-2">
 					<BarChart data={floatDistribution} title={$t('schedule.float_dist_title')} height={140} />
+					<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+						<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> {$t('schedule.float_dcma_high')}</span>
+						<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-500"></span> {$t('schedule.float_dcma_neg')}</span>
+						<span>{$t('schedule.float_dcma_note')}</span>
+					</div>
 				</div>
 			</details>
 		{/if}
