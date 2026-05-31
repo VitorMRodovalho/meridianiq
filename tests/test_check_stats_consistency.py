@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import sys
 from pathlib import Path
@@ -63,6 +64,7 @@ class TestFindMismatches:
             mcp_tools=22,
             pages=54,
             migrations=23,
+            charts=10,
         )
 
     def test_all_match_returns_empty(self, stats) -> None:
@@ -121,3 +123,21 @@ class TestCanonicalStatsFromRepo:
         assert stats.routers > 0
         assert stats.mcp_tools > 0
         assert stats.pages > 0
+        assert stats.charts > 0
+
+
+class TestI18nLandingMismatches:
+    """The landing engine count lives in the i18n dicts (rendered via $t),
+    out of reach of the +page.svelte hero scan and the key-set parity test."""
+
+    def test_clean_repo_is_consistent(self) -> None:
+        # On a clean repo the i18n landing.capabilities.title must match the
+        # canonical engine count across every locale.
+        assert _m.find_i18n_landing_mismatches(_m.canonical_stats()) == []
+
+    def test_drift_is_reported_per_locale(self) -> None:
+        stats = dataclasses.replace(_m.canonical_stats(), engines=9999)
+        mismatches = _m.find_i18n_landing_mismatches(stats)
+        # en + pt-BR + es each carry the count, so drift flags all three.
+        assert len(mismatches) == 3
+        assert all("9999" in m for m in mismatches)
