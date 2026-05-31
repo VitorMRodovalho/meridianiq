@@ -48,17 +48,20 @@
 </script>
 
 <div
-	class="wbs-tree overflow-hidden border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
-	style="width: 550px; min-width: 550px; height: 100%; position: relative;"
+	class="wbs-tree w-[300px] sm:w-[440px] lg:w-[550px] shrink-0 overflow-hidden border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+	style="height: 100%; position: relative;"
 >
 	<!-- Header — height matches GanttCanvas HEADER_H (40px, two-tier axis) so
 	     the left-panel rows align with the right-panel bars. -->
 	<div class="h-10 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-end pb-1 text-[9px] font-semibold text-gray-500 dark:text-gray-400 uppercase">
+		<!-- Below sm the OD/ES/EF columns are hidden (here AND in every body row, so the
+		     panes stay pixel-aligned) to keep Name legible on a narrow tree. Code/Name/TF/%
+		     stay — TF is the float column the field/claims persona scans for on mobile. -->
 		<span class="w-[72px] text-center shrink-0 px-1">{$t('schedule.col_code')}</span>
 		<span class="flex-1 min-w-0 px-1">{$t('schedule.col_name')}</span>
-		<span class="w-9 text-center shrink-0">{$t('schedule.col_od')}</span>
-		<span class="w-[62px] text-center shrink-0">{$t('schedule.col_es')}</span>
-		<span class="w-[62px] text-center shrink-0">{$t('schedule.col_ef')}</span>
+		<span class="w-9 text-center shrink-0 hidden sm:block">{$t('schedule.col_od')}</span>
+		<span class="w-[62px] text-center shrink-0 hidden sm:block">{$t('schedule.col_es')}</span>
+		<span class="w-[62px] text-center shrink-0 hidden sm:block">{$t('schedule.col_ef')}</span>
 		<span class="w-9 text-center shrink-0">{$t('schedule.col_tf')}</span>
 		<span class="w-8 text-center shrink-0 pr-1">{$t('schedule.col_pct')}</span>
 	</div>
@@ -89,15 +92,15 @@
 							<span class="text-[7px] text-gray-400 shrink-0 ml-auto">{row.wbsNode.activity_count}</span>
 						</div>
 						{#if isCollapsed && agg}
-							<span class="w-9 text-center text-[8px] font-mono text-gray-500 dark:text-gray-400 shrink-0">{Math.round(agg.total_duration)}d</span>
-							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0">{formatDateCompact(agg.start)}</span>
-							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0">{formatDateCompact(agg.finish)}</span>
+							<span class="w-9 text-center text-[8px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{Math.round(agg.total_duration)}d</span>
+							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(agg.start)}</span>
+							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(agg.finish)}</span>
 							<span class="w-9 text-center text-[8px] font-mono shrink-0 {floatColor(agg.min_float)}">{Math.round(agg.min_float)}d</span>
 							<span class="w-8 text-center text-[8px] font-mono shrink-0 pr-1 {progressColor(agg.total_weight > 0 ? agg.weighted_progress / agg.total_weight : 0)}">{agg.total_weight > 0 ? Math.round(agg.weighted_progress / agg.total_weight) : 0}</span>
 						{:else}
-							<span class="w-9 shrink-0"></span>
-							<span class="w-[62px] shrink-0"></span>
-							<span class="w-[62px] shrink-0"></span>
+							<span class="w-9 shrink-0 hidden sm:block"></span>
+							<span class="w-[62px] shrink-0 hidden sm:block"></span>
+							<span class="w-[62px] shrink-0 hidden sm:block"></span>
 							<span class="w-9 shrink-0"></span>
 							<span class="w-8 shrink-0"></span>
 						{/if}
@@ -124,9 +127,9 @@
 							{/if}
 							<span class="text-[9px] text-gray-600 dark:text-gray-400 truncate">{act.task_name || act.task_code}</span>
 						</div>
-						<span class="w-9 text-center text-[8px] font-mono text-gray-500 dark:text-gray-400 shrink-0">{act.duration_days}d</span>
-						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0">{formatDateCompact(act.early_start)}</span>
-						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0">{formatDateCompact(act.early_finish)}</span>
+						<span class="w-9 text-center text-[8px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{act.duration_days}d</span>
+						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(act.early_start)}</span>
+						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(act.early_finish)}</span>
 						<span class="w-9 text-center text-[8px] font-mono shrink-0 {floatColor(act.total_float_days)}">{act.total_float_days}d</span>
 						<span class="w-8 text-center text-[8px] font-mono shrink-0 pr-1 {progressColor(act.progress_pct)}">{act.progress_pct > 0 ? act.progress_pct : ''}</span>
 					</div>

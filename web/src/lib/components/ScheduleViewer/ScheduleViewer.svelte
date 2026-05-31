@@ -163,6 +163,15 @@
 		isFiltered,
 	));
 
+	// "No activities visible" = empty. Use viewData.activities (the post-search /
+	// critical / group activity set), NOT flatRows.length: when the PAGE's statusFilter
+	// prunes activities to [] but leaves the full WBS tree, isFiltered is false so
+	// buildFlatRows keeps every WBS row → flatRows.length>0 and the empty-state would
+	// wrongly stay hidden (a tree of childless rows over a bar-less Gantt — the most
+	// common empty path). Collapse-all does NOT false-trigger this: collapsing hides
+	// activity ROWS but keeps them in viewData.activities.
+	const isEmpty = $derived(viewData.activities.length === 0);
+
 	function toggleWbs(wbsId: string) {
 		const next = new Set(collapsedWbs);
 		if (next.has(wbsId)) {
@@ -237,10 +246,16 @@
 	// Keyboard shortcuts
 	onMount(() => {
 		function handleKey(e: KeyboardEvent) {
-			// Don't hijack keystrokes while a form control is focused (search box, the new
-			// group-by / roll-up selects) — typing 'e'/'c'/'+'/'-' there must not fire viewer actions.
+			// Don't hijack keystrokes while a form control is focused (search box, the
+			// group-by / roll-up selects) — typing 'e'/'c'/'+'/'-' there must not fire viewer
+			// actions. isContentEditable is defensive future-proofing: no contenteditable host
+			// exists in the viewer today, but it keeps the guard correct if one is ever added.
 			const tgt = e.target;
-			if (tgt instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(tgt.tagName)) return;
+			if (
+				tgt instanceof HTMLElement &&
+				(['INPUT', 'SELECT', 'TEXTAREA'].includes(tgt.tagName) || tgt.isContentEditable)
+			)
+				return;
 			if (e.key === '+' || e.key === '=') {
 				if (zoomLevel === 'month') zoomLevel = 'week';
 				else if (zoomLevel === 'week') zoomLevel = 'day';
@@ -541,7 +556,7 @@ ${sections.join('\n')}
 	onmousemove={(e) => { mouseX = e.clientX; mouseY = e.clientY; }}
 >
 	<!-- Toolbar -->
-	<div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+	<div class="flex flex-wrap items-center justify-between gap-y-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
 		<div class="flex items-center gap-3">
 			<h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{data.project_name || $t('schedule.viewer.default_project_name')}</h3>
 			<span class="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
@@ -562,7 +577,7 @@ ${sections.join('\n')}
 				</span>
 			{/if}
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2 gap-y-2">
 			<!-- Search -->
 			<div class="relative">
 				<input
@@ -639,7 +654,8 @@ ${sections.join('\n')}
 			<!-- Export SVG -->
 			<button
 				onclick={exportSvg}
-				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+				disabled={isEmpty}
+				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
 				title={$t('schedule.viewer.export_svg')}
 				aria-label={$t('schedule.viewer.export_svg')}
 			>
@@ -648,14 +664,15 @@ ${sections.join('\n')}
 			<!-- Export PNG -->
 			<button
 				onclick={exportPng}
-				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+				disabled={isEmpty}
+				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
 				title={$t('schedule.viewer.export_png')}
 				aria-label={$t('schedule.viewer.export_png')}
 			>
 				<span class="text-[10px] font-bold">PNG</span>
 			</button>
 			<!-- Export PDF (print, single-page Gantt SVG) -->
-			<button onclick={exportPdf} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" title={$t('schedule.viewer.print_gantt')} aria-label={$t('schedule.viewer.print_gantt_aria')}>
+			<button onclick={exportPdf} disabled={isEmpty} class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed" title={$t('schedule.viewer.print_gantt')} aria-label={$t('schedule.viewer.print_gantt_aria')}>
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
 				</svg>
@@ -663,7 +680,8 @@ ${sections.join('\n')}
 			<!-- Print by WBS (one page per top-level WBS) -->
 			<button
 				onclick={exportPdfByWbs}
-				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-bold"
+				disabled={isEmpty}
+				class="text-[10px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
 				title={$t('schedule.viewer.print_by_wbs')}
 				aria-label={$t('schedule.viewer.print_by_wbs_aria')}
 			>
@@ -672,7 +690,28 @@ ${sections.join('\n')}
 		</div>
 	</div>
 
-	<!-- Main content: WBS Tree (left) + Gantt (right) -->
+	<!-- Main content: WBS Tree (left) + Gantt (right), or an empty-state when a
+	     filter/grouping prunes the whole view. Dark-aware tokens mirror the chart
+	     empty-states (ResourceChart); the app.css global remap covers the rest. -->
+	{#if isEmpty}
+		<div role="status" aria-live="polite" class="flex flex-col items-center justify-center text-center gap-2 px-6" style="height: {viewerHeight}px;">
+			<p class="text-sm text-gray-400 dark:text-gray-500 max-w-xs">
+				{searchQuery.trim()
+					? $t('schedule.viewer.empty_search')
+					: criticalOnly
+						? $t('schedule.viewer.empty_critical')
+						: $t('schedule.viewer.empty_generic')}
+			</p>
+			{#if searchQuery.trim()}
+				<button
+					onclick={() => (searchQuery = '')}
+					class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+				>
+					{$t('schedule.viewer.clear_search')}
+				</button>
+			{/if}
+		</div>
+	{:else}
 	<div class="flex" style="height: {viewerHeight}px;">
 		<!-- WBS Tree -->
 		<WBSTree
@@ -694,7 +733,7 @@ ${sections.join('\n')}
 			onmousemove={handleMouseMove}
 			onmouseup={handleMouseUp}
 			onmouseleave={handleMouseUp}
-			class="flex-1 overflow-auto"
+			class="flex-1 overflow-auto min-w-0"
 			style="cursor: grab;"
 		>
 			<GanttCanvas
@@ -718,6 +757,7 @@ ${sections.join('\n')}
 			/>
 		</div>
 	</div>
+	{/if}
 
 	<!-- Status bar (compact) -->
 	{#if hoveredActivity}
