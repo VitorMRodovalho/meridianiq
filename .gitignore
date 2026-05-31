@@ -5,6 +5,12 @@
 # Data files
 *.xlsx
 *.xer
+# …except the synthetic demo fixture shipped inside the package and served by
+# the public, no-login GET /api/v1/demo/project endpoint. It MUST be tracked
+# so a clean checkout / Docker build (COPY src/ src/) includes it — otherwise
+# the demo 404s in prod. It is synthetic ("Sample Construction") and kept
+# byte-identical to the generated test fixture by a drift test.
+!src/api/demo_data/sample.xer
 
 # Sanitization scripts (contain real values)
 sanitize.sh

@@ -40,7 +40,7 @@ _File ingestion (XER, MS Project XML)_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
-| `GET` | `/api/v1/demo/project` | Return a pre-analyzed demo project from the sample XER fixture. | `—` | none |
+| `GET` | `/api/v1/demo/project` | Return a pre-analyzed demo project from the sample XER fixture. | `dict` | none |
 | `POST` | `/api/v1/upload` | Upload a schedule file (XER or MS Project XML), parse it, and store the result. | `ProjectSummary` | optional |
 
 ## Projects

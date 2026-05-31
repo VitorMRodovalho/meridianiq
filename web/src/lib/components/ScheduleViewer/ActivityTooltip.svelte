@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ActivityView } from './types';
 	import { formatDateShort } from './utils';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		activity: ActivityView;
@@ -30,9 +31,9 @@
 	});
 
 	function statusLabel(s: string): string {
-		if (s === 'complete') return 'Complete';
-		if (s === 'active') return 'In Progress';
-		return 'Not Started';
+		if (s === 'complete') return $t('schedule.status_complete');
+		if (s === 'active') return $t('schedule.status_active');
+		return $t('schedule.status_not_started');
 	}
 
 	function statusClass(s: string): string {
@@ -51,7 +52,7 @@
 		<div class="flex items-center gap-2">
 			<span class="text-[10px] font-mono text-gray-400">{activity.task_code}</span>
 			{#if activity.is_critical}
-				<span class="px-1 py-0.5 text-[8px] font-bold bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded">CRITICAL</span>
+				<span class="px-1 py-0.5 text-[8px] font-bold bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded">{$t('schedule.viewer.critical_badge')}</span>
 			{/if}
 			<span class="px-1.5 py-0.5 text-[8px] font-medium rounded {statusClass(activity.status)}">{statusLabel(activity.status)}</span>
 		</div>
@@ -65,32 +66,32 @@
 	<div class="px-3 py-1.5 border-b border-gray-100 dark:border-gray-800">
 		<div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
 			<div class="flex justify-between">
-				<span class="text-gray-400">ES</span>
+				<span class="text-gray-400">{$t('schedule.col_es')}</span>
 				<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.early_start)}</span>
 			</div>
 			<div class="flex justify-between">
-				<span class="text-gray-400">EF</span>
+				<span class="text-gray-400">{$t('schedule.col_ef')}</span>
 				<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.early_finish)}</span>
 			</div>
 			{#if activity.late_start && activity.late_finish}
 				<div class="flex justify-between">
-					<span class="text-gray-400">LS</span>
+					<span class="text-gray-400">{$t('schedule.col_ls')}</span>
 					<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.late_start)}</span>
 				</div>
 				<div class="flex justify-between">
-					<span class="text-gray-400">LF</span>
+					<span class="text-gray-400">{$t('schedule.col_lf')}</span>
 					<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.late_finish)}</span>
 				</div>
 			{/if}
 			{#if activity.actual_start}
 				<div class="flex justify-between">
-					<span class="text-gray-400">AS</span>
+					<span class="text-gray-400">{$t('schedule.col_as')}</span>
 					<span class="font-mono text-green-600">{formatDateShort(activity.actual_start)}</span>
 				</div>
 			{/if}
 			{#if activity.actual_finish}
 				<div class="flex justify-between">
-					<span class="text-gray-400">AF</span>
+					<span class="text-gray-400">{$t('schedule.col_af')}</span>
 					<span class="font-mono text-green-600">{formatDateShort(activity.actual_finish)}</span>
 				</div>
 			{/if}
@@ -101,25 +102,25 @@
 	<div class="px-3 py-1.5 border-b border-gray-100 dark:border-gray-800">
 		<div class="grid grid-cols-3 gap-2 text-center">
 			<div>
-				<p class="text-[8px] text-gray-400 uppercase">Duration</p>
+				<p class="text-[8px] text-gray-400 uppercase">{$t('schedule.detail_duration')}</p>
 				<p class="text-[11px] font-bold text-gray-900 dark:text-gray-100">{activity.duration_days}d</p>
 			</div>
 			<div>
-				<p class="text-[8px] text-gray-400 uppercase">Remaining</p>
+				<p class="text-[8px] text-gray-400 uppercase">{$t('schedule.detail_remaining')}</p>
 				<p class="text-[11px] font-bold text-gray-900 dark:text-gray-100">{activity.remaining_days}d</p>
 			</div>
 			<div>
-				<p class="text-[8px] text-gray-400 uppercase">Progress</p>
+				<p class="text-[8px] text-gray-400 uppercase">{$t('schedule.detail_progress')}</p>
 				<p class="text-[11px] font-bold {activity.progress_pct >= 100 ? 'text-green-600' : activity.progress_pct > 0 ? 'text-blue-600' : 'text-gray-400'}">{activity.progress_pct}%</p>
 			</div>
 		</div>
 		<div class="grid grid-cols-2 gap-2 text-center mt-1">
 			<div>
-				<p class="text-[8px] text-gray-400 uppercase">Total Float</p>
+				<p class="text-[8px] text-gray-400 uppercase">{$t('schedule.detail_total_float')}</p>
 				<p class="text-[11px] font-bold {activity.total_float_days < 0 ? 'text-red-600' : activity.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">{activity.total_float_days}d</p>
 			</div>
 			<div>
-				<p class="text-[8px] text-gray-400 uppercase">Free Float</p>
+				<p class="text-[8px] text-gray-400 uppercase">{$t('schedule.detail_free_float')}</p>
 				<p class="text-[11px] font-bold text-gray-700 dark:text-gray-300">{activity.free_float_days}d</p>
 			</div>
 		</div>
@@ -131,25 +132,25 @@
 			<div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
 				{#if activity.baseline_start}
 					<div class="flex justify-between">
-						<span class="text-gray-400">BL Start</span>
+						<span class="text-gray-400">{$t('schedule.col_bs')}</span>
 						<span class="font-mono text-gray-500">{formatDateShort(activity.baseline_start)}</span>
 					</div>
 				{/if}
 				{#if activity.baseline_finish}
 					<div class="flex justify-between">
-						<span class="text-gray-400">BL Finish</span>
+						<span class="text-gray-400">{$t('schedule.col_bf')}</span>
 						<span class="font-mono text-gray-500">{formatDateShort(activity.baseline_finish)}</span>
 					</div>
 				{/if}
 				{#if activity.start_variance_days != null}
 					<div class="flex justify-between">
-						<span class="text-gray-400">Start Var</span>
+						<span class="text-gray-400">{$t('schedule.col_sv')}</span>
 						<span class="font-mono font-bold {activity.start_variance_days > 0 ? 'text-red-600' : activity.start_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{activity.start_variance_days > 0 ? '+' : ''}{activity.start_variance_days}d</span>
 					</div>
 				{/if}
 				{#if activity.finish_variance_days != null}
 					<div class="flex justify-between">
-						<span class="text-gray-400">Finish Var</span>
+						<span class="text-gray-400">{$t('schedule.col_fv')}</span>
 						<span class="font-mono font-bold {activity.finish_variance_days > 0 ? 'text-red-600' : activity.finish_variance_days < 0 ? 'text-green-600' : 'text-gray-500'}">{activity.finish_variance_days > 0 ? '+' : ''}{activity.finish_variance_days}d</span>
 					</div>
 				{/if}
@@ -160,7 +161,7 @@
 	<!-- Flags -->
 	{#if activity.constraint_type && activity.constraint_type !== 'CS_MEO'}
 		<div class="px-3 py-1 text-[9px]">
-			<span class="text-purple-600 font-medium">Constraint: {activity.constraint_type}</span>
+			<span class="text-purple-600 font-medium">{$t('schedule.detail_constraint')}: {activity.constraint_type}</span>
 			{#if activity.constraint_date}
 				<span class="text-gray-400 ml-1">{formatDateShort(activity.constraint_date)}</span>
 			{/if}

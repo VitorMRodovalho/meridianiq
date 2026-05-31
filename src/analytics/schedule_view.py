@@ -231,6 +231,29 @@ def _apply_grouping(
     return schedule.model_copy(update={"wbs_nodes": new_wbs_nodes, "activities": new_activities})
 
 
+def _wbs_code_key(code: str) -> list[tuple[int, int, str]]:
+    """Natural sort key for a WBS code so ``1.2`` precedes ``1.10``.
+
+    Splits the code into numeric and text runs: numeric runs compare by value
+    (1, 2, 10) rather than lexically (1, 10, 2), and text runs sort after
+    numerics. WBS code-path order — not alphabetical name order — is what P6
+    users expect in the outline, and what GAO / DCMA schedule-presentation
+    review assumes; alpha-sorting otherwise-correct data reads as broken.
+
+    Each segment is normalised to a uniform ``(kind, number, text)`` tuple so
+    the keys are always mutually comparable.
+    """
+    parts: list[tuple[int, int, str]] = []
+    for seg in re.split(r"(\d+)", code or ""):
+        if seg == "":
+            continue
+        if seg.isdigit():
+            parts.append((0, int(seg), ""))
+        else:
+            parts.append((1, 0, seg.lower()))
+    return parts
+
+
 def build_schedule_view(
     schedule: ParsedSchedule,
     baseline: ParsedSchedule | None = None,
@@ -244,7 +267,11 @@ def build_schedule_view(
         group_by: How to group activities in the WBS tree. One of
             ``GROUP_BY_OPTIONS`` (``wbs`` is the default and preserves the
             project's real WBS hierarchy). Non-``wbs`` modes flatten activities
-            into one synthetic root per group label (no nesting).
+            into one synthetic root per group label (no nesting). Retained for
+            direct API / MCP consumers; the web viewer now regroups client-side
+            (it always requests ``wbs`` and applies the transform in the browser),
+            so this server path has no web caller — see ``ScheduleViewer`` /
+            ``applyClientGrouping``.
 
     Returns:
         ScheduleViewResult with WBS tree, flattened activities, and relationships.
@@ -314,9 +341,11 @@ def build_schedule_view(
             node = wbs_map[child_id]
             node.children = _build_tree(child_id)
             children.append(node)
-        return sorted(children, key=lambda n: n.short_name or n.name)
+        return sorted(children, key=lambda n: _wbs_code_key(n.short_name or n.name))
 
-    for rid in sorted(root_ids):
+    for rid in sorted(
+        root_ids, key=lambda r: _wbs_code_key(wbs_map[r].short_name or wbs_map[r].name)
+    ):
         if rid in wbs_map:
             root = wbs_map[rid]
             root.children = _build_tree(rid)
@@ -336,6 +365,18 @@ def build_schedule_view(
     for root in result.wbs_tree:
         _build_path(root, "")
 
+    # Depth-first ordinal of each WBS node in the (now code-ordered) tree, so
+    # activities sort in true outline order. A plain wbs_path string sort would
+    # regress to lexical order (it would place '1/10' before '1/2').
+    wbs_order: dict[str, int] = {}
+
+    def _assign_order(nodes: list[WBSNode]) -> None:
+        for node in nodes:
+            wbs_order[node.wbs_id] = len(wbs_order)
+            _assign_order(node.children)
+
+    _assign_order(result.wbs_tree)
+
     # Build baseline lookup
     baseline_dates: dict[str, tuple[str, str]] = {}
     if baseline:
@@ -350,11 +391,11 @@ def build_schedule_view(
     if schedule.calendars:
         day_hours = schedule.calendars[0].day_hr_cnt or 8.0
 
-    # Flatten activities sorted by WBS path + early start
+    # Flatten activities sorted by WBS outline order (code-path), then early start
     sorted_tasks = sorted(
         schedule.activities,
         key=lambda t: (
-            wbs_path.get(t.wbs_id, ""),
+            wbs_order.get(t.wbs_id, len(wbs_order)),
             t.early_start_date or t.target_start_date or datetime.max,
         ),
     )

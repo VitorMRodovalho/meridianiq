@@ -5,7 +5,6 @@
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import { supabase } from '$lib/supabase';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 
 	interface PercentileRanking {
 		metric_name: string;
