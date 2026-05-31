@@ -60,6 +60,8 @@ ARCH_MD = ROOT / "docs" / "architecture.md"
 ROUTES_DIR = ROOT / "web" / "src" / "routes"
 MIGRATIONS_DIR = ROOT / "supabase" / "migrations"
 LANDING_SVELTE = ROOT / "web" / "src" / "routes" / "+page.svelte"
+CHARTS_DIR = ROOT / "web" / "src" / "lib" / "components" / "charts"
+I18N_DIR = ROOT / "web" / "src" / "lib" / "i18n"
 
 
 @dataclass
@@ -71,13 +73,14 @@ class Stats:
     mcp_tools: int
     pages: int
     migrations: int
+    charts: int
 
     def describe(self) -> str:
         return (
             f"{self.engines} engines + {self.export_modules} export module, "
             f"{self.endpoints} endpoints across {self.routers} routers, "
             f"{self.mcp_tools} MCP tools, {self.pages} pages, "
-            f"{self.migrations} migrations"
+            f"{self.migrations} migrations, {self.charts} chart components"
         )
 
 
@@ -122,6 +125,7 @@ def canonical_stats() -> Stats:
 
     pages = sum(1 for _ in ROUTES_DIR.rglob("+page.svelte"))
     migrations = sum(1 for _ in MIGRATIONS_DIR.glob("*.sql"))
+    charts = sum(1 for _ in CHARTS_DIR.glob("*.svelte"))
 
     return Stats(
         endpoints=endpoints,
@@ -131,6 +135,7 @@ def canonical_stats() -> Stats:
         mcp_tools=mcp_tools,
         pages=pages,
         migrations=migrations,
+        charts=charts,
     )
 
 
@@ -212,6 +217,8 @@ def find_readme_mismatches(stats: Stats, key_numbers_block: str) -> list[str]:
     _check(r"API\s+endpoints\s*\|\s*(\d+)\b", stats.endpoints, "endpoints")
     _check(r"across\s+(\d+)\s+routers?", stats.routers, "routers")
     _check(r"Frontend\s+pages\s*\|\s*(\d+)\b", stats.pages, "pages")
+    # | SVG chart components | 11 (incl. EVM S-Curve …) + ScheduleViewer … |
+    _check(r"SVG\s+chart\s+components\s*\|\s*(\d+)\b", stats.charts, "SVG chart components")
 
     return mismatches
 
@@ -364,6 +371,35 @@ def find_landing_page_mismatches(stats: Stats, landing_text: str) -> list[str]:
     return mismatches
 
 
+def find_i18n_landing_mismatches(stats: Stats) -> list[str]:
+    """Return mismatch messages for the engine count baked into the landing
+    ``landing.capabilities.title`` i18n string (en / pt-BR / es).
+
+    Closes the gap that let ``'landing.capabilities.title': '37 Analysis
+    Engines'`` ship while the canonical catalog said 48: that string is
+    rendered via ``$t(...)`` from the locale dicts, so it lives in
+    ``web/src/lib/i18n/*.ts`` — out of reach of both the ``+page.svelte`` hero
+    scan (which only sees ``landing.stats.*`` literals) and the parity test
+    (which compares key *sets*, never values). Validated per-locale.
+    """
+    mismatches: list[str] = []
+    pattern = re.compile(r"'landing\.capabilities\.title':\s*'(\d+)\b")
+    for name in ("en.ts", "pt-BR.ts", "es.ts"):
+        path = I18N_DIR / name
+        if not path.exists():
+            continue
+        m = pattern.search(path.read_text(encoding="utf-8"))
+        if m is None:
+            continue  # key not present / restructured — nothing to validate
+        actual = int(m.group(1))
+        if actual != stats.engines:
+            mismatches.append(
+                f"web/src/lib/i18n/{name}: landing.capabilities.title claims "
+                f"{actual} engines, canonical is {stats.engines}"
+            )
+    return mismatches
+
+
 def main() -> int:
     stats = canonical_stats()
 
@@ -387,12 +423,15 @@ def main() -> int:
     if LANDING_SVELTE.exists():
         landing_mismatches = find_landing_page_mismatches(stats, _read(LANDING_SVELTE))
 
+    i18n_landing_mismatches = find_i18n_landing_mismatches(stats)
+
     all_mismatches = (
         claude_mismatches
         + readme_mismatches
         + readme_mermaid_mismatches
         + arch_mismatches
         + landing_mismatches
+        + i18n_landing_mismatches
     )
     if all_mismatches:
         print("Stats drift detected:\n")
