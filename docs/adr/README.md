@@ -40,7 +40,7 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0023](0023-cycle-4-w4-outcome.md) | Cycle 4 Wave 4 — calibration outcome record | recorded |
 | [0024](0024-cycle-5-entry-z-shape-consolidation.md) | Cycle 5 entry — Z-shape consolidation (off-list per Round 2 paired adversarial council) | proposed |
 | [0025](0025-cycle-6-entry-h-shape.md) | Cycle 6 entry — H-shape (forced hygiene + hard discovery gate at W2) | proposed |
-| [0026](0026-stay-public-open-core-boundary.md) | Stay public + open-core boundary rule | proposed |
+| [0026](0026-stay-public-open-core-boundary.md) | Stay public + open-core boundary rule | accepted |
 
 ## Adding a new ADR
 

@@ -1,6 +1,6 @@
 # 0026. Stay public + open-core boundary rule
 
-* Status: proposed
+* Status: accepted (ratified by maintainer 2026-06-10)
 * Deciders: @VitorMRodovalho
 * Date: 2026-06-10 (decision taken 2026-05-31; this ADR records it)
 * Council: strategist + legal-and-accountability + investor-view PAIRED with devils-advocate (per the anti-sycophancy pairing rule); full deliberation in session workflow output `w3i2xelaz`, decision summary preserved in the maintainer's session handoff
