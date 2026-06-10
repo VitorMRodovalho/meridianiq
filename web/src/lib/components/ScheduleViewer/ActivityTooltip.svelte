@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ActivityView } from './types';
 	import { formatDateShort } from './utils';
-	import { t } from '$lib/i18n';
+	import { t, locale, dateLocale } from '$lib/i18n';
 
 	interface Props {
 		activity: ActivityView;
@@ -13,6 +13,9 @@
 
 	const TOOLTIP_W = 320;
 	const TOOLTIP_H_EST = 260;
+
+	// BCP-47 tag for date VALUE localization (#176) — labels come from $t.
+	const dl = $derived(dateLocale($locale));
 
 	// Viewport edge detection — flip position if near edges
 	const pos = $derived.by(() => {
@@ -67,32 +70,32 @@
 		<div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
 			<div class="flex justify-between">
 				<span class="text-gray-400">{$t('schedule.col_es')}</span>
-				<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.early_start)}</span>
+				<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.early_start, dl)}</span>
 			</div>
 			<div class="flex justify-between">
 				<span class="text-gray-400">{$t('schedule.col_ef')}</span>
-				<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.early_finish)}</span>
+				<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.early_finish, dl)}</span>
 			</div>
 			{#if activity.late_start && activity.late_finish}
 				<div class="flex justify-between">
 					<span class="text-gray-400">{$t('schedule.col_ls')}</span>
-					<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.late_start)}</span>
+					<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.late_start, dl)}</span>
 				</div>
 				<div class="flex justify-between">
 					<span class="text-gray-400">{$t('schedule.col_lf')}</span>
-					<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.late_finish)}</span>
+					<span class="font-mono text-gray-700 dark:text-gray-300">{formatDateShort(activity.late_finish, dl)}</span>
 				</div>
 			{/if}
 			{#if activity.actual_start}
 				<div class="flex justify-between">
 					<span class="text-gray-400">{$t('schedule.col_as')}</span>
-					<span class="font-mono text-green-600">{formatDateShort(activity.actual_start)}</span>
+					<span class="font-mono text-green-600">{formatDateShort(activity.actual_start, dl)}</span>
 				</div>
 			{/if}
 			{#if activity.actual_finish}
 				<div class="flex justify-between">
 					<span class="text-gray-400">{$t('schedule.col_af')}</span>
-					<span class="font-mono text-green-600">{formatDateShort(activity.actual_finish)}</span>
+					<span class="font-mono text-green-600">{formatDateShort(activity.actual_finish, dl)}</span>
 				</div>
 			{/if}
 		</div>
@@ -133,13 +136,13 @@
 				{#if activity.baseline_start}
 					<div class="flex justify-between">
 						<span class="text-gray-400">{$t('schedule.col_bs')}</span>
-						<span class="font-mono text-gray-500">{formatDateShort(activity.baseline_start)}</span>
+						<span class="font-mono text-gray-500">{formatDateShort(activity.baseline_start, dl)}</span>
 					</div>
 				{/if}
 				{#if activity.baseline_finish}
 					<div class="flex justify-between">
 						<span class="text-gray-400">{$t('schedule.col_bf')}</span>
-						<span class="font-mono text-gray-500">{formatDateShort(activity.baseline_finish)}</span>
+						<span class="font-mono text-gray-500">{formatDateShort(activity.baseline_finish, dl)}</span>
 					</div>
 				{/if}
 				{#if activity.start_variance_days != null}
@@ -163,7 +166,7 @@
 		<div class="px-3 py-1 text-[9px]">
 			<span class="text-purple-600 font-medium">{$t('schedule.detail_constraint')}: {activity.constraint_type}</span>
 			{#if activity.constraint_date}
-				<span class="text-gray-400 ml-1">{formatDateShort(activity.constraint_date)}</span>
+				<span class="text-gray-400 ml-1">{formatDateShort(activity.constraint_date, dl)}</span>
 			{/if}
 		</div>
 	{/if}

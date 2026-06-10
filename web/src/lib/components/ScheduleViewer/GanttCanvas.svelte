@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { ActivityView, RelationshipView, WBSAggregate, FlatRow } from './types';
-	import { daysBetween, parseDate, getBarColor, formatDateShort, generateTimeTicks } from './utils';
+	import { daysBetween, parseDate, getBarColor, generateTimeTicks } from './utils';
 	import TimeScale from './TimeScale.svelte';
-	import { t } from '$lib/i18n';
+	import { t, locale, dateLocale } from '$lib/i18n';
 
 	interface Props {
 		flatRows: FlatRow[];
@@ -63,7 +63,9 @@
 	const totalDays = $derived(Math.max(1, daysBetween(startDate, endDate)));
 	// Same two-tier axis the header uses — drives gridlines so they align under
 	// the labels and span the whole schedule (no fixed day-count cap).
-	const axis = $derived(generateTimeTicks(startDate, endDate, zoomLevel, WIDTH));
+	// BCP-47 tag for date VALUE localization (#176) — labels come from $t.
+	const dl = $derived(dateLocale($locale));
+	const axis = $derived(generateTimeTicks(startDate, endDate, zoomLevel, WIDTH, dl));
 
 	function xPos(dateStr: string): number {
 		if (!dateStr) return 0;

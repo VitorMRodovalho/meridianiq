@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { WBSAggregate, FlatRow } from './types';
 	import { formatDateCompact } from './utils';
-	import { t } from '$lib/i18n';
+	import { t, locale, dateLocale } from '$lib/i18n';
 
 	interface Props {
 		flatRows: FlatRow[];
@@ -26,6 +26,9 @@
 	}: Props = $props();
 
 	const BUFFER_ROWS = 20;
+
+	// BCP-47 tag for date VALUE localization (#176) — labels come from $t.
+	const dl = $derived(dateLocale($locale));
 
 	// Virtual scrolling: only render visible rows + buffer
 	const virtualStart = $derived(Math.max(0, Math.floor(scrollTop / rowHeight) - BUFFER_ROWS));
@@ -93,8 +96,8 @@
 						</div>
 						{#if isCollapsed && agg}
 							<span class="w-9 text-center text-[8px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{Math.round(agg.total_duration)}d</span>
-							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(agg.start)}</span>
-							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(agg.finish)}</span>
+							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(agg.start, dl)}</span>
+							<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(agg.finish, dl)}</span>
 							<span class="w-9 text-center text-[8px] font-mono shrink-0 {floatColor(agg.min_float)}">{Math.round(agg.min_float)}d</span>
 							<span class="w-8 text-center text-[8px] font-mono shrink-0 pr-1 {progressColor(agg.total_weight > 0 ? agg.weighted_progress / agg.total_weight : 0)}">{agg.total_weight > 0 ? Math.round(agg.weighted_progress / agg.total_weight) : 0}</span>
 						{:else}
@@ -128,8 +131,8 @@
 							<span class="text-[9px] text-gray-600 dark:text-gray-400 truncate">{act.task_name || act.task_code}</span>
 						</div>
 						<span class="w-9 text-center text-[8px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{act.duration_days}d</span>
-						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(act.early_start)}</span>
-						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(act.early_finish)}</span>
+						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(act.early_start, dl)}</span>
+						<span class="w-[62px] text-center text-[7px] font-mono text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">{formatDateCompact(act.early_finish, dl)}</span>
 						<span class="w-9 text-center text-[8px] font-mono shrink-0 {floatColor(act.total_float_days)}">{act.total_float_days}d</span>
 						<span class="w-8 text-center text-[8px] font-mono shrink-0 pr-1 {progressColor(act.progress_pct)}">{act.progress_pct > 0 ? act.progress_pct : ''}</span>
 					</div>
