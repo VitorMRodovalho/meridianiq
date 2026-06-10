@@ -36,8 +36,11 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0019](0019-cycle-2-entry-consolidation-primitive.md) | Cycle 2 entry — Consolidation + Primitive (Option 4) — Amendment 1 (2026-04-27) rate-limit policy contract | accepted (amended 2026-04-27) |
 | [0020](0020-calibration-harness-primitive.md) | Calibration harness as a reusable primitive for probabilistic-heuristic engines | accepted |
 | [0021](0021-cycle-3-entry-floor-plus-field-shallow.md) | Cycle 3 entry — Floor + Field-surface shallow (Option α) | accepted |
-| 0022 | _(reserved — Cycle 4 deep #1 per [ADR-0021](0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision")_ | reserved, not authored |
-| 0023 | _(reserved — Cycle 4 deep #2 per [ADR-0021](0021-cycle-3-entry-floor-plus-field-shallow.md) §"Decision")_ | reserved, not authored |
+| [0022](0022-cycle-4-entry-beta-honest.md) | Cycle 4 entry — β-honest (auto-revision + multi-rev S-curve, calibration-gated forecast) | proposed |
+| [0023](0023-cycle-4-w4-outcome.md) | Cycle 4 Wave 4 — calibration outcome record | recorded |
+| [0024](0024-cycle-5-entry-z-shape-consolidation.md) | Cycle 5 entry — Z-shape consolidation (off-list per Round 2 paired adversarial council) | proposed |
+| [0025](0025-cycle-6-entry-h-shape.md) | Cycle 6 entry — H-shape (forced hygiene + hard discovery gate at W2) | proposed |
+| [0026](0026-stay-public-open-core-boundary.md) | Stay public + open-core boundary rule | proposed |
 
 ## Adding a new ADR
 
