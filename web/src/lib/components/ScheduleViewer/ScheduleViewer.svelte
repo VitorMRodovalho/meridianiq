@@ -4,7 +4,7 @@
 	import GanttCanvas from './GanttCanvas.svelte';
 	import ActivityTooltip from './ActivityTooltip.svelte';
 	import { onMount, untrack } from 'svelte';
-	import { t } from '$lib/i18n';
+	import { t, locale, dateLocale } from '$lib/i18n';
 	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, collectActivitiesByWbs, applyClientGrouping, presetCollapse, defaultGroupLabel } from './utils';
 
 	interface Props {
@@ -24,6 +24,9 @@
 		criticalOnly = false,
 		onActivityClick,
 	}: Props = $props();
+
+	// BCP-47 tag for date VALUE localization (#176) — labels come from $t.
+	const dl = $derived(dateLocale($locale));
 
 	// Filter activities if criticalOnly
 	const filteredData = $derived.by(() => {
@@ -388,13 +391,15 @@
 		const projectName = escapeHtml(data.project_name || $t('schedule.viewer.default_project_name'));
 		const ganttLabel = escapeHtml($t('schedule.viewer.print_title_gantt'));
 		const dateStr = data.data_date
-			? ` — ${escapeHtml($t('schedule.viewer.data_date'))}: ${escapeHtml(formatDateShort(data.data_date))}`
+			? ` — ${escapeHtml($t('schedule.viewer.data_date'))}: ${escapeHtml(formatDateShort(data.data_date, dl))}`
 			: '';
 		const activitiesLabel = escapeHtml($t('schedule.viewer.print_activities'));
 		const printedLabel = escapeHtml($t('schedule.viewer.print_printed'));
 		// Convention for both print functions: every interpolated value is escaped
 		// at DEFINITION and interpolated bare below — so no use site can forget it.
-		const printedDate = escapeHtml(new Date().toLocaleDateString());
+		// printedDate is a CLOCK date (full d/m/y), app-locale so the print header
+		// agrees with the localized schedule dates (#176).
+		const printedDate = escapeHtml(new Date().toLocaleDateString(dl));
 
 		const printWindow = window.open('', '_blank');
 		if (!printWindow) return;
@@ -451,9 +456,9 @@ ${svgClone.outerHTML}
 			headingByWbs: escapeHtml($t('schedule.viewer.print_heading_by_wbs')),
 		};
 		const dateStr = data.data_date
-			? `${escapeHtml($t('schedule.viewer.data_date'))}: ${escapeHtml(formatDateShort(data.data_date))}`
+			? `${escapeHtml($t('schedule.viewer.data_date'))}: ${escapeHtml(formatDateShort(data.data_date, dl))}`
 			: '';
-		const printedDate = escapeHtml(new Date().toLocaleDateString());
+		const printedDate = escapeHtml(new Date().toLocaleDateString(dl));
 
 		const sections: string[] = [];
 		let firstPage = true;
@@ -473,8 +478,8 @@ ${svgClone.outerHTML}
 					return `<tr${critCls}>
 						<td>${escapeHtml(a.task_code)}</td>
 						<td>${escapeHtml(a.task_name)}</td>
-						<td>${escapeHtml(formatDateShort(a.early_start))}</td>
-						<td>${escapeHtml(formatDateShort(a.early_finish))}</td>
+						<td>${escapeHtml(formatDateShort(a.early_start, dl))}</td>
+						<td>${escapeHtml(formatDateShort(a.early_finish, dl))}</td>
 						<td class="num">${a.duration_days.toFixed(0)}</td>
 						<td class="num">${a.total_float_days.toFixed(0)}</td>
 						<td class="num">${a.progress_pct.toFixed(0)}%</td>
@@ -764,7 +769,7 @@ ${sections.join('\n')}
 		<div class="border-t border-gray-200 dark:border-gray-700 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 flex items-center gap-3 text-[10px]">
 			<span class="font-semibold text-gray-900 dark:text-gray-100">{hoveredActivity.task_code}</span>
 			<span class="text-gray-600 dark:text-gray-400 truncate max-w-xs">{hoveredActivity.task_name}</span>
-			<span class="text-gray-500">{formatDateShort(hoveredActivity.early_start)} — {formatDateShort(hoveredActivity.early_finish)}</span>
+			<span class="text-gray-500">{formatDateShort(hoveredActivity.early_start, dl)} — {formatDateShort(hoveredActivity.early_finish, dl)}</span>
 			<span class="text-gray-500">{hoveredActivity.duration_days}d</span>
 			<span class="{hoveredActivity.total_float_days < 0 ? 'text-red-600 font-bold' : hoveredActivity.total_float_days === 0 ? 'text-amber-600' : 'text-green-600'}">{$t('schedule.col_tf')}:{hoveredActivity.total_float_days}d</span>
 			{#if hoveredActivity.progress_pct > 0}
@@ -794,7 +799,7 @@ ${sections.join('\n')}
 			<span class="flex items-center gap-1"><span class="w-3 h-1 rounded-sm bg-amber-400 opacity-60"></span> {$t('schedule.viewer.legend_float')}</span>
 		{/if}
 		{#if data.data_date}
-			<span class="ml-auto text-amber-600">{$t('schedule.viewer.data_date')}: {formatDateShort(data.data_date)}</span>
+			<span class="ml-auto text-amber-600">{$t('schedule.viewer.data_date')}: {formatDateShort(data.data_date, dl)}</span>
 		{/if}
 	</div>
 </div>

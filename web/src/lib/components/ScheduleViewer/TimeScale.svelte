@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { generateTimeTicks } from './utils';
-	import { t } from '$lib/i18n';
+	import { t, locale, dateLocale } from '$lib/i18n';
 
 	interface Props {
 		startDate: string;
@@ -20,8 +20,11 @@
 		dataDate = '',
 	}: Props = $props();
 
+	// BCP-47 tag for date VALUE localization (#176) — labels come from $t.
+	const dl = $derived(dateLocale($locale));
+
 	const chartWidth = $derived(width - padLeft);
-	const axis = $derived(generateTimeTicks(startDate, endDate, zoomLevel));
+	const axis = $derived(generateTimeTicks(startDate, endDate, zoomLevel, undefined, dl));
 
 	const todayX = $derived(() => {
 		if (!startDate || !endDate) return -1;

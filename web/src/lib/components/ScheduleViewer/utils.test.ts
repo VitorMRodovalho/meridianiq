@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
 	generateTimeTicks,
+	formatDateShort,
+	formatDateCompact,
 	applyClientGrouping,
 	defaultGroupLabel,
 	computeDefaultCollapse,
@@ -296,5 +298,66 @@ describe('presetCollapse — shared collapse preset for load + dimension/roll-up
 		const c = presetCollapse('wbs', 2, tree, 50);
 		expect(c.has('C1')).toBe(true); // depth 2 collapsed
 		expect(c.has('R')).toBe(false); // depth 1 stays expanded
+	});
+});
+
+describe('date formatters — locale threading (#176)', () => {
+	it('formatDateShort defaults to en-US (byte-compat for untouched callers)', () => {
+		expect(formatDateShort('2026-01-15')).toBe('Jan 15');
+	});
+
+	// Locale assertions are TOKEN-based (not exact-string) on purpose: Intl
+	// short-month/weekday output is ICU/CLDR-version-dependent (connector words,
+	// casing, and the space character have all drifted across CLDR releases).
+	// Pinning tokens + forbidden characters survives a Node/ICU bump; pinning
+	// the full string does not.
+	const FORBIDDEN = /[.\u202F\u00A0]/; // abbrev dots + NNBSP/NBSP must be normalized out
+
+	it('formatDateShort localizes month tokens, dotless and NNBSP-free', () => {
+		const pt = formatDateShort('2026-01-15', 'pt-BR');
+		const es = formatDateShort('2026-01-15', 'es');
+		expect(pt.toLowerCase()).toContain('jan'); // pt-BR Intl yields "15 de jan." pre-normalization
+		expect(pt).toContain('15');
+		expect(es.toLowerCase()).toContain('ene');
+		expect(es).toContain('15');
+		expect(pt).not.toMatch(FORBIDDEN);
+		expect(es).not.toMatch(FORBIDDEN);
+	});
+
+	it('formatDateCompact keeps the P6 d-MMM-yy skeleton across locales, dotless', () => {
+		expect(formatDateCompact('2026-01-15')).toBe('15-Jan-26');
+		// case-normalized: es/pt month-abbrev casing has shifted across CLDR versions
+		expect(formatDateCompact('2026-01-15', 'pt-BR').toLowerCase()).toBe('15-jan-26');
+		expect(formatDateCompact('2026-01-15', 'es').toLowerCase()).toBe('15-ene-26');
+		expect(formatDateCompact('2026-01-15', 'pt-BR')).not.toMatch(FORBIDDEN);
+		expect(formatDateCompact('2026-01-15', 'es')).not.toMatch(FORBIDDEN);
+	});
+
+	it('empty input still returns empty string regardless of locale', () => {
+		expect(formatDateShort('', 'pt-BR')).toBe('');
+		expect(formatDateCompact('', 'es')).toBe('');
+	});
+
+	it('generateTimeTicks localizes minor + major labels without trailing dots', () => {
+		const axis = generateTimeTicks('2026-01-01', '2026-03-31', 'week', 1200, 'pt-BR');
+		expect(axis.minor[0].label.toLowerCase()).toContain('jan');
+		expect(axis.major[0].label.toLowerCase()).toContain('jan');
+		for (const label of [...axis.minor.map((m) => m.label), ...axis.major.map((m) => m.label)]) {
+			expect(label).not.toContain('.');
+		}
+	});
+
+	it('generateTimeTicks day-zoom weekday labels are localized and dotless (pt-BR "seg." → "seg")', () => {
+		const axis = generateTimeTicks('2026-01-05', '2026-01-16', 'day', 1200, 'pt-BR');
+		for (const tick of axis.minor) {
+			expect(tick.label).not.toContain('.');
+		}
+		// 2026-01-05 is a Monday → "seg" in pt-BR
+		expect(axis.minor[0].label.toLowerCase()).toContain('seg');
+	});
+
+	it('generateTimeTicks default stays en-US (existing pins remain valid)', () => {
+		const axis = generateTimeTicks('2026-01-01', '2026-03-31', 'week');
+		expect(axis.major[0].label).toMatch(/Jan/);
 	});
 });

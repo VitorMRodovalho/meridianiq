@@ -10,11 +10,23 @@ export function daysBetween(start: string, end: string): number {
 	return Math.round((e.getTime() - s.getTime()) / 86_400_000);
 }
 
-/** Format date as short label (e.g. "Jan 15"). */
-export function formatDateShort(iso: string): string {
+/** Normalize an Intl month/weekday ABBREVIATION label for P6-style display:
+ *  - NNBSP/NBSP (U+202F/U+00A0) → regular space. Current ICU emits plain
+ *    spaces in these date skeletons, but CLDR has flipped separators across
+ *    versions; normalizing keeps rendered output (and test pins) stable.
+ *  - strips abbreviation dots (pt-BR "jan." → "jan"; P6's locale convention
+ *    is dotless). en-US emits none (no-op).
+ *  CONTRACT: only feed month/weekday/day abbreviation skeletons. NEVER pass
+ *  numeric date skeletons (e.g. de-DE "15.01.2026"), where "." is a separator. */
+function stripAbbrevDots(label: string): string {
+	return label.replace(/[\u202F\u00A0]/g, ' ').replace(/\./g, '');
+}
+
+/** Format date as short label (e.g. "Jan 15"), localized via BCP-47 tag. */
+export function formatDateShort(iso: string, locale: string = 'en-US'): string {
 	if (!iso) return '';
 	const d = parseDate(iso);
-	return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	return stripAbbrevDots(d.toLocaleDateString(locale, { month: 'short', day: 'numeric' }));
 }
 
 /** Format date as full (e.g. "2026-01-15"). */
@@ -46,6 +58,7 @@ function buildMajorTier(
 	startIso: string,
 	totalDays: number,
 	unit: 'year' | 'month',
+	locale: string,
 ): MajorTick[] {
 	// Boundary dates: the chart start, then each first-of-next-unit up to end.
 	const boundaries: Date[] = [new Date(start)];
@@ -74,7 +87,7 @@ function buildMajorTier(
 		const label =
 			unit === 'year'
 				? String(b.getFullYear())
-				: b.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+				: stripAbbrevDots(b.toLocaleDateString(locale, { month: 'short', year: 'numeric' }));
 		major.push({ label, x, xEnd });
 	}
 	return major;
@@ -89,6 +102,7 @@ export function generateTimeTicks(
 	endDate: string,
 	zoomLevel: 'day' | 'week' | 'month',
 	svgWidth: number = 1200,
+	locale: string = 'en-US',
 ): TimeAxis {
 	const start = parseDate(startDate);
 	const end = parseDate(endDate);
@@ -117,27 +131,28 @@ export function generateTimeTicks(
 		// stays compact (month name, or month+day at finer zooms).
 		let label: string;
 		if (stepDays >= 28 || zoomLevel === 'month') {
-			label = current.toLocaleDateString('en-US', { month: 'short' });
+			label = current.toLocaleDateString(locale, { month: 'short' });
 		} else if (stepDays >= 5) {
-			label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+			label = current.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 		} else {
-			label = current.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+			label = current.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' });
 		}
+		label = stripAbbrevDots(label);
 
 		minor.push({ date: iso, label, x });
 		current.setDate(current.getDate() + stepDays);
 	}
 
 	const majorUnit: 'year' | 'month' = zoomLevel === 'month' ? 'year' : 'month';
-	return { minor, major: buildMajorTier(start, end, startDate, totalDays, majorUnit) };
+	return { minor, major: buildMajorTier(start, end, startDate, totalDays, majorUnit, locale) };
 }
 
-/** Format date as compact column label (e.g. "15-Jan-26"). */
-export function formatDateCompact(iso: string): string {
+/** Format date as compact P6-style column label (e.g. "15-Jan-26"), localized via BCP-47 tag. */
+export function formatDateCompact(iso: string, locale: string = 'en-US'): string {
 	if (!iso) return '';
 	const d = parseDate(iso);
 	const day = d.getDate();
-	const mon = d.toLocaleDateString('en-US', { month: 'short' });
+	const mon = stripAbbrevDots(d.toLocaleDateString(locale, { month: 'short' }));
 	const yr = d.getFullYear().toString().slice(-2);
 	return `${day}-${mon}-${yr}`;
 }

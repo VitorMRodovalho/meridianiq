@@ -20,6 +20,20 @@ export const t = derived(locale, ($locale) => {
 	};
 });
 
+/** Map an app locale to a BCP-47 tag for Intl date formatting.
+ *  Best-effort tag validation only: on a runtime whose ICU lacks the locale
+ *  data we return 'en-US' explicitly rather than relying on the engine's own
+ *  silent fallback (toLocaleDateString does NOT throw on missing data — the
+ *  try/catch covers only a hypothetical supportedLocalesOf failure). */
+export function dateLocale(loc: Locale): string {
+	const tag = loc === 'en' ? 'en-US' : loc;
+	try {
+		return Intl.DateTimeFormat.supportedLocalesOf(tag).length > 0 ? tag : 'en-US';
+	} catch {
+		return 'en-US';
+	}
+}
+
 export function detectLocale(): Locale {
 	if (typeof navigator === 'undefined') return 'en';
 	const lang = navigator.language;
