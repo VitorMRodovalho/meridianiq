@@ -73,7 +73,7 @@ jobs:
     # the pinned @playwright/test version (web/package.json) so browser
     # revisions align.
     container:
-      image: mcr.microsoft.com/playwright:v1.60.0-jammy
+      image: mcr.microsoft.com/playwright:v1.61.1-jammy
     defaults:
       run:
         working-directory: web
