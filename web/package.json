@@ -33,13 +33,13 @@
     "svelte-check": "^4.7.2",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "vite": "^8.1.3",
+    "vite": "^8.1.4",
     "vitest": "^4.1.10"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.107.0",
-    "posthog-js": "^1.398.2"
+    "@supabase/supabase-js": "^2.110.2",
+    "posthog-js": "^1.399.2"
   },
   "overrides": {
     "cookie": "^0.7.0"
