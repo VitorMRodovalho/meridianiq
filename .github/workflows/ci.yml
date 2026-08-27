@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege for GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions).
+# Every job here only reads the repo; the deploy jobs authenticate to Fly.io
+# and Cloudflare with their own secrets, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend (Python)
@@ -62,18 +68,46 @@ jobs:
       - name: Build
         run: npm run build
 
+  # Resolve the Playwright container tag FROM the lockfile so the image and
+  # the installed @playwright/test can never drift apart. Previously the tag
+  # was hardcoded: any Dependabot bump of @playwright/test (e.g. 1.61.1 ->
+  # 1.62.1 in #212) left the image behind and every E2E test died with
+  # "Executable doesn't exist at /ms-playwright/chromium_headless_shell-...".
+  # `container.image` is resolved before the job's steps run, so the version
+  # has to come from a preceding job's output.
+  e2e-image:
+    name: Resolve Playwright image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read @playwright/test version from lockfile
+        id: resolve
+        working-directory: web
+        run: |
+          version="$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")"
+          if [ -z "$version" ] || [ "$version" = "undefined" ]; then
+            echo "::error::Could not resolve @playwright/test version from web/package-lock.json"
+            exit 1
+          fi
+          echo "Resolved @playwright/test $version"
+          echo "image=mcr.microsoft.com/playwright:v${version}-jammy" >> "$GITHUB_OUTPUT"
+
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: [e2e-image]
     # Run inside the official Playwright image so the browser binaries are
     # PRE-INSTALLED — this removes the `playwright install` download that
     # depends on the Playwright CDN (a sustained CDN/apt outage hung that step
-    # across 6 CI runs, on a step that normally takes ~24s). The tag MUST match
-    # the pinned @playwright/test version (web/package.json) so browser
-    # revisions align.
+    # across 6 CI runs, on a step that normally takes ~24s). The tag is derived
+    # from the lockfile by the `e2e-image` job above so browser revisions stay
+    # aligned with @playwright/test automatically.
     container:
-      image: mcr.microsoft.com/playwright:v1.61.1-jammy
+      image: ${{ needs.e2e-image.outputs.image }}
     defaults:
       run:
         working-directory: web

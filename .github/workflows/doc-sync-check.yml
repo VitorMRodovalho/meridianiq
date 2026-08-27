@@ -36,6 +36,11 @@ on:
       - "web/src/routes/**"
       - "supabase/migrations/**"
 
+# Least privilege for GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions).
+# This workflow only checks out the repo and re-runs generator scripts.
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Verify catalogs match source
