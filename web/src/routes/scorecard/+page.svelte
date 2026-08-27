@@ -5,10 +5,11 @@
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
+	import { page } from '$app/stores';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
-	let scorecard: ScorecardResponse | null = $state(null);
+	let scorecard = $state<ScorecardResponse | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
 
@@ -37,8 +38,22 @@
 		}
 	}
 
+	let autoLoaded = $state(false);
+
 	$effect(() => {
 		loadProjects();
+		// Honour ?project=<id> deep links (quick links on /projects and the
+		// header nav on /schedule both emit them).
+		const projectParam = $page.url.searchParams.get('project');
+		if (projectParam) selectedProject = projectParam;
+	});
+
+	// Auto-run once the project list has arrived and a deep link pre-selected one.
+	$effect(() => {
+		if (selectedProject && projects.length > 0 && !scorecard && !loading && !autoLoaded) {
+			autoLoaded = true;
+			loadScorecard();
+		}
 	});
 
 	const gradeColor = (grade: string) => {
@@ -59,6 +74,18 @@
 		{ threshold: 90, color: '#10b981' },
 		{ threshold: 100, color: '#059669' },
 	];
+
+	// The engine prefixes each recommendation with the dimension grade
+	// (`"[F] Validation: ..."` — see _generate_recommendations in
+	// src/analytics/scorecard.py). Split it out so the grade renders as a
+	// badge instead of leaking raw brackets into the sentence. The API
+	// contract stays a plain list[str]; this is presentation only.
+	const parsedRecommendations = $derived(
+		(scorecard?.recommendations ?? []).map((rec) => {
+			const match = /^\[([A-F])\]\s*(.+)$/.exec(rec);
+			return match ? { grade: match[1], text: match[2] } : { grade: null, text: rec };
+		})
+	);
 </script>
 
 <svelte:head>
@@ -137,12 +164,15 @@
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
 				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">{$t('scorecard.recommendations_title')}</h2>
 				<ul class="space-y-2">
-					{#each scorecard.recommendations as rec}
+					{#each parsedRecommendations as rec}
 						<li class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
 							<svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
-							{rec}
+							{#if rec.grade}
+								<span class="shrink-0 px-1.5 py-0.5 rounded border text-xs font-bold {gradeColor(rec.grade)}">{rec.grade}</span>
+							{/if}
+							<span>{rec.text}</span>
 						</li>
 					{/each}
 				</ul>

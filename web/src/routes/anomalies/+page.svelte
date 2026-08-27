@@ -4,6 +4,7 @@
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import { supabase } from '$lib/supabase';
+	import { page } from '$app/stores';
 	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 
@@ -65,7 +66,23 @@
 		}
 	}
 
-	$effect(() => { loadProjects(); });
+	let autoLoaded = $state(false);
+
+	$effect(() => {
+		loadProjects();
+		// Honour ?project=<id> deep links (quick links on /projects and the
+		// header nav on /schedule both emit them).
+		const projectParam = $page.url.searchParams.get('project');
+		if (projectParam) selectedProject = projectParam;
+	});
+
+	// Auto-run once the project list has arrived and a deep link pre-selected one.
+	$effect(() => {
+		if (selectedProject && projects.length > 0 && !result && !loading && !autoLoaded) {
+			autoLoaded = true;
+			analyze();
+		}
+	});
 
 	const severityColor = (s: string) => {
 		if (s === 'high') return 'bg-red-100 text-red-800';

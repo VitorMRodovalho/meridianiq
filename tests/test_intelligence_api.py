@@ -105,3 +105,38 @@ class TestDashboardEndpoint:
         data = resp.json()
         assert data["total_projects"] >= 2
         assert 0 <= data["avg_health_score"] <= 100
+
+    def test_dashboard_aggregates_real_health_scores(
+        self, client: TestClient, uploaded_ids: dict[str, str]
+    ) -> None:
+        """Portfolio KPIs must come from the health engine, not placeholders.
+
+        Regression guard: ``/api/v1/dashboard`` previously returned hardcoded
+        zeros for every field except ``total_projects``, so the landing page
+        reported "Avg Health Score 0 / All Clear" while ``/projects/{id}/health``
+        returned a real score for the same project.
+        """
+        # Arrange — the per-project engine is the source of truth.
+        per_project = {}
+        for pid in uploaded_ids.values():
+            health = client.get(f"/api/v1/projects/{pid}/health")
+            assert health.status_code == 200
+            per_project[pid] = health.json()["overall"]
+        assert any(score > 0 for score in per_project.values())
+
+        # Act
+        resp = client.get("/api/v1/dashboard")
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # Assert — the aggregate reflects the engine, and the worst project is named.
+        assert data["avg_health_score"] > 0
+        assert data["most_critical_project"] is not None
+        assert data["most_critical_score"] is not None
+        assert data["most_critical_score"] == pytest.approx(min(per_project.values()), abs=0.5)
+        assert data["most_critical_score"] <= data["avg_health_score"]
+        assert (
+            data["projects_trending_up"] + data["projects_trending_down"]
+            <= (data["total_projects"])
+        )
+        assert 0 <= data["active_alerts"] <= data["total_projects"]
