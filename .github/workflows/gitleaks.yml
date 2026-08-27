@@ -9,6 +9,14 @@ on:
     # Weekly deep scan at 03:00 UTC Monday — catches anything that slipped in
     - cron: "0 3 * * 1"
 
+# Least privilege for GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions).
+# `pull-requests: write` is REQUIRED — the action runs with
+# GITLEAKS_ENABLE_COMMENTS=true and posts findings as PR comments.
+# Dropping it to contents-only would silently disable that reporting.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   gitleaks:
     name: gitleaks

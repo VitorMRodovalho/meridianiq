@@ -53,6 +53,41 @@
 		if (score >= 60) return 'text-amber-600';
 		return 'text-red-600';
 	}
+
+	function humanize(key: string): string {
+		return key.replace(/_/g, ' ');
+	}
+
+	function formatDetail(value: unknown): string {
+		if (typeof value === 'number') return value % 1 === 0 ? String(value) : value.toFixed(2);
+		if (typeof value === 'boolean') return value ? $t('common.yes') : $t('common.no');
+		if (value === null || value === undefined) return '—';
+		return String(value);
+	}
+
+	// `details` nests one level (`weights`, `raw_scores` are objects — see
+	// HealthScoreCalculator.calculate). Rendering a nested value directly
+	// stringified it to "[object Object]", so flatten to `parent · child`
+	// tiles instead.
+	const detailEntries = $derived.by((): { label: string; value: string }[] => {
+		if (!result?.details) return [];
+		const entries: { label: string; value: string }[] = [];
+		for (const [key, value] of Object.entries(result.details)) {
+			if (Array.isArray(value)) {
+				entries.push({ label: humanize(key), value: value.map(formatDetail).join(', ') || '—' });
+			} else if (value !== null && typeof value === 'object') {
+				for (const [childKey, childValue] of Object.entries(value as Record<string, unknown>)) {
+					entries.push({
+						label: `${humanize(key)} · ${humanize(childKey)}`,
+						value: formatDetail(childValue)
+					});
+				}
+			} else {
+				entries.push({ label: humanize(key), value: formatDetail(value) });
+			}
+		}
+		return entries;
+	});
 </script>
 
 <svelte:head>
@@ -141,16 +176,14 @@
 		</div>
 
 		<!-- Details Breakdown -->
-		{#if result.details && Object.keys(result.details).length > 0}
+		{#if detailEntries.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Detail Breakdown</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('health.detail_breakdown')}</h2>
 				<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-					{#each Object.entries(result.details) as [key, value]}
+					{#each detailEntries as entry (entry.label)}
 						<div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-							<p class="text-xs text-gray-500 dark:text-gray-400 capitalize">{key.replace(/_/g, ' ')}</p>
-							<p class="text-sm font-bold text-gray-900 dark:text-gray-100 mt-1">
-								{typeof value === 'number' ? (value % 1 === 0 ? value : value.toFixed(2)) : value}
-							</p>
+							<p class="text-xs text-gray-500 dark:text-gray-400 capitalize">{entry.label}</p>
+							<p class="text-sm font-bold text-gray-900 dark:text-gray-100 mt-1">{entry.value}</p>
 						</div>
 					{/each}
 				</div>

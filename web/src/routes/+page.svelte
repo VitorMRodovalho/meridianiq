@@ -12,6 +12,7 @@
 	let dashboard: DashboardKPIs | null = $state(null);
 	let healthScores: Record<string, { overall: number; rating: string; trend_arrow: string }> = $state({});
 	let loading = $state(true);
+	let dashboardLoading = $state(true);
 	let error = $state('');
 	let authenticated = $state(false);
 
@@ -31,14 +32,27 @@
 	});
 
 	async function loadData() {
+		// `/api/v1/dashboard` aggregates the health engine across the whole
+		// portfolio, so its cost scales with the number of schedules. Keep it
+		// OFF the critical path: the project list and quick actions render as
+		// soon as they arrive, and the KPI strip fills in when it resolves.
+		getDashboard()
+			.then((res) => {
+				dashboard = res;
+			})
+			.catch(() => {
+				dashboard = null;
+			})
+			.finally(() => {
+				dashboardLoading = false;
+			});
+
 		try {
-			const [projRes, dashRes, progRes] = await Promise.all([
+			const [projRes, progRes] = await Promise.all([
 				getProjects(),
-				getDashboard().catch(() => null),
 				getPrograms().catch(() => ({ programs: [] }))
 			]);
 			projects = projRes.projects;
-			dashboard = dashRes;
 			programs = progRes.programs;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to connect to backend';
@@ -228,7 +242,17 @@
 			</div>
 
 			<!-- Dashboard KPIs -->
-			{#if dashboard}
+			{#if dashboardLoading}
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10" aria-busy="true" aria-label={$t('common.loading')}>
+					{#each Array(4) as _unused}
+						<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+							<div class="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+							<div class="h-8 w-16 rounded bg-gray-200 dark:bg-gray-700 animate-pulse mt-2"></div>
+							<div class="h-3 w-32 rounded bg-gray-100 dark:bg-gray-800 animate-pulse mt-2"></div>
+						</div>
+					{/each}
+				</div>
+			{:else if dashboard}
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
 						<p class="text-sm text-gray-500 dark:text-gray-400">{$t('dashboard.total_projects')}</p>

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_WRITE, get_store, limiter
+from ..kpi_helpers import schedule_kpi_bundle
 from ..schemas import (
     ActivityFloatTrendSchema,
     ActivityRiskSchema,
@@ -439,9 +440,25 @@ def get_project_alerts(
 def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
     """Get portfolio-level dashboard KPIs.
 
-    Returns total projects, average health score, active alerts count,
-    and identifies the most critical project.  Uses lightweight metadata
-    instead of loading full schedules to avoid timeouts.
+    Aggregates the per-project Health Score (``src/analytics/health_score.py``,
+    thresholds aligned with the GAO Schedule Assessment Guide's 4
+    characteristics) across the caller's portfolio:
+
+    - ``avg_health_score``  — mean composite health over the scored projects.
+    - ``active_alerts``     — projects rated ``poor`` (health < 50, i.e. GAO
+      "significant gaps in 2+ characteristics"); these are the ones the UI
+      flags as requiring attention.
+    - ``projects_trending_up`` / ``_down`` — projects whose float-trend arrow
+      is ``↑`` / ``↓`` (see ``HealthScoreCalculator._classify_trend_arrow``).
+    - ``most_critical_project`` — project_id of the lowest-scoring project,
+      with its score.  The frontend resolves the id to a display name.
+
+    Per-project compute is delegated to ``schedule_kpi_bundle``, which is
+    memoised for 120s per ``(project_id, user_id)`` and is the same path used
+    by ``/api/v1/programs/{id}/rollup`` and ``/api/v1/bi/projects``.  Projects
+    whose bundle yields no health score (missing schedule, engine failure) are
+    skipped rather than counted as zero, so a single bad project cannot drag
+    the portfolio average down.
     """
     store = get_store()
     user_id = _user["id"] if _user else None
@@ -450,12 +467,45 @@ def get_dashboard(_user: object = Depends(optional_auth)) -> DashboardKPIs:
     if not all_projects:
         return DashboardKPIs()
 
+    scores: list[float] = []
+    active_alerts = 0
+    trending_up = 0
+    trending_down = 0
+    most_critical_project: str | None = None
+    most_critical_score: float | None = None
+
+    for project in all_projects:
+        project_id = project.get("project_id") or project.get("id") or ""
+        if not project_id:
+            continue
+
+        bundle = schedule_kpi_bundle(project_id, user_id)
+        score = bundle.get("health_score")
+        if score is None:
+            continue
+
+        score = float(score)
+        scores.append(score)
+
+        if bundle.get("health_rating") == "poor":
+            active_alerts += 1
+
+        arrow = bundle.get("health_trend_arrow")
+        if arrow == "↑":
+            trending_up += 1
+        elif arrow == "↓":
+            trending_down += 1
+
+        if most_critical_score is None or score < most_critical_score:
+            most_critical_score = score
+            most_critical_project = project_id
+
     return DashboardKPIs(
         total_projects=len(all_projects),
-        active_alerts=0,
-        avg_health_score=0.0,
-        projects_trending_up=0,
-        projects_trending_down=0,
-        most_critical_project=None,
-        most_critical_score=None,
+        active_alerts=active_alerts,
+        avg_health_score=round(sum(scores) / len(scores), 1) if scores else 0.0,
+        projects_trending_up=trending_up,
+        projects_trending_down=trending_down,
+        most_critical_project=most_critical_project,
+        most_critical_score=most_critical_score,
     )
