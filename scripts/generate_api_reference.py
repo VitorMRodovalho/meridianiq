@@ -18,6 +18,7 @@ from __future__ import annotations
 import inspect
 import sys
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -96,12 +97,49 @@ def _section_header(tag: str) -> tuple[str, str]:
     return (tag.replace("_", " ").title(), "")
 
 
+def _walk_routes(routes: Iterable[object], _seen: set[int] | None = None) -> Iterator[APIRoute]:
+    """Yield every ``APIRoute`` reachable from ``routes``, at any nesting depth.
+
+    FastAPI 0.141 changed ``include_router``: instead of flattening a child
+    router's routes into ``app.routes``, it appends a single
+    ``fastapi.routing._IncludedRouter`` wrapper that keeps them on
+    ``.original_router``. A flat ``for route in app.routes`` therefore matched
+    **zero** ``APIRoute`` instances on 0.141+, and this generator silently
+    emitted "0 endpoints across 0 routers" — no exception, just an empty
+    catalog that then failed the stats-consistency check against
+    CLAUDE.md / README / docs/architecture.md.
+
+    Walking both ``.routes`` and ``.original_router`` handles the pre-0.141
+    flat shape and the current wrapped one, so the catalog no longer depends
+    on FastAPI's internal composition strategy. Verified against 0.136.1 and
+    0.141.1; on 0.141 the result matches ``app.openapi()["paths"]`` exactly.
+
+    ``_seen`` guards against a router graph that revisits a node.
+    """
+    if _seen is None:
+        _seen = set()
+    for route in routes:
+        if id(route) in _seen:
+            continue
+        _seen.add(id(route))
+        if isinstance(route, APIRoute):
+            yield route
+            continue
+        for attr in ("routes", "original_router"):
+            nested = getattr(route, attr, None)
+            if nested is None:
+                continue
+            if not isinstance(nested, (list, tuple)):
+                nested = getattr(nested, "routes", None)
+            if nested:
+                yield from _walk_routes(nested, _seen)
+                break
+
+
 def main() -> None:
     # Group routes by router tag
     by_tag: dict[str, list[APIRoute]] = defaultdict(list)
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in _walk_routes(app.routes):
         # Skip auto-generated /docs, /openapi.json, etc.
         if route.path in {"/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect"}:
             continue
