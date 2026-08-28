@@ -140,6 +140,20 @@ jobs:
     needs: [backend, frontend, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Serialise deploys. Merging several PRs back-to-back previously started
+    # concurrent `flyctl deploy` runs that fought over the machine lease and
+    # failed with "failed to get lease on VM <id>: lease currently held by
+    # ...@tokens.fly.io" (observed 2026-08-27 across two of four merges).
+    #
+    # `cancel-in-progress: false` lets a running deploy finish rather than
+    # killing it mid-rollout. Note GitHub keeps only ONE pending run per
+    # concurrency group, so a burst of merges does not queue every commit —
+    # the newest supersedes the waiting one. That is the intended behaviour
+    # here: the goal is to converge on the head commit without racing, not to
+    # replay every intermediate commit through a deploy.
+    concurrency:
+      group: deploy-api-${{ github.ref }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
 
@@ -155,6 +169,14 @@ jobs:
     needs: [backend, frontend, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Separate group from deploy-api: Cloudflare Pages tolerated the
+    # concurrent runs (all four succeeded on 2026-08-27, only Fly failed), so
+    # this is about deterministic ordering — the last upload should be the
+    # head commit — not about a lock. A shared group with the API would
+    # needlessly serialise two independent targets.
+    concurrency:
+      group: deploy-web-${{ github.ref }}
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: web
