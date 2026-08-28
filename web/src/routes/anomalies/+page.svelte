@@ -54,7 +54,7 @@
 			const headers: Record<string, string> = session?.access_token
 				? { Authorization: `Bearer ${session.access_token}` }
 				: {};
-			const res = await fetch(`${BASE}/api/v1/projects/${selectedProject}/anomalies`, { headers });
+			const res = await fetch(`${BASE}/api/v1/projects/${encodeURIComponent(selectedProject)}/anomalies`, { headers });
 			if (!res.ok) throw new Error(await res.text());
 			result = await res.json();
 			toastSuccess(`Found ${result!.anomalies.length} anomalies in ${result!.total_activities} activities`);
@@ -66,22 +66,24 @@
 		}
 	}
 
-	let autoLoaded = $state(false);
-
 	$effect(() => {
 		loadProjects();
-		// Honour ?project=<id> deep links (quick links on /projects and the
-		// header nav on /schedule both emit them).
-		const projectParam = $page.url.searchParams.get('project');
-		if (projectParam) selectedProject = projectParam;
 	});
 
-	// Auto-run once the project list has arrived and a deep link pre-selected one.
+	// Honour ?project=<id> deep links. Tracks the id it loaded FOR rather than a
+	// boolean latch — see the same comment in scorecard/+page.svelte: a boolean
+	// never resets, so ?project=A -> ?project=B on this route left A's results
+	// on screen under a picker reading B.
+	let autoLoadedFor = $state<string | null>(null);
+
 	$effect(() => {
-		if (selectedProject && projects.length > 0 && !result && !loading && !autoLoaded) {
-			autoLoaded = true;
-			analyze();
-		}
+		const projectParam = $page.url.searchParams.get('project');
+		if (!projectParam || projects.length === 0 || loading) return;
+		if (autoLoadedFor === projectParam) return;
+		if (!projects.some((p) => p.project_id === projectParam)) return;
+		autoLoadedFor = projectParam;
+		selectedProject = projectParam;
+		analyze();
 	});
 
 	const severityColor = (s: string) => {

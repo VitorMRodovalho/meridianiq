@@ -54,8 +54,26 @@
 		return 'text-red-600';
 	}
 
+	// Acronyms the CSS `capitalize` class cannot recover: it uppercases only the
+	// first letter of a word, so "dcma" renders as "Dcma" — sloppy on a product
+	// whose core claim is DCMA 14-Point conformance.
+	const ACRONYMS: Record<string, string> = {
+		dcma: 'DCMA',
+		wbs: 'WBS',
+		cpm: 'CPM',
+		evm: 'EVM'
+	};
+
 	function humanize(key: string): string {
-		return key.replace(/_/g, ' ');
+		// Prefer a translated label, falling back to the humanised backend key so
+		// an unrecognised future field still renders something readable rather
+		// than a raw `health.detail.*` string. `$t(key, fallback)` returns the
+		// fallback when the key is absent from both the active locale and en.
+		const humanised = key
+			.split('_')
+			.map((word) => ACRONYMS[word] ?? word)
+			.join(' ');
+		return $t(`health.detail.${key}`, humanised);
 	}
 
 	function formatDetail(value: unknown): string {
@@ -179,8 +197,8 @@
 		{#if detailEntries.length > 0}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
 				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('health.detail_breakdown')}</h2>
-				<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-					{#each detailEntries as entry (entry.label)}
+				<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+					{#each detailEntries as entry}
 						<div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
 							<p class="text-xs text-gray-500 dark:text-gray-400 capitalize">{entry.label}</p>
 							<p class="text-sm font-bold text-gray-900 dark:text-gray-100 mt-1">{entry.value}</p>

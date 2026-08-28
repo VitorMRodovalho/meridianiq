@@ -113,22 +113,31 @@
 		}
 	}
 
-	let autoLoaded = $state(false);
-
 	$effect(() => {
 		loadProjects();
-		// Read URL params for pre-selection from compare page
-		const params = $page.url.searchParams;
-		if (params.get('project')) selectedProject = params.get('project')!;
-		if (params.get('baseline')) baselineProject = params.get('baseline')!;
 	});
 
-	// Auto-load when URL params provide project ID
+	// Auto-load from URL params (the compare page and the /projects quick links
+	// both deep-link here).
+	//
+	// Tracks the project+baseline pair it loaded FOR rather than a boolean
+	// latch: a plain `autoLoaded` never resets, so moving between two
+	// ?project= values on this same route left the previous schedule rendered
+	// under a picker showing the new one.
+	let autoLoadedFor = $state<string | null>(null);
+
 	$effect(() => {
-		if (selectedProject && projects.length > 0 && !data && !loading && !autoLoaded) {
-			autoLoaded = true;
-			loadSchedule();
-		}
+		const params = $page.url.searchParams;
+		const projectParam = params.get('project');
+		const baselineParam = params.get('baseline');
+		if (!projectParam || projects.length === 0 || loading) return;
+		const key = `${projectParam}|${baselineParam ?? ''}`;
+		if (autoLoadedFor === key) return;
+		if (!projects.some((p) => p.project_id === projectParam)) return;
+		autoLoadedFor = key;
+		selectedProject = projectParam;
+		if (baselineParam) baselineProject = baselineParam;
+		loadSchedule();
 	});
 
 	// Column configuration
