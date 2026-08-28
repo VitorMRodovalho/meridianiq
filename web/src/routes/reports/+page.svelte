@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
+	import { getProjects, downloadReportPdf } from '$lib/api';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
@@ -56,20 +56,11 @@
 	async function downloadReport(reportType: string) {
 		downloading = reportType;
 		try {
-			const BASE = import.meta.env.VITE_API_URL || '';
-			const { data: { session } } = await supabase.auth.getSession();
-			const headers: Record<string, string> = session?.access_token
-				? { Authorization: `Bearer ${session.access_token}` }
-				: {};
-			const res = await fetch(`${BASE}/api/v1/reports/${selectedProject}/${reportType}/download`, { headers });
-			if (!res.ok) throw new Error(await res.text());
-			const blob = await res.blob();
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `${reportType}-report.pdf`;
-			a.click();
-			URL.revokeObjectURL(url);
+			// Was calling GET /reports/{project}/{type}/download, which the API
+			// does not expose — every button on this page returned 404. PDF
+			// delivery is generate-then-download; `downloadReportPdf` owns both
+			// steps so the two callers cannot drift from the contract again.
+			await downloadReportPdf(selectedProject, reportType);
 			toastSuccess(`Downloaded ${reportType} report`);
 		} catch (e) {
 			toastError(e instanceof Error ? e.message : 'Download failed');

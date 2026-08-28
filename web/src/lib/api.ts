@@ -523,6 +523,52 @@ export async function generateReport(
 	});
 }
 
+/**
+ * Generate a PDF report and hand it to the browser as a download.
+ *
+ * PDF delivery is a TWO-step flow: `POST /reports/generate` returns a
+ * `report_id`, and only then does `GET /reports/{report_id}/download` return
+ * bytes. The Reports Hub previously called
+ * `GET /reports/{project_id}/{report_type}/download`, which is not a route the
+ * API exposes — every download button on that page returned 404. Centralising
+ * the flow here means the two callers cannot drift from the contract again.
+ *
+ * Generation is slow (~11s for a comparison over two ~8k-activity revisions,
+ * measured against production) because it re-runs the analysis, so callers
+ * should show a pending state.
+ */
+export async function downloadReportPdf(
+	projectId: string,
+	reportType: string,
+	baselineId?: string,
+	filename?: string
+): Promise<void> {
+	const { report_id } = await generateReport(projectId, reportType, baselineId);
+
+	const BASE = import.meta.env.VITE_API_URL || '';
+	const { supabase } = await import('$lib/supabase');
+	const {
+		data: { session }
+	} = await supabase.auth.getSession();
+	const headers: Record<string, string> = session?.access_token
+		? { Authorization: `Bearer ${session.access_token}` }
+		: {};
+
+	const res = await fetch(`${BASE}/api/v1/reports/${report_id}/download`, { headers });
+	if (!res.ok) throw new Error(await res.text());
+
+	const blob = await res.blob();
+	const url = URL.createObjectURL(blob);
+	try {
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename ?? `${reportType}-report.pdf`;
+		a.click();
+	} finally {
+		URL.revokeObjectURL(url);
+	}
+}
+
 // ── CBS Cost Snapshots ───────────────────────────────────
 
 export interface CostSnapshotSummary {

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, compareSchedules } from '$lib/api';
+	import { getProjects, compareSchedules, downloadReportPdf } from '$lib/api';
 	import type { ProjectListItem, CompareResponse } from '$lib/types';
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import { error as toastError } from '$lib/toast';
+	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 
@@ -39,6 +39,26 @@
 		if (!result) return 0;
 		return new Set(result.activity_modifications.map((c) => c.task_id)).size;
 	});
+
+	// The forensic output on this page — retroactive-date flags, manipulation
+	// verdict, critical-path movement — was previously screen-only. A claims
+	// consultant needs something citable, and the `comparison` PDF already
+	// existed server-side; it simply had no entry point from the screen that
+	// produces the finding.
+	let exporting = $state(false);
+
+	async function exportReport() {
+		if (!baselineId || !updateId) return;
+		exporting = true;
+		try {
+			await downloadReportPdf(updateId, 'comparison', baselineId, 'comparison-report.pdf');
+			toastSuccess($t('compare.export_done'));
+		} catch (e) {
+			toastError(e instanceof Error ? e.message : $t('compare.export_failed'));
+		} finally {
+			exporting = false;
+		}
+	}
 
 	async function doCompare() {
 		if (!baselineId || !updateId) {
@@ -141,6 +161,15 @@
 				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
 				{$t('compare.view_schedule')}
 			</a>
+			<button
+				onclick={exportReport}
+				disabled={exporting}
+				class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+				title={$t('compare.export_hint')}
+			>
+				<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+				{exporting ? $t('compare.exporting') : $t('compare.export_pdf')}
+			</button>
 			{#if result.significant_float_changes.length > 0}
 				<span class="text-xs text-gray-500 dark:text-gray-400">
 					{$t('compare.float_prefix')} <strong class="text-red-600">{result.significant_float_changes.filter(f => f.direction === 'decreased').length}</strong> {$t('compare.float_decreased_suffix')}
