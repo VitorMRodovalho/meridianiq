@@ -76,6 +76,8 @@ export default {
 	'dashboard.kpis_loading': 'Loading portfolio KPIs...',
 	'dashboard.kpis_failed': 'Could not load portfolio KPIs',
 	'dashboard.kpis_retry': 'Retry',
+	'dashboard.kpis_none_scored': 'No project could be scored yet — upload a schedule or wait for processing to finish.',
+	'dashboard.kpis_truncated': 'Portfolio exceeded the scoring limit; this average covers a subset.',
 	'common.project': 'Project',
 	'common.choose_project': 'Choose project...',
 	'common.analyze': 'Analyze',

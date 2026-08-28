@@ -76,6 +76,8 @@ export default {
 	'dashboard.kpis_loading': 'Carregando KPIs do portfólio...',
 	'dashboard.kpis_failed': 'Não foi possível carregar os KPIs do portfólio',
 	'dashboard.kpis_retry': 'Tentar novamente',
+	'dashboard.kpis_none_scored': 'Nenhum projeto pôde ser pontuado ainda — envie um cronograma ou aguarde o processamento.',
+	'dashboard.kpis_truncated': 'O portfólio excedeu o limite de pontuação; esta média cobre um subconjunto.',
 	'common.project': 'Projeto',
 	'common.choose_project': 'Selecionar projeto...',
 	'common.analyze': 'Analisar',

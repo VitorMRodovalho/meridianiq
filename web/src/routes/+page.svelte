@@ -278,6 +278,10 @@
 						{$t('dashboard.kpis_retry')}
 					</button>
 				</div>
+			{:else if dashboard && dashboard.scored_projects === 0}
+				<div class="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-10" role="status">
+					<p class="text-sm text-gray-700 dark:text-gray-300">{$t('dashboard.kpis_none_scored')}</p>
+				</div>
 			{:else if dashboard}
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
@@ -286,7 +290,12 @@
 						<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
-						<p class="text-sm text-gray-500 dark:text-gray-400">{$t('dashboard.avg_health')}</p>
+						<p class="text-sm text-gray-500 dark:text-gray-400">
+							{$t('dashboard.avg_health')}
+							{#if dashboard.truncated}
+								<span class="ml-1 text-xs text-amber-600 dark:text-amber-400" title={$t('dashboard.kpis_truncated')}>*</span>
+							{/if}
+						</p>
 						<div class="flex items-center gap-3 mt-1">
 							<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
 							<div class="flex-1">
