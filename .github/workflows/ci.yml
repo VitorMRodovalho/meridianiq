@@ -27,9 +27,14 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint
+        # No `pip install ruff` here: a bare install resolves the newest ruff
+        # and silently ignores the `[dev]` extra's constraint, which is how a
+        # 0.15 -> 0.16 default-rule-set change turned a green suite into 801
+        # findings with no source change. The version installed above is the
+        # one that gates.
         run: |
-          pip install ruff
-          ruff check src/ tests/ tools/
+          ruff --version
+          ruff check src/ tests/ tools/ scripts/
           ruff format --check src/ tests/ tools/
 
       - name: Canonical-hash byte-exact contract (ADR-0014)

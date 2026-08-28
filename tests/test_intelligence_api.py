@@ -131,12 +131,32 @@ class TestDashboardEndpoint:
 
         # Assert — the aggregate reflects the engine, and the worst project is named.
         assert data["avg_health_score"] > 0
+        assert data["scored_projects"] > 0
         assert data["most_critical_project"] is not None
         assert data["most_critical_score"] is not None
-        assert data["most_critical_score"] == pytest.approx(min(per_project.values()), abs=0.5)
+        # `<=`, not `==`: the store is a session-scoped singleton and other test
+        # modules leave projects behind depending on collection order, so the
+        # portfolio minimum can legitimately be lower than the minimum over the
+        # two projects THIS module uploaded. Asserting equality passed only by
+        # luck of file ordering.
+        assert data["most_critical_score"] <= min(per_project.values()) + 0.5
         assert data["most_critical_score"] <= data["avg_health_score"]
-        assert (
-            data["projects_trending_up"] + data["projects_trending_down"]
-            <= (data["total_projects"])
-        )
         assert 0 <= data["active_alerts"] <= data["total_projects"]
+        assert data["scored_projects"] <= data["total_projects"]
+
+    def test_dashboard_trend_fields_are_null_not_zero(
+        self, client: TestClient, uploaded_ids: dict[str, str]
+    ) -> None:
+        """Trend direction is uncomputable without a baseline — say so with null.
+
+        ``schedule_kpi_bundle`` runs ``HealthScoreCalculator`` baseline-free, so
+        ``_compute_trend_score`` returns a neutral 50.0 and the arrow is always
+        "→". Reporting 0 would be a computed zero that no input can move — the
+        same class of dishonesty as the hardcoded zeros this endpoint used to
+        return. Guard the null contract so a future change has to be deliberate.
+        """
+        resp = client.get("/api/v1/dashboard")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["projects_trending_up"] is None
+        assert data["projects_trending_down"] is None

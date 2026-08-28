@@ -617,10 +617,19 @@ export interface AlertsResponse {
 
 export interface DashboardKPIs {
 	total_projects: number;
+	/** How many projects contributed to `avg_health_score`. When 0, the average
+	 *  is 0.0 because nothing could be scored — NOT because the portfolio
+	 *  scored zero. Always read the two together. */
+	scored_projects: number;
+	/** True when the portfolio exceeded the server's per-request scoring cap,
+	 *  so the aggregate covers only a subset. */
+	truncated: boolean;
 	active_alerts: number;
 	avg_health_score: number;
-	projects_trending_up: number;
-	projects_trending_down: number;
+	/** Always null: the trend arrow needs a baseline and the portfolio rollup
+	 *  runs baseline-free, so no direction is derivable. */
+	projects_trending_up: number | null;
+	projects_trending_down: number | null;
 	most_critical_project: string | null;
 	most_critical_score: number | null;
 }

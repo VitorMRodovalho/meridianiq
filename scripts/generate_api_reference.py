@@ -112,7 +112,20 @@ def _walk_routes(routes: Iterable[object], _seen: set[int] | None = None) -> Ite
     Walking both ``.routes`` and ``.original_router`` handles the pre-0.141
     flat shape and the current wrapped one, so the catalog no longer depends
     on FastAPI's internal composition strategy. Verified against 0.136.1 and
-    0.141.1; on 0.141 the result matches ``app.openapi()["paths"]`` exactly.
+    0.141.1; for THIS app the result matches ``app.openapi()["paths"]``.
+
+    Two known limits, neither reachable today:
+    - ``route.path`` is router-local under 0.141+, so an ``include_router(...,
+      prefix=...)`` would be reported without its prefix. All 25 includes in
+      ``src/api/app.py`` are currently bare.
+    - ``APIWebSocketRoute`` is not an ``APIRoute`` and is therefore absent from
+      the catalog and the endpoint count — consistent with ``app.openapi()``,
+      which also omits WebSocket routes.
+
+    Generating straight from ``app.openapi()`` would remove both limits and the
+    dependency on FastAPI internals, at the cost of losing ``endpoint.__doc__``,
+    the response-model class name, and dependency introspection, which this
+    catalog renders.
 
     ``_seen`` guards against a router graph that revisits a node.
     """
@@ -132,8 +145,11 @@ def _walk_routes(routes: Iterable[object], _seen: set[int] | None = None) -> Ite
             if not isinstance(nested, (list, tuple)):
                 nested = getattr(nested, "routes", None)
             if nested:
+                # No `break`: `_seen` already prevents double-emission, and
+                # stopping at the first hit would silently truncate the catalog
+                # if a future FastAPI gives the wrapper BOTH a `.routes` and an
+                # `.original_router`.
                 yield from _walk_routes(nested, _seen)
-                break
 
 
 def main() -> None:

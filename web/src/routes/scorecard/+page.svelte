@@ -38,31 +38,49 @@
 		}
 	}
 
-	let autoLoaded = $state(false);
-
 	$effect(() => {
 		loadProjects();
-		// Honour ?project=<id> deep links (quick links on /projects and the
-		// header nav on /schedule both emit them).
-		const projectParam = $page.url.searchParams.get('project');
-		if (projectParam) selectedProject = projectParam;
 	});
 
-	// Auto-run once the project list has arrived and a deep link pre-selected one.
+	// Honour ?project=<id> deep links (quick links on /projects and the header
+	// nav on /schedule both emit them), and auto-run once the project list has
+	// arrived.
+	//
+	// Tracks the id it loaded FOR rather than a boolean latch: a plain
+	// `autoLoaded` flag never resets, so navigating from ?project=A to
+	// ?project=B on this same route left A's grade and gauges on screen under a
+	// picker reading B — a silent misattribution of a score to the wrong
+	// project, the worst thing this page can do.
+	let autoLoadedFor = $state<string | null>(null);
+
 	$effect(() => {
-		if (selectedProject && projects.length > 0 && !scorecard && !loading && !autoLoaded) {
-			autoLoaded = true;
-			loadScorecard();
-		}
+		const projectParam = $page.url.searchParams.get('project');
+		if (!projectParam || projects.length === 0 || loading) return;
+		if (autoLoadedFor === projectParam) return;
+		// Ignore an id the caller cannot actually see: auto-firing on it would
+		// error, toast, and leave the <select> visually blank (no matching
+		// <option> for bind:value) — a confusing three-way dead end.
+		if (!projects.some((p) => p.project_id === projectParam)) return;
+		autoLoadedFor = projectParam;
+		selectedProject = projectParam;
+		loadScorecard();
 	});
 
+	// Dark-mode foregrounds are explicit: the 600-weight text on a 950-weight
+	// surface measures ~3.3:1 (sRGB-encoded values linearised to relative
+	// luminance), which passes WCAG AA only at large text. That was fine while
+	// this function was used solely on the 6xl grade block, but the
+	// recommendation badge below renders it at 12px bold — normal text, needing
+	// 4.5:1. The 300-weight foregrounds clear that on every grade.
+	// `D` also had no dark background token at all, and app.css does not remap
+	// `bg-orange-50`, so a D badge rendered near-white in dark mode.
 	const gradeColor = (grade: string) => {
 		const colors: Record<string, string> = {
-			A: 'text-green-600 bg-green-50 dark:bg-green-950 border-green-200',
-			B: 'text-blue-600 bg-blue-50 dark:bg-blue-950 border-blue-200',
-			C: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950 border-yellow-200',
-			D: 'text-orange-600 bg-orange-50 border-orange-200',
-			F: 'text-red-600 bg-red-50 dark:bg-red-950 border-red-200',
+			A: 'text-green-600 dark:text-green-300 bg-green-50 dark:bg-green-950 border-green-200',
+			B: 'text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 border-blue-200',
+			C: 'text-yellow-600 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-950 border-yellow-200',
+			D: 'text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-950 border-orange-200',
+			F: 'text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950 border-red-200',
 		};
 		return colors[grade] || 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
 	};
@@ -170,7 +188,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 							{#if rec.grade}
-								<span class="shrink-0 px-1.5 py-0.5 rounded border text-xs font-bold {gradeColor(rec.grade)}">{rec.grade}</span>
+								<span class="shrink-0 px-1.5 py-0.5 rounded border text-xs font-bold {gradeColor(rec.grade)}" aria-label="{$t('common.grade')} {rec.grade}">{rec.grade}</span>
 							{/if}
 							<span>{rec.text}</span>
 						</li>

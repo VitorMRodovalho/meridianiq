@@ -1626,15 +1626,70 @@ class CostCompareResponse(BaseModel):
 
 
 class DashboardKPIs(BaseModel):
-    """Response for GET /api/v1/dashboard."""
+    """Response for GET /api/v1/dashboard.
 
-    total_projects: int = 0
-    active_alerts: int = 0
-    avg_health_score: float = 0.0
-    projects_trending_up: int = 0
-    projects_trending_down: int = 0
-    most_critical_project: Optional[str] = None
-    most_critical_score: Optional[float] = None
+    Field descriptions are populated because the semantics are non-obvious and
+    this schema is consumed by MCP, the OpenAPI doc and BI clients, not only by
+    the web UI — the same gap the Cycle 4 W2 wave closed for
+    ``LifecyclePhaseInferenceSchema``.
+    """
+
+    total_projects: int = Field(
+        default=0,
+        description=(
+            "Every project the caller owns, including pending/failed uploads "
+            "that have no schedule to score. Compare with scored_projects."
+        ),
+    )
+    scored_projects: int = Field(
+        default=0,
+        description=(
+            "How many projects actually contributed to avg_health_score. "
+            "When 0, avg_health_score is 0.0 because nothing could be scored "
+            "— NOT because the portfolio scored zero."
+        ),
+    )
+    truncated: bool = Field(
+        default=False,
+        description=(
+            "True when the portfolio exceeded the per-request scoring cap and "
+            "the aggregate covers only a subset. Never treat a truncated "
+            "aggregate as portfolio-wide."
+        ),
+    )
+    active_alerts: int = Field(
+        default=0,
+        description=(
+            "Count of PROJECTS rated 'poor' (health < 50, GAO band). Different "
+            "unit and criterion from total_alerts on "
+            "GET /api/v1/projects/{id}/alerts, which counts individual rule "
+            "hits from the 12-rule EarlyWarning engine. The two are not "
+            "reconcilable: EarlyWarning needs a (baseline, update) pair, which "
+            "a portfolio rollup does not have."
+        ),
+    )
+    avg_health_score: float = Field(
+        default=0.0,
+        description="Mean composite health over scored_projects. See scored_projects.",
+    )
+    projects_trending_up: Optional[int] = Field(
+        default=None,
+        description=(
+            "Always None. The trend arrow requires a baseline, and the "
+            "portfolio rollup runs baseline-free, so no direction can be "
+            "derived. None rather than 0 so consumers do not read an "
+            "uncomputable value as a real 'zero trending up'."
+        ),
+    )
+    projects_trending_down: Optional[int] = Field(
+        default=None,
+        description="Always None — see projects_trending_up.",
+    )
+    most_critical_project: Optional[str] = Field(
+        default=None,
+        description="project_id of the lowest-scoring project; ties break on project_id.",
+    )
+    most_critical_score: Optional[float] = Field(default=None)
 
 
 # ── Reports ─────────────────────────────────────────────

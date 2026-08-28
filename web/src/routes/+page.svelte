@@ -13,6 +13,7 @@
 	let healthScores: Record<string, { overall: number; rating: string; trend_arrow: string }> = $state({});
 	let loading = $state(true);
 	let dashboardLoading = $state(true);
+	let dashboardError = $state('');
 	let error = $state('');
 	let authenticated = $state(false);
 
@@ -31,21 +32,30 @@
 		}
 	});
 
+	// `/api/v1/dashboard` aggregates the health engine across the whole
+	// portfolio, so its cost scales with the number of schedules. It is kept
+	// OFF the critical path (the project list and quick actions render as soon
+	// as they arrive) AND it needs its own error branch: the request rides the
+	// retry ladder in `$lib/api.ts`, so on a slow portfolio it can burn the
+	// full budget and reject. Without a visible failure state the whole KPI
+	// strip would simply disappear with no explanation — the hardest kind of
+	// bug for a user to report, because a later load inside the 120s server
+	// memo window succeeds.
+	async function loadDashboard() {
+		dashboardLoading = true;
+		dashboardError = '';
+		try {
+			dashboard = await getDashboard();
+		} catch (e) {
+			dashboard = null;
+			dashboardError = e instanceof Error ? e.message : $t('dashboard.kpis_failed');
+		} finally {
+			dashboardLoading = false;
+		}
+	}
+
 	async function loadData() {
-		// `/api/v1/dashboard` aggregates the health engine across the whole
-		// portfolio, so its cost scales with the number of schedules. Keep it
-		// OFF the critical path: the project list and quick actions render as
-		// soon as they arrive, and the KPI strip fills in when it resolves.
-		getDashboard()
-			.then((res) => {
-				dashboard = res;
-			})
-			.catch(() => {
-				dashboard = null;
-			})
-			.finally(() => {
-				dashboardLoading = false;
-			});
+		loadDashboard();
 
 		try {
 			const [projRes, progRes] = await Promise.all([
@@ -243,14 +253,34 @@
 
 			<!-- Dashboard KPIs -->
 			{#if dashboardLoading}
-				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10" aria-busy="true" aria-label={$t('common.loading')}>
-					{#each Array(4) as _unused}
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10" role="status" aria-live="polite" aria-busy="true" aria-label={$t('dashboard.kpis_loading')}>
+					{#each Array(4) as _}
 						<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
 							<div class="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
 							<div class="h-8 w-16 rounded bg-gray-200 dark:bg-gray-700 animate-pulse mt-2"></div>
 							<div class="h-3 w-32 rounded bg-gray-100 dark:bg-gray-800 animate-pulse mt-2"></div>
 						</div>
 					{/each}
+				</div>
+			{:else if dashboardError}
+				<div class="border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 rounded-lg p-4 mb-10 flex items-start gap-3" role="status">
+					<svg class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+					</svg>
+					<div class="flex-1 min-w-0">
+						<p class="text-sm font-medium text-amber-800 dark:text-amber-200">{$t('dashboard.kpis_failed')}</p>
+						<p class="text-xs text-amber-700 dark:text-amber-300 mt-1 break-words">{dashboardError}</p>
+					</div>
+					<button
+						onclick={loadDashboard}
+						class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700"
+					>
+						{$t('dashboard.kpis_retry')}
+					</button>
+				</div>
+			{:else if dashboard && dashboard.scored_projects === 0}
+				<div class="border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-10" role="status">
+					<p class="text-sm text-gray-700 dark:text-gray-300">{$t('dashboard.kpis_none_scored')}</p>
 				</div>
 			{:else if dashboard}
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
@@ -260,7 +290,12 @@
 						<p class="text-xs text-gray-400 mt-1">Uploaded schedules</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
-						<p class="text-sm text-gray-500 dark:text-gray-400">{$t('dashboard.avg_health')}</p>
+						<p class="text-sm text-gray-500 dark:text-gray-400">
+							{$t('dashboard.avg_health')}
+							{#if dashboard.truncated}
+								<span class="ml-1 text-xs text-amber-600 dark:text-amber-400" title={$t('dashboard.kpis_truncated')}>*</span>
+							{/if}
+						</p>
 						<div class="flex items-center gap-3 mt-1">
 							<p class="text-3xl font-bold {scoreColor(dashboard.avg_health_score)}">{dashboard.avg_health_score.toFixed(0)}</p>
 							<div class="flex-1">
