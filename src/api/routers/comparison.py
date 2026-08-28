@@ -86,5 +86,14 @@ def compare_schedules(
         critical_path_changed=result.critical_path_changed,
         activities_joined_cp=result.activities_joined_cp,
         activities_left_cp=result.activities_left_cp,
+        # The engine computes the aggregate verdict in
+        # ScheduleComparator._score_manipulation; these three were never mapped,
+        # so the response served the schema defaults (0 / "normal" / "") while
+        # `manipulation_flags` carried critical retroactive_date findings. The UI
+        # rendered "Risk Score 0 — no manipulation indicators" directly above
+        # them, which is the worst possible screen for the forensic persona.
+        manipulation_classification=result.manipulation_classification,
+        manipulation_score=result.manipulation_score,
+        manipulation_rationale=result.manipulation_rationale,
         summary=result.summary,
     )

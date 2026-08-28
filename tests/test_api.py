@@ -184,3 +184,46 @@ class TestCompare:
         assert len(data["duration_changes"]) == 3
         assert data["changed_percentage"] > 0
         assert len(data["manipulation_flags"]) > 0
+
+    def test_compare_aggregate_verdict_agrees_with_its_own_flags(self, client: TestClient) -> None:
+        """The headline verdict must not contradict the flag list beneath it.
+
+        Regression guard: ``manipulation_score`` / ``_classification`` /
+        ``_rationale`` were computed by the engine but never mapped in
+        ``routers/comparison.py``, so the response served the schema defaults
+        (0 / "normal" / ""). Against real revisions that produced a screen
+        reading "Risk Score 0 — no manipulation indicators" directly above 459
+        flags, including critical ``retroactive_date`` findings scored 80.
+
+        For the forensic persona that contradiction is worse than showing
+        nothing, so assert the aggregate is CONSISTENT with the flags rather
+        than asserting any particular number.
+        """
+        base = _upload_xer(client, SAMPLE_XER)
+        upd = _upload_xer(client, SAMPLE_UPDATE_XER)
+
+        resp = client.post(
+            "/api/v1/compare",
+            json={"baseline_id": base["project_id"], "update_id": upd["project_id"]},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        flags = data["manipulation_flags"]
+        assert flags, "fixture must produce flags for this guard to mean anything"
+
+        # Any flag at all rules out a zero aggregate and an empty explanation.
+        assert data["manipulation_score"] > 0
+        assert data["manipulation_rationale"] != ""
+
+        # A critical flag, or any red-flag indicator, rules out "normal".
+        red_flag_indicators = {"retroactive_date", "oos_progress"}
+        has_severe = any(
+            f.get("severity") == "critical" or f.get("indicator") in red_flag_indicators
+            for f in flags
+        )
+        if has_severe:
+            assert data["manipulation_classification"] != "normal", (
+                "aggregate says 'normal' while the flag list contains a critical "
+                "or red-flag indicator"
+            )

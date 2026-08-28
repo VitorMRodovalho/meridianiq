@@ -28,6 +28,18 @@
 		}
 	});
 
+	// `activity_modifications` holds one row per CHANGE, so its length (9,691 on
+	// a real revision pair) is not an activity count and can exceed
+	// `match_stats.total_matched` (7,905) — impossible to read correctly in a
+	// card sitting beside ADDED / DELETED, which are activity counts. The engine
+	// already reports the activity figure in `summary.activities_modified`.
+	const modifiedActivityCount = $derived.by((): number => {
+		const fromSummary = result?.summary?.activities_modified;
+		if (typeof fromSummary === 'number') return fromSummary;
+		if (!result) return 0;
+		return new Set(result.activity_modifications.map((c) => c.task_id)).size;
+	});
+
 	async function doCompare() {
 		if (!baselineId || !updateId) {
 			error = $t('compare.select_both_error');
@@ -141,9 +153,10 @@
 		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_changed')}</p>
-				<p class="text-2xl font-bold {result.changed_percentage > 20 ? 'text-red-600' : result.changed_percentage > 5 ? 'text-yellow-600' : 'text-green-600'}">
+				<p class="text-2xl font-bold text-gray-900 dark:text-gray-100" title={$t('compare.stat_changed_hint')}>
 					{result.changed_percentage.toFixed(1)}%
 				</p>
+				<p class="text-[10px] leading-tight text-gray-400 mt-0.5">{$t('compare.stat_changed_sub')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_added')}</p>
@@ -155,7 +168,11 @@
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_modified')}</p>
-				<p class="text-2xl font-bold text-blue-600">{result.activity_modifications.length}</p>
+				<p class="text-2xl font-bold text-blue-600">{modifiedActivityCount}</p>
+				<p class="text-[10px] leading-tight text-gray-400 mt-0.5">
+					{result.activity_modifications.length}
+					{$t('compare.stat_modified_sub')}
+				</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('compare.stat_rel_added')}</p>
@@ -176,7 +193,7 @@
 				data={[
 					{ label: $t('compare.chart_added'), value: result.activities_added.length, color: '#10b981' },
 					{ label: $t('compare.chart_deleted'), value: result.activities_deleted.length, color: '#ef4444' },
-					{ label: $t('compare.chart_modified'), value: result.activity_modifications.length, color: '#3b82f6' },
+					{ label: $t('compare.chart_modified'), value: modifiedActivityCount, color: '#3b82f6' },
 					{ label: $t('compare.chart_duration'), value: result.duration_changes.length, color: '#8b5cf6' },
 					{ label: $t('compare.chart_float'), value: result.significant_float_changes.length, color: '#f59e0b' },
 					{ label: $t('compare.chart_constraints'), value: result.constraint_changes.length, color: '#06b6d4' },
