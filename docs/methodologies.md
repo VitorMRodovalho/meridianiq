@@ -277,16 +277,27 @@ Implements the Defence Contract Management Agency 14-point check used to assess 
 
 Provides a claims-ready breakdown of project delay by party (Owner, Contractor, Shared, Third Party, Force Majeure). Designed for the scheduler or claims consultant who needs to answer: "Who caused how much delay, and which activities drove it?"
 
-Works with two data sources:
+Works with three data sources, in precedence order (see ``delay_basis``):
 1. **TIA fragments** — if TIA analysis has been run, uses the explicit
    party assignments from delay fragments.
-2. **Standalone estimation** — if no TIA data, infers attribution from
-   activity characteristics (out-of-sequence, constraint changes, etc.)
+2. **Baseline finish slip** — if a baseline is supplied, the delay quantum
+   is the calendar movement of projected completion between the two
+   schedules, which is what AACE RP 29R-03 and the SCL Protocol quantify.
+   Closest published analogue is MIP 3.1 (observational / gross), which is
+   implemented separately in ``mip_observational``; this module reuses the
+   quantity but not that MIP's procedure.
+3. **Negative-float proxy** — if no baseline, or its dates are
+   unresolvable, estimates the quantum from worst negative float.
+
+The party *split* is a heuristic proportion of indicator counts in all
+non-TIA cases; it is not a forensic determination and is reported as
+``Unattributed`` when no indicator matches.
 
 **Standards implemented:**
 
 - AACE RP 29R-03 — Forensic Schedule Analysis
 - AACE RP 52R-06 — Time Impact Analysis
+- SCL Delay and Disruption Protocol
 
 **Explicit references from docstring:**
 
