@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from src.parser.models import ParsedSchedule
 
@@ -59,6 +60,10 @@ class AttributionResult:
         non_excusable_days: Contractor-caused delay.
         concurrent_days: Shared delay (both parties).
         data_source: "tia" if TIA data used, "estimated" if inferred.
+        delay_basis: Which computation produced ``total_delay_days`` --
+            "tia", "baseline_finish_slip", "negative_float_proxy" or
+            "none". ``data_source`` cannot distinguish a baseline-derived
+            total from a float-proxy guess; this can.
         methodology: Description of attribution approach.
     """
 
@@ -68,12 +73,49 @@ class AttributionResult:
     non_excusable_days: float = 0.0
     concurrent_days: float = 0.0
     data_source: str = "estimated"
+    delay_basis: str = "none"
     methodology: str = (
         "Delay attribution per AACE RP 29R-03 and SCL Protocol. "
         "Excusable = Owner + Shared + Third Party + Force Majeure. "
         "Non-excusable = Contractor. "
         "Concurrent = Shared between parties."
     )
+
+
+def _resolve_project_finish(schedule: ParsedSchedule) -> datetime | None:
+    """Resolve a schedule's projected completion date.
+
+    Mirrors P6's own Finish column precedence: an actual finish outranks the
+    early (forecast) finish, which outranks the planned target finish. Any
+    ordering that lets a planned date outrank an actual one is indefensible
+    for forensic work.
+
+    Level-of-effort and WBS-summary activities are excluded -- hammocks
+    routinely span past the finish milestone and would manufacture phantom
+    delay. Same predicate as ``float_trends`` and ``anomaly_detection``.
+
+    Args:
+        schedule: The schedule to resolve.
+
+    Returns:
+        The latest resolvable finish, naive UTC, or ``None`` when no activity
+        carries one -- so callers degrade visibly instead of inventing a date.
+    """
+    latest: datetime | None = None
+    for task in schedule.activities:
+        if task.task_type.lower() in ("tt_loe", "tt_wbs"):
+            continue
+        end = task.act_end_date or task.early_end_date or task.target_end_date
+        if end is None:
+            continue
+        # A stored schedule comes back from Postgres as TIMESTAMPTZ (aware)
+        # while an XER re-parse yields naive datetimes, and a single request
+        # can mix the two -- subtracting them raises TypeError.
+        if end.tzinfo is not None:
+            end = end.astimezone(timezone.utc).replace(tzinfo=None)
+        if latest is None or end > latest:
+            latest = end
+    return latest
 
 
 def compute_delay_attribution(
@@ -96,6 +138,7 @@ def compute_delay_attribution(
     # Source 1: Use TIA results if available (most accurate)
     if tia_results and "total_owner_delay" in tia_results:
         result.data_source = "tia"
+        result.delay_basis = "tia"
         owner = tia_results.get("total_owner_delay", 0.0)
         contractor = tia_results.get("total_contractor_delay", 0.0)
         shared = tia_results.get("total_shared_delay", 0.0)
@@ -131,22 +174,36 @@ def compute_delay_attribution(
     # Source 2: Estimate from schedule characteristics
     result.data_source = "estimated"
 
-    from src.analytics.cpm import CPMCalculator
-
-    cpm = CPMCalculator(schedule)
-    cpm_result = cpm.calculate()
-
-    # Estimate total delay from schedule vs baseline
+    # Estimate total delay from schedule vs baseline.
+    #
+    # Delay here is the movement of the projected COMPLETION DATE, which is
+    # what AACE RP 29R-03 and the SCL Protocol quantify and what
+    # ``excusable_days`` is later split from. CPM duration is deliberately
+    # not used: ``_build_graph`` zeroes completed activities, so
+    # ``project_duration`` decays into remaining span and progress cancels
+    # slip -- a real 10-day slip can measure as 0.
     total_delay = 0.0
-    if baseline:
-        base_cpm = CPMCalculator(baseline)
-        base_result = base_cpm.calculate()
-        if cpm_result.project_finish and base_result.project_finish:
-            delta = cpm_result.project_finish - base_result.project_finish
-            total_delay = max(0.0, delta.days)
+    baseline_slip_resolved = False
 
-    if total_delay == 0.0:
-        # No baseline or no delay — use negative float as proxy
+    if baseline is not None:
+        update_finish = _resolve_project_finish(schedule)
+        baseline_finish = _resolve_project_finish(baseline)
+        if update_finish is not None and baseline_finish is not None:
+            # Compare calendar dates, not instants: P6 finishes land at 17:00
+            # and starts at 08:00, so a raw timedelta truncates a genuine
+            # one-day slip to zero.
+            slip = (update_finish.date() - baseline_finish.date()).days
+            # Floor at zero -- a negative quantum cannot be split among
+            # parties. The signed variance is tracked separately in #233.
+            total_delay = float(max(0, slip))
+            baseline_slip_resolved = True
+            result.delay_basis = "baseline_finish_slip"
+
+    if not baseline_slip_resolved:
+        # No baseline, or its dates were unresolvable — use negative float as
+        # proxy. Guarded by the flag rather than by ``total_delay == 0.0`` so
+        # that a baseline legitimately showing no slip is not overwritten by
+        # invented delay.
         neg_float_tasks = [
             t
             for t in schedule.activities
@@ -161,6 +218,7 @@ def compute_delay_attribution(
             if schedule.calendars:
                 day_hr = schedule.calendars[0].day_hr_cnt or 8.0
             total_delay = abs(worst) / day_hr
+            result.delay_basis = "negative_float_proxy"
 
     result.total_delay_days = round(total_delay, 1)
 

@@ -79,3 +79,6 @@ w4_manifest.json
 /re
 /sys
 *.ps
+
+# Browser-automation artifacts (claude-in-chrome / playwright MCP)
+.playwright-mcp/
