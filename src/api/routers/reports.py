@@ -665,12 +665,19 @@ def _generate_scl_protocol_report(
 
     try:
         attribution = compute_delay_attribution(schedule, baseline=baseline)
-    except Exception:
+    except Exception as exc:
         # Was a bare pass: issue #222 shipped a hard AttributeError on the
         # baseline path for ~5 months and this swallowed it, so the forensic
         # PDF silently omitted its attribution section instead of failing.
         # The section stays optional, but the next failure must be visible.
-        logger.exception("Delay attribution failed; omitting section from report")
+        #
+        # Deliberately NOT logger.exception / exc_info: sentry-sdk captures
+        # frame locals by default, and those locals hold client activity
+        # names. The exception type is enough to break the silence.
+        logger.error(
+            "Delay attribution failed (%s); omitting section from report",
+            type(exc).__name__,
+        )
 
     if baseline is not None:
         try:
@@ -729,12 +736,19 @@ def _generate_aace_29r03_report(
 
     try:
         attribution = compute_delay_attribution(schedule, baseline=baseline)
-    except Exception:
+    except Exception as exc:
         # Was a bare pass: issue #222 shipped a hard AttributeError on the
         # baseline path for ~5 months and this swallowed it, so the forensic
         # PDF silently omitted its attribution section instead of failing.
         # The section stays optional, but the next failure must be visible.
-        logger.exception("Delay attribution failed; omitting section from report")
+        #
+        # Deliberately NOT logger.exception / exc_info: sentry-sdk captures
+        # frame locals by default, and those locals hold client activity
+        # names. The exception type is enough to break the silence.
+        logger.error(
+            "Delay attribution failed (%s); omitting section from report",
+            type(exc).__name__,
+        )
 
     if baseline is not None:
         try:

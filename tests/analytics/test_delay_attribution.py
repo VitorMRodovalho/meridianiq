@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -215,6 +215,23 @@ class TestBaselineFinishSlip:
         # Assert
         assert result.total_delay_days == 10.0
 
+    def test_nonzero_utc_offset_does_not_shift_the_day(self) -> None:
+        """A UTC-offset test cannot detect a day shift; this one can.
+
+        P6 dates are wall-clock local. Converting an aware midnight value to
+        UTC can move it across midnight and change the day count by one.
+        """
+        # Arrange — midnight at +03:00 is the fragile case
+        tz = timezone(timedelta(hours=3))
+        baseline = _make_schedule([_task("A", end=datetime(2026, 1, 1, 0, 0, tzinfo=tz))])
+        update = _make_schedule([_task("A", end=datetime(2026, 1, 11, 0, 0, tzinfo=tz))])
+
+        # Act
+        result = compute_delay_attribution(update, baseline=baseline)
+
+        # Assert — both sides shift identically, so the span is preserved
+        assert result.total_delay_days == 10.0
+
     def test_time_of_day_does_not_truncate_the_slip(self) -> None:
         """P6 finishes land at 17:00 and starts at 08:00 — 15h is one day."""
         # Arrange
@@ -243,6 +260,9 @@ class TestBaselineFinishSlip:
 
         # Assert
         assert result.total_delay_days == 0.0
+        # Without this the test passes even if _resolve_project_finish is
+        # broken enough to return None for every schedule.
+        assert result.delay_basis == "baseline_finish_slip"
 
     def test_unresolvable_baseline_degrades_visibly(self) -> None:
         """No resolvable dates must fall back AND say so."""
@@ -280,6 +300,60 @@ class TestBaselineFinishSlip:
 
         # Assert — reads the actual (5d slip), not the stale forecast (19d)
         assert result.total_delay_days == 5.0
+
+
+class TestUnattributedQuantum:
+    """A delay quantum must never be reported with nobody holding it.
+
+    DA exit-council P0 on PR #234. When a real slip exists but no indicator
+    predicate matches, the heuristic has nothing to apportion. Before this
+    guard the engine returned parties=[] alongside a non-zero total, so the
+    UI rendered "47d Total Delay" directly above "No delay detected -
+    schedule is on track", and the AACE/SCL PDFs printed "attribution not
+    supplied" for a computation that had produced a number. Same defect
+    class as #224.
+    """
+
+    def _as_built(self, end: datetime) -> ParsedSchedule:
+        """A fully-statused as-built: every predicate excludes TK_Complete."""
+        return _make_schedule(
+            [
+                Task(
+                    task_id="A",
+                    task_code="A",
+                    task_type="TT_Task",
+                    status_code="TK_Complete",
+                    act_end_date=end,
+                )
+            ]
+        )
+
+    def test_slip_with_no_matching_indicator_is_unattributed(self) -> None:
+        # Arrange — the flagship baseline-vs-as-built forensic comparison
+        baseline = self._as_built(datetime(2026, 1, 1))
+        update = self._as_built(datetime(2026, 2, 17))
+
+        # Act
+        result = compute_delay_attribution(update, baseline=baseline)
+
+        # Assert
+        assert result.total_delay_days == 47.0
+        assert len(result.parties) == 1
+        assert result.parties[0].party == "Unattributed"
+        assert result.parties[0].delay_days == 47.0
+        assert result.parties[0].pct_of_total == 100.0
+
+    def test_a_quantum_is_never_rendered_as_no_delay(self) -> None:
+        """The frontend gates its 'no delay' banner on parties being empty."""
+        # Arrange
+        baseline = self._as_built(datetime(2026, 1, 1))
+        update = self._as_built(datetime(2026, 2, 17))
+
+        # Act
+        result = compute_delay_attribution(update, baseline=baseline)
+
+        # Assert — non-zero total with empty parties must be unrepresentable
+        assert not (result.total_delay_days > 0 and not result.parties)
 
 
 class TestSourcePrecedence:
@@ -333,6 +407,9 @@ class TestBaselineParameterMatrix:
         assert sum(p.delay_days for p in result.parties) == pytest.approx(
             result.total_delay_days, abs=0.3
         )
+        # DA P0: a non-zero quantum with nobody holding it renders as
+        # "no delay detected" in the UI. Unrepresentable, in every cell.
+        assert not (result.total_delay_days > 0 and not result.parties)
         for party in result.parties:
             assert 0.0 <= party.pct_of_total <= 100.0
         # NOTE: excusable + non_excusable != total on the estimated path —
@@ -360,12 +437,19 @@ class TestDelayAttributionEndpoint:
         )
         client = TestClient(app)
 
-        # Act
-        resp = client.get(f"/api/v1/projects/{upd_pid}/delay-attribution?baseline_id={base_pid}")
+        try:
+            # Act
+            resp = client.get(
+                f"/api/v1/projects/{upd_pid}/delay-attribution?baseline_id={base_pid}"
+            )
 
-        # Assert
-        assert resp.status_code == 200
-        body = resp.json()
-        assert isinstance(body["total_delay_days"], (int, float))
-        assert body["total_delay_days"] == 10.0
-        assert body["delay_basis"] == "baseline_finish_slip"
+            # Assert
+            assert resp.status_code == 200
+            body = resp.json()
+            assert isinstance(body["total_delay_days"], (int, float))
+            assert body["total_delay_days"] == 10.0
+            assert body["delay_basis"] == "baseline_finish_slip"
+        finally:
+            # The store is a process-global singleton and clear() resets the
+            # sequential project_id counter other tests assert against.
+            store.clear()

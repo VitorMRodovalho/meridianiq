@@ -7,11 +7,21 @@ Contractor, Shared, Third Party, Force Majeure). Designed for the
 scheduler or claims consultant who needs to answer: "Who caused how
 much delay, and which activities drove it?"
 
-Works with two data sources:
+Works with three data sources, in precedence order (see ``delay_basis``):
 1. **TIA fragments** — if TIA analysis has been run, uses the explicit
    party assignments from delay fragments.
-2. **Standalone estimation** — if no TIA data, infers attribution from
-   activity characteristics (out-of-sequence, constraint changes, etc.)
+2. **Baseline finish slip** — if a baseline is supplied, the delay quantum
+   is the calendar movement of projected completion between the two
+   schedules, which is what AACE RP 29R-03 and the SCL Protocol quantify.
+   Closest published analogue is MIP 3.1 (observational / gross), which is
+   implemented separately in ``mip_observational``; this module reuses the
+   quantity but not that MIP's procedure.
+3. **Negative-float proxy** — if no baseline, or its dates are
+   unresolvable, estimates the quantum from worst negative float.
+
+The party *split* is a heuristic proportion of indicator counts in all
+non-TIA cases; it is not a forensic determination and is reported as
+``Unattributed`` when no indicator matches.
 
 References:
     - AACE RP 29R-03 — Forensic Schedule Analysis
@@ -92,7 +102,10 @@ def _resolve_project_finish(schedule: ParsedSchedule) -> datetime | None:
 
     Level-of-effort and WBS-summary activities are excluded -- hammocks
     routinely span past the finish milestone and would manufacture phantom
-    delay. Same predicate as ``float_trends`` and ``anomaly_detection``.
+    delay. This matches ``float_trends`` exactly. It deliberately does NOT
+    match ``anomaly_detection``, which also excludes ``tt_mile``: milestones
+    are precisely what carries the contractual completion date here, so
+    aligning with that predicate would delete the date being measured.
 
     Args:
         schedule: The schedule to resolve.
@@ -308,6 +321,25 @@ def compute_delay_attribution(
                     top_activities=activities,
                 )
             )
+
+    if not result.parties:
+        # The quantum is real but no indicator predicate matched, so the
+        # heuristic has nothing to apportion. This is the normal shape of a
+        # fully-statused as-built (every activity TK_Complete fails all three
+        # predicates) — i.e. the flagship baseline-vs-as-built comparison.
+        #
+        # Leaving ``parties`` empty renders a total delay above a "no delay
+        # detected" banner, and prints "attribution not supplied" in the AACE
+        # and SCL PDFs. Say "we could not determine who" instead of implying
+        # there is nothing to determine.
+        result.parties.append(
+            PartyDelay(
+                party="Unattributed",
+                delay_days=round(total_delay, 1),
+                pct_of_total=100.0,
+                activity_count=0,
+            )
+        )
 
     result.excusable_days = round(total_delay * owner_pct, 1)
     result.non_excusable_days = round(total_delay * contractor_pct, 1)
