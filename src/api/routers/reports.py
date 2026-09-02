@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import io
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -32,6 +33,8 @@ from src.analytics.early_warning import EarlyWarningEngine
 from src.analytics.forensics import ForensicAnalyzer
 from src.analytics.report_generator import ReportGenerator
 from src.parser.models import ParsedSchedule
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -662,8 +665,19 @@ def _generate_scl_protocol_report(
 
     try:
         attribution = compute_delay_attribution(schedule, baseline=baseline)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Was a bare pass: issue #222 shipped a hard AttributeError on the
+        # baseline path for ~5 months and this swallowed it, so the forensic
+        # PDF silently omitted its attribution section instead of failing.
+        # The section stays optional, but the next failure must be visible.
+        #
+        # Deliberately NOT logger.exception / exc_info: sentry-sdk captures
+        # frame locals by default, and those locals hold client activity
+        # names. The exception type is enough to break the silence.
+        logger.error(
+            "Delay attribution failed (%s); omitting section from report",
+            type(exc).__name__,
+        )
 
     if baseline is not None:
         try:
@@ -722,8 +736,19 @@ def _generate_aace_29r03_report(
 
     try:
         attribution = compute_delay_attribution(schedule, baseline=baseline)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Was a bare pass: issue #222 shipped a hard AttributeError on the
+        # baseline path for ~5 months and this swallowed it, so the forensic
+        # PDF silently omitted its attribution section instead of failing.
+        # The section stays optional, but the next failure must be visible.
+        #
+        # Deliberately NOT logger.exception / exc_info: sentry-sdk captures
+        # frame locals by default, and those locals hold client activity
+        # names. The exception type is enough to break the silence.
+        logger.error(
+            "Delay attribution failed (%s); omitting section from report",
+            type(exc).__name__,
+        )
 
     if baseline is not None:
         try:
