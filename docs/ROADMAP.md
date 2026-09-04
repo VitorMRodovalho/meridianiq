@@ -70,7 +70,7 @@ Same gating language as the Cycle 6 entry council carried forward:
 - **Council protocol amendment** (open question banked at Cycle 6 entry per operator decision 4 caveat): "Should Round 1 agents be required to challenge the planning memo's candidate pool BEFORE proposing scope?" 3 consecutive cycles (4+5+6) have produced off-list Chairman syntheses from the Round 2 paired-adversarial step. Cycle 7 entry council should evaluate whether this pattern indicates the Round 1 council protocol structurally over-validates its own planning memo.
 
 **Cycle 7 entry framing risks** carried forward:
-- Cycle 6 W2 GATE outcome determines candidate set materially. GATE met honestly → Cycle 7 inherits one validated persona path (Field/Owner/Sub viable as deep with evidence base). GATE met cosmetically → Cycle 7 inherits Cycle 6.5 obligations (discovery-only pivot delayed one cycle, not avoided).
+- **Cycle 6 W2 GATE was met cosmetically (operator-declared 2026-05; see [ADR-0028](adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation"). This is settled, not conditional: Cycle 7 inherits the Cycle 6.5 obligations — discovery-only pivot delayed one cycle, not avoided, plus the still-owed Cycle 6.5 amendment ADR (ADR-0029).** Tracked as a live blocker on [#134](https://github.com/VitorMRodovalho/meridianiq/issues/134), which stays open for that purpose. The honest-gate branch (Cycle 7 inheriting one validated persona path) did not occur.
 - If Cycle 7 is also a consolidation cycle, the entry council should explicitly weigh whether feature-validation has stalled and re-prioritize demand-validation accordingly (see [ADR-0025](adr/0025-cycle-6-entry-h-shape.md)).
 - Persona retirement ADR pathway (per ADR-0025 §"Decision" Pathway B): if Cycle 6 retires 1 persona, Cycle 7+ pool contracts irreversibly to 6 personas. Cycle 7 entry must explicitly reckon with which persona was retired and how that affects deep candidate set.
 
@@ -85,7 +85,7 @@ Cycle 3+4 operator items closed during Cycle 5 close-arc (per Cycle 5 LESSONS_LE
 | Cy5 #1 | Z-IV active outreach (AACE/PMI working-group inquiry) — operator-paced; converted to W2 HARD GATE in Cycle 6 per ADR-0025 | Cycle 6 issue [#134](https://github.com/VitorMRodovalho/meridianiq/issues/134) | [`cycle6.md`](operator-runbooks/cycle6.md) |
 | Cy6 #1 | **W2 HARD GATE (MANDATORY)** — 5 CD conversations logged OR 1 persona formally retired with ADR per Pathway A/B HONEST. W2 close ~2026-05-31. | [#134](https://github.com/VitorMRodovalho/meridianiq/issues/134) | [`cycle6.md`](operator-runbooks/cycle6.md) |
 | Cy6 #2 | ADR-0025 ratification + Cycle 6 ROADMAP refresh + LESSONS_LEARNED Cycle 6 entry header + Cycle 6 operator runbook | this PR + [PR #135](https://github.com/VitorMRodovalho/meridianiq/pull/135) merged | [`cycle6.md`](operator-runbooks/cycle6.md) |
-| Cy6 #3 | Cycle 6.5 amendment ADR (IF W2 GATE fails OR cosmetic-met) | ADR-0026 reserved | template in [`cycle6.md`](operator-runbooks/cycle6.md) |
+| Cy6 #3 | Cycle 6.5 amendment ADR — **TRIGGERED** (W2 GATE cosmetic-met). Not discharged by ADR-0028, which is the Pathway B *retirement* ADR (runbook §W2-OPS-02), a different artifact from the amendment ADR (§W2-OPS-04). | **ADR-0029 reserved** (both prior reservations of ADR-0026 were consumed: 0026 by open-core, 0027 by the park; 0028 by the retirement) | template in [`cycle6.md`](operator-runbooks/cycle6.md) |
 | Cy6 #4 | Cycle 7 entry council protocol amendment question (per operator decision 4 caveat) | deferred Cycle 7 W0 | n/a |
 | Cy5+ multi-cycle | Corpus assembly via Issue [#13](https://github.com/VitorMRodovalho/meridianiq/issues/13) (Cycle 1 community ask) | issue #13 | [ADR-0023 §"Cycle 5+ preconditions"](adr/0023-cycle-4-w4-outcome.md) |
 
@@ -119,7 +119,7 @@ Cycle 3+4 operator items closed during Cycle 5 close-arc (per Cycle 5 LESSONS_LE
 - **ADR-0022 + ADR-0023** — **AUTHORED** at Cycle 4 entry + Cycle 4 W4 close. No longer reserved.
 - **ADR-0024** — **AUTHORED** at Cycle 5 entry (Z-shape consolidation). No longer reserved.
 - **ADR-0025** — **AUTHORED** at Cycle 6 entry (H-shape: forced hygiene + hard W2 gate). No longer reserved.
-- **ADR-0026+** — next reserved for either Cycle 6.5 amendment (if W2 GATE fails OR cosmetic-met) OR Cycle 7 entry ADR (whichever ships first).
+- **ADR-0026** — **AUTHORED** (stay public + open-core boundary rule). **ADR-0027** — **AUTHORED** (park as maintenance-only; Amendments 1 and 2). **ADR-0028** — **AUTHORED**, `proposed`, conditionally effective 2026-09-30 (Cost Engineer retirement, Pathway B). The Cycle 6.5 amendment ADR reservation therefore moves to **ADR-0029**; the Cycle 7 entry ADR takes the next free slot after it.
 - **Schedule Viewer Wave 7** — backend engines exist (`src/analytics/resource_leveling.py`, `src/analytics/evm.py`); Gantt UI integration tracked at #23 with sub-issues #29 (P1 resource histogram), #30 (P2 cost-loading), #31 (P2 BVA per activity), #32 (P3 RCCP highlighting). Slot-opportunistic shallow inside any cycle; Cycle 5+ candidate.
 
 ---

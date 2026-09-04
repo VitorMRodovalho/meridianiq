@@ -1,6 +1,6 @@
 # 0027. Park repository as maintenance-only (portfolio triage 2026-07)
 
-* Status: accepted (owner decision routed from the parent portfolio PMO, 2026-07-08) — §"Decision" item 5 amended by **Amendment 1 (2026-09-01)** (revisit outcome: bounded extension + pre-registered auto-trigger) at the bottom of this file.
+* Status: accepted (owner decision routed from the parent portfolio PMO, 2026-07-08) — §"Decision" item 5 amended by **Amendment 1 (2026-09-01)** (revisit outcome: bounded extension + pre-registered auto-trigger); Amendment 1 §"Decision" item 3 amended by **Amendment 2 (2026-09-04)** (issue-set correction). Both at the bottom of this file.
 * Deciders: @VitorMRodovalho
 * Date: 2026-07-08
 * Cites: issue #196 (triage record + acceptance criteria), issue #26 (funded exception), [ADR-0025](0025-cycle-6-entry-h-shape.md) (Cycle 6 gate state this decision freezes), [ADR-0026](0026-stay-public-open-core-boundary.md) (repo stays public while parked)
@@ -52,7 +52,9 @@ down, and ADR-0025's Pathway A criteria reject reconstructed evidence by design.
 3. **Pre-registered automatic fallback.** If on **2026-09-30** the #134 log carries **fewer than 5
    conversations that are substantive under ADR-0025** — conversations flagged `cosmetic` do not
    count toward this threshold — then **Path B executes automatically**: retire the Cost Engineer
-   persona via its own ADR, and close #30/#31/#32 as `not planned`. No further deliberation, no
+   persona via its own ADR, and close #30/#31/#32 as `not planned`. *[AMENDED: see Amendment 2 —
+   the issue set is corrected to #30/#31; #32 is a Scheduler-persona issue and was included in
+   error.]* No further deliberation, no
    fourth deferral. The point of pre-registering is that the decision cannot be re-argued from the
    inside once the number is known.
 4. **Single exception that overrides item 3.** If any logged conversation carries a named next action
@@ -90,3 +92,60 @@ conversations, not whether to decide again.
   cosmetic-met and does not discharge the gate.
 * This amendment does not alter ADR-0025. A cosmetically-met gate still leaves Cycle 7 inheriting
   Cycle 6.5 obligations, whichever branch is taken.
+
+---
+
+## Amendment 2 (2026-09-04) — issue-set correction to Amendment 1 §Decision item 3
+
+**Status:** accepted (owner decision, 2026-09-04). Amends **Amendment 1 §"Decision" item 3** above,
+which remains unedited per append-only decision-log discipline; the inline *[AMENDED]* pointer there
+delegates authority to this section. Nothing else in Amendment 1 changes: the deadline, the threshold,
+the automatic character of the fallback, and the item-4 override all stand exactly as written.
+
+### The correction
+
+Amendment 1 §Decision item 3 specifies the Path-B issue set as **"#30/#31/#32"**. It reads **"#30/#31"**.
+
+**#32** (Wave 7-D, P3 — resource-constrained critical path highlighting) names its persona as
+**Scheduler**, not Cost Engineer. Its issue body has said so since 2026-04-27, and `BUGS.md`
+independently lists the same item under Scheduler. The three issues were grouped because all three
+are sub-issues of #23 (Schedule Viewer Wave 7) — a **delivery-wave** grouping, not a persona
+grouping. Amendment 1 was authored from that grouping without re-reading the issue bodies, and
+inherited the error.
+
+Closing #32 under a Cost Engineer retirement would close scope the retirement has no authority over.
+If #32 should close, it closes on its own merits (P3, algorithmically expensive, Scheduler persona
+untested) in a separate decision. **#32 stays open with its `parked` label.**
+
+### Why this is an amendment and not an executor's deviation
+
+[ADR-0028](0028-retire-cost-engineer-persona.md) was drafted on 2026-09-03 handling this as a
+deviation recorded by the executing ADR. That was the wrong instrument. The whole force of a
+pre-registered instruction is that it is not editable by the executor at execution time, once the
+number is known; a narrowing edit is still an edit, and recording it makes it visible, not
+authorised. A bad-faith executor would record a deviation too. Ratifying a partial declination would
+set the precedent that pre-registered instructions are advisory at execution time — and this
+project's entire gate architecture rests on them not being.
+
+**The distinguishing test, banked for reuse:** a correction that is *outcome-independent* can be
+lifted into an amendment before the trigger date; a correction that is *outcome-dependent* cannot be
+made at execution time at all. This one is outcome-independent — #32's persona membership was true
+and knowable on 2026-09-01, is identical under every branch of the trigger, and the correction closes
+**less** scope, so it cannot serve the executor's interest. It is therefore correctable cleanly, as a
+correction to the instruction, 26 days before the instruction fires.
+
+It also fixes a defect the deviation form carried: if Path A fires, ADR-0028 closes as `rejected` and
+the #32 analysis would have died inside a rejected ADR, leaving Amendment 1 standing on the record
+still instructing that #32 close. This amendment survives every branch.
+
+### Consequences
+
+* ADR-0028 executes Amendment 1 §Decision item 3 **exactly, with no deviation**; its former
+  §"Deviation from Amendment 1" is replaced by a §"Scope note on #32" citing this amendment.
+* The lesson generalises beyond #32 and is applied in ADR-0028 §"Authority over co-claimed scope":
+  **#30 and #31 are themselves multi-persona issues** (#30 also names PM Director; #31 also names
+  Owner Rep and Claims). The principle that spares #32 obliges ADR-0028 to make an explicit finding
+  about those claims rather than extinguish them silently. This amendment does not change the issue
+  set on that account — #30/#31 do carry genuine Cost Engineer scope — but it is why ADR-0028 grades
+  the Pathway B closed-scope criterion as PARTIAL rather than MET.
+* This amendment does not alter ADR-0025, the deadline, or the park.
