@@ -42,6 +42,7 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0025](0025-cycle-6-entry-h-shape.md) | Cycle 6 entry — H-shape (forced hygiene + hard discovery gate at W2) | proposed |
 | [0026](0026-stay-public-open-core-boundary.md) | Stay public + open-core boundary rule | accepted |
 | [0027](0027-park-maintenance-only.md) | Park repository as maintenance-only (portfolio triage 2026-07) | accepted |
+| [0028](0028-retire-cost-engineer-persona.md) | Retire the Cost Engineer persona from active scope (ADR-0027 Amendment 1 fallback; inert until 2026-09-30) | proposed |
 
 ## Adding a new ADR
 
