@@ -91,7 +91,19 @@ ADR-0025 requires, for Pathway B to be **HONEST** rather than cosmetic:
 
 Not one of these was aimed at a Cost Engineer and refused. The persona is being retired **because it was never engaged**, which is precisely the condition ADR-0025 named as disqualifying.
 
-**Therefore: this gate is `cosmetic`-met, not honest-met.** Per ADR-0025 §"Cycle 7 entry council will judge W2 GATE outcome on the above distinction", and per ADR-0027 Amendment 1 §Consequences, the consequence follows automatically and is not negotiable at Cycle 7 entry:
+### Criterion 1 is still open until 2026-09-30
+
+Recorded here so that the `cosmetic` grade below is understood as **the current state, not a settled one**. Criterion 1 is the only unmet criterion, and unlike a missing conversation it does not require anyone else's cooperation to satisfy — it requires the attempt, and the attempt has never been made.
+
+**One documented, targeted outreach to a practising cost engineer or quantity surveyor, sent early enough to leave a defensible response window, satisfies criterion 1 on either outcome:** an explicit "not my problem" is *explicit disinterest* and satisfies it immediately; silence through 2026-09-30 is *no response* and satisfies it on the date. Either flips this ADR from `cosmetic`-met to **honest-met**, and the §Consequences inheritance of the Cycle 6.5 obligations by Cycle 7 falls away with it.
+
+The send-by date is **2026-09-08**, not 2026-09-29: "received no response" is only evidence if there was time to respond, so an attempt sent days before the deadline proves nothing and is equivalent to no attempt. The outreach material (target definition, three messages, ranked channels, and the attempt-logging schema) is prepared and lives with the Path A field kit; see `memory/reference_cost_engineer_outreach.md`.
+
+Attempts log to **#134 on the day they are sent** — an undated attempt cannot establish when the response window opened, which is the same evidence discipline Pathway A applies to conversations.
+
+**As of this drafting no attempt has been made, so the assessment stands as written below.** If one is made and logged before 2026-09-30, this section is what a ratifier should check first, and the grade is re-read against the outcome rather than assumed.
+
+**Therefore, on the record as it stands today: this gate is `cosmetic`-met, not honest-met.** Per ADR-0025 §"Cycle 7 entry council will judge W2 GATE outcome on the above distinction", and per ADR-0027 Amendment 1 §Consequences, the consequence follows automatically and is not negotiable at Cycle 7 entry:
 
 > **Cycle 7 inherits the Cycle 6.5 obligations. The discovery-only pivot still applies, delayed one cycle.**
 
