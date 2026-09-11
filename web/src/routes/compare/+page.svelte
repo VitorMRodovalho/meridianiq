@@ -16,6 +16,20 @@
 	let error = $state('');
 	let result: CompareResponse | null = $state(null);
 
+	// Disclosure state for the five change tables below. `<details>` alone is
+	// not enough: the UA's content-visibility skips layout and paint, never
+	// DOM *construction*, so Svelte built every collapsed row anyway. Measured
+	// on a real revision pair (8.4k vs 8.1k activities): 132,543 nodes after
+	// render, 128,471 of them — 97% — inside these five, all closed. That is
+	// the ~40s frozen tab in #254. Gating the table body on `open` builds a
+	// section only when the user asks for it. The counts stay in the summary,
+	// so nothing is hidden — the disclosure is the affordance it always was.
+	let openModifications = $state(false);
+	let openDurations = $state(false);
+	let openFloats = $state(false);
+	let openRelationships = $state(false);
+	let openConstraints = $state(false);
+
 	onMount(async () => {
 		try {
 			const res = await getProjects();
@@ -75,7 +89,15 @@
 		try {
 			result = await compareSchedules(baselineId, updateId);
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : $t('compare.compare_failed');
+			// Detects TimeoutError thrown by api.ts request() — see api.ts
+			// collision comment for why string match instead of instanceof.
+			// Without this branch a timeout rendered api.ts's raw English
+			// literal 'Request timed out' on all three locales.
+			if ((e as Error)?.name === 'TimeoutError') {
+				error = $t('error.request_timeout');
+			} else {
+				error = e instanceof Error ? e.message : $t('compare.compare_failed');
+			}
 			toastError(error);
 		} finally {
 			loading = false;
@@ -347,10 +369,11 @@
 		<!-- Detailed Changes -->
 
 		{#if result.activity_modifications.length > 0}
-			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+			<details bind:open={openModifications} class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					{$t('compare.activity_changes_title')} ({result.activity_modifications.length})
 				</summary>
+				{#if openModifications}
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
@@ -375,14 +398,16 @@
 						</tbody>
 					</table>
 				</div>
+				{/if}
 			</details>
 		{/if}
 
 		{#if result.duration_changes.length > 0}
-			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+			<details bind:open={openDurations} class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					{$t('compare.duration_changes_title')} ({result.duration_changes.length})
 				</summary>
+				{#if openDurations}
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
@@ -421,14 +446,16 @@
 						</tbody>
 					</table>
 				</div>
+				{/if}
 			</details>
 		{/if}
 
 		{#if result.significant_float_changes.length > 0}
-			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+			<details bind:open={openFloats} class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					{$t('compare.float_changes_title')} ({result.significant_float_changes.length})
 				</summary>
+				{#if openFloats}
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
@@ -462,19 +489,25 @@
 						</tbody>
 					</table>
 				</div>
+				{/if}
 			</details>
 		{/if}
 
 		{#if result.relationships_added.length > 0 || result.relationships_deleted.length > 0 || result.relationships_modified.length > 0}
-			{@const allRelChanges = [
-				...result.relationships_added.map(r => ({ ...r, type: 'Added', typeLabel: $t('compare.rel_added') })),
-				...result.relationships_deleted.map(r => ({ ...r, type: 'Deleted', typeLabel: $t('compare.rel_deleted') })),
-				...result.relationships_modified.map(r => ({ ...r, type: 'Modified', typeLabel: $t('compare.rel_modified') }))
-			]}
-			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+			{@const relChangeCount =
+				result.relationships_added.length +
+				result.relationships_deleted.length +
+				result.relationships_modified.length}
+			<details bind:open={openRelationships} class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-					{$t('compare.rel_changes_title')} ({allRelChanges.length})
+					{$t('compare.rel_changes_title')} ({relChangeCount})
 				</summary>
+				{#if openRelationships}
+				{@const allRelChanges = [
+					...result.relationships_added.map(r => ({ ...r, type: 'Added', typeLabel: $t('compare.rel_added') })),
+					...result.relationships_deleted.map(r => ({ ...r, type: 'Deleted', typeLabel: $t('compare.rel_deleted') })),
+					...result.relationships_modified.map(r => ({ ...r, type: 'Modified', typeLabel: $t('compare.rel_modified') }))
+				]}
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
@@ -499,14 +532,16 @@
 						</tbody>
 					</table>
 				</div>
+				{/if}
 			</details>
 		{/if}
 
 		{#if result.constraint_changes.length > 0}
-			<details class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+			<details bind:open={openConstraints} class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
 				<summary class="px-6 py-3 cursor-pointer text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
 					{$t('compare.constraint_changes_title')} ({result.constraint_changes.length})
 				</summary>
+				{#if openConstraints}
 				<div class="overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 text-sm">
 						<thead class="bg-gray-50 dark:bg-gray-800">
@@ -527,6 +562,7 @@
 						</tbody>
 					</table>
 				</div>
+				{/if}
 			</details>
 		{/if}
 	{/if}
