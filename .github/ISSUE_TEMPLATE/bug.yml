@@ -11,6 +11,8 @@ body:
 
         **Real project data:** do NOT paste real schedules, client names, or cost data. Synthesize a minimal reproducer or redact before sharing.
 
+        **People:** refer to anyone by role or an opaque identifier (`reviewer A`, `contributor 3`) — never a name, email address, or phone number, including your own. Issue and comment text here is public and is mirrored outside GitHub the moment it is posted, so it cannot be taken back by editing.
+
   - type: input
     id: version
     attributes:

@@ -33,4 +33,6 @@
 - [ ] Ruff clean (`ruff check src/ tests/ scripts/ && ruff format --check src/ tests/ scripts/`)
 - [ ] Frontend check passes if UI changed (`cd web && npm run check`)
 - [ ] No real project data, client names, or credentials in commits
+- [ ] No personal data (names, email addresses, phone numbers) in the diff, the commit
+      messages, or this description — refer to people by role or an opaque identifier
 - [ ] Follows [CONTRIBUTING.md](../CONTRIBUTING.md) code standards
