@@ -7,6 +7,10 @@ body:
       value: |
         Thanks for proposing a feature. The best requests explain *why* first and *what* second — the roadmap is prioritized by impact on real scheduling workflows.
 
+        **Real project data:** do NOT paste real schedules, client names, or cost data. Describe the shape of the problem instead, or redact before sharing.
+
+        **People:** refer to anyone by role or an opaque identifier (`reviewer A`, `contributor 3`) — never a name, email address, or phone number, including your own. Issue and comment text here is public and is mirrored outside GitHub the moment it is posted, so it cannot be taken back by editing.
+
   - type: textarea
     id: problem
     attributes:
