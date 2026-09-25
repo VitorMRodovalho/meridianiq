@@ -131,6 +131,15 @@ APPROVED_EXCEPTIONS: dict[tuple[str, str], str] = {
     # limit. Was incorrectly labeled "admin-scope auth gated" pre-DA-
     # review; corrected per AUDIT-2026-04-26-005 follow-up.
     # ─────────────────────────────────────────────────────────────────
+    # Internal webhook called by the notify_signup_alert trigger (migration
+    # 032) through pg_net, which never retries. A throttled call would drop a
+    # real alert, and slowapi keys on the proxy address here, so one shared
+    # bucket would let anyone who reads this repo starve it. The gate is the
+    # shared secret (constant-time check); a call without it costs one
+    # comparison and sends nothing.
+    ("hooks", "auth_user_created"): (
+        "pg_net webhook: secret-gated; throttling would silently drop alerts"
+    ),
     ("admin", "revoke_api_key_endpoint"): (
         "require_auth gated; user revokes own key (per-JWT auth-throttled)"
     ),
