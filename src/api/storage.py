@@ -143,6 +143,10 @@ T = TypeVar("T")
 #: generating it, so a small window is enough and bounds what one tenant
 #: can pin in RAM.
 REPORTS_PER_OWNER = 50
+#: Cap for every other result kind. Results live in process memory and some
+#: carry one row per activity, so an uncapped owner can exhaust the machine
+#: that serves every tenant.
+RESULTS_PER_OWNER = 50
 
 
 @dataclass(frozen=True)
@@ -171,7 +175,7 @@ class OwnedResultStore(Generic[T]):
     #: Id prefix: ``"risk"`` gives ``risk-<32 hex>``.
     prefix: str = "result"
     #: Beyond this many entries per owner the oldest are evicted (``None``: no cap).
-    max_per_owner: int | None = None
+    max_per_owner: int | None = RESULTS_PER_OWNER
 
     def __init__(self) -> None:
         """Initialise an empty store."""

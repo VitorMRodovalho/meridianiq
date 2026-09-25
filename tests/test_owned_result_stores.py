@@ -36,6 +36,7 @@ from src.api import access, auth
 from src.api.app import app
 from src.api.storage import (
     REPORTS_PER_OWNER,
+    RESULTS_PER_OWNER,
     EVMStore,
     OwnedResultStore,
     ReportStore,
@@ -146,6 +147,19 @@ class TestOwnedResultStore:
         assert store.get(a_ids[3], owner_id="a") is not None
         assert store.get(a_ids[-1], owner_id="a") is not None
         assert store.get(b_id, owner_id="b") is not None
+
+    def test_every_result_kind_is_capped_per_owner(self) -> None:
+        """Unbounded per-owner growth would let one tenant exhaust shared memory."""
+        store = RiskStore()
+        other = store.add(SimulationResult(), owner_id="b", project_ids=["pb"])
+        ids = [
+            store.add(SimulationResult(), owner_id="a", project_ids=["pa"])
+            for _ in range(RESULTS_PER_OWNER + 2)
+        ]
+        assert len(store.list("a")) == RESULTS_PER_OWNER
+        assert store.get(ids[0], owner_id="a") is None
+        assert store.get(ids[-1], owner_id="a") is not None
+        assert store.get(other, owner_id="b") is not None
 
     def test_purge_owner_removes_results_and_job_bindings(self) -> None:
         store = RiskStore()
