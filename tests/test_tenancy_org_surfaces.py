@@ -1151,13 +1151,23 @@ class TestSessionOnly:
         caller = Principal(PENDING, "user")
         assert organizations._session_caller(caller) is caller
 
-    @pytest.mark.parametrize("path", ["/api/v1/invitations", "/api/v1/organizations/{org}/accept"])
-    def test_routes_use_the_session_dependency(self, path: str) -> None:
-        route = next(
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [
+            ("GET", "/invitations"),
+            ("POST", "/organizations/{org_id}/accept"),
+            ("POST", "/organizations/{org_id}/decline"),
+            ("POST", "/organizations/{org_id}/invite"),
+            ("POST", "/organizations/{org_id}/invitations/revoke"),
+            ("DELETE", "/organizations/{org_id}/members/{member_user_id}"),
+        ],
+    )
+    def test_routes_use_the_session_dependency(self, method: str, path: str) -> None:
+        (route,) = [
             r
             for r in organizations.router.routes
-            if getattr(r, "path", None) == path.replace("{org}", "{org_id}")
-        )
+            if getattr(r, "path", None) == "/api/v1" + path and method in getattr(r, "methods", ())
+        ]
         deps = {d.call for d in route.dependant.dependencies}  # type: ignore[attr-defined]
         assert organizations._session_caller in deps
 
@@ -1207,12 +1217,24 @@ class TestDeclineInvitation:
 
 
 class TestOrganizationInput:
-    def test_name_length_is_capped(self, world: World) -> None:
-        resp = world.client.post(
-            "/api/v1/organizations", json={"name": "x" * 121}, headers=world.h(NEWBIE)
-        )
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"name": "x" * 121},
+            {"name": ""},
+            {"name": "ok", "description": "d" * 2001},
+            {"name": "ok", "org_type": "t" * 41},
+        ],
+    )
+    def test_fields_are_capped(self, world: World, body: dict[str, str]) -> None:
+        resp = world.client.post("/api/v1/organizations", json=body, headers=world.h(NEWBIE))
         assert resp.status_code == 422, resp.text
         assert world.db.log == []
+
+    def test_fields_at_the_cap_are_accepted(self, world: World) -> None:
+        body = {"name": "x" * 120, "description": "d" * 2000, "org_type": "t" * 40}
+        resp = world.client.post("/api/v1/organizations", json=body, headers=world.h(NEWBIE))
+        _ok(resp, "create at the caps")
 
 
 class TestListingCost:
@@ -1233,7 +1255,10 @@ class TestListingCost:
         world.db.log.clear()
         listed = _invitations(world, NEWBIE)
         assert len(listed) == organizations.MAX_OPEN_INVITATIONS
-        assert len(world.db.queries("memberships")) == 2
+        _invites, seats = world.db.queries("memberships")
+        # The issuer lookup is bounded by the listed organizations too.
+        (org_filter,) = [f for f in seats.filters if f[:2] == ("in", "org_id")]
+        assert len(org_filter[2]) == organizations.MAX_OPEN_INVITATIONS
 
 
 # ------------------------------------------------------------------ #

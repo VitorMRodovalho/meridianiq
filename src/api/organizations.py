@@ -29,8 +29,10 @@ Access rules (ADR-0030):
   owner or admin of the organization. It is accepted or declined from a
   signed-in session, never with an API key. A manager can revoke it by
   address; removing a member also withdraws the invitations that member
-  issued.
-- An organization always keeps at least one accepted owner.
+  issued. Inviting, revoking and removing also require a session.
+- Removing the last accepted owner is refused. The check runs per request,
+  not in the database: two owners removing each other at the same instant
+  can still both succeed.
 - Project shares and value milestones authorize the project through the
   access context before anything else: only the project owner reaches them.
   Recording a share grants no read access (ADR-0030 §4).
@@ -163,9 +165,15 @@ def _caller(principal: Principal = Depends(get_principal)) -> Principal:
 
 
 def _session_caller(caller: Principal = Depends(_caller)) -> Principal:
-    """A caller signed in with a session. Invitations are answered by a person."""
+    """A caller signed in with a session, not an API key.
+
+    Membership changes (invite, revoke, remove) and answers to an invitation
+    (list, accept, decline) are made by a person, as SuperAdmin actions are
+    (``auth._is_superadmin``): a leaked API key cannot change who is in an
+    organization.
+    """
     if caller.kind != "user":
-        raise HTTPException(status_code=403, detail="Invitations require a signed-in session")
+        raise HTTPException(status_code=403, detail="This action requires a signed-in session")
     return caller
 
 
@@ -259,9 +267,11 @@ def _open_invitations(client: Any, user_id: str, org_id: str | None = None) -> l
     issuers = sorted({str(r["invited_by"]) for r in rows if r.get("invited_by")})
     if not issuers:
         return []
+    orgs = sorted({str(r["org_id"]) for r in rows})
     seats = (
         client.table("memberships")
         .select("org_id, user_id, role")
+        .in_("org_id", orgs)
         .in_("user_id", issuers)
         .not_.is_("accepted_at", "null")
         .execute()
@@ -440,7 +450,7 @@ def invite_member(
     org_id: str,
     req: InviteMemberRequest,
     request: Request,
-    caller: Principal = Depends(_caller),
+    caller: Principal = Depends(_session_caller),
 ) -> dict[str, Any]:
     """Invite a user to the organization by email (owner/admin).
 
@@ -518,7 +528,7 @@ def revoke_invitation(
     org_id: str,
     req: RevokeInvitationRequest,
     request: Request,
-    caller: Principal = Depends(_caller),
+    caller: Principal = Depends(_session_caller),
 ) -> dict[str, Any]:
     """Withdraw the pending invitation of an address (owner/admin).
 
@@ -672,7 +682,7 @@ def remove_member(
     org_id: str,
     member_user_id: str,
     request: Request,
-    caller: Principal = Depends(_caller),
+    caller: Principal = Depends(_session_caller),
 ) -> dict[str, Any]:
     """Remove a member, or revoke a pending invitation (owner/admin).
 

@@ -52,17 +52,15 @@ def test_lookup_function_is_callable_by_service_role_only() -> None:
     assert grants == ["service_role"]
 
 
-def test_profile_identity_columns_are_not_user_writable() -> None:
+def test_profiles_are_not_client_writable() -> None:
     sql = _normalised()
     assert "revoke update on public.user_profiles from public, anon, authenticated;" in sql
-    (columns,) = re.findall(
-        r"grant update \(([^)]*)\) on public\.user_profiles to authenticated;", sql
-    )
-    writable = {c.strip() for c in columns.split(",")}
-    assert writable == {"full_name", "company", "avatar_url", "updated_at"}
-    assert not writable & {"email", "role", "id"}
-    # No table-wide UPDATE grant comes back later in the file.
-    assert not re.search(r"grant (all|update) on (table )?public\.user_profiles", sql)
+    # Nothing is granted back, table-wide or per column.
+    assert not re.search(r"grant [^;]*on (table )?public\.user_profiles", sql)
+
+
+def test_postgrest_schema_cache_is_reloaded() -> None:
+    assert "notify pgrst, 'reload schema';" in _normalised()
 
 
 def test_api_calls_the_function_the_migration_defines() -> None:
