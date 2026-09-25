@@ -17,6 +17,7 @@ from src.analytics.aia_g703 import (
 from src.analytics.cost_integration import CBSElement, CostIntegrationResult
 from src.api.app import app
 from src.api.deps import get_store
+from src.parser.models import ParsedSchedule, Project
 
 _openpyxl_available = importlib.util.find_spec("openpyxl") is not None
 
@@ -146,8 +147,25 @@ class TestG703LineItem:
         assert li.retainage == 0.0
 
 
+def _stored_project(name: str) -> str:
+    """Store an ownerless project (reachable by the anonymous dev caller)."""
+    schedule = ParsedSchedule(projects=[Project(proj_id="P1", proj_short_name=name)])
+    return str(get_store().add(schedule, b"xer"))
+
+
 class TestG703ExportEndpoint:
     def test_missing_snapshot_returns_404(self) -> None:
+        get_store().clear()
+        pid = _stored_project("g703-missing")
+        client = TestClient(app)
+        resp = client.get(
+            f"/api/v1/projects/{pid}/export/aia-g703",
+            params={"snapshot_id": "nonexistent"},
+        )
+        assert resp.status_code == 404
+        assert "snapshot" in resp.json()["detail"].lower()
+
+    def test_missing_project_returns_404(self) -> None:
         get_store().clear()
         client = TestClient(app)
         resp = client.get(
@@ -155,18 +173,20 @@ class TestG703ExportEndpoint:
             params={"snapshot_id": "nonexistent"},
         )
         assert resp.status_code == 404
+        assert resp.json() == {"detail": "Project not found"}
 
     @pytest.mark.skipif(not _openpyxl_available, reason="openpyxl required for xlsx generation")
     def test_end_to_end_xlsx(self) -> None:
         get_store().clear()
         store = get_store()
+        pid = _stored_project("p-g703")
         snap_id = store.save_cost_upload(
-            project_id="p-g703", result=_sample_snapshot(), source_name="Q1"
+            project_id=pid, result=_sample_snapshot(), source_name="Q1"
         )
 
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/projects/p-g703/export/aia-g703",
+            f"/api/v1/projects/{pid}/export/aia-g703",
             params={"snapshot_id": snap_id, "retainage_pct": 0.10},
         )
         assert resp.status_code == 200, resp.text
@@ -181,13 +201,14 @@ class TestG703ExportEndpoint:
     def test_filename_includes_application_number(self) -> None:
         get_store().clear()
         store = get_store()
+        pid = _stored_project("p-g703-app")
         snap_id = store.save_cost_upload(
-            project_id="p-g703-app", result=_sample_snapshot(), source_name="Q2"
+            project_id=pid, result=_sample_snapshot(), source_name="Q2"
         )
 
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/projects/p-g703-app/export/aia-g703",
+            f"/api/v1/projects/{pid}/export/aia-g703",
             params={"snapshot_id": snap_id, "application_number": 5},
         )
         assert resp.status_code == 200

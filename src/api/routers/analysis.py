@@ -8,7 +8,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..access import AccessContext, get_access
+from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, get_store, get_tia_store, limiter
 from ..schemas import (
@@ -43,14 +43,14 @@ router = APIRouter()
 
 
 @router.get("/api/v1/projects/{project_id}/validation", response_model=ValidationResponse)
-def get_validation(project_id: str, _user: object = Depends(optional_auth)) -> ValidationResponse:
+def get_validation(project_id: str = Depends(owned_project)) -> ValidationResponse:
     """Run DCMA 14-Point assessment for a project.
 
     Args:
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
     schedule = store.get(project_id)
@@ -93,16 +93,14 @@ def get_validation(project_id: str, _user: object = Depends(optional_auth)) -> V
     "/api/v1/projects/{project_id}/critical-path",
     response_model=CriticalPathResponse,
 )
-def get_critical_path(
-    project_id: str, _user: object = Depends(optional_auth)
-) -> CriticalPathResponse:
+def get_critical_path(project_id: str = Depends(owned_project)) -> CriticalPathResponse:
     """Compute and return the critical path for a project.
 
     Args:
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
     schedule = store.get(project_id)
@@ -142,7 +140,7 @@ def get_critical_path(
     response_model=FloatDistributionResponse,
 )
 def get_float_distribution(
-    project_id: str, _user: object = Depends(optional_auth)
+    project_id: str = Depends(owned_project),
 ) -> FloatDistributionResponse:
     """Return float distribution buckets for a project.
 
@@ -153,7 +151,7 @@ def get_float_distribution(
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
     schedule = store.get(project_id)
@@ -214,14 +212,14 @@ def get_float_distribution(
     "/api/v1/projects/{project_id}/milestones",
     response_model=MilestonesResponse,
 )
-def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> MilestonesResponse:
+def get_milestones(project_id: str = Depends(owned_project)) -> MilestonesResponse:
     """Return all milestone activities for a project.
 
     Args:
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
     schedule = store.get(project_id)
@@ -342,11 +340,11 @@ def list_contract_provisions(
 
 @router.get("/api/v1/projects/{project_id}/schedule-view")
 def get_schedule_view(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
     force: bool = False,
     group_by: str = "wbs",
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Get pre-computed layout data for the interactive Gantt viewer.
 
@@ -359,7 +357,9 @@ def get_schedule_view(
 
     Args:
         project_id: The schedule identifier.
-        baseline_id: Optional baseline schedule for comparison bars.
+        baseline_id: Optional baseline schedule for comparison bars. When
+            given it must be the caller's too; a hidden or missing one is a
+            404, never silently dropped.
         force: Force recomputation (bypass cache).
         group_by: Tree grouping mode. ``wbs`` (default) preserves the project's
             real WBS hierarchy. Other accepted values: ``status``, ``critical``,
@@ -376,6 +376,11 @@ def get_schedule_view(
         GAO Schedule Assessment Guide.
     """
     from src.analytics.schedule_view import GROUP_BY_OPTIONS
+
+    # The baseline is authorized before the cache is consulted: its id is
+    # part of the cache key, so a cached variant must never answer for a
+    # baseline the caller cannot reach.
+    baseline_id = ctx.maybe_project(baseline_id)
 
     if group_by not in GROUP_BY_OPTIONS:
         group_by = "wbs"
@@ -417,8 +422,7 @@ def get_schedule_view(
 @limiter.limit(RATE_LIMIT_MODERATE)
 def invalidate_schedule_view_cache(
     request: Request,
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Drop all cached schedule-view variants (every baseline) for a project.
 
@@ -448,8 +452,7 @@ def invalidate_schedule_view_cache(
 
 @router.get("/api/v1/projects/{project_id}/schedule-view/resources")
 def get_schedule_resources(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Per-resource daily demand for histogram rendering below the Gantt.
 
@@ -499,9 +502,9 @@ def get_schedule_resources(
 
 @router.get("/api/v1/projects/{project_id}/delay-attribution")
 def get_delay_attribution(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Compute delay attribution breakdown by responsible party.
 
@@ -511,7 +514,8 @@ def get_delay_attribution(
 
     Args:
         project_id: The current/update schedule identifier.
-        baseline_id: Optional baseline schedule for comparison.
+        baseline_id: Optional baseline schedule for comparison. When given
+            it must be the caller's too; a hidden or missing one is a 404.
 
     Returns:
         AttributionResult with per-party breakdown, excusable/non-excusable totals.
@@ -519,6 +523,7 @@ def get_delay_attribution(
     References:
         AACE RP 29R-03, AACE RP 52R-06, SCL Protocol.
     """
+    baseline_id = ctx.maybe_project(baseline_id)
     store = get_store()
     schedule = store.get(project_id)
     if schedule is None:
@@ -537,8 +542,7 @@ def get_delay_attribution(
 
 @router.get("/api/v1/projects/{project_id}/calendar-validation")
 def get_calendar_validation(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Validate work calendar definitions for integrity and best practices.
 
