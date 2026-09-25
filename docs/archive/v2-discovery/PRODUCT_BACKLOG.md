@@ -9,9 +9,9 @@ Transform reactive, manual construction schedule analysis into proactive, automa
 | # | Document | Type | Pages | Key Content |
 |---|----------|------|-------|-------------|
 | 1 | Exhibit C | Contemporaneous Driving Critical Path SCO (Delay Trend Chart) | 1 | Visual CPA with 4 windows, 6 delay events (A-F), color-coded by type |
-| 2 | CDC TIA Findings and Recommendations | Forensic Schedule Analysis by [Forensic Consultant] | 21 | Full CPA, bifurcated analysis, TIA evaluation, entitlement review, window analysis |
-| 3 | CDC TIA Summary | Executive Summary Letter by [CM Firm] | 3 | 398 CDs total delay, 264 excusable, 134 non-excusable, 33 already granted |
-| 4 | MC NL Horticulture BL03 | Baseline Schedule Review Memo by [CM Firm] | 4 | Milestone tracking, S-curve, PERT probability, float distribution, logic analysis |
+| 2 | TIA Findings and Recommendations | Forensic Schedule Analysis by [Forensic Consultant] | 21 | Full CPA, bifurcated analysis, TIA evaluation, entitlement review, window analysis |
+| 3 | TIA Summary | Executive Summary Letter by [CM Firm] | 3 | Total delay quantum, excusable / non-excusable split, time already granted |
+| 4 | Baseline Schedule Review (BL03) | Baseline Schedule Review Memo by [CM Firm] | 4 | Milestone tracking, S-curve, PERT probability, float distribution, logic analysis |
 | 5 | [Public Project] June 2024 Schedule Review | Monthly Schedule Update Review by [CM Firm] | 5 | EV metrics (SPI/BEI/SRI), float trend, critical path, schedule diagnostic |
 | 6 | Schedule Diagnostic | Automated Schedule Validator Analysis | 20 | Quality metrics, activity relationships, critical/near-critical paths, constraints |
 | 7 | Schedule Comparison | Schedule Validator Period Comparison | 5 | Changed percentage, activity/relationship/duration changes, float changes |
@@ -250,8 +250,8 @@ As a scheduler, I want to see activities added, modified, and deleted between tw
 - Added Activities listed with ID, description, status, duration:
   - ACT-2805.8: Revise Headers at Canopy Locations per DSA CCD 024 (NotStart, 5 days)
   - ACT-2805.9: Replacing Discontinuous Headers (Active, 5 days)
-  - CDC1-3189.1: Frame Ceilings and Soffits Once Building is Weather Tight (NotStart, 10 days)
-  - CDC2-4009.1: Frame Ceilings and Soffits Once Building is Weather Tight (NotStart, 10 days)
+  - [ACT-A]: Frame Ceilings and Soffits Once Building is Weather Tight (NotStart, 10 days)
+  - [ACT-B]: Frame Ceilings and Soffits Once Building is Weather Tight (NotStart, 10 days)
 
 **US-4.3: Relationship Changes**
 As a scheduler, I want relationship additions, modifications, and deletions tracked.
@@ -275,7 +275,7 @@ As a scheduler, I want to detect retroactive date changes (dates changed on alre
 As a scheduler, I want to see all activities with float changes greater than 20 days.
 - *Source: Schedule Comparison — 14 activities with significant float changes, e.g.:*
   - ACT-0870: 44 → 7 (loss of 37 days float)
-  - CDC1-3315: 120 → 46 (loss of 74 days float)
+  - [ACT-C]: 120 → 46 (loss of 74 days float)
   - Multiple HVAC activities: 86 → 46 (loss of 40 days float)
 
 **US-4.7: Critical Path Changes**
@@ -574,7 +574,7 @@ These exact numbers serve as test data and acceptance criteria benchmarks:
 
 | Metric | Value | Source |
 |--------|-------|--------|
-| Total project delay | 398 calendar days | TIA Summary |
+| Total project delay | [calendar days] | TIA Summary |
 | Excusable delay days | 264 | TIA Summary |
 | Non-excusable delay days | 134 | TIA Summary |
 | Compensable delay days | 28 | [Forensic Consultant] Table 5 |
