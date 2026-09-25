@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **129 endpoints** across **25 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **130 endpoints** across **26 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -27,6 +27,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Admin](#admin) — 6 endpoints
 - [Health](#health) — 2 endpoints
 - [Bi](#bi) — 3 endpoints
+- [Hooks](#hooks) — 1 endpoints
 - [Lifecycle](#lifecycle) — 4 endpoints
 - [Observability](#observability) — 1 endpoints
 - [Organizations](#organizations) — 11 endpoints
@@ -268,6 +269,12 @@ _Readiness and liveness_
 | `GET` | `/api/v1/bi/activities` | Flat activity list — one row per activity with CPM-derived metrics. | `dict` | optional |
 | `GET` | `/api/v1/bi/dcma-metrics` | One row per (project, DCMA metric) — flat pivot-ready surface. | `dict` | optional |
 | `GET` | `/api/v1/bi/projects` | Flat project list with top-level KPIs — one row per project. | `dict` | optional |
+
+## Hooks
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `POST` | `/api/v1/internal/hooks/auth-user-created` | Receive the Supabase ``auth.users`` INSERT webhook and email the operator. | `dict` | none |
 
 ## Lifecycle
 
