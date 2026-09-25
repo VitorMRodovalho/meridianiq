@@ -165,12 +165,20 @@ because it does not correct an instruction. It sets one aside.
    next action with a real counterparty, and #134 stands at 0 of 5. The owner's wish to resume is
    not demand evidence and counts toward nothing on #134.
 3. **The gate accounting is untouched.** The ADR-0028 outcome commit still happens on or after
-   2026-09-30, on its own terms and with its own counts. Whichever branch it takes, #134 is retitled,
-   not closed.
-4. **What this overrides.** If the gate resolves through Pathway B, the pre-registered consequence
-   is a discovery-only Cycle 7 with no feature waves at entry (ADR-0028 §Consequences). The owner
-   sets that consequence aside. The discovery obligation it protects is **not** discharged:
-   outreach runs in parallel and is logged on #134, per Amendment 1 item 2.
+   2026-09-30, with its own counts and branch selection. Where its text prescribes the discovery-only
+   consequence, it follows the inline pointers described in item 4. Whichever branch it takes, the
+   gate issue is retitled and stays open.
+4. **What this overrides, named at the source.** The owner sets aside the discovery-only Cycle 7
+   consequence wherever it is pre-registered: the ADR-0025 W2 branch and its cosmetic-met clause,
+   ADR-0028 §Consequences item 1, and the discovery-only wording of the retitle ADR-0028 prescribes.
+   ADR-0028's "parked state of ADR-0027 is unaffected" bullet is superseded, because the park ends
+   before the outcome commit. Each of those places carries an inline *[OVERRIDDEN]* pointer back to
+   this section. **This departs openly from Amendments 1 and 2, which each state they do not alter
+   ADR-0025. This record does alter it.** It is an owner decision, not a correction of the rule, and
+   it does not argue that the rule was wrong.
+5. **The obligation the rule protected is not discharged.** Outreach runs in parallel. Each send
+   and each conversation is logged on #134, one comment per entry, by role and company type only,
+   per Amendment 1 item 2.
 
 ### Why
 
@@ -183,6 +191,6 @@ decisions. The detail lives in the private companion repo, not in this public re
 
 Containment and security come first. Next is tenant isolation, before any pilot data is accepted.
 Forensic correctness follows. No release tag is cut until the canonical-identity order holds:
-decouple `engine_version`, fix #252, fix the CPM network semantics, re-materialize (#54), then
-#243. This ADR adds no success criteria. If a cycle entry needs them, that entry records them.
+decouple `engine_version`, then the #252 hash repair, then the CPM network semantics, then
+re-materialization (#54), then #243. This ADR adds no success criteria. If a cycle entry needs them, that entry records them.
 

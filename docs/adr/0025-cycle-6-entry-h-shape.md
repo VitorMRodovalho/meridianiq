@@ -121,6 +121,7 @@ W2 — HARD GATE close:
      5 customer-development conversations logged OR 1 persona formally retired with ADR
      IF MET → continue W3-W5
      IF NOT MET → BLOCK + amend this ADR → Cycle 6.5 pivot to discovery-only
+     *[OVERRIDDEN: see [ADR-0027 §"Owner override (2026-09-25)"](0027-park-maintenance-only.md#owner-override-2026-09-25-park-lifted-without-demand-evidence). The discovery-only pivot is set aside by owner decision; the demand obligation is not discharged.]*
 
 W3 (conditional) — Frontend DA cluster (#105/#106/#107/#108 + #110 + #46) on a11y intrinsic merit
 
@@ -164,7 +165,7 @@ Per DA exit-council biggest-concern finding on this ADR: the W2 binary GATE outc
 - Retirement creates closed scope (specific issues to close, specific features to deprecate)
 - Cycle 7+ reactivation pre-condition named OR explicit "no reactivation path"
 
-**Cycle 7 entry council will judge W2 GATE outcome on the above distinction.** If GATE met cosmetically (headcount or persona retirement gaming the criterion), Cycle 7 inherits Cycle 6.5 obligations — discovery-only pivot still applies, just delayed one cycle.
+**Cycle 7 entry council will judge W2 GATE outcome on the above distinction.** If GATE met cosmetically (headcount or persona retirement gaming the criterion), Cycle 7 inherits Cycle 6.5 obligations — discovery-only pivot still applies, just delayed one cycle. *[OVERRIDDEN: see [ADR-0027 §"Owner override (2026-09-25)"](0027-park-maintenance-only.md#owner-override-2026-09-25-park-lifted-without-demand-evidence). The owner set this consequence aside on 2026-09-25.]*
 
 **Sycophancy-recurrence trigger enforcement owner**: DA-as-second-reviewer protocol per `feedback_entry_council_discipline.md` is owner. DA exit-council on ANY substantive Cycle 6 PR (W3+) MUST grep PR description + commit messages + ADR text for any of the 4 rejected framings or sub-variants thereof. Reintroduction triggers Cycle 6.5 amendment via DA flagging.
 
