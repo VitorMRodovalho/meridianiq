@@ -215,3 +215,171 @@ def test_require_superadmin_passes_when_super(monkeypatch: pytest.MonkeyPatch) -
     user = {"id": "alice-id", "email": "alice@example.com", "role": "authenticated"}
     result = require_superadmin(user=user)
     assert result == user
+
+
+# ---------------------------------------------------------------------------
+# A token that is sent but cannot be verified is never an anonymous caller
+# ---------------------------------------------------------------------------
+
+
+def _unsigned_token(header: dict[str, Any]) -> str:
+    """Build a structurally valid JWT with an arbitrary header and no real signature."""
+    import base64
+    import json
+
+    def _b64(obj: dict[str, Any]) -> str:
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
+
+    return f"{_b64(header)}.{_b64({'sub': 'user-uuid-1234', 'aud': 'authenticated'})}.c2ln"
+
+
+def test_missing_alg_header_raises_401() -> None:
+    """A token without ``alg`` is refused up front, not handed to a default verifier.
+
+    The detail is asserted because a defaulted HS256 path would also end in 401
+    (bad signature); only the reason tells the two apart.
+    """
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(_make_credentials(_unsigned_token({"typ": "JWT"})))
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Invalid token: missing algorithm"
+
+
+def test_hs256_without_configured_secret_raises_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without a shared secret, HS256 is rejected instead of returning no user."""
+    from src.database import config
+
+    monkeypatch.setattr(config.settings, "SUPABASE_JWT_SECRET", "")
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(_make_credentials(_make_token()))
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Invalid token: HS256 not accepted"
+
+
+def test_hs256_with_configured_secret_is_accepted() -> None:
+    """Control: the same HS256 token verifies when the secret is configured."""
+    user = get_current_user(_make_credentials(_make_token()))
+    assert user is not None and user["id"] == "user-uuid-1234"
+
+
+class _FailingJwks:
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    def get_signing_key_from_jwt(self, token: str) -> Any:
+        raise self._exc
+
+
+def test_unreachable_jwks_is_503_not_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.api import auth
+
+    monkeypatch.setattr(
+        auth, "_get_jwks_client", lambda: _FailingJwks(jwt.PyJWKClientConnectionError("down"))
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(_make_credentials(_unsigned_token({"alg": "ES256", "kid": "k1"})))
+    assert exc_info.value.status_code == 503
+
+
+def test_unknown_signing_key_is_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.api import auth
+
+    exc = jwt.PyJWKClientError(f'{auth._UNKNOWN_KID_PREFIX}: "zz"')
+    monkeypatch.setattr(auth, "_get_jwks_client", lambda: _FailingJwks(exc))
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(_make_credentials(_unsigned_token({"alg": "ES256", "kid": "zz"})))
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        jwt.PyJWKClientError("The JWKS endpoint did not return a JSON object"),
+        jwt.PyJWKSetError("The JWK Set did not contain any usable keys"),
+    ],
+)
+def test_unusable_jwks_is_503_with_retry_hint(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    """A key-server fault must not tell a valid user to sign in again."""
+    from src.api import auth
+
+    monkeypatch.setattr(auth, "_get_jwks_client", lambda: _FailingJwks(exc))
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(_make_credentials(_unsigned_token({"alg": "ES256", "kid": "k1"})))
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.headers == {"Retry-After": "5"}
+
+
+def test_unknown_kid_message_matches_installed_pyjwt() -> None:
+    """Pins the PyJWT message the 401/503 split relies on."""
+    import inspect
+
+    from src.api import auth
+
+    assert auth._UNKNOWN_KID_PREFIX in inspect.getsource(jwt.PyJWKClient.get_signing_key)
+
+
+class _StaticJwks:
+    """Stands in for PyJWKClient with one known public key."""
+
+    def __init__(self, jwk: Any) -> None:
+        self._jwk = jwk
+
+    def get_signing_key_from_jwt(self, token: str) -> Any:
+        return self._jwk
+
+
+def _es256_material() -> tuple[Any, Any]:
+    import json
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_jwk = json.loads(jwt.algorithms.ECAlgorithm.to_jwk(private_key.public_key()))
+    public_jwk.update({"kid": "k1", "alg": "ES256", "use": "sig"})
+    return private_key, jwt.PyJWK(public_jwk)
+
+
+def test_es256_token_verified_through_jwks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The path production uses: an ES256 token checked against a JWKS key."""
+    from src.api import auth
+
+    private_key, jwk = _es256_material()
+    monkeypatch.setattr(auth, "_get_jwks_client", lambda: _StaticJwks(jwk))
+    token = jwt.encode(
+        {"sub": "es-user", "aud": "authenticated", "exp": int(time.time()) + 600},
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "k1"},
+    )
+    user = get_current_user(_make_credentials(token))
+    assert user is not None and user["id"] == "es-user"
+
+
+def test_header_alg_that_does_not_match_the_key_is_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An RS256 header against an EC key is refused, not an unhandled 500."""
+    from src.api import auth
+
+    _private_key, jwk = _es256_material()
+    monkeypatch.setattr(auth, "_get_jwks_client", lambda: _StaticJwks(jwk))
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(_make_credentials(_unsigned_token({"alg": "RS256", "kid": "k1"})))
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Invalid token: algorithm/key mismatch"
+
+
+def test_invalid_token_is_401_through_optional_auth_in_development() -> None:
+    """End to end: a garbage bearer token on an optional_auth route is 401, not anonymous.
+
+    Control arm: the same route without any token still answers in development.
+    """
+    from fastapi.testclient import TestClient
+
+    from src.api.app import app
+
+    client = TestClient(app)
+    anonymous = client.get("/api/v1/projects")
+    assert anonymous.status_code == 200
+    rejected = client.get("/api/v1/projects", headers={"Authorization": "Bearer not-a-jwt"})
+    assert rejected.status_code == 401
