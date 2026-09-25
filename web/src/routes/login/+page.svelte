@@ -104,9 +104,6 @@
 				{$t('login.continue_linkedin')}
 			</button>
 
-			<p class="text-center text-xs text-gray-400 pt-2">
-				{$t('login.terms_notice')}
-			</p>
 		</div>
 	</div>
 </div>

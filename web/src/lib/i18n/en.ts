@@ -201,7 +201,6 @@ export default {
 	'login.continue_google': 'Continue with Google',
 	'login.continue_microsoft': 'Continue with Microsoft',
 	'login.continue_linkedin': 'Continue with LinkedIn',
-	'login.terms_notice': 'By signing in you agree to the MeridianIQ terms of service.',
 
 	// Programs page
 	'programs.subtitle': 'Schedule revision groups — track updates across the project lifecycle',
@@ -251,10 +250,10 @@ export default {
 	'settings.field_email': 'Email',
 	'settings.field_provider': 'Auth Provider',
 	'settings.field_last_sign_in': 'Last Sign In',
-	'settings.privacy_rls': 'Your data is stored in an isolated Supabase instance with Row Level Security (RLS). Other users cannot access your schedules.',
-	'settings.privacy_storage': 'XER files are stored in encrypted Supabase Storage buckets with per-user access policies.',
-	'settings.privacy_server': 'All analysis is performed server-side. No schedule data is sent to third parties.',
-	'settings.privacy_oss': 'MeridianIQ is open-source (MIT). You can audit the entire codebase.',
+	'settings.privacy_rls': 'Your schedules are stored in a database shared by all users. Access is enforced by the MeridianIQ server.',
+	'settings.privacy_storage': 'Uploaded XER files are stored as uploaded, in storage hosted in the United States.',
+	'settings.privacy_server': 'Analysis runs on the server. If you use Ask, the project name, schedule statistics and your question are sent to Anthropic (US).',
+	'settings.privacy_oss': 'MeridianIQ\'s code is open source (MIT). The hosted service\'s configuration, such as providers and regions, is not in the repository.',
 
 	// Org list page
 	'org.page_subtitle': 'Manage your teams and project sharing',

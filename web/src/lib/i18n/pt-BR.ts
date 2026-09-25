@@ -201,7 +201,6 @@ export default {
 	'login.continue_google': 'Continuar com Google',
 	'login.continue_microsoft': 'Continuar com Microsoft',
 	'login.continue_linkedin': 'Continuar com LinkedIn',
-	'login.terms_notice': 'Ao entrar, voce concorda com os termos de servico do MeridianIQ.',
 
 	// Programs page
 	'programs.subtitle': 'Grupos de revisoes de cronograma — acompanhe atualizacoes ao longo do ciclo de vida',
@@ -251,10 +250,10 @@ export default {
 	'settings.field_email': 'Email',
 	'settings.field_provider': 'Provedor de Autenticacao',
 	'settings.field_last_sign_in': 'Ultimo Acesso',
-	'settings.privacy_rls': 'Seus dados ficam em instancia isolada do Supabase com Row Level Security (RLS). Outros usuarios nao podem acessar seus cronogramas.',
-	'settings.privacy_storage': 'Arquivos XER sao armazenados em buckets criptografados do Supabase Storage com politicas de acesso por usuario.',
-	'settings.privacy_server': 'Toda analise e feita no servidor. Nenhum dado de cronograma e enviado a terceiros.',
-	'settings.privacy_oss': 'MeridianIQ e codigo aberto (MIT). Voce pode auditar todo o codigo-fonte.',
+	'settings.privacy_rls': 'Seus cronogramas ficam num banco de dados compartilhado entre todos os usuários. O acesso é controlado pelo servidor do MeridianIQ.',
+	'settings.privacy_storage': 'Os arquivos XER enviados ficam guardados como foram enviados, em armazenamento hospedado nos Estados Unidos.',
+	'settings.privacy_server': 'A análise é feita no servidor. Se você usar a função Perguntar, o nome do projeto, estatísticas do cronograma e sua pergunta são enviados à Anthropic (EUA).',
+	'settings.privacy_oss': 'O código do MeridianIQ é aberto (MIT). A configuração do serviço hospedado, como provedores e regiões, não está no repositório.',
 
 	// Org list page
 	'org.page_subtitle': 'Gerencie suas equipes e o compartilhamento de projetos',
