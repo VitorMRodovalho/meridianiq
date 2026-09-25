@@ -45,17 +45,17 @@ dependencies = [
     "networkx>=3.6",
     "numpy>=2.4",
     "supabase>=2.30",
-    "python-dotenv>=1.2",
+    "python-dotenv>=1.2.2",
     "python-multipart",
     "sentry-sdk[fastapi]>=2.59",
-    "PyJWT[crypto]>=2.12.1",
+    "PyJWT[crypto]>=2.13.0",
     "defusedxml>=0.7",
 ]
 
 [project.optional-dependencies]
 api = ["fastapi>=0.136.1", "uvicorn[standard]>=0.46", "slowapi>=0.1.9", "psutil>=5.9"]
 export = ["pandas>=2.2", "openpyxl>=3.1"]
-reports = ["weasyprint>=68.0"]
+reports = ["weasyprint>=70.0"]
 ai = ["anthropic>=0.100"]
 ml = ["scikit-learn>=1.8"]
 # Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
@@ -63,7 +63,7 @@ ml = ["scikit-learn>=1.8"]
 # ``McpServer`` (breaking change).  Cap at 1.x until a conscious v2
 # migration ADR lands.  Patch floor 1.27.1 picks up upstream fixes
 # without leaving the audited 1.x line.
-mcp = ["mcp>=1.27.1,<2"]
+mcp = ["mcp>=1.28.1,<2"]
 dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1",

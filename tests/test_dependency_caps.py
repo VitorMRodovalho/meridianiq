@@ -45,7 +45,7 @@ PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 CAPPED_DEPENDENCIES: tuple[tuple[str, str, str], ...] = (
     (
         "mcp",
-        "mcp>=1.27.1,<2",
+        "mcp>=1.28.1,<2",
         "src/mcp_server.py:61 imports `mcp.server.fastmcp.FastMCP`, which the v2 "
         "SDK replaces with `McpServer`. Widening this cap breaks the MCP server "
         "at import (regression #227, fix #244). Bump only behind a v2 migration ADR.",

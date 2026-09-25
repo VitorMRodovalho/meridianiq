@@ -32,6 +32,13 @@ updates:
       # eval against the Dockerfile Python pin.
       - dependency-name: "pyiceberg"
         update-types: ["version-update:semver-major"]
+      # mcp is capped <2 because the v2 SDK removes the FastMCP import the
+      # server uses (#227, #244); tests/test_dependency_caps.py enforces it.
+      # Without this rule Dependabot reopens a failing widen-the-cap PR every
+      # week (#258 was the third). Minor/patch updates inside <2 still flow.
+      # Lift together with the v2 migration tracked in #139.
+      - dependency-name: "mcp"
+        update-types: ["version-update:semver-major"]
 
   # Frontend dependencies (web/package.json)
   - package-ecosystem: "npm"
