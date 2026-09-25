@@ -456,7 +456,6 @@ def get_simulation_register_entries(
     simulation_id: str,
     top_n: int = 15,
     ctx: AccessContext = Depends(get_access),
-    _user: object = Depends(optional_auth),
 ) -> dict:
     """Return register entries that touch the simulation's most-sensitive activities.
 
@@ -473,11 +472,17 @@ def get_simulation_register_entries(
         simulation_id: The stored simulation identifier.
         top_n: How many top activities to consider for matching (default 15).
 
+    Raises:
+        HTTPException: 404 if the simulation is not the caller's, or if
+            its project is no longer one the caller may reach (checked
+            before any register entry is read).
+
     Reference: AACE RP 57R-09 — Schedule Risk Analysis.
     """
     store = get_store()
 
     result = _owned_simulation(simulation_id, ctx)
+    project_id = ctx.project(result.project_id)
 
     if not hasattr(store, "list_risk_entries"):
         return {
@@ -498,8 +503,7 @@ def get_simulation_register_entries(
 
     driver_ids = top_sensitivity | top_criticality | top_activity_names
 
-    user_id = _user["id"] if _user else None  # type: ignore[index]
-    entries = store.list_risk_entries(result.project_id, user_id=user_id)
+    entries = store.list_risk_entries(project_id, user_id=ctx.principal.user_id)
 
     sensitivity_by_id = {s.activity_id: s.correlation for s in result.sensitivity}
     criticality_by_id = {c.activity_id: c.criticality_pct for c in result.criticality}

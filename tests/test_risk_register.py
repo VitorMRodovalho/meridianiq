@@ -12,6 +12,18 @@ from src.analytics.risk_register import (
 )
 
 
+def _dev_project() -> str:
+    """A project with no recorded owner: what the anonymous dev caller may reach.
+
+    The register routes authorize ``project_id`` (ADR-0030), so they need a
+    project that exists; an unknown id is a 404 before the register is read.
+    """
+    from src.api.deps import get_store
+    from src.parser.xer_reader import XERReader
+
+    return get_store().add(XERReader("tests/fixtures/sample.xer").parse(), b"x")
+
+
 def _sample_entries() -> list[RiskEntry]:
     return [
         RiskEntry(
@@ -151,12 +163,13 @@ class TestRiskRegisterCRUDAPI:
         from src.api.deps import get_store
 
         get_store().clear()
+        pid = _dev_project()
 
         client = TestClient(app)
-        resp = client.get("/api/v1/projects/some-project/risk-register")
+        resp = client.get(f"/api/v1/projects/{pid}/risk-register")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["project_id"] == "some-project"
+        assert data["project_id"] == pid
         assert data["entries"] == []
         assert data["summary"]["total_risks"] == 0
 
@@ -167,6 +180,7 @@ class TestRiskRegisterCRUDAPI:
         from src.api.deps import get_store
 
         get_store().clear()
+        pid = _dev_project()
         client = TestClient(app)
 
         body = {
@@ -178,11 +192,11 @@ class TestRiskRegisterCRUDAPI:
             "status": "open",
             "affected_activities": ["A100", "A200"],
         }
-        resp = client.post("/api/v1/projects/p1/risk-register", json=body)
+        resp = client.post(f"/api/v1/projects/{pid}/risk-register", json=body)
         assert resp.status_code == 200, resp.text
         assert resp.json()["entry"]["risk_id"] == "R001"
 
-        resp = client.get("/api/v1/projects/p1/risk-register")
+        resp = client.get(f"/api/v1/projects/{pid}/risk-register")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["entries"]) == 1
@@ -197,10 +211,11 @@ class TestRiskRegisterCRUDAPI:
         from src.api.deps import get_store
 
         get_store().clear()
+        pid = _dev_project()
         client = TestClient(app)
 
         body = {"name": "Auto-id risk", "category": "schedule", "probability": 0.3}
-        resp = client.post("/api/v1/projects/p2/risk-register", json=body)
+        resp = client.post(f"/api/v1/projects/{pid}/risk-register", json=body)
         assert resp.status_code == 200
         assert resp.json()["entry"]["risk_id"] == "R001"
 
@@ -211,18 +226,19 @@ class TestRiskRegisterCRUDAPI:
         from src.api.deps import get_store
 
         get_store().clear()
+        pid = _dev_project()
         client = TestClient(app)
 
         client.post(
-            "/api/v1/projects/p3/risk-register",
+            f"/api/v1/projects/{pid}/risk-register",
             json={"risk_id": "R001", "name": "first", "probability": 0.5},
         )
         client.post(
-            "/api/v1/projects/p3/risk-register",
+            f"/api/v1/projects/{pid}/risk-register",
             json={"risk_id": "R001", "name": "second", "probability": 0.9},
         )
 
-        resp = client.get("/api/v1/projects/p3/risk-register")
+        resp = client.get(f"/api/v1/projects/{pid}/risk-register")
         assert len(resp.json()["entries"]) == 1
         assert resp.json()["entries"][0]["name"] == "second"
 
@@ -233,18 +249,19 @@ class TestRiskRegisterCRUDAPI:
         from src.api.deps import get_store
 
         get_store().clear()
+        pid = _dev_project()
         client = TestClient(app)
 
         client.post(
-            "/api/v1/projects/p4/risk-register",
+            f"/api/v1/projects/{pid}/risk-register",
             json={"risk_id": "R001", "name": "to delete", "probability": 0.5},
         )
 
-        resp = client.delete("/api/v1/projects/p4/risk-register/R001")
+        resp = client.delete(f"/api/v1/projects/{pid}/risk-register/R001")
         assert resp.status_code == 200
         assert resp.json()["deleted"] is True
 
-        resp = client.get("/api/v1/projects/p4/risk-register")
+        resp = client.get(f"/api/v1/projects/{pid}/risk-register")
         assert resp.json()["entries"] == []
 
     def test_delete_not_found(self) -> None:
@@ -254,10 +271,28 @@ class TestRiskRegisterCRUDAPI:
         from src.api.deps import get_store
 
         get_store().clear()
+        pid = _dev_project()
         client = TestClient(app)
 
-        resp = client.delete("/api/v1/projects/p5/risk-register/R999")
+        resp = client.delete(f"/api/v1/projects/{pid}/risk-register/R999")
         assert resp.status_code == 404
+        assert resp.json()["detail"] == "Risk R999 not found"
+
+    def test_unknown_project_is_not_found(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from src.api.app import app
+        from src.api.deps import get_store
+
+        get_store().clear()
+        client = TestClient(app)
+
+        for resp in (
+            client.get("/api/v1/projects/proj-9999/risk-register"),
+            client.post("/api/v1/projects/proj-9999/risk-register", json={"name": "x"}),
+            client.delete("/api/v1/projects/proj-9999/risk-register/R001"),
+        ):
+            assert (resp.status_code, resp.json()) == (404, {"detail": "Project not found"})
 
 
 class TestSimulationRegisterLinkage:
@@ -290,11 +325,12 @@ class TestSimulationRegisterLinkage:
 
         store = get_store()
         store.clear()
+        pid = _dev_project()
 
         # Add two risk register entries — one touching A100, one touching Z999
         client = TestClient(app)
         client.post(
-            "/api/v1/projects/p-sim/risk-register",
+            f"/api/v1/projects/{pid}/risk-register",
             json={
                 "risk_id": "R001",
                 "name": "Weather",
@@ -304,7 +340,7 @@ class TestSimulationRegisterLinkage:
             },
         )
         client.post(
-            "/api/v1/projects/p-sim/risk-register",
+            f"/api/v1/projects/{pid}/risk-register",
             json={
                 "risk_id": "R002",
                 "name": "Unrelated",
@@ -316,7 +352,7 @@ class TestSimulationRegisterLinkage:
 
         # Seed a simulation where A100 has high sensitivity
         result = SimulationResult(
-            project_id="p-sim",
+            project_id=pid,
             project_name="Test",
             iterations=100,
             deterministic_days=100.0,
@@ -333,7 +369,7 @@ class TestSimulationRegisterLinkage:
                 )
             ],
         )
-        sim_id = get_risk_store().add(result, owner_id=DEV_USER_ID, project_ids=["p-sim"])
+        sim_id = get_risk_store().add(result, owner_id=DEV_USER_ID, project_ids=[pid])
 
         resp = client.get(
             f"/api/v1/risk/simulations/{sim_id}/register-entries",
@@ -342,7 +378,7 @@ class TestSimulationRegisterLinkage:
         assert resp.status_code == 200, resp.text
         data = resp.json()
 
-        assert data["project_id"] == "p-sim"
+        assert data["project_id"] == pid
         # Only R001 overlaps (A100); R002 touches Z999 which is not in the sim
         assert data["total"] == 1
         assert data["entries"][0]["risk_id"] == "R001"
@@ -369,10 +405,11 @@ class TestSimulationRegisterLinkage:
 
         store = get_store()
         store.clear()
+        pid = _dev_project()
 
         client = TestClient(app)
         client.post(
-            "/api/v1/projects/p-no-overlap/risk-register",
+            f"/api/v1/projects/{pid}/risk-register",
             json={
                 "risk_id": "R001",
                 "name": "Isolated",
@@ -383,7 +420,7 @@ class TestSimulationRegisterLinkage:
         )
 
         result = SimulationResult(
-            project_id="p-no-overlap",
+            project_id=pid,
             project_name="Test",
             iterations=100,
             deterministic_days=100.0,
@@ -394,7 +431,7 @@ class TestSimulationRegisterLinkage:
                 SensitivityEntry(activity_id="Y2", activity_name="Other", correlation=0.9)
             ],
         )
-        sim_id = get_risk_store().add(result, owner_id=DEV_USER_ID, project_ids=["p-no-overlap"])
+        sim_id = get_risk_store().add(result, owner_id=DEV_USER_ID, project_ids=[pid])
 
         resp = client.get(f"/api/v1/risk/simulations/{sim_id}/register-entries")
         assert resp.status_code == 200

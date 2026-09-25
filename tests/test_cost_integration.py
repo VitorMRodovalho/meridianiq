@@ -13,7 +13,18 @@ from src.analytics.cost_integration import (
     compare_cost_snapshots,
 )
 from src.api.app import app
+from src.api.deps import get_store
 from src.database.store import InMemoryStore
+from src.parser.xer_reader import XERReader
+
+
+def _dev_project() -> str:
+    """A project with no recorded owner: what the anonymous dev caller may reach.
+
+    The cost routes authorize ``project_id`` (ADR-0030), so they need a
+    project that exists; an unknown id is a 404 before any snapshot lookup.
+    """
+    return get_store().add(XERReader("tests/fixtures/sample.xer").parse(), b"x")
 
 
 class TestCBSElements:
@@ -185,12 +196,18 @@ class TestCostSnapshotsAPI:
 
     def test_empty_project(self) -> None:
         client = TestClient(app)
-        resp = client.get("/api/v1/projects/never-uploaded/cost/snapshots")
+        pid = _dev_project()
+        resp = client.get(f"/api/v1/projects/{pid}/cost/snapshots")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["project_id"] == "never-uploaded"
+        assert data["project_id"] == pid
         assert data["count"] == 0
         assert data["snapshots"] == []
+
+    def test_unknown_project_is_not_found(self) -> None:
+        client = TestClient(app)
+        resp = client.get("/api/v1/projects/never-uploaded/cost/snapshots")
+        assert (resp.status_code, resp.json()) == (404, {"detail": "Project not found"})
 
 
 class TestCostCompare:
@@ -300,7 +317,7 @@ class TestCostCompareAPI:
     def test_compare_requires_different_ids(self) -> None:
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/projects/p/cost/compare",
+            f"/api/v1/projects/{_dev_project()}/cost/compare",
             params={"a": "cost-0001", "b": "cost-0001"},
         )
         assert resp.status_code == 400
@@ -309,16 +326,17 @@ class TestCostCompareAPI:
     def test_compare_missing_snapshots_404(self) -> None:
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/projects/never-uploaded/cost/compare",
+            f"/api/v1/projects/{_dev_project()}/cost/compare",
             params={"a": "cost-9998", "b": "cost-9999"},
         )
         assert resp.status_code == 404
-        assert "not found" in resp.json()["detail"].lower()
+        assert resp.json()["detail"] == (
+            "Snapshot(s) not found for this project: cost-9998, cost-9999"
+        )
 
     def test_compare_roundtrip_in_memory(self) -> None:
-        from src.api.deps import get_store as _get_store
-
-        store = _get_store()
+        store = get_store()
+        pid = _dev_project()
 
         a = CostIntegrationResult(
             cbs_elements=[
@@ -334,17 +352,17 @@ class TestCostCompareAPI:
             total_budget=1_250_000,
         )
 
-        id_a = store.save_cost_upload(project_id="compare-test", result=a, source_name="v1")
-        id_b = store.save_cost_upload(project_id="compare-test", result=b, source_name="v2")
+        id_a = store.save_cost_upload(project_id=pid, result=a, source_name="v1")
+        id_b = store.save_cost_upload(project_id=pid, result=b, source_name="v2")
 
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/projects/compare-test/cost/compare",
+            f"/api/v1/projects/{pid}/cost/compare",
             params={"a": id_a, "b": id_b},
         )
         assert resp.status_code == 200, resp.text
         data = resp.json()
-        assert data["project_id"] == "compare-test"
+        assert data["project_id"] == pid
         assert data["snapshot_a"] == id_a
         assert data["snapshot_b"] == id_b
         assert data["total_budget_delta"] == 250_000

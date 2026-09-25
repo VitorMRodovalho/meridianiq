@@ -129,9 +129,9 @@ WITH_SECONDARY = [r for r in ROUTES if r.secondary]
 #: Routes of these routers that this module deliberately does not cover, and why.
 EXEMPT: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/dashboard"): "portfolio list route; migrates with the list routes",
-    ("POST", "/api/v1/cost/upload"): "cost snapshots are a separate slice",
-    ("GET", f"{_P}/cost/snapshots"): "cost snapshots are a separate slice",
-    ("GET", f"{_P}/cost/compare"): "cost snapshots are a separate slice",
+    ("POST", "/api/v1/cost/upload"): "covered by tests/test_tenancy_cost_risk.py",
+    ("GET", f"{_P}/cost/snapshots"): "covered by tests/test_tenancy_cost_risk.py",
+    ("GET", f"{_P}/cost/compare"): "covered by tests/test_tenancy_cost_risk.py",
     ("POST", "/api/v1/trends"): "multi-project body route; a separate slice",
 }
 

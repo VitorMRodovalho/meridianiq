@@ -943,10 +943,14 @@ class InMemoryStore:
         project and an auto-incremented snapshot id. Supabase backend
         persists to ``cbs_elements`` / ``cost_snapshots`` / ``cbs_wbs_mappings``.
 
+        A snapshot belongs to whoever owns its project, as on Supabase
+        (migration 019 derives cost-row ownership from ``projects``). The
+        caller must have authorized ``project_id``; this method does not.
+
         Args:
-            project_id: Target schedule project.
+            project_id: Target schedule project, already authorized.
             result: ``CostIntegrationResult`` from ``parse_cbs_excel``.
-            user_id: Optional owner (for RLS parity with Supabase).
+            user_id: Who uploaded it; recorded as provenance, not as the owner.
             source_name: Human-readable source label.
 
         Returns:
@@ -974,23 +978,43 @@ class InMemoryStore:
         self._cost_uploads.setdefault(project_id, []).append(payload)
         return snapshot_id
 
+    def _project_open_to(self, project_id: str, user_id: str | None) -> bool:
+        """Owner gate for rows that take their owner from the project (cost snapshots).
+
+        Same rule as ``get_project``: without a ``user_id`` the call is
+        unscoped and a project with no recorded owner passes; otherwise the
+        recorded owner must be ``user_id``.
+        """
+        if not user_id:
+            return True
+        owner = self._project_owners.get(project_id)
+        return owner is None or owner == user_id
+
     def list_cost_snapshots(
         self, project_id: str, user_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """List cost snapshot summaries for a project, newest first."""
+        """List cost snapshot summaries for a project, newest first.
+
+        With ``user_id``, a project owned by someone else lists nothing;
+        ``SupabaseStore`` applies the same project-owner filter.
+        """
+        if not self._project_open_to(project_id, user_id):
+            return []
         uploads = self._cost_uploads.get(project_id, [])
-        if user_id is not None:
-            uploads = [u for u in uploads if u.get("user_id") in (None, user_id)]
         return [{k: v for k, v in u.items() if not k.startswith("_")} for u in reversed(uploads)]
 
     def get_cost_snapshot(
         self, project_id: str, snapshot_id: str, user_id: str | None = None
     ) -> Any | None:
-        """Retrieve the full ``CostIntegrationResult`` for a snapshot."""
+        """Retrieve the full ``CostIntegrationResult`` for a snapshot.
+
+        Only a snapshot of ``project_id`` is found. With ``user_id``, a
+        project owned by someone else finds nothing.
+        """
+        if not self._project_open_to(project_id, user_id):
+            return None
         for u in self._cost_uploads.get(project_id, []):
             if u["snapshot_id"] == snapshot_id:
-                if user_id is not None and u.get("user_id") not in (None, user_id):
-                    return None
                 return u.get("_result")
         return None
 
@@ -1004,16 +1028,22 @@ class InMemoryStore:
     ) -> dict[str, Any]:
         """Persist a risk register entry for a project.
 
-        Upserts by ``risk_id`` within the project — re-saving the same
-        ``risk_id`` replaces the existing record. Returns the stored
-        entry with owner/timestamps injected.
+        Upserts by ``risk_id`` among the entries ``user_id`` may see:
+        re-saving the same ``risk_id`` replaces that record, and an entry
+        recorded for another user is never replaced. An auto-assigned id is
+        one that no entry of the project holds. Returns the stored entry
+        with owner/timestamps injected.
 
         Reference: PMI Practice Standard for Risk Management; ISO 31000.
         """
         entries = self._risk_entries.setdefault(project_id, [])
         risk_id = entry.get("risk_id") or ""
         if not risk_id:
-            risk_id = f"R{len(entries) + 1:03d}"
+            taken = {e.get("risk_id") for e in entries}
+            n = len(entries) + 1
+            while f"R{n:03d}" in taken:
+                n += 1
+            risk_id = f"R{n:03d}"
             entry = {**entry, "risk_id": risk_id}
 
         payload = {
@@ -1024,29 +1054,30 @@ class InMemoryStore:
         }
 
         for i, existing in enumerate(entries):
-            if existing.get("risk_id") == risk_id:
+            if existing.get("risk_id") == risk_id and self._risk_entry_visible(existing, user_id):
                 entries[i] = payload
                 return payload
 
         entries.append(payload)
         return payload
 
+    @staticmethod
+    def _risk_entry_visible(entry: dict[str, Any], user_id: str | None) -> bool:
+        """``user_id`` None is unscoped; otherwise its own and ownerless entries."""
+        return user_id is None or entry.get("user_id") in (None, user_id)
+
     def list_risk_entries(
         self, project_id: str, user_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """Return all risk register entries for a project."""
+        """Return the project's risk register entries that ``user_id`` may see."""
         entries = self._risk_entries.get(project_id, [])
-        if user_id is not None:
-            entries = [e for e in entries if e.get("user_id") in (None, user_id)]
-        return list(entries)
+        return [e for e in entries if self._risk_entry_visible(e, user_id)]
 
     def delete_risk_entry(self, project_id: str, risk_id: str, user_id: str | None = None) -> bool:
-        """Remove a risk entry by ``risk_id``. Returns True when removed."""
+        """Remove a risk entry ``user_id`` may see, by ``risk_id``. True when removed."""
         entries = self._risk_entries.get(project_id, [])
         for i, e in enumerate(entries):
-            if e.get("risk_id") == risk_id:
-                if user_id is not None and e.get("user_id") not in (None, user_id):
-                    return False
+            if e.get("risk_id") == risk_id and self._risk_entry_visible(e, user_id):
                 entries.pop(i)
                 return True
         return False
@@ -3339,6 +3370,13 @@ class SupabaseStore:
         N ``cbs_elements`` rows, and matching ``cost_snapshots`` for the
         budget date. Returns the erp_source id as the snapshot_id.
 
+        Ownership: these tables have no owner column; migration 019 derives
+        a cost row's owner from ``projects.user_id`` through ``project_id``.
+        No owner is written, so the caller must have authorized
+        ``project_id`` before calling (the API does, through
+        ``AccessContext``). ``user_id`` is accepted for parity with
+        ``InMemoryStore`` and is not stored.
+
         Best-effort: on failure, logs and returns empty string so the
         caller can still return parsed data to the user.
         """
@@ -3401,11 +3439,26 @@ class SupabaseStore:
             logger.warning("save_cost_upload failed (best-effort): %s", exc)
             return ""
 
+    def _project_owned_by(self, project_id: str, user_id: str) -> bool:
+        """True when ``projects.user_id`` of ``project_id`` is ``user_id``.
+
+        The owner filter for cost rows, which carry no owner column of their
+        own (migration 019 scopes them through ``projects``).
+        """
+        rows = self._select("projects", {"id": project_id, "user_id": user_id}, columns="id")
+        return bool(rows)
+
     def list_cost_snapshots(
         self, project_id: str, user_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """List distinct cost upload sources for a project, newest first."""
+        """List distinct cost upload sources for a project, newest first.
+
+        With ``user_id``, nothing is listed unless that user owns the
+        project; the owner check runs before any cost row is read.
+        """
         try:
+            if user_id and not self._project_owned_by(project_id, user_id):
+                return []
             rows = self._select(
                 "erp_sources",
                 filters={"project_id": project_id},
@@ -3438,12 +3491,16 @@ class SupabaseStore:
         ``cbs_level2``, ``design_package``, ``wbs_code``) are best-effort
         rehydrated from ``cbs_description`` / ``cbs_level``.
 
-        Returns None when the snapshot is not found or the project_id
-        does not match — mirrors the InMemoryStore behaviour.
+        Returns None when the snapshot is not found, the project_id does
+        not match, or ``user_id`` is given and does not own the project
+        (checked before any cost row is read) — mirrors the InMemoryStore
+        behaviour. Every cost query is scoped to ``project_id``.
         """
         from src.analytics.cost_integration import CBSElement, CostIntegrationResult
 
         try:
+            if user_id and not self._project_owned_by(project_id, user_id):
+                return None
             src_rows = self._select(
                 "erp_sources",
                 filters={"id": snapshot_id, "project_id": project_id},
@@ -3454,7 +3511,7 @@ class SupabaseStore:
 
             element_rows = self._select(
                 "cbs_elements",
-                filters={"erp_source_id": snapshot_id},
+                filters={"erp_source_id": snapshot_id, "project_id": project_id},
                 columns="id,cbs_code,cbs_description,cbs_level,sort_order",
             )
             if not element_rows:
@@ -3462,7 +3519,7 @@ class SupabaseStore:
 
             snapshot_rows = self._select(
                 "cost_snapshots",
-                filters={"erp_source_id": snapshot_id},
+                filters={"erp_source_id": snapshot_id, "project_id": project_id},
                 columns=(
                     "cbs_element_id,snapshot_date,original_budget,current_budget,"
                     "contingency_original,escalation"
