@@ -995,8 +995,10 @@ class InMemoryStore:
     ) -> list[dict[str, Any]]:
         """List cost snapshot summaries for a project, newest first.
 
-        With ``user_id``, a project owned by someone else lists nothing;
-        ``SupabaseStore`` applies the same project-owner filter.
+        With ``user_id``, a project owned by someone else lists nothing.
+        ``SupabaseStore`` filters on the project owner too, but it also
+        refuses a project with no recorded owner, which passes here (the
+        rule of ``get_project`` in this store).
         """
         if not self._project_open_to(project_id, user_id):
             return []
