@@ -193,6 +193,7 @@ export default {
 	'error.try_again': 'Reintentar',
 	'error.go_home': 'Ir al Inicio',
 	'error.request_timeout': 'Tiempo de espera agotado. Vuelva a intentar.',
+	'error.rate_limited': 'Demasiadas solicitudes. Espere un minuto y vuelva a intentar.',
 
 	// Login page
 	'login.page_title': 'Iniciar Sesion',
@@ -276,6 +277,14 @@ export default {
 	'org.type_general_contractor': 'Contratista General',
 	'org.type_subcontractor': 'Subcontratista',
 	'org.type_general': 'Otro',
+	'org.invitations_title': 'Invitaciones pendientes',
+	'org.invitations_hint': 'Las invitaciones se pueden aceptar durante 14 días.',
+	'org.invited_on': 'Invitado el',
+	'org.btn_accept': 'Aceptar',
+	'org.btn_decline': 'Rechazar',
+	'org.invitation_gone': 'Esta invitación ya no está disponible.',
+	'org.invitation_failed': 'No se pudo responder a la invitación. Vuelva a intentar.',
+	'org.name_invalid': 'El nombre de la organización debe tener entre 1 y 120 caracteres.',
 
 	// Pareto page
 	'pareto.subtitle': 'Frontera de intercambio costo-plazo — encuentra escenarios optimos de compresion del cronograma',
@@ -673,8 +682,6 @@ export default {
 	'org_detail.role_admin': 'Administrador',
 	'org_detail.btn_inviting': 'Invitando...',
 	'org_detail.btn_send_invite': 'Enviar Invitacion',
-	'org_detail.invite_sent_prefix': 'Invitado(a)',
-	'org_detail.invite_sent_infix': 'como',
 	'org_detail.invite_failed': 'Fallo al invitar',
 	'org_detail.col_when': 'Cuando',
 	'org_detail.col_who': 'Quien',
@@ -691,6 +698,14 @@ export default {
 	'org_detail.action_remove_member': 'Elimino miembro',
 	'org_detail.action_create': 'Creo',
 	'org_detail.action_delete': 'Elimino',
+	'org_detail.invite_requested_prefix': 'Invitación registrada para',
+	'org_detail.invite_requested_note': 'Si esta dirección pertenece a una cuenta de MeridianIQ, la persona verá la invitación en su página de Organizaciones y podrá aceptarla durante 14 días. No se envía ningún correo.',
+	'org_detail.invite_invalid_email': 'Ingrese una sola dirección de correo, por ejemplo nombre@empresa.com.',
+	'org_detail.manager_only': 'Solo los propietarios y administradores pueden hacer esto.',
+	'org_detail.last_owner': 'Una organización debe conservar al menos un propietario.',
+	'org_detail.action_invite_requested': 'Solicitó invitación',
+	'org_detail.action_invite_revoked': 'Revocó invitación',
+	'org_detail.action_accept_invite': 'Se unió por invitación',
 
 	// Milestones page
 	'milestones.title': 'Hitos de Valor',

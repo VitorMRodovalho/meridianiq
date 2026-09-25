@@ -193,6 +193,7 @@ export default {
 	'error.try_again': 'Try Again',
 	'error.go_home': 'Go Home',
 	'error.request_timeout': 'Request timed out. Please retry.',
+	'error.rate_limited': 'Too many requests. Please wait a minute and try again.',
 
 	// Login page
 	'login.page_title': 'Sign In',
@@ -276,6 +277,14 @@ export default {
 	'org.type_general_contractor': 'General Contractor',
 	'org.type_subcontractor': 'Subcontractor',
 	'org.type_general': 'Other',
+	'org.invitations_title': 'Pending invitations',
+	'org.invitations_hint': 'Invitations can be accepted for 14 days.',
+	'org.invited_on': 'Invited',
+	'org.btn_accept': 'Accept',
+	'org.btn_decline': 'Decline',
+	'org.invitation_gone': 'This invitation is no longer available.',
+	'org.invitation_failed': 'Could not answer the invitation. Please try again.',
+	'org.name_invalid': 'Organization names must be 1 to 120 characters.',
 
 	// Pareto page
 	'pareto.subtitle': 'Cost-duration trade-off frontier — find optimal schedule compression scenarios',
@@ -673,8 +682,6 @@ export default {
 	'org_detail.role_admin': 'Admin',
 	'org_detail.btn_inviting': 'Inviting...',
 	'org_detail.btn_send_invite': 'Send Invite',
-	'org_detail.invite_sent_prefix': 'Invited',
-	'org_detail.invite_sent_infix': 'as',
 	'org_detail.invite_failed': 'Failed to invite',
 	'org_detail.col_when': 'When',
 	'org_detail.col_who': 'Who',
@@ -691,6 +698,14 @@ export default {
 	'org_detail.action_remove_member': 'Removed member',
 	'org_detail.action_create': 'Created',
 	'org_detail.action_delete': 'Deleted',
+	'org_detail.invite_requested_prefix': 'Invitation recorded for',
+	'org_detail.invite_requested_note': 'If this address belongs to a MeridianIQ account, the person will see the invitation on their Organizations page and can accept it within 14 days. No email is sent.',
+	'org_detail.invite_invalid_email': 'Enter a single email address, for example name@company.com.',
+	'org_detail.manager_only': 'Only owners and admins can do this.',
+	'org_detail.last_owner': 'An organization must keep at least one owner.',
+	'org_detail.action_invite_requested': 'Requested invitation',
+	'org_detail.action_invite_revoked': 'Revoked invitation',
+	'org_detail.action_accept_invite': 'Joined by invitation',
 
 	// Milestones page
 	'milestones.title': 'Value Milestones',

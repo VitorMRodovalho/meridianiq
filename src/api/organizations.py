@@ -45,7 +45,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from .access import AccessContext, Principal, get_access, get_principal
@@ -297,12 +297,48 @@ def _user_id_for_email(client: Any, email: str) -> str | None:
     return _canonical_uuid(value) if value else None
 
 
-def _project_org_id(client: Any, project_id: str) -> str | None:
-    """The organization an (already authorized) project belongs to, if any."""
+def _project_org_id(client: Any, project_id: str, user_id: str) -> str | None:
+    """The organization of an (already authorized) project, for its members only.
+
+    ``projects.org_id`` is not set by this API, and the projects INSERT
+    policy of migration 007 checks only the owner, so a project's claim to
+    an organization is honoured only when ``user_id`` is an accepted member
+    of that organization. Otherwise the project is treated as having none,
+    and nothing is written into that organization's records.
+    """
     result = client.table("projects").select("org_id").eq("id", project_id).execute()
     rows = result.data or []
-    org_id = rows[0].get("org_id") if rows else None
-    return str(org_id) if org_id else None
+    org_id = _canonical_uuid(rows[0].get("org_id")) if rows and rows[0].get("org_id") else None
+    if org_id is None:
+        return None
+    seat = (
+        client.table("memberships")
+        .select("role")
+        .eq("org_id", org_id)
+        .eq("user_id", user_id)
+        .not_.is_("accepted_at", "null")
+        .execute()
+    )
+    return org_id if seat.data else None
+
+
+def _attach_profiles(client: Any, rows: list[dict[str, Any]], columns: str) -> list[dict[str, Any]]:
+    """Add ``user_profiles`` (``columns`` of the row's ``user_id``) to each row.
+
+    One query for all rows. No foreign key links ``memberships`` or
+    ``audit_log`` to ``user_profiles`` (both reference ``auth.users``), so
+    PostgREST cannot embed the profile; it is joined here instead.
+    """
+    ids = sorted({str(r["user_id"]) for r in rows if r.get("user_id")})
+    profiles: dict[str, dict[str, Any]] = {}
+    if ids:
+        found = client.table("user_profiles").select(f"id, {columns}").in_("id", ids).execute()
+        for prof in found.data or []:
+            pid = str(prof.pop("id"))
+            profiles[pid] = prof
+    for r in rows:
+        r["user_profiles"] = profiles.get(str(r.get("user_id")))
+    return rows
 
 
 def _audit(
@@ -429,16 +465,16 @@ def get_organization(org_id: str, caller: Principal = Depends(_caller)) -> dict[
     # inviter that the address has an account before its owner said yes.
     members_result = (
         client.table("memberships")
-        .select("user_id, role, accepted_at, user_profiles(email, full_name, avatar_url)")
+        .select("user_id, role, accepted_at")
         .eq("org_id", org_id)
         .not_.is_("accepted_at", "null")
         .execute()
     )
+    members = _attach_profiles(
+        client, list(members_result.data or []), "email, full_name, avatar_url"
+    )
 
-    return {
-        "organization": org_result.data[0],
-        "members": members_result.data or [],
-    }
+    return {"organization": org_result.data[0], "members": members}
 
 
 # ── Membership Management ──────────────────────────────
@@ -672,7 +708,11 @@ def decline_invitation(
     if oid is None or not rows:
         raise HTTPException(status_code=404, detail=_INVITATION_NOT_FOUND)
 
-    _audit(oid, caller.user_id, "decline_invite", "membership", caller.user_id, request=request)
+    # Recorded outside the organization's trail (org_id NULL): an entry
+    # there would tell its managers that the address has an account.
+    _audit(
+        None, caller.user_id, "decline_invite", "membership", None, {"org_id": oid}, request=request
+    )
     return {"status": "declined", "org_id": oid}
 
 
@@ -773,16 +813,17 @@ def share_project(
     if target_org is None or not target_rows:
         raise HTTPException(status_code=404, detail=_ORG_NOT_FOUND)
 
-    project_org_id = _project_org_id(client, project_id)
+    project_org_id = _project_org_id(client, project_id, caller.user_id)
 
-    # Create share
+    # One share per (project, organization): sharing again updates it.
     client.table("project_shares").upsert(
         {
             "project_id": project_id,
             "shared_with_org": target_org,
             "permission": req.permission,
             "shared_by": caller.user_id,
-        }
+        },
+        on_conflict="project_id,shared_with_org",
     ).execute()
 
     _audit(
@@ -826,8 +867,8 @@ def get_project_shares(
 @router.get("/organizations/{org_id}/audit")
 def get_audit_log(
     org_id: str,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     caller: Principal = Depends(_caller),
 ) -> dict[str, Any]:
     """Get audit log for an organization. Required for litigation traceability."""
@@ -836,14 +877,15 @@ def get_audit_log(
 
     result = (
         client.table("audit_log")
-        .select("*, user_profiles(email, full_name)")
+        .select("*")
         .eq("org_id", org_id)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
+    entries = _attach_profiles(client, list(result.data or []), "email, full_name")
 
-    return {"entries": result.data or [], "limit": limit, "offset": offset}
+    return {"entries": entries, "limit": limit, "offset": offset}
 
 
 # ── Value Milestones ───────────────────────────────────
@@ -916,7 +958,7 @@ def create_value_milestone(
         raise HTTPException(status_code=422, detail="project_id in the body must match the path")
 
     client = _get_supabase()
-    org_id = _project_org_id(client, pid)
+    org_id = _project_org_id(client, pid, caller.user_id)
 
     data: dict[str, Any] = {
         "project_id": pid,

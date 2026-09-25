@@ -3,9 +3,14 @@
 	import {
 		getOrganizations,
 		createOrganization,
+		listInvitations,
+		acceptInvitation,
+		declineInvitation,
+		ApiError,
+		type Invitation,
 		type OrganizationWithRole
 	} from '$lib/api';
-	import { t } from '$lib/i18n';
+	import { t, locale } from '$lib/i18n';
 
 	let orgs: OrganizationWithRole[] = $state([]);
 	let loading = $state(true);
@@ -14,6 +19,9 @@
 	let newName = $state('');
 	let newType = $state('general');
 	let creating = $state(false);
+	let invitations: Invitation[] = $state([]);
+	let answering = $state('');
+	let invitationError = $state('');
 
 	const orgTypeKeys: { value: string; labelKey: string }[] = [
 		{ value: 'owner', labelKey: 'org.type_owner' },
@@ -33,7 +41,44 @@
 		} finally {
 			loading = false;
 		}
+		try {
+			invitations = (await listInvitations()).invitations;
+		} catch {
+			// Invitations are secondary to the organization list: leave the panel hidden.
+		}
 	});
+
+	async function answer(inv: Invitation, accept: boolean) {
+		answering = inv.org_id;
+		invitationError = '';
+		try {
+			if (accept) {
+				const res = await acceptInvitation(inv.org_id, inv.role);
+				const listed = await getOrganizations();
+				orgs = listed.organizations;
+				if (!orgs.some((o) => o.id === res.org_id)) invitationError = $t('org.invitation_failed');
+			} else {
+				await declineInvitation(inv.org_id);
+			}
+			invitations = invitations.filter((i) => i.org_id !== inv.org_id);
+		} catch (e: unknown) {
+			if (e instanceof ApiError && e.status === 404) {
+				// Expired, re-issued for another role, or withdrawn: drop it from the list.
+				invitations = invitations.filter((i) => i.org_id !== inv.org_id);
+				invitationError = $t('org.invitation_gone');
+			} else if (e instanceof ApiError && e.status === 429) {
+				invitationError = $t('error.rate_limited');
+			} else {
+				invitationError = $t('org.invitation_failed');
+			}
+		} finally {
+			answering = '';
+		}
+	}
+
+	function formatDate(d: string | null): string {
+		return d ? new Date(d).toLocaleDateString($locale) : '';
+	}
 
 	async function handleCreate() {
 		if (!newName.trim()) return;
@@ -44,7 +89,9 @@
 			showCreate = false;
 			newName = '';
 		} catch (e: unknown) {
-			error = e instanceof Error ? e.message : $t('org.create_failed');
+			if (e instanceof ApiError && e.status === 422) error = $t('org.name_invalid');
+			else if (e instanceof ApiError && e.status === 429) error = $t('error.rate_limited');
+			else error = e instanceof Error ? e.message : $t('org.create_failed');
 		} finally {
 			creating = false;
 		}
@@ -85,6 +132,53 @@
 		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm mb-6">{error}</div>
 	{/if}
 
+	{#if invitations.length > 0 || invitationError}
+		<section
+			class="bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 rounded-lg p-5 mb-6"
+			aria-labelledby="invitations-title"
+		>
+			<h2 id="invitations-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+				{$t('org.invitations_title')}
+			</h2>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 mb-4">{$t('org.invitations_hint')}</p>
+			{#if invitationError}
+				<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm mb-3">
+					{invitationError}
+				</div>
+			{/if}
+			<ul class="divide-y divide-gray-100 dark:divide-gray-800">
+				{#each invitations as inv (inv.org_id)}
+					<li class="flex flex-wrap items-center justify-between gap-3 py-3">
+						<div class="min-w-0">
+							<p class="font-medium text-gray-900 dark:text-gray-100 truncate">
+								{inv.org_name ?? $t('org_detail.fallback_name')}
+							</p>
+							<p class="text-sm text-gray-500 dark:text-gray-400">
+								{$t(`org_detail.role_${inv.role}`)}{#if inv.invited_at} · {$t('org.invited_on')} {formatDate(inv.invited_at)}{/if}
+							</p>
+						</div>
+						<div class="flex gap-2">
+							<button
+								onclick={() => answer(inv, true)}
+								disabled={answering !== ''}
+								class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+							>
+								{$t('org.btn_accept')}
+							</button>
+							<button
+								onclick={() => answer(inv, false)}
+								disabled={answering !== ''}
+								class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+							>
+								{$t('org.btn_decline')}
+							</button>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	{#if showCreate}
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
 			<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('org.create_title')}</h2>
@@ -93,6 +187,7 @@
 					<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org.field_name')}</span>
 					<input
 						type="text"
+						maxlength="120"
 						bind:value={newName}
 						placeholder={$t('org.name_placeholder')}
 						class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"

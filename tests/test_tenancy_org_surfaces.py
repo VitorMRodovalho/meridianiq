@@ -107,12 +107,13 @@ def _ok(resp: Any, what: str) -> None:
 # A recording, filter-applying stand-in for the Supabase client      #
 # ------------------------------------------------------------------ #
 
-# (table, embedded resource) -> the local column that references ``<resource>.id``
+# (table, embedded resource) -> the local column that references ``<resource>.id``.
+# Only embeds a real foreign key allows: PostgREST refuses the others
+# (PGRST200). memberships and audit_log have no FK to user_profiles (both
+# reference auth.users), so they are deliberately absent.
 _EMBEDS: dict[tuple[str, str], str] = {
     ("memberships", "organizations"): "org_id",
-    ("memberships", "user_profiles"): "user_id",
     ("project_shares", "organizations"): "shared_with_org",
-    ("audit_log", "user_profiles"): "user_id",
 }
 # Column defaults of migration 007 that the routes rely on (a missing column reads NULL).
 _DEFAULTS: dict[str, dict[str, Any]] = {
@@ -716,11 +717,14 @@ class TestOrganizationDetail:
 
     def test_member_list_filter_is_sent(self, world: World) -> None:
         _get_org(world, USER_A, ORG_A)
-        _check, org_row, member_list = world.db.log
+        _check, org_row, member_list, profiles = world.db.log
         assert org_row.table == "organizations" and org_row.has("eq", "id", ORG_A)
         assert member_list.table == "memberships"
         assert member_list.has("eq", "org_id", ORG_A)
         assert member_list.has("not.is", "accepted_at", "null")
+        # Profiles are read for the listed members only, never the pending one.
+        assert profiles.table == "user_profiles"
+        assert profiles.has("in", "id", tuple(sorted([USER_A, ADMIN, MEMBER, VIEWER])))
 
 
 # ------------------------------------------------------------------ #
@@ -1199,7 +1203,19 @@ class TestDeclineInvitation:
         )
         assert world.db.rows("memberships", org_id=ORG_A, user_id=PENDING) == []
         (entry,) = world.db.rows("audit_log", action="decline_invite")
-        assert (entry["org_id"], entry["user_id"]) == (ORG_A, PENDING)
+        assert (entry["org_id"], entry["user_id"], entry["details"]) == (
+            None,
+            PENDING,
+            {"org_id": ORG_A},
+        )
+
+    def test_decline_is_not_shown_to_the_organization(self, world: World) -> None:
+        _ok(_decline(world, PENDING, ORG_A), "decline")
+        resp = world.client.get(f"/api/v1/organizations/{ORG_A}/audit", headers=world.h(USER_A))
+        _ok(resp, "audit as owner")
+        assert PENDING not in resp.text
+        for value in profile(PENDING).values():
+            assert value not in resp.text
 
     def test_expired_invitation_can_still_be_declined(self, world: World) -> None:
         _age(world, PENDING, days=30)
@@ -1339,6 +1355,24 @@ class TestAuditLog:
         assert world.db.queries("audit_log") == []
 
 
+class TestAuditLogInput:
+    @pytest.mark.parametrize("query", ["limit=0", "limit=201", "offset=-1", "limit=abc"])
+    def test_paging_is_bounded(self, world: World, query: str) -> None:
+        resp = world.client.get(
+            f"/api/v1/organizations/{ORG_A}/audit?{query}", headers=world.h(USER_A)
+        )
+        assert resp.status_code == 422, resp.text
+        assert world.db.log == []
+
+    def test_entries_carry_the_actor_profile(self, world: World) -> None:
+        resp = world.client.get(f"/api/v1/organizations/{ORG_A}/audit", headers=world.h(USER_A))
+        _ok(resp, "audit as owner")
+        (entry,) = resp.json()["entries"]
+        assert entry["user_profiles"] == {"email": email(USER_A), "full_name": "Alice Example"}
+        profiles = world.db.queries("user_profiles")
+        assert [q.filters for q in profiles] == [(("in", "id", (USER_A,)),)]
+
+
 class TestAuditTrailAddress:
     def _recorded_ip(self, world: World) -> Any:
         (row,) = world.db.rows("audit_log", action="invite_requested")
@@ -1467,6 +1501,69 @@ def _notes(w: World, user: str, project: str) -> list[str]:
     resp = _milestones(w, user, project)
     _ok(resp, f"milestones as {NAMES[user]}")
     return [m["notes"] for m in resp.json()["milestones"]]
+
+
+class TestProjectOrganizationClaim:
+    """A project's org_id counts only for members of that organization."""
+
+    def _forged(self, world: World) -> str:
+        # B's own project whose row names ORG_A, which B does not belong to.
+        pid = str(world.store.add(XERReader(FIXTURES / "sample.xer").parse(), b"x", user_id=USER_B))
+        world.db.seed("projects", id=pid, org_id=ORG_A, user_id=USER_B)
+        world.db.log.clear()
+        return pid
+
+    def test_share_is_not_audited_into_a_foreign_org(self, world: World) -> None:
+        pid = self._forged(world)
+        before = world.db.rows("audit_log", org_id=ORG_A)
+        _ok(_share(world, USER_B, pid, ORG_B), "share own project")
+        assert world.db.rows("audit_log", org_id=ORG_A) == before
+        (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
+        assert entry["org_id"] is None
+
+    def test_milestone_is_not_filed_under_a_foreign_org(self, world: World) -> None:
+        pid = self._forged(world)
+        before = world.db.rows("audit_log", org_id=ORG_A)
+        resp = world.client.post(
+            f"/api/v1/projects/{pid}/value-milestones",
+            json={"project_id": pid, "task_code": "M1", "commercial_value": 1.0},
+            headers=world.h(USER_B),
+        )
+        _ok(resp, "create milestone in own project")
+        (row,) = [r for r in world.db.rows("value_milestones") if r["project_id"] == pid]
+        assert row["org_id"] is None
+        assert world.db.rows("audit_log", org_id=ORG_A) == before
+
+    def test_a_pending_invitation_is_not_membership(self, world: World) -> None:
+        pid = self._forged(world)
+        world.db.seed(
+            "memberships",
+            org_id=ORG_A,
+            user_id=USER_B,
+            role="admin",
+            accepted_at=None,
+            invited_by=USER_A,
+        )
+        _ok(_share(world, USER_B, pid, ORG_B), "share own project")
+        (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
+        assert entry["org_id"] is None
+
+    def test_members_keep_their_org(self, world: World) -> None:
+        """Control: a project in the caller's own organization is still filed there."""
+        _ok(_share(world, USER_A, world.pa, ORG_B), "share as a member of ORG_A")
+        (entry,) = [
+            e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == world.pa
+        ]
+        assert entry["org_id"] == ORG_A
+
+
+class TestReshare:
+    def test_sharing_again_updates_the_permission(self, world: World) -> None:
+        _ok(_share(world, USER_A, world.pa, ORG_B, "editor"), "re-share as editor")
+        (row,) = world.db.rows("project_shares", project_id=world.pa, shared_with_org=ORG_B)
+        assert row["permission"] == "editor"
+        (upsert,) = [q for q in world.db.log if q.op == "upsert"]
+        assert upsert.payload["permission"] == "editor"
 
 
 class TestValueMilestoneReads:

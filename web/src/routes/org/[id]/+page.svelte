@@ -6,6 +6,7 @@
 		inviteMember,
 		removeMember,
 		getAuditLog,
+		ApiError,
 		type Organization,
 		type OrgMember,
 		type AuditEntry
@@ -19,6 +20,9 @@
 		compare: 'org_detail.action_compare',
 		export: 'org_detail.action_export',
 		invite: 'org_detail.action_invite',
+		invite_requested: 'org_detail.action_invite_requested',
+		invite_revoked: 'org_detail.action_invite_revoked',
+		accept_invite: 'org_detail.action_accept_invite',
 		remove_member: 'org_detail.action_remove_member',
 		create: 'org_detail.action_create',
 		delete: 'org_detail.action_delete',
@@ -60,20 +64,30 @@
 		}
 	}
 
+	/** A localized message for the answers these actions can get, else `fallbackKey`. */
+	function failureMessage(e: unknown, fallbackKey: string): string {
+		if (e instanceof ApiError) {
+			if (e.status === 422) return $t('org_detail.invite_invalid_email');
+			if (e.status === 429) return $t('error.rate_limited');
+			if (e.status === 403) return $t('org_detail.manager_only');
+			if (e.status === 409) return $t('org_detail.last_owner');
+		}
+		return $t(fallbackKey);
+	}
+
 	async function handleInvite() {
 		if (!inviteEmail.trim()) return;
 		inviting = true;
 		inviteError = '';
 		inviteSuccess = '';
 		try {
-			await inviteMember(orgId, inviteEmail.trim(), inviteRole);
-			inviteSuccess = `${$t('org_detail.invite_sent_prefix')} ${inviteEmail} ${$t('org_detail.invite_sent_infix')} ${inviteRole}`;
+			const res = await inviteMember(orgId, inviteEmail.trim(), inviteRole);
+			// The API records a request; it never says whether the address has an
+			// account, so the message does not claim that anyone was added.
+			inviteSuccess = `${$t('org_detail.invite_requested_prefix')} ${res.email} (${$t(`org_detail.role_${res.role}`)}). ${$t('org_detail.invite_requested_note')}`;
 			inviteEmail = '';
-			// Reload members
-			const res = await getOrganization(orgId);
-			members = res.members;
 		} catch (e: unknown) {
-			inviteError = e instanceof Error ? e.message : $t('org_detail.invite_failed');
+			inviteError = failureMessage(e, 'org_detail.invite_failed');
 		} finally {
 			inviting = false;
 		}
@@ -83,8 +97,8 @@
 		try {
 			await removeMember(orgId, userId);
 			members = members.filter(m => m.user_id !== userId);
-		} catch {
-			error = $t('org_detail.remove_failed');
+		} catch (e: unknown) {
+			error = failureMessage(e, 'org_detail.remove_failed');
 		}
 	}
 
@@ -217,6 +231,7 @@
 						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_email')}</span>
 						<input
 							type="email"
+							maxlength="320"
 							bind:value={inviteEmail}
 							placeholder={$t('org_detail.placeholder_email')}
 							class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"

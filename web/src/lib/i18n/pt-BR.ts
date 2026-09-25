@@ -193,6 +193,7 @@ export default {
 	'error.try_again': 'Tentar Novamente',
 	'error.go_home': 'Ir para o Início',
 	'error.request_timeout': 'Tempo de requisição esgotado. Tente novamente.',
+	'error.rate_limited': 'Muitas requisições. Aguarde um minuto e tente novamente.',
 
 	// Login page
 	'login.page_title': 'Entrar',
@@ -276,6 +277,14 @@ export default {
 	'org.type_general_contractor': 'Construtora Geral',
 	'org.type_subcontractor': 'Subempreiteira',
 	'org.type_general': 'Outro',
+	'org.invitations_title': 'Convites pendentes',
+	'org.invitations_hint': 'Os convites podem ser aceitos por 14 dias.',
+	'org.invited_on': 'Convidado em',
+	'org.btn_accept': 'Aceitar',
+	'org.btn_decline': 'Recusar',
+	'org.invitation_gone': 'Este convite não está mais disponível.',
+	'org.invitation_failed': 'Não foi possível responder ao convite. Tente novamente.',
+	'org.name_invalid': 'O nome da organização deve ter de 1 a 120 caracteres.',
 
 	// Pareto page
 	'pareto.subtitle': 'Fronteira de troca custo-prazo — encontre cenarios otimos de compressao do cronograma',
@@ -673,8 +682,6 @@ export default {
 	'org_detail.role_admin': 'Administrador',
 	'org_detail.btn_inviting': 'Convidando...',
 	'org_detail.btn_send_invite': 'Enviar Convite',
-	'org_detail.invite_sent_prefix': 'Convidado(a)',
-	'org_detail.invite_sent_infix': 'como',
 	'org_detail.invite_failed': 'Falha ao convidar',
 	'org_detail.col_when': 'Quando',
 	'org_detail.col_who': 'Quem',
@@ -691,6 +698,14 @@ export default {
 	'org_detail.action_remove_member': 'Removeu membro',
 	'org_detail.action_create': 'Criou',
 	'org_detail.action_delete': 'Excluiu',
+	'org_detail.invite_requested_prefix': 'Convite registrado para',
+	'org_detail.invite_requested_note': 'Se este endereço tiver uma conta no MeridianIQ, a pessoa verá o convite na página Organizações e poderá aceitá-lo em até 14 dias. Nenhum e-mail é enviado.',
+	'org_detail.invite_invalid_email': 'Informe um único endereço de e-mail, por exemplo nome@empresa.com.',
+	'org_detail.manager_only': 'Somente proprietários e administradores podem fazer isso.',
+	'org_detail.last_owner': 'Uma organização precisa manter pelo menos um proprietário.',
+	'org_detail.action_invite_requested': 'Solicitou convite',
+	'org_detail.action_invite_revoked': 'Revogou convite',
+	'org_detail.action_accept_invite': 'Entrou por convite',
 
 	// Milestones page
 	'milestones.title': 'Marcos de Valor',
