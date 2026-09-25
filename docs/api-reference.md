@@ -87,7 +87,7 @@ _CPA per AACE RP 29R-03, delay waterfall_
 | `POST` | `/api/v1/forensic/mip-3-5` | Run MIP 3.5 — Modified / Additive Multiple Base (Impacted As-Planned). | `Mip35Response` | optional |
 | `POST` | `/api/v1/forensic/mip-3-6` | Run MIP 3.6 — Modified / Subtractive Single Simulation (Collapsed As-Built). | `Mip36Response` | optional |
 | `POST` | `/api/v1/forensic/mip-3-7` | Run MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed). | `Mip37Response` | optional |
-| `GET` | `/api/v1/forensic/timelines` | List all forensic timelines. | `TimelineListResponse` | optional |
+| `GET` | `/api/v1/forensic/timelines` | List the caller's forensic timelines. | `TimelineListResponse` | optional |
 | `GET` | `/api/v1/forensic/timelines/{timeline_id}` | Get full forensic timeline with all window results. | `TimelineDetailSchema` | optional |
 | `GET` | `/api/v1/forensic/timelines/{timeline_id}/delay-trend` | Return delay trend data for charting. | `DelayTrendResponse` | optional |
 
@@ -97,7 +97,7 @@ _Time Impact Analysis per AACE RP 52R-06_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
-| `GET` | `/api/v1/tia/analyses` | List all TIA analyses. | `TIAListResponse` | optional |
+| `GET` | `/api/v1/tia/analyses` | List the caller's TIA analyses. | `TIAListResponse` | optional |
 | `GET` | `/api/v1/tia/analyses/{analysis_id}` | Get full TIA analysis with all fragment results. | `TIAAnalysisSchema` | optional |
 | `GET` | `/api/v1/tia/analyses/{analysis_id}/summary` | Get delay-by-responsibility summary for a TIA analysis. | `TIASummaryResponse` | optional |
 | `POST` | `/api/v1/tia/analyze` | Run Time Impact Analysis on a project with delay fragments. | `TIAAnalysisSchema` | optional |
@@ -108,7 +108,7 @@ _Earned Value Management per ANSI/EIA-748_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
-| `GET` | `/api/v1/evm/analyses` | List all EVM analyses. | `EVMListResponse` | optional |
+| `GET` | `/api/v1/evm/analyses` | List the caller's EVM analyses. | `EVMListResponse` | optional |
 | `GET` | `/api/v1/evm/analyses/{analysis_id}` | Get full EVM analysis with all metrics. | `EVMAnalysisSchema` | optional |
 | `GET` | `/api/v1/evm/analyses/{analysis_id}/forecast` | Get EAC scenario forecasts for an analysis. | `ForecastResponse` | optional |
 | `GET` | `/api/v1/evm/analyses/{analysis_id}/s-curve` | Get S-curve data for an EVM analysis. | `SCurveResponse` | optional |
@@ -122,7 +122,7 @@ _Monte Carlo QSRA per AACE RP 57R-09_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `POST` | `/api/v1/risk/simulate/{project_id}` | Run Monte Carlo schedule risk simulation (QSRA) on a project. | `SimulationResultSchema` | optional |
-| `GET` | `/api/v1/risk/simulations` | List all risk simulations. | `SimulationListResponse` | optional |
+| `GET` | `/api/v1/risk/simulations` | List the caller's risk simulations. | `SimulationListResponse` | optional |
 | `GET` | `/api/v1/risk/simulations/by-job/{job_id}` | Look up a risk simulation by its progress channel job_id. | `RiskSimulationByJobResponse` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}` | Get full risk simulation result with all analysis data. | `SimulationResultSchema` | optional |
 | `GET` | `/api/v1/risk/simulations/{simulation_id}/criticality` | Get criticality index data for a risk simulation. | `CriticalityResponse` | optional |
@@ -282,7 +282,7 @@ _Readiness and liveness_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
-| `GET` | `/api/v1/superadmin/runtime` | Return a snapshot of process runtime state (SuperAdmin only). | `RuntimeSnapshot` | none |
+| `GET` | `/api/v1/superadmin/runtime` | Return a snapshot of process runtime state (SuperAdmin only). | `RuntimeSnapshot` | required |
 
 ## Organizations
 

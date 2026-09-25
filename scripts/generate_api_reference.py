@@ -47,13 +47,21 @@ def _infer_tag(route: APIRoute) -> str:
 
 
 def _requires_auth(route: APIRoute) -> str:
-    """Best-effort auth check by inspecting dependencies."""
-    for dep in route.dependant.dependencies:
-        name = getattr(dep.call, "__name__", "")
-        if name == "require_auth":
-            return "required"
-        if name == "optional_auth":
-            return "optional"
+    """Best-effort auth check by inspecting the whole dependency tree.
+
+    Auth often arrives indirectly (``get_access`` -> ``get_principal`` ->
+    ``optional_auth``), so nested dependencies are walked too.
+    """
+    names: set[str] = set()
+    stack = list(route.dependant.dependencies)
+    while stack:
+        dep = stack.pop()
+        names.add(getattr(dep.call, "__name__", ""))
+        stack.extend(dep.dependencies)
+    if "require_auth" in names:
+        return "required"
+    if "optional_auth" in names:
+        return "optional"
     return "none"
 
 
