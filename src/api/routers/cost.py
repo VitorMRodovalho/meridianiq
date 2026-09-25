@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
+from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, RATE_LIMIT_WRITE, get_store, limiter
 
@@ -250,14 +251,20 @@ def get_schedule_trends(
 
 @router.get("/api/v1/projects/{project_id}/narrative")
 def get_narrative_report(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Generate a narrative schedule status report.
 
     Combines schedule metrics, scorecard, and optional comparison into
     structured text sections for claims documentation or status reports.
+    A ``baseline_id`` that is given must be readable by the caller: it is
+    never silently dropped from the report.
+
+    Raises:
+        HTTPException: 404 if the project or a given baseline is missing
+            or not the caller's.
 
     Reference: AACE RP 29R-03 — Forensic Schedule Analysis.
     """
@@ -268,11 +275,17 @@ def get_narrative_report(
     from src.analytics.schedule_view import build_schedule_view
     from src.analytics.scorecard import calculate_scorecard
 
+    baseline_id = ctx.maybe_project(baseline_id)
     store = get_store()
-    user_id = _user["id"] if _user else None
+    user_id = ctx.principal.user_id
     schedule = store.get(project_id, user_id=user_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    baseline = None
+    if baseline_id:
+        baseline = store.get(baseline_id, user_id=user_id)
+        if baseline is None:
+            raise HTTPException(status_code=404, detail="Baseline project not found")
 
     # Build schedule view for summary
     view = build_schedule_view(schedule)
@@ -285,16 +298,14 @@ def get_narrative_report(
     except Exception:
         pass
 
-    # Comparison (if baseline provided)
+    # Comparison (if baseline provided). The narrative reads it as a dict.
     comparison_data = None
-    if baseline_id:
-        baseline = store.get(baseline_id, user_id=user_id)
-        if baseline:
-            try:
-                comp = ScheduleComparison(baseline, schedule)
-                comparison_data = comp.compare()
-            except Exception:
-                pass
+    if baseline is not None:
+        try:
+            comp = ScheduleComparison(baseline, schedule)
+            comparison_data = _asdict(comp.compare())
+        except Exception:
+            pass
 
     report = generate_schedule_narrative(
         project_name=view.project_name,
@@ -323,8 +334,7 @@ def get_narrative_report(
 
 @router.get("/api/v1/projects/{project_id}/float-entropy")
 def get_float_entropy(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Compute Shannon entropy of float distribution.
 
@@ -342,7 +352,7 @@ def get_float_entropy(
         distribution, and interpretation.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
 
     References:
         Shannon (1948) — A Mathematical Theory of Communication.
@@ -361,9 +371,9 @@ def get_float_entropy(
 
 @router.get("/api/v1/projects/{project_id}/constraint-accumulation")
 def get_constraint_accumulation(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Compute constraint accumulation rate between two schedule versions.
 
@@ -379,7 +389,8 @@ def get_constraint_accumulation(
         ConstraintAccumulationResult as dict.
 
     Raises:
-        HTTPException: If projects are not found or baseline_id missing.
+        HTTPException: 400 if ``baseline_id`` is absent; 404 if either
+            project is missing or not the caller's.
 
     References:
         DCMA 14-Point Assessment — Check #10 (Hard Constraints).
@@ -387,16 +398,17 @@ def get_constraint_accumulation(
     """
     from src.analytics.float_trends import compute_constraint_accumulation
 
-    store = get_store()
-    update = store.get(project_id)
-    if update is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
     if not baseline_id:
         raise HTTPException(
             status_code=400,
             detail="baseline_id query parameter is required for constraint accumulation",
         )
+    baseline_id = ctx.project(baseline_id)
+
+    store = get_store()
+    update = store.get(project_id)
+    if update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     baseline = store.get(baseline_id)
     if baseline is None:

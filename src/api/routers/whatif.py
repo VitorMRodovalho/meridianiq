@@ -8,6 +8,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..access import owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_EXPENSIVE, get_store, limiter
 from ..schemas import (
@@ -35,9 +36,8 @@ router = APIRouter()
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_what_if(
     request: Request,
-    project_id: str,
     body: WhatIfRequest,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> WhatIfResponse:
     """Run a what-if scenario on a project schedule.
 
@@ -117,9 +117,8 @@ def run_what_if(
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_pareto_analysis(
     request: Request,
-    project_id: str,
     body: ParetoRequest,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> ParetoResponse:
     """Run time-cost Pareto analysis across multiple scenarios.
 
@@ -187,9 +186,8 @@ def run_pareto_analysis(
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 def run_resource_leveling(
     request: Request,
-    project_id: str,
     body: LevelingRequest,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> LevelingResponse:
     """Run resource-constrained scheduling using Serial SGS.
 
@@ -264,8 +262,7 @@ def run_resource_leveling(
 
 @router.get("/api/v1/projects/{project_id}/duration-prediction")
 def get_duration_prediction(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> DurationPredictionResponse:
     """Predict project duration using ML trained on benchmark data.
 
@@ -311,8 +308,7 @@ def get_duration_prediction(
 
 @router.get("/api/v1/projects/{project_id}/scorecard")
 def get_scorecard(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> ScorecardResponse:
     """Get a comprehensive schedule scorecard with letter grades.
 
@@ -362,8 +358,8 @@ def get_scorecard(
 @limiter.limit("5/minute")
 async def optimize_schedule_endpoint(
     request: Request,
-    project_id: str,
     body: dict,
+    project_id: str = Depends(owned_project),
     job_id: str | None = None,
     _user: object = Depends(optional_auth),
 ) -> OptimizeResponse:
@@ -495,8 +491,7 @@ async def optimize_schedule_endpoint(
 
 @router.get("/api/v1/projects/{project_id}/visualization")
 def get_visualization(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Get 4D visualization data (WBS spatial x CPM temporal).
 
