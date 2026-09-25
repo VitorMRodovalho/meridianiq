@@ -61,8 +61,8 @@ ml = ["scikit-learn>=1.8"]
 # Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
 # replaces the ``FastMCP`` API used at ``src/mcp_server.py:61`` with
 # ``McpServer`` (breaking change).  Cap at 1.x until a conscious v2
-# migration ADR lands.  Patch floor 1.27.1 picks up upstream fixes
-# without leaving the audited 1.x line.
+# migration ADR lands.  Patch floor 1.28.1 is the first release past
+# CVE-2026-59950 (and -52869/-52870) without leaving the audited 1.x line.
 mcp = ["mcp>=1.28.1,<2"]
 dev = [
     "pytest>=9.0.3",
