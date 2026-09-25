@@ -15,6 +15,13 @@ import pytest
 os.environ["ENVIRONMENT"] = "development"
 os.environ["SUPABASE_JWT_SECRET"] = "test-secret"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
+# A developer's .env usually holds production credentials, and
+# src/database/config.py loads it at import. Blank values are kept by
+# load_dotenv (it never overrides a key already present), so the suite
+# cannot reach a real project even if a test forgets to mock a client.
+os.environ["ALLOW_REMOTE_SUPABASE"] = ""
+for _key in ("SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "DATABASE_URL"):
+    os.environ[_key] = ""
 
 # Auto-generate synthetic XER fixtures (gitignored via *.xer)
 _fixtures_dir = Path(__file__).parent / "fixtures"

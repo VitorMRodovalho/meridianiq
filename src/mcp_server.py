@@ -83,7 +83,13 @@ def _get_store():
         try:
             import os
 
-            if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
+            from src.database.config import remote_supabase_allowed
+
+            if (
+                remote_supabase_allowed()
+                and os.environ.get("SUPABASE_URL")
+                and os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+            ):
                 from src.database.store import SupabaseStore
 
                 _store = SupabaseStore()

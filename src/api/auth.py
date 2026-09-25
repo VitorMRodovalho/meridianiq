@@ -224,6 +224,10 @@ _api_keys: dict[str, dict] = {}  # In-memory fallback
 
 def _get_supabase_client() -> object | None:
     """Get Supabase client if configured."""
+    from src.database.config import remote_supabase_allowed
+
+    if not remote_supabase_allowed():
+        return None
     try:
         import os
 

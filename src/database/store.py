@@ -3890,6 +3890,17 @@ def get_store() -> InMemoryStore | SupabaseStore:
     if settings.use_supabase:
         _store_instance = SupabaseStore()
     else:
+        if settings.ENVIRONMENT == "production":
+            # Production without the opt-in (or without credentials) keeps
+            # serving, but nothing persists. Make that visible instead of an
+            # empty app that looks healthy.
+            logger.error(
+                "ENVIRONMENT=production but Supabase is not in use "
+                "(remote opt-in=%s, SUPABASE_URL set=%s): "
+                "falling back to InMemoryStore, data will not persist",
+                settings.allow_remote_supabase,
+                bool(settings.SUPABASE_URL),
+            )
         _store_instance = InMemoryStore()
 
     return _store_instance
