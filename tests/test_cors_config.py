@@ -41,11 +41,16 @@ def _reload_and_get_origins(monkeypatch: pytest.MonkeyPatch, value: str | None) 
 def test_default_origins_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     """ALLOWED_ORIGINS unset → pre-audit defaults preserved."""
     origins = _reload_and_get_origins(monkeypatch, None)
-    assert "http://localhost:5173" in origins
-    assert "http://localhost:4321" in origins
-    assert "https://getmeridianiq.com" in origins
-    assert "https://www.getmeridianiq.com" in origins
-    assert "https://meridianiq.vitormr.dev" in origins  # previous address, still redirected
+    # Set comparison, not `url in origins`: exact list membership, and it
+    # avoids CodeQL's URL-substring heuristic (py/incomplete-url-substring-sanitization).
+    expected = {
+        "http://localhost:5173",
+        "http://localhost:4321",
+        "https://getmeridianiq.com",
+        "https://www.getmeridianiq.com",
+        "https://meridianiq.vitormr.dev",  # previous address, still redirected
+    }
+    assert expected <= set(origins)
 
 
 def test_custom_origins_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
