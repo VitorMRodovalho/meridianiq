@@ -2327,10 +2327,14 @@ class SupabaseStore:
         ``(False, None)`` without a query (Postgres would raise 22P02).
         """
         try:
-            uuid.UUID(str(project_id))
+            canonical = str(uuid.UUID(str(project_id)))
         except ValueError:
             return False, None
-        rows = self._select("projects", {"id": project_id}, columns="id,user_id")
+        # Python accepts spellings Postgres rejects (urn prefix, odd hyphen
+        # positions); only the canonical form is ever sent.
+        if canonical != str(project_id).lower():
+            return False, None
+        rows = self._select("projects", {"id": canonical}, columns="id,user_id")
         if not rows:
             return False, None
         owner = rows[0].get("user_id")

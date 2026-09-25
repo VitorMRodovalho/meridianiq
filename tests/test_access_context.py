@@ -124,6 +124,27 @@ class TestAccessRule:
         with pytest.raises(HTTPException):
             ctx.projects(["pa", "pb"])
 
+    def test_grants_never_carry_over_to_another_principal(self) -> None:
+        import dataclasses
+
+        ctx = AccessContext.system(_OwnerMap(OWNERS), reason="test")
+        assert ctx.project("pa") == "pa"
+        as_b = dataclasses.replace(ctx, principal=USER_B)
+        with pytest.raises(HTTPException):
+            as_b.project("pa")
+
+    def test_system_context_requires_a_reason(self) -> None:
+        with pytest.raises(TypeError):
+            AccessContext.system(_OwnerMap(OWNERS))  # type: ignore[call-arg]
+        with pytest.raises(ValueError):
+            AccessContext.system(_OwnerMap(OWNERS), reason="")
+
+    def test_allows_owner_is_the_same_rule_for_any_resource(self) -> None:
+        assert _ctx(USER_A, OWNERS).allows_owner(OWNER_A) is True
+        assert _ctx(USER_A, OWNERS).allows_owner(OWNER_B) is False
+        assert _ctx(DEV, OWNERS).allows_owner(None) is True
+        assert _ctx(USER_A, OWNERS).allows_owner(None) is False
+
     def test_lookups_are_memoised_per_request(self) -> None:
         ctx = _ctx(USER_A, OWNERS)
         for _ in range(3):
@@ -186,9 +207,25 @@ class TestSupabaseOwnerLookup:
         pid = "11111111-1111-4111-8111-111111111111"
         store = _supabase_store([{"id": pid, "user_id": OWNER_A}])
         assert store.get_project_owner(pid) == (True, OWNER_A)
-        calls = store._client.calls  # type: ignore[attr-defined]
-        assert ("table", "projects") in calls
-        assert ("eq", ("id", pid)) in calls
+        assert store._client.calls == [  # type: ignore[attr-defined]
+            ("table", "projects"),
+            ("select", "id,user_id"),
+            ("eq", ("id", pid)),
+            ("execute", None),
+        ]
+
+    @pytest.mark.parametrize(
+        "spelling",
+        [
+            "urn:uuid:11111111-1111-4111-8111-111111111111",
+            "1-1111111111141118111111111111111",
+            "{11111111-1111-4111-8111-111111111111}",
+        ],
+    )
+    def test_non_canonical_uuid_spellings_emit_no_query(self, spelling: str) -> None:
+        store = _supabase_store([{"id": "x", "user_id": OWNER_A}])
+        assert store.get_project_owner(spelling) == (False, None)
+        assert store._client.calls == []  # type: ignore[attr-defined]
 
     def test_missing_row_and_null_owner(self) -> None:
         pid = "11111111-1111-4111-8111-111111111111"

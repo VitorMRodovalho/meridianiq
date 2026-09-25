@@ -20,8 +20,9 @@ Sharing through ``project_shares`` / org membership is not honoured yet.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from fastapi import Depends, HTTPException, status
 
@@ -29,6 +30,8 @@ from src.database.config import settings
 
 from .auth import optional_auth
 from .deps import get_store
+
+logger = logging.getLogger(__name__)
 
 PrincipalKind = Literal["user", "api_key", "dev", "system"]
 
@@ -44,8 +47,15 @@ class Principal:
     kind: PrincipalKind
 
 
-#: Trusted background work that is not tied to one tenant.
+#: Trusted background work that is not tied to one tenant. Obtain a context
+#: for it only through :meth:`AccessContext.system`, which records why.
 SYSTEM = Principal("system", "system")
+
+
+class OwnerLookup(Protocol):
+    """The one store capability the access layer needs."""
+
+    def get_project_owner(self, project_id: str) -> tuple[bool, str | None]: ...
 
 
 def _is_in_memory(store: Any) -> bool:
@@ -78,17 +88,29 @@ def principal_from_user(user: dict[str, Any] | None, store: Any) -> Principal:
 _NOT_FOUND = "Project not found"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AccessContext:
-    """Per-request access decisions, memoised so each project is looked up once."""
+    """Per-request access decisions, memoised so each project is looked up once.
+
+    Frozen, and the memo is not an init field: a copy made with
+    ``dataclasses.replace`` for another principal starts with an empty memo,
+    so a grant can never carry over from one principal to another.
+    """
 
     principal: Principal
-    store: Any
-    _grants: dict[str, bool] = field(default_factory=dict)
+    store: OwnerLookup
+    _grants: dict[str, bool] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     @classmethod
-    def system(cls, store: Any) -> AccessContext:
-        """Context for trusted background work (materializer, backfill)."""
+    def system(cls, store: OwnerLookup, *, reason: str) -> AccessContext:
+        """Context for trusted background work (materializer, backfill).
+
+        ``reason`` is required and logged, so every use of the all-access
+        principal leaves a trail.
+        """
+        if not reason:
+            raise ValueError("A system access context needs a reason")
+        logger.info("system access context: %s", reason)
         return cls(SYSTEM, store)
 
     def can_access_project(self, project_id: str | None) -> bool:
@@ -99,11 +121,12 @@ class AccessContext:
         if cached is not None:
             return cached
         exists, owner = self.store.get_project_owner(project_id)
-        granted = exists and self._allows(owner)
+        granted = exists and self.allows_owner(owner)
         self._grants[project_id] = granted
         return granted
 
-    def _allows(self, owner: str | None) -> bool:
+    def allows_owner(self, owner: str | None) -> bool:
+        """The access rule itself, for any owned resource (not only projects)."""
         if self.principal.kind == "system":
             return True
         if owner is None:
@@ -146,7 +169,12 @@ def get_access(
 def owned_project(project_id: str, ctx: AccessContext = Depends(get_access)) -> str:
     """FastAPI dependency for a ``project_id`` path/query parameter the caller must reach.
 
-    Only a cheap ownership lookup runs here. Parsing the schedule stays in
-    the handler body, so rate limits applied by decorators still run first.
+    Only a cheap ownership lookup runs here, and it runs before the slowapi
+    decorator check (FastAPI resolves dependencies first), so a 404 from it
+    is not counted against a route's limit. Parsing the schedule stays in the
+    handler body, after the limit.
+
+    WebSocket routes cannot use this dependency (``optional_auth`` needs an
+    HTTP request); they build ``AccessContext`` from their own token path.
     """
     return ctx.project(project_id)

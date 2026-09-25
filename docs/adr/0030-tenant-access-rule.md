@@ -22,6 +22,13 @@ The backend reads Supabase with the service-role key, so Postgres RLS does not s
 5. **Result stores are owned.** Stored analysis results (risk, EVM, TIA, timelines, reports) record their owner and use unguessable ids.
 6. **API keys act as their owner.** A key never reaches more than its owner could.
 
+### Scope and actors, stated so they are not assumed
+
+* **By-id access is where the rule lives today.** Store *list* methods still apply their older filter: on the in-memory store, an ownerless project appears in a user's list. They converge on this rule when the list routes migrate. Until then, "one rule" holds for reads by id, not yet for lists.
+* **SuperAdmin grants nothing through this path.** Administrative reads, when they exist, use a separate and audited path.
+* **The `system` principal** is obtained only through `AccessContext.system(store, reason=...)`, which logs the reason. The MCP server does not use it: it gets its own identity when it migrates.
+* **Demo and sandbox flows** do not read ownerless projects in production. Measured on 2026-09-25: production holds no ownerless projects, programs or uploads.
+
 ## Consequences
 
 * Routes migrate to the access context in slices. Until a route migrates, it keeps its previous behaviour.
