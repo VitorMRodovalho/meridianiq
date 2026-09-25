@@ -4,7 +4,7 @@
 
 | Document | Size | Content |
 |----------|------|---------|
-| PRODUCT_BACKLOG.md | 34K | 10 epics, ~60 user stories, 28 benchmarks |
+| PRODUCT_BACKLOG.md | — | 10 epics, ~60 user stories, 28 benchmarks (kept in the private companion repository) |
 | EXPERT_CONSULTATION_RESULTS.md | 141K | 20 questions × 14 personas + synthesis |
 | LITERATURE_REVIEW.md | 36K | 31 cited sources across 8 research areas |
 | GAP_ASSESSMENT.md | 19K | 11 competitors, blue ocean map, license analysis |
