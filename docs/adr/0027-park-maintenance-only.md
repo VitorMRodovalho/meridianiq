@@ -1,6 +1,6 @@
 # 0027. Park repository as maintenance-only (portfolio triage 2026-07)
 
-* Status: accepted (owner decision routed from the parent portfolio PMO, 2026-07-08) — §"Decision" item 5 amended by **Amendment 1 (2026-09-01)** (revisit outcome: bounded extension + pre-registered auto-trigger); Amendment 1 §"Decision" item 3 amended by **Amendment 2 (2026-09-04)** (issue-set correction). Both at the bottom of this file.
+* Status: accepted (owner decision routed from the parent portfolio PMO, 2026-07-08) — §"Decision" item 5 amended by **Amendment 1 (2026-09-01)** (revisit outcome: bounded extension + pre-registered auto-trigger); Amendment 1 §"Decision" item 3 amended by **Amendment 2 (2026-09-04)** (issue-set correction). **Park lifted by Owner override (2026-09-25)**, not by an amendment and not by the Amendment 1 item 4 trigger. All three are at the bottom of this file.
 * Deciders: @VitorMRodovalho
 * Date: 2026-07-08
 * Cites: issue #196 (triage record + acceptance criteria), issue #26 (funded exception), [ADR-0025](0025-cycle-6-entry-h-shape.md) (Cycle 6 gate state this decision freezes), [ADR-0026](0026-stay-public-open-core-boundary.md) (repo stays public while parked)
@@ -149,3 +149,40 @@ still instructing that #32 close. This amendment survives every branch.
   set on that account — #30/#31 do carry genuine Cost Engineer scope — but it is why ADR-0028 grades
   the Pathway B closed-scope criterion as PARTIAL rather than MET.
 * This amendment does not alter ADR-0025, the deadline, or the park.
+
+---
+
+## Owner override (2026-09-25): park lifted without demand evidence
+
+**Status:** owner decision, 2026-09-25. It is recorded as an override. It is not an amendment,
+because it does not correct an instruction. It sets one aside.
+
+### What is decided
+
+1. **The park ends on 2026-09-25.** Engineering work resumes through the normal flow (branches,
+   PRs, CI, review). §"Decision" item 1's maintenance-only limit no longer applies.
+2. **This is not the Amendment 1 item 4 unpark trigger.** No logged conversation carries a named
+   next action with a real counterparty, and #134 stands at 0 of 5. The owner's wish to resume is
+   not demand evidence and counts toward nothing on #134.
+3. **The gate accounting is untouched.** The ADR-0028 outcome commit still happens on or after
+   2026-09-30, on its own terms and with its own counts. Whichever branch it takes, #134 is retitled,
+   not closed.
+4. **What this overrides.** If the gate resolves through Pathway B, the pre-registered consequence
+   is a discovery-only Cycle 7 with no feature waves at entry (ADR-0028 §Consequences). The owner
+   sets that consequence aside. The discovery obligation it protects is **not** discharged:
+   outreach runs in parallel and is logged on #134, per Amendment 1 item 2.
+
+### Why
+
+A read-only audit on 2026-09-24 found security and correctness defects. Most of them are latent,
+and the 2026-09-02 precedent on #196 puts latent defects outside the "production-incident response"
+clause. Fixing them one exception at a time would have turned the park into a queue of per-item
+decisions. The detail lives in the private companion repo, not in this public record.
+
+### Order of work (not a cycle scope)
+
+Containment and security come first. Next is tenant isolation, before any pilot data is accepted.
+Forensic correctness follows. No release tag is cut until the canonical-identity order holds:
+decouple `engine_version`, fix #252, fix the CPM network semantics, re-materialize (#54), then
+#243. This ADR adds no success criteria. If a cycle entry needs them, that entry records them.
+
