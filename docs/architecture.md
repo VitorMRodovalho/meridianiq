@@ -5,7 +5,7 @@
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v4.3.0** (Z-shape consolidation — Cycle 5 close per ADR-0024; Cycle 6 W3 wave 4 in-flight): 48 analysis engines + 1 export module, 129 API endpoints across 25 routers, 55 SvelteKit pages, 11 hand-crafted SVG chart components, 31 Supabase migrations, 22 MCP tools, 15 PDF report types, 1687 tests.
+As of **v4.3.0** (Z-shape consolidation — Cycle 5 close per ADR-0024; Cycle 6 W3 wave 4 in-flight): 48 analysis engines + 1 export module, 130 API endpoints across 26 routers, 55 SvelteKit pages, 11 hand-crafted SVG chart components, 31 Supabase migrations, 22 MCP tools, 15 PDF report types, 1687 tests.
 
 ```mermaid
 graph TB
@@ -14,7 +14,7 @@ graph TB
     end
 
     subgraph "Compute — Fly.io"
-        API[FastAPI application<br/>129 endpoints · 25 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
+        API[FastAPI application<br/>130 endpoints · 26 routers<br/>Rate-limited · CORS whitelist<br/>Sentry telemetry]
         ENGINES[48 analysis engines<br/>+ 1 export module<br/>src/analytics/ + src/export/]
         MATERIALIZER[Async materializer<br/>asyncio.Task · Semaphore(1)<br/>ProcessPoolExecutor spawn<br/>src/materializer/]
         MCP[MCP server<br/>22 tools · stdio + http + sse<br/>src/mcp_server.py]
@@ -301,7 +301,7 @@ Supports universal ERP fields per AACE RP 10S-90, ANSI/EIA-748, ISO 21511, with 
 
 ## Catalogs & references
 
-- [API Reference](api-reference.md) — auto-generated from FastAPI app (129 endpoints × 25 routers)
+- [API Reference](api-reference.md) — auto-generated from FastAPI app (130 endpoints × 26 routers)
 - [Methodologies](methodologies.md) — auto-generated from engine docstrings (48 engines + citations)
 - [MCP Tools](mcp-tools.md) — auto-generated from `@mcp.tool()` decorators (22 tools)
 - [Deploy Checklist](DEPLOY_CHECKLIST.md) — 5-phase procedure
