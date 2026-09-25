@@ -197,7 +197,7 @@
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.engines')}</p>
 				</div>
 				<div>
-					<p class="text-3xl font-bold text-gray-900">131</p>
+					<p class="text-3xl font-bold text-gray-900">133</p>
 					<p class="text-sm text-gray-500 mt-1">{$t('landing.stats.endpoints')}</p>
 				</div>
 				<div>

@@ -24,6 +24,7 @@ import itertools
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -195,6 +196,9 @@ class _Query:
     def is_(self, column: str, value: Any) -> _Query:
         return self._filter("is", column, "null" if value is None else value)
 
+    def gte(self, column: str, value: Any) -> _Query:
+        return self._filter("gte", column, value)
+
     def order(self, column: str, desc: bool = False) -> _Query:
         self.order_by = (column, desc)
         return self
@@ -216,6 +220,10 @@ class _Query:
             elif operator in ("is", "not.is"):
                 assert value == "null", f"unsupported is-value {value!r}"
                 ok = (row.get(column) is None) == (operator == "is")
+            elif operator == "gte":
+                # Postgres compares timestamptz by instant, not by spelling.
+                cell = row.get(column)
+                ok = cell is not None and _instant(cell) >= _instant(value)
             else:  # pragma: no cover - the routes use only these operators
                 raise AssertionError(f"unsupported operator {operator}")
             if not ok:
@@ -226,6 +234,10 @@ class _Query:
         return type("Result", (), {"data": self._db.run(self)})()
 
 
+def _instant(value: str) -> datetime:
+    return datetime.fromisoformat(value)
+
+
 class FakeSupabase:
     """Tables as lists of rows; every executed query is appended to ``log``."""
 
@@ -233,6 +245,9 @@ class FakeSupabase:
         self.tables: dict[str, list[dict[str, Any]]] = {}
         self.log: list[Emitted] = []
         self._clock = itertools.count(1)
+        # Rows are stamped an hour ago plus one second per row: recent enough
+        # for an open invitation, and in insertion order.
+        self._epoch = datetime.now(UTC).replace(microsecond=0) - timedelta(hours=1)
 
     def table(self, name: str) -> _Query:
         return _Query(self, name)
@@ -261,7 +276,7 @@ class FakeSupabase:
 
     # -- execution ----------------------------------------------------
     def _tick(self) -> str:
-        return f"2026-01-01T00:00:{next(self._clock):06d}"
+        return (self._epoch + timedelta(seconds=next(self._clock))).isoformat()
 
     def _project(self, table: str, row: dict[str, Any], spec: str) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -390,16 +405,23 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     db.seed("organizations", id=ORG_A, name="Org A", slug="org-a", org_type="owner")
     db.seed("organizations", id=ORG_B, name="Org B", slug="org-b", org_type="general")
     accepted = "2026-01-01T00:00:00+00:00"
-    for org, user, role, when in (
-        (ORG_A, USER_A, "owner", accepted),
-        (ORG_A, ADMIN, "admin", accepted),
-        (ORG_A, MEMBER, "member", accepted),
-        (ORG_A, VIEWER, "viewer", accepted),
-        (ORG_A, PENDING, "member", None),
-        (ORG_B, USER_B, "owner", accepted),
-        (ORG_B, MEMBER, "member", accepted),
+    for org, user, role, when, inviter in (
+        (ORG_A, USER_A, "owner", accepted, None),
+        (ORG_A, ADMIN, "admin", accepted, USER_A),
+        (ORG_A, MEMBER, "member", accepted, USER_A),
+        (ORG_A, VIEWER, "viewer", accepted, USER_A),
+        (ORG_A, PENDING, "member", None, ADMIN),
+        (ORG_B, USER_B, "owner", accepted, None),
+        (ORG_B, MEMBER, "member", accepted, USER_B),
     ):
-        db.seed("memberships", org_id=org, user_id=user, role=role, accepted_at=when)
+        db.seed(
+            "memberships",
+            org_id=org,
+            user_id=user,
+            role=role,
+            accepted_at=when,
+            invited_by=inviter,
+        )
     # The org column of each project, as the projects table would hold it.
     db.seed("projects", id=w.pa, org_id=ORG_A, user_id=USER_A)
     db.seed("projects", id=w.pa2, org_id=ORG_A, user_id=USER_A)
@@ -464,6 +486,32 @@ def _accept(w: World, user: str, org: str) -> Any:
     return w.client.post(f"/api/v1/organizations/{org}/accept", headers=w.h(user))
 
 
+def _revoke(w: World, user: str, org: str, address: str) -> Any:
+    return w.client.post(
+        f"/api/v1/organizations/{org}/invitations/revoke",
+        json={"email": address},
+        headers=w.h(user),
+    )
+
+
+def _invitations(w: World, user: str) -> list[tuple[str, str]]:
+    resp = w.client.get("/api/v1/invitations", headers=w.h(user))
+    _ok(resp, f"invitations as {NAMES[user]}")
+    return [(i["org_id"], i["role"]) for i in resp.json()["invitations"]]
+
+
+def _pending_row(w: World, user: str, org: str = ORG_A) -> dict[str, Any]:
+    (row,) = w.db.rows("memberships", org_id=org, user_id=user)
+    assert row["accepted_at"] is None
+    return row
+
+
+def _age(w: World, user: str, days: float, org: str = ORG_A) -> None:
+    """Back-date the invitation of ``user`` to ``days`` ago."""
+    (row,) = [r for r in w.db.tables["memberships"] if (r["org_id"], r["user_id"]) == (org, user)]
+    row["created_at"] = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+
+
 def _remove(w: World, user: str, org: str, target: str) -> Any:
     return w.client.delete(f"/api/v1/organizations/{org}/members/{target}", headers=w.h(user))
 
@@ -494,6 +542,9 @@ ORG_ROUTES: dict[str, OrgRoute] = {
         "POST", "/api/v1/organizations/{org}/invite", {"email": email(NEWBIE), "role": "member"}
     ),
     "remove-member": OrgRoute("DELETE", "/api/v1/organizations/{org}/members/" + MEMBER),
+    "revoke-invitation": OrgRoute(
+        "POST", "/api/v1/organizations/{org}/invitations/revoke", {"email": email(PENDING)}
+    ),
 }
 
 
@@ -634,33 +685,35 @@ class TestInvite:
 
     def test_answer_does_not_reveal_whether_an_account_exists(self, world: World) -> None:
         members_before = _get_org(world, USER_A, ORG_A).json()
+        cases = {
+            "new account": email(NEWBIE),
+            "no account": NO_ACCOUNT_EMAIL,
+            "pending": email(PENDING),
+            "member": email(MEMBER),
+        }
 
-        with_account = _invite(world, USER_A, ORG_A, email(NEWBIE))
-        without_account = _invite(world, USER_A, ORG_A, NO_ACCOUNT_EMAIL)
+        answers = {case: _invite(world, USER_A, ORG_A, addr) for case, addr in cases.items()}
 
-        assert _answer(with_account) == (
-            200,
-            {"status": "invited", "email": email(NEWBIE), "role": "member"},
-        )
-        assert _answer(without_account) == (
-            200,
-            {"status": "invited", "email": NO_ACCOUNT_EMAIL, "role": "member"},
-        )
+        for case, addr in cases.items():
+            assert _answer(answers[case]) == (
+                200,
+                {"status": "requested", "email": addr, "role": "member"},
+            ), case
         # Control: the address with an account did get a (pending) row.
-        assert len(world.db.rows("memberships", user_id=NEWBIE)) == 1
-        # The admin-visible trail is the same shape for both...
-        invites = world.db.rows("audit_log", action="invite")
-        assert [(e["entity_id"], sorted(e["details"])) for e in invites] == [
-            (None, ["email", "role"]),
-            (None, ["email", "role"]),
+        assert _pending_row(world, NEWBIE)["role"] == "member"
+        # The admin-visible trail is the same for every case, and grants nothing.
+        entries = world.db.rows("audit_log", org_id=ORG_A, user_id=USER_A)
+        assert [(e["action"], e["entity_id"], e["details"]) for e in entries[1:]] == [
+            ("invite_requested", None, {"email": addr, "requested_role": "member"})
+            for addr in cases.values()
         ]
-        # ...and so is the member list: the pending row is not shown.
+        # ...and so is the member list: the pending rows are not shown.
         assert _get_org(world, USER_A, ORG_A).json() == members_before
 
     def test_invitation_is_pending_and_grants_nothing(self, world: World) -> None:
         _ok(_invite(world, USER_A, ORG_A, email(NEWBIE)), "invite")
-        (row,) = world.db.rows("memberships", user_id=NEWBIE)
-        assert (row["org_id"], row["accepted_at"], row["invited_by"]) == (ORG_A, None, USER_A)
+        row = _pending_row(world, NEWBIE)
+        assert (row["org_id"], row["invited_by"]) == (ORG_A, USER_A)
 
         assert _answer(_get_org(world, NEWBIE, ORG_A)) == ORG_NOT_FOUND
         assert _list_orgs(world, NEWBIE) == []
@@ -670,14 +723,38 @@ class TestInvite:
         resp = _invite(world, USER_A, ORG_A, email(MEMBER), role="admin")
         assert _answer(resp) == (
             200,
-            {"status": "invited", "email": email(MEMBER), "role": "admin"},
+            {"status": "requested", "email": email(MEMBER), "role": "admin"},
         )
         assert world.db.rows("memberships") == before
+        assert [q for q in world.db.writes() if q.table == "memberships"] == []
+        # The requested role is not recorded as granted anywhere.
+        assert world.db.rows("audit_log", action="accept_invite") == []
 
-    def test_reinviting_a_pending_user_adds_no_row(self, world: World) -> None:
-        before = world.db.rows("memberships")
-        _ok(_invite(world, USER_A, ORG_A, email(PENDING)), "re-invite")
-        assert world.db.rows("memberships") == before
+    def test_reinviting_a_pending_user_reissues_the_invitation(self, world: World) -> None:
+        _age(world, PENDING, days=10)
+        stale = _pending_row(world, PENDING)
+        assert (stale["role"], stale["invited_by"]) == ("member", ADMIN)
+
+        _ok(_invite(world, USER_A, ORG_A, email(PENDING), role="viewer"), "re-invite")
+
+        row = _pending_row(world, PENDING)
+        assert (row["id"], row["role"], row["invited_by"]) == (stale["id"], "viewer", USER_A)
+        assert _instant(row["created_at"]) > _instant(stale["created_at"])
+        (update,) = [q for q in world.db.writes() if q.table == "memberships"]
+        assert update.has("eq", "org_id", ORG_A) and update.has("eq", "user_id", PENDING)
+        assert update.has("is", "accepted_at", "null")
+        # What the invite answered is what the invited user gets.
+        assert _answer(_accept(world, PENDING, ORG_A)) == (
+            200,
+            {"status": "accepted", "org_id": ORG_A, "role": "viewer"},
+        )
+        assert (ORG_A, "viewer") in _list_orgs(world, PENDING)
+
+    def test_reissue_restarts_the_acceptance_window(self, world: World) -> None:
+        _age(world, PENDING, days=20)
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+        _ok(_invite(world, ADMIN, ORG_A, email(PENDING)), "re-invite")
+        _ok(_accept(world, PENDING, ORG_A), "accept after re-invite")
 
     def test_address_is_normalised(self, world: World) -> None:
         resp = _invite(world, USER_A, ORG_A, "  Nadia@Example.TEST ")
@@ -712,15 +789,34 @@ class TestAcceptInvitation:
         for resp in (foreign, random_org, malformed):
             assert _answer(resp) == INVITATION_NOT_FOUND, resp.text
         assert world.db.snapshot() == before
-        (pending,) = world.db.rows("memberships", user_id=PENDING)
-        assert pending["accepted_at"] is None
-        # The update can only ever reach the caller's own pending row.
-        updates = [q for q in world.db.log if q.op == "update"]
-        assert len(updates) == 2  # the malformed id sends nothing
-        for q in updates:
-            assert q.table == "memberships"
+        _pending_row(world, PENDING)
+        # Nothing was written, and the lookups only ever named the caller.
+        assert [q for q in world.db.log if q.op != "select"] == []
+        lookups = world.db.queries("memberships")
+        assert len(lookups) == 2  # the malformed id sends nothing
+        for q in lookups:
             assert q.has("eq", "user_id", USER_B)
             assert q.has("is", "accepted_at", "null")
+
+    def test_accept_sends_the_invitation_conditions(self, world: World) -> None:
+        _ok(_accept(world, PENDING, ORG_A), "accept")
+        (update,) = [q for q in world.db.log if q.op == "update"]
+        assert update.has("eq", "org_id", ORG_A)
+        assert update.has("eq", "user_id", PENDING)
+        assert update.has("is", "accepted_at", "null")
+        assert update.has("eq", "role", "member")
+        assert update.has("eq", "invited_by", ADMIN)
+        assert any(op == "gte" and col == "created_at" for op, col, _ in update.filters)
+
+    def test_grant_is_recorded_at_acceptance(self, world: World) -> None:
+        _ok(_accept(world, PENDING, ORG_A), "accept")
+        (entry,) = world.db.rows("audit_log", action="accept_invite")
+        assert (entry["org_id"], entry["user_id"], entry["entity_id"]) == (
+            ORG_A,
+            PENDING,
+            PENDING,
+        )
+        assert entry["details"] == {"role": "member", "invited_by": ADMIN}
 
     def test_accepted_member_has_nothing_to_accept(self, world: World) -> None:
         before = world.db.rows("memberships")
@@ -729,6 +825,169 @@ class TestAcceptInvitation:
 
     def test_anonymous_is_rejected(self, world: World) -> None:
         assert world.client.post(f"/api/v1/organizations/{ORG_A}/accept").status_code == 401
+
+
+class TestInvitationLifecycle:
+    def test_expired_invitation_cannot_be_accepted(self, world: World) -> None:
+        _age(world, PENDING, days=15)
+        before = world.db.snapshot()
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+        assert world.db.snapshot() == before
+        assert _answer(_get_org(world, PENDING, ORG_A)) == ORG_NOT_FOUND
+        assert _invitations(world, PENDING) == []
+
+    def test_invitation_within_the_window_is_accepted(self, world: World) -> None:
+        """Control for the expiry test: 13 days is still open."""
+        _age(world, PENDING, days=13)
+        assert _invitations(world, PENDING) == [(ORG_A, "member")]
+        _ok(_accept(world, PENDING, ORG_A), "accept at 13 days")
+
+    def test_removing_the_inviter_withdraws_their_invitations(self, world: World) -> None:
+        _ok(_invite(world, USER_A, ORG_A, email(NEWBIE)), "invite by the owner")
+        _ok(_remove(world, USER_A, ORG_A, ADMIN), "remove the admin")
+
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=PENDING) == []
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+        # Control: an invitation someone else issued is untouched.
+        _ok(_accept(world, NEWBIE, ORG_A), "accept the owner's invitation")
+
+    def test_removal_withdraws_only_that_orgs_pending_invitations(self, world: World) -> None:
+        world.db.seed(
+            "memberships",
+            org_id=ORG_B,
+            user_id=NEWBIE,
+            role="member",
+            accepted_at=None,
+            invited_by=MEMBER,
+        )
+        _ok(_remove(world, ADMIN, ORG_A, MEMBER), "remove marco from A")
+        # MEMBER is still a member of ORG_B, and their invitation there stands.
+        _pending_row(world, NEWBIE, org=ORG_B)
+
+    def test_accepted_members_keep_their_seat_when_the_inviter_leaves(self, world: World) -> None:
+        (viewer_row,) = [
+            r
+            for r in world.db.tables["memberships"]
+            if (r["org_id"], r["user_id"]) == (ORG_A, VIEWER)
+        ]
+        viewer_row["invited_by"] = ADMIN  # ADMIN invited both VIEWER (accepted) and PENDING
+        _ok(_remove(world, USER_A, ORG_A, ADMIN), "remove the admin")
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=PENDING) == []
+        assert (ORG_A, "viewer") in _list_orgs(world, VIEWER)
+
+    def test_inviter_no_longer_a_manager_closes_the_invitation(self, world: World) -> None:
+        """The accept-time check, independent of the removal clean-up."""
+        (admin_row,) = [
+            r
+            for r in world.db.tables["memberships"]
+            if (r["org_id"], r["user_id"]) == (ORG_A, ADMIN)
+        ]
+        admin_row["role"] = "member"
+        assert _invitations(world, PENDING) == []
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+        _pending_row(world, PENDING)
+
+    def test_inviter_whose_own_invitation_is_pending_does_not_count(self, world: World) -> None:
+        (admin_row,) = [
+            r
+            for r in world.db.tables["memberships"]
+            if (r["org_id"], r["user_id"]) == (ORG_A, ADMIN)
+        ]
+        admin_row["accepted_at"] = None
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+
+    def test_invitation_without_an_issuer_is_not_open(self, world: World) -> None:
+        (row,) = [
+            r
+            for r in world.db.tables["memberships"]
+            if (r["org_id"], r["user_id"]) == (ORG_A, PENDING)
+        ]
+        row["invited_by"] = None
+        assert _invitations(world, PENDING) == []
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+
+    def test_reissue_between_check_and_write_leaves_the_row_pending(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Compare-and-set: the write carries the role and issuer that were checked."""
+        checked = organizations._open_invitations
+
+        def reissue_after_check(client: Any, user_id: str, org_id: Any = None) -> Any:
+            open_now = checked(client, user_id, org_id)
+            row = next(
+                r
+                for r in world.db.tables["memberships"]
+                if (r["org_id"], r["user_id"]) == (ORG_A, PENDING)
+            )
+            row.update(role="admin", invited_by=USER_A)
+            return open_now
+
+        monkeypatch.setattr(organizations, "_open_invitations", reissue_after_check)
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+        assert _pending_row(world, PENDING)["role"] == "admin"
+
+
+class TestRevokeInvitation:
+    def test_manager_revokes_a_pending_invitation(self, world: World) -> None:
+        resp = _revoke(world, ADMIN, ORG_A, "  Paula@Example.TEST ")
+        assert _answer(resp) == (200, {"status": "revoked", "email": email(PENDING)})
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=PENDING) == []
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+
+    def test_accepted_member_is_not_touched(self, world: World) -> None:
+        before = world.db.rows("memberships")
+        _ok(_revoke(world, USER_A, ORG_A, email(MEMBER)), "revoke a member")
+        assert world.db.rows("memberships") == before
+
+    def test_only_this_orgs_invitation_is_revoked(self, world: World) -> None:
+        world.db.seed(
+            "memberships",
+            org_id=ORG_B,
+            user_id=PENDING,
+            role="member",
+            accepted_at=None,
+            invited_by=USER_B,
+        )
+        _ok(_revoke(world, USER_A, ORG_A, email(PENDING)), "revoke in A")
+        _pending_row(world, PENDING, org=ORG_B)
+        (delete,) = [q for q in world.db.log if q.op == "delete"]
+        assert delete.has("eq", "org_id", ORG_A)
+        assert delete.has("eq", "user_id", PENDING)
+        assert delete.has("is", "accepted_at", "null")
+
+    def test_answer_is_the_same_in_every_case(self, world: World) -> None:
+        cases = [email(PENDING), email(MEMBER), email(NEWBIE), NO_ACCOUNT_EMAIL]
+        for addr in cases:
+            assert _answer(_revoke(world, USER_A, ORG_A, addr)) == (
+                200,
+                {"status": "revoked", "email": addr},
+            )
+        entries = world.db.rows("audit_log", action="invite_revoked")
+        assert [(e["entity_id"], e["details"]) for e in entries] == [
+            (None, {"email": addr}) for addr in cases
+        ]
+
+
+class TestListInvitations:
+    def test_invited_user_sees_their_open_invitation(self, world: World) -> None:
+        resp = world.client.get("/api/v1/invitations", headers=world.h(PENDING))
+        _ok(resp, "invitations as the invited user")
+        (invitation,) = resp.json()["invitations"]
+        assert (invitation["org_id"], invitation["org_name"], invitation["role"]) == (
+            ORG_A,
+            "Org A",
+            "member",
+        )
+
+    @pytest.mark.parametrize("user", [USER_A, USER_B, MEMBER, NEWBIE])
+    def test_nobody_else_sees_it(self, world: World, user: str) -> None:
+        assert _invitations(world, user) == []
+        for q in world.db.queries("memberships"):
+            if q.has("is", "accepted_at", "null"):
+                assert q.has("eq", "user_id", user)
+
+    def test_anonymous_is_rejected(self, world: World) -> None:
+        assert world.client.get("/api/v1/invitations").status_code == 401
 
 
 # ------------------------------------------------------------------ #
@@ -742,8 +1001,10 @@ class TestRemoveMember:
         assert world.db.rows("memberships", org_id=ORG_A, user_id=MEMBER) == []
         # The same user's membership elsewhere is untouched.
         assert len(world.db.rows("memberships", org_id=ORG_B, user_id=MEMBER)) == 1
-        (delete,) = [q for q in world.db.log if q.op == "delete"]
-        assert delete.has("eq", "org_id", ORG_A) and delete.has("eq", "user_id", MEMBER)
+        seat, issued = [q for q in world.db.log if q.op == "delete"]
+        assert seat.has("eq", "org_id", ORG_A) and seat.has("eq", "user_id", MEMBER)
+        assert issued.has("eq", "org_id", ORG_A) and issued.has("eq", "invited_by", MEMBER)
+        assert issued.has("is", "accepted_at", "null")
 
     def test_admin_cannot_remove_an_owner(self, world: World) -> None:
         before = world.db.rows("memberships")
@@ -794,7 +1055,7 @@ class TestAuditLog:
 
 class TestAuditTrailAddress:
     def _recorded_ip(self, world: World) -> Any:
-        (row,) = world.db.rows("audit_log", action="invite")
+        (row,) = world.db.rows("audit_log", action="invite_requested")
         return row["ip_address"]
 
     def test_client_supplied_forwarded_for_is_not_recorded(self, world: World) -> None:
