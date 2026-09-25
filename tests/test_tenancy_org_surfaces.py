@@ -34,6 +34,7 @@ from fastapi.testclient import TestClient
 
 import src.api.deps as deps
 from src.api import access, auth, organizations
+from src.api.access import Principal
 from src.api.app import app
 from src.database import config
 from src.database.store import InMemoryStore, SupabaseStore
@@ -143,7 +144,7 @@ class Emitted:
     """One executed query, as the client would have sent it."""
 
     table: str
-    op: str  # select | insert | upsert | update | delete
+    op: str  # select | insert | upsert | update | delete | rpc
     columns: str | None
     filters: tuple[tuple[str, str, Any], ...]  # (operator, column, value)
     payload: Any
@@ -164,6 +165,8 @@ class _Query:
         self.order_by: tuple[str, bool] | None = None
         self.window: tuple[int, int] | None = None
         self.on_conflict = ""
+        self.ignore_duplicates = False
+        self.cap: int | None = None
 
     def select(self, columns: str = "*") -> _Query:
         self.op, self.columns = "select", columns
@@ -173,8 +176,11 @@ class _Query:
         self.op, self.payload = "insert", payload
         return self
 
-    def upsert(self, payload: Any, on_conflict: str = "") -> _Query:
+    def upsert(
+        self, payload: Any, on_conflict: str = "", ignore_duplicates: bool = False
+    ) -> _Query:
         self.op, self.payload, self.on_conflict = "upsert", payload, on_conflict
+        self.ignore_duplicates = ignore_duplicates
         return self
 
     def update(self, payload: Any) -> _Query:
@@ -199,6 +205,13 @@ class _Query:
     def gte(self, column: str, value: Any) -> _Query:
         return self._filter("gte", column, value)
 
+    def in_(self, column: str, values: list[Any]) -> _Query:
+        return self._filter("in", column, tuple(values))
+
+    def limit(self, count: int) -> _Query:
+        self.cap = count
+        return self
+
     def order(self, column: str, desc: bool = False) -> _Query:
         self.order_by = (column, desc)
         return self
@@ -220,6 +233,8 @@ class _Query:
             elif operator in ("is", "not.is"):
                 assert value == "null", f"unsupported is-value {value!r}"
                 ok = (row.get(column) is None) == (operator == "is")
+            elif operator == "in":
+                ok = row.get(column) in value
             elif operator == "gte":
                 # Postgres compares timestamptz by instant, not by spelling.
                 cell = row.get(column)
@@ -252,6 +267,29 @@ class FakeSupabase:
     def table(self, name: str) -> _Query:
         return _Query(self, name)
 
+    def rpc(self, name: str, params: dict[str, Any]) -> Any:
+        db = self
+
+        class _Call:
+            def execute(self) -> Any:
+                return type("Result", (), {"data": db.call(name, params)})()
+
+        return _Call()
+
+    def call(self, name: str, params: dict[str, Any]) -> Any:
+        """The SQL functions the routes call, as migration 033 defines them."""
+        self.log.append(Emitted(f"rpc:{name}", "rpc", None, (), copy.deepcopy(params)))
+        assert name == "auth_user_id_for_email", f"unexpected rpc {name}"
+        address = str(params["p_email"]).strip().lower()
+        hits = [
+            u
+            for u in self.tables.get("auth.users", [])
+            if str(u.get("email") or "").lower() == address
+            and u.get("deleted_at") is None
+            and u.get("email_confirmed_at") is not None
+        ]
+        return hits[0]["id"] if len(hits) == 1 else None
+
     # -- helpers for tests --------------------------------------------
     def seed(self, table: str, **row: Any) -> dict[str, Any]:
         full = {"id": str(uuid.uuid4()), "created_at": self._tick(), **row}
@@ -269,7 +307,7 @@ class FakeSupabase:
         return copy.deepcopy(self.tables)
 
     def writes(self) -> list[Emitted]:
-        return [q for q in self.log if q.op != "select"]
+        return [q for q in self.log if q.op not in ("select", "rpc")]
 
     def queries(self, table: str) -> list[Emitted]:
         return [q for q in self.log if q.table == table]
@@ -307,6 +345,8 @@ class FakeSupabase:
                 hits.sort(key=lambda r: str(r.get(column) or ""), reverse=desc)
             if q.window:
                 hits = hits[q.window[0] : q.window[1] + 1]
+            if q.cap is not None:
+                hits = hits[: q.cap]
             return [self._project(q.table, r, q.columns or "*") for r in hits]
         if q.op in ("insert", "upsert"):
             out = []
@@ -322,6 +362,8 @@ class FakeSupabase:
                 # PostgREST merges only on the conflict target it is given (the
                 # primary key by default); a clash on another unique key is an error.
                 merges = q.op == "upsert" and q.on_conflict == ",".join(key)
+                if clash and q.op == "upsert" and q.ignore_duplicates and merges:
+                    continue  # ON CONFLICT DO NOTHING
                 if clash and not merges:
                     raise RuntimeError(f"duplicate key value violates unique constraint {key}")
                 if clash:
@@ -402,6 +444,13 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
 
     for user in NAMES:
         db.seed("user_profiles", **profile(user))
+        db.seed(
+            "auth.users",
+            id=user,
+            email=email(user),
+            email_confirmed_at="2026-01-01T00:00:00+00:00",
+            deleted_at=None,
+        )
     db.seed("organizations", id=ORG_A, name="Org A", slug="org-a", org_type="owner")
     db.seed("organizations", id=ORG_B, name="Org B", slug="org-b", org_type="general")
     accepted = "2026-01-01T00:00:00+00:00"
@@ -498,6 +547,16 @@ def _invitations(w: World, user: str) -> list[tuple[str, str]]:
     resp = w.client.get("/api/v1/invitations", headers=w.h(user))
     _ok(resp, f"invitations as {NAMES[user]}")
     return [(i["org_id"], i["role"]) for i in resp.json()["invitations"]]
+
+
+def _decline(w: World, user: str, org: str) -> Any:
+    return w.client.post(f"/api/v1/organizations/{org}/decline", headers=w.h(user))
+
+
+def _row(w: World, table: str, **match: Any) -> dict[str, Any]:
+    """The live (mutable) row, for tests that change state behind the API."""
+    (row,) = [r for r in w.db.tables[table] if all(r.get(k) == v for k, v in match.items())]
+    return row
 
 
 def _pending_row(w: World, user: str, org: str = ORG_A) -> dict[str, Any]:
@@ -842,6 +901,14 @@ class TestInvitationLifecycle:
         assert _invitations(world, PENDING) == [(ORG_A, "member")]
         _ok(_accept(world, PENDING, ORG_A), "accept at 13 days")
 
+    def test_window_boundary(self, world: World) -> None:
+        """Pins the TTL at 14 days: a minute either side decides it."""
+        _age(world, PENDING, days=14 - 1 / 1440)
+        assert _invitations(world, PENDING) == [(ORG_A, "member")]
+        _age(world, PENDING, days=14 + 1 / 1440)
+        assert _invitations(world, PENDING) == []
+        assert _answer(_accept(world, PENDING, ORG_A)) == INVITATION_NOT_FOUND
+
     def test_removing_the_inviter_withdraws_their_invitations(self, world: World) -> None:
         _ok(_invite(world, USER_A, ORG_A, email(NEWBIE)), "invite by the owner")
         _ok(_remove(world, USER_A, ORG_A, ADMIN), "remove the admin")
@@ -990,6 +1057,185 @@ class TestListInvitations:
         assert world.client.get("/api/v1/invitations").status_code == 401
 
 
+class TestInvitationIdentity:
+    """The invited person is resolved through auth.users, never user_profiles.email."""
+
+    def test_profile_email_is_not_the_invitation_address(self, world: World) -> None:
+        # A profile email that differs from the account's own address.
+        _row(world, "user_profiles", id=USER_B)["email"] = "cfo@example.test"
+        _ok(_invite(world, USER_A, ORG_A, "cfo@example.test", role="admin"), "invite")
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=USER_B) == []
+        assert _invitations(world, USER_B) == []
+        assert _answer(_accept(world, USER_B, ORG_A)) == INVITATION_NOT_FOUND
+
+    def test_duplicate_profile_email_does_not_change_the_invitee(self, world: World) -> None:
+        _row(world, "user_profiles", id=USER_B)["email"] = email(NEWBIE)
+        _ok(_invite(world, USER_A, ORG_A, email(NEWBIE)), "invite")
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=USER_B) == []
+        _pending_row(world, NEWBIE)
+
+    def test_user_profiles_is_not_read(self, world: World) -> None:
+        _ok(_invite(world, USER_A, ORG_A, email(NEWBIE)), "invite")
+        _ok(_revoke(world, USER_A, ORG_A, email(NEWBIE)), "revoke")
+        assert world.db.queries("user_profiles") == []
+        calls = world.db.queries("rpc:auth_user_id_for_email")
+        assert [c.payload for c in calls] == [{"p_email": email(NEWBIE)}] * 2
+
+    def test_address_case_does_not_matter(self, world: World) -> None:
+        _row(world, "auth.users", id=NEWBIE)["email"] = "Nadia@Example.Test"
+        _ok(_invite(world, USER_A, ORG_A, "nadia@example.test"), "invite")
+        _pending_row(world, NEWBIE)
+
+    @pytest.mark.parametrize("state", ["unconfirmed", "deleted", "shared"])
+    def test_address_without_exactly_one_confirmed_account_invites_nobody(
+        self, world: World, state: str
+    ) -> None:
+        account = _row(world, "auth.users", id=NEWBIE)
+        if state == "unconfirmed":
+            account["email_confirmed_at"] = None
+        elif state == "deleted":
+            account["deleted_at"] = "2026-02-01T00:00:00+00:00"
+        else:
+            world.db.seed(
+                "auth.users",
+                id=str(uuid.uuid4()),
+                email=email(NEWBIE).upper(),
+                email_confirmed_at="2026-01-01T00:00:00+00:00",
+                deleted_at=None,
+            )
+        before = world.db.rows("memberships")
+        assert _answer(_invite(world, USER_A, ORG_A, email(NEWBIE))) == (
+            200,
+            {"status": "requested", "email": email(NEWBIE), "role": "member"},
+        )
+        assert world.db.rows("memberships") == before
+
+    def test_concurrent_invite_of_the_same_address_is_not_an_error(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The existence check and the insert race: the insert must not raise."""
+        real_run = world.db.run
+        raced = []
+
+        def run(q: Any) -> list[dict[str, Any]]:
+            out = real_run(q)
+            if not raced and q.table == "memberships" and q.op == "select":
+                if ("eq", "user_id", NEWBIE) in q.filters:
+                    raced.append(True)  # another request inserts right after our check
+                    world.db.seed(
+                        "memberships",
+                        org_id=ORG_A,
+                        user_id=NEWBIE,
+                        role="viewer",
+                        accepted_at=None,
+                        invited_by=ADMIN,
+                    )
+            return out
+
+        monkeypatch.setattr(world.db, "run", run)
+        _ok(_invite(world, USER_A, ORG_A, email(NEWBIE), role="admin"), "racing invite")
+        assert raced
+        assert _pending_row(world, NEWBIE)["role"] == "viewer"  # the first write stands
+        (insert,) = [q for q in world.db.log if q.op == "upsert"]
+        assert insert.payload["user_id"] == NEWBIE
+
+
+class TestSessionOnly:
+    @pytest.mark.parametrize("kind", ["api_key"])
+    def test_invitations_are_not_answered_with_an_api_key(self, kind: str) -> None:
+        with pytest.raises(organizations.HTTPException) as refused:
+            organizations._session_caller(Principal(PENDING, kind))  # type: ignore[arg-type]
+        assert refused.value.status_code == 403
+
+    def test_session_user_passes(self) -> None:
+        caller = Principal(PENDING, "user")
+        assert organizations._session_caller(caller) is caller
+
+    @pytest.mark.parametrize("path", ["/api/v1/invitations", "/api/v1/organizations/{org}/accept"])
+    def test_routes_use_the_session_dependency(self, path: str) -> None:
+        route = next(
+            r
+            for r in organizations.router.routes
+            if getattr(r, "path", None) == path.replace("{org}", "{org_id}")
+        )
+        deps = {d.call for d in route.dependant.dependencies}  # type: ignore[attr-defined]
+        assert organizations._session_caller in deps
+
+
+class TestAcceptExpectedRole:
+    def test_other_role_is_not_accepted(self, world: World) -> None:
+        resp = world.client.post(
+            f"/api/v1/organizations/{ORG_A}/accept",
+            json={"role": "viewer"},
+            headers=world.h(PENDING),
+        )
+        assert _answer(resp) == INVITATION_NOT_FOUND
+        _pending_row(world, PENDING)
+
+    def test_shown_role_is_accepted(self, world: World) -> None:
+        resp = world.client.post(
+            f"/api/v1/organizations/{ORG_A}/accept",
+            json={"role": "member"},
+            headers=world.h(PENDING),
+        )
+        assert _answer(resp) == (200, {"status": "accepted", "org_id": ORG_A, "role": "member"})
+
+
+class TestDeclineInvitation:
+    def test_invitee_declines(self, world: World) -> None:
+        assert _answer(_decline(world, PENDING, ORG_A)) == (
+            200,
+            {"status": "declined", "org_id": ORG_A},
+        )
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=PENDING) == []
+        (entry,) = world.db.rows("audit_log", action="decline_invite")
+        assert (entry["org_id"], entry["user_id"]) == (ORG_A, PENDING)
+
+    def test_expired_invitation_can_still_be_declined(self, world: World) -> None:
+        _age(world, PENDING, days=30)
+        _ok(_decline(world, PENDING, ORG_A), "decline an expired invitation")
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=PENDING) == []
+
+    @pytest.mark.parametrize("caller", [USER_B, MEMBER, USER_A])
+    def test_nothing_else_is_declined(self, world: World, caller: str) -> None:
+        before = world.db.snapshot()
+        assert _answer(_decline(world, caller, ORG_A)) == INVITATION_NOT_FOUND
+        assert _answer(_decline(world, caller, "not-a-uuid")) == INVITATION_NOT_FOUND
+        assert world.db.snapshot() == before
+        for q in world.db.writes():
+            assert q.has("eq", "user_id", caller) and q.has("is", "accepted_at", "null")
+
+
+class TestOrganizationInput:
+    def test_name_length_is_capped(self, world: World) -> None:
+        resp = world.client.post(
+            "/api/v1/organizations", json={"name": "x" * 121}, headers=world.h(NEWBIE)
+        )
+        assert resp.status_code == 422, resp.text
+        assert world.db.log == []
+
+
+class TestListingCost:
+    def test_listing_is_capped_and_checks_issuers_in_one_query(self, world: World) -> None:
+        for n in range(organizations.MAX_OPEN_INVITATIONS + 10):
+            org = str(uuid.uuid4())
+            owner = str(uuid.uuid4())
+            world.db.seed("organizations", id=org, name=f"Org {n}", slug=f"o{n}", org_type="x")
+            world.db.seed("memberships", org_id=org, user_id=owner, role="owner", accepted_at="t")
+            world.db.seed(
+                "memberships",
+                org_id=org,
+                user_id=NEWBIE,
+                role="member",
+                accepted_at=None,
+                invited_by=owner,
+            )
+        world.db.log.clear()
+        listed = _invitations(world, NEWBIE)
+        assert len(listed) == organizations.MAX_OPEN_INVITATIONS
+        assert len(world.db.queries("memberships")) == 2
+
+
 # ------------------------------------------------------------------ #
 # Removing members                                                   #
 # ------------------------------------------------------------------ #
@@ -1001,7 +1247,7 @@ class TestRemoveMember:
         assert world.db.rows("memberships", org_id=ORG_A, user_id=MEMBER) == []
         # The same user's membership elsewhere is untouched.
         assert len(world.db.rows("memberships", org_id=ORG_B, user_id=MEMBER)) == 1
-        seat, issued = [q for q in world.db.log if q.op == "delete"]
+        issued, seat = [q for q in world.db.log if q.op == "delete"]
         assert seat.has("eq", "org_id", ORG_A) and seat.has("eq", "user_id", MEMBER)
         assert issued.has("eq", "org_id", ORG_A) and issued.has("eq", "invited_by", MEMBER)
         assert issued.has("is", "accepted_at", "null")
@@ -1015,6 +1261,21 @@ class TestRemoveMember:
     def test_owner_removes_admin(self, world: World) -> None:
         _ok(_remove(world, USER_A, ORG_A, ADMIN), "remove as owner")
         assert world.db.rows("memberships", org_id=ORG_A, user_id=ADMIN) == []
+
+    def test_last_owner_cannot_be_removed(self, world: World) -> None:
+        before = world.db.snapshot()
+        resp = _remove(world, USER_A, ORG_A, USER_A)
+        assert _answer(resp) == (409, {"detail": "An organization must keep at least one owner"})
+        assert world.db.snapshot() == before
+
+    def test_an_owner_can_leave_when_another_owner_remains(self, world: World) -> None:
+        _row(world, "memberships", org_id=ORG_A, user_id=ADMIN)["role"] = "owner"
+        _ok(_remove(world, USER_A, ORG_A, USER_A), "owner leaves")
+        assert world.db.rows("memberships", org_id=ORG_A, user_id=USER_A) == []
+
+    def test_a_pending_owner_row_does_not_count_as_an_owner(self, world: World) -> None:
+        world.db.seed("memberships", org_id=ORG_A, user_id=NEWBIE, role="owner", accepted_at=None)
+        assert _remove(world, USER_A, ORG_A, USER_A).status_code == 409
 
     def test_admin_revokes_pending_invitation(self, world: World) -> None:
         _ok(_remove(world, ADMIN, ORG_A, PENDING), "revoke")

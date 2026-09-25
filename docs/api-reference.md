@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **133 endpoints** across **26 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **134 endpoints** across **26 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -30,7 +30,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Hooks](#hooks) — 1 endpoints
 - [Lifecycle](#lifecycle) — 4 endpoints
 - [Observability](#observability) — 1 endpoints
-- [Organizations](#organizations) — 14 endpoints
+- [Organizations](#organizations) — 15 endpoints
 - [Plugins](#plugins) — 2 endpoints
 - [Revisions](#revisions) — 6 endpoints
 - [Ws](#ws) — 1 endpoints
@@ -301,6 +301,7 @@ _Readiness and liveness_
 | `GET` | `/api/v1/organizations/{org_id}` | Get organization details and its accepted members (members only). | `dict` | optional |
 | `POST` | `/api/v1/organizations/{org_id}/accept` | Accept the calling user's own open invitation to ``org_id``. | `dict` | optional |
 | `GET` | `/api/v1/organizations/{org_id}/audit` | Get audit log for an organization. Required for litigation traceability. | `dict` | optional |
+| `POST` | `/api/v1/organizations/{org_id}/decline` | Decline the calling user's own pending invitation to ``org_id``. | `dict` | optional |
 | `POST` | `/api/v1/organizations/{org_id}/invitations/revoke` | Withdraw the pending invitation of an address (owner/admin). | `dict` | optional |
 | `POST` | `/api/v1/organizations/{org_id}/invite` | Invite a user to the organization by email (owner/admin). | `dict` | optional |
 | `DELETE` | `/api/v1/organizations/{org_id}/members/{member_user_id}` | Remove a member, or revoke a pending invitation (owner/admin). | `dict` | optional |

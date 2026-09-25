@@ -20,10 +20,17 @@ Access rules (ADR-0030):
   account and whether or not it is already a member, and pending rows are
   never listed to the organization, so neither reveals which addresses
   have accounts. The role is recorded as granted only when it is accepted.
+- The invited person is resolved from the address through ``auth.users``
+  (``auth_user_id_for_email``, migration 033), never through
+  ``user_profiles.email``. An address with no confirmed account, or with
+  more than one, invites nobody; nothing is sent to it.
 - An invitation can be accepted for ``INVITATION_TTL`` after it was last
   issued, and only while the member who issued it is still an accepted
-  owner or admin of the organization. A manager can revoke it by address;
-  removing a member also withdraws the invitations that member issued.
+  owner or admin of the organization. It is accepted or declined from a
+  signed-in session, never with an API key. A manager can revoke it by
+  address; removing a member also withdraws the invitations that member
+  issued.
+- An organization always keeps at least one accepted owner.
 - Project shares and value milestones authorize the project through the
   access context before anything else: only the project owner reaches them.
   Recording a share grants no read access (ADR-0030 §4).
@@ -40,6 +47,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .access import AccessContext, Principal, get_access, get_principal
+from .deps import RATE_LIMIT_MODERATE, RATE_LIMIT_READ, RATE_LIMIT_WRITE, limiter
 
 
 def _client_ip(request: Request | None) -> str | None:
@@ -95,14 +103,16 @@ MANAGER_ROLES: tuple[OrgRole, ...] = ("owner", "admin")
 
 #: How long an invitation can be accepted after it was last issued.
 INVITATION_TTL = timedelta(days=14)
+#: At most this many open invitations are listed or considered per caller.
+MAX_OPEN_INVITATIONS = 50
 
 _EMAIL_PATTERN = r"^\s*[^@\s]+@[^@\s]+\s*$"
 
 
 class CreateOrgRequest(BaseModel):
-    name: str
-    org_type: str = "general"
-    description: str = ""
+    name: str = Field(min_length=1, max_length=120)
+    org_type: str = Field(default="general", max_length=40)
+    description: str = Field(default="", max_length=2000)
 
 
 class InviteMemberRequest(BaseModel):
@@ -112,6 +122,11 @@ class InviteMemberRequest(BaseModel):
 
 class RevokeInvitationRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320, pattern=_EMAIL_PATTERN)
+
+
+class AcceptInvitationRequest(BaseModel):
+    #: The role the invitee was shown. When given, a different role is a 404.
+    role: InviteRole | None = None
 
 
 class ShareProjectRequest(BaseModel):
@@ -145,6 +160,13 @@ def _caller(principal: Principal = Depends(get_principal)) -> Principal:
     if principal.kind not in ("user", "api_key"):
         raise HTTPException(status_code=401, detail="Authentication required")
     return principal
+
+
+def _session_caller(caller: Principal = Depends(_caller)) -> Principal:
+    """A caller signed in with a session. Invitations are answered by a person."""
+    if caller.kind != "user":
+        raise HTTPException(status_code=403, detail="Invitations require a signed-in session")
+    return caller
 
 
 def _canonical_uuid(value: str | None) -> str | None:
@@ -209,33 +231,18 @@ def _require_member(
     return str(oid), role
 
 
-def _is_manager(client: Any, org_id: str, user_id: Any) -> bool:
-    """Whether ``user_id`` is currently an accepted owner or admin of ``org_id``."""
-    if not user_id:
-        return False
-    result = (
-        client.table("memberships")
-        .select("role")
-        .eq("org_id", org_id)
-        .eq("user_id", str(user_id))
-        .not_.is_("accepted_at", "null")
-        .execute()
-    )
-    rows = result.data or []
-    return bool(rows) and rows[0].get("role") in MANAGER_ROLES
-
-
 def _invitation_cutoff() -> str:
     """Invitations issued before this instant can no longer be accepted."""
     return (datetime.now(UTC) - INVITATION_TTL).isoformat()
 
 
 def _open_invitations(client: Any, user_id: str, org_id: str | None = None) -> list[dict[str, Any]]:
-    """The caller's own invitations that can still be accepted.
+    """The caller's own invitations that can still be accepted, newest first.
 
     Pending, issued within ``INVITATION_TTL``, and issued by someone who is
     still an accepted owner or admin of the organization. An invitation
-    with no recorded issuer is not open.
+    with no recorded issuer is not open. At most ``MAX_OPEN_INVITATIONS``
+    are considered, and the issuers are checked in one query.
     """
     query = (
         client.table("memberships")
@@ -246,14 +253,38 @@ def _open_invitations(client: Any, user_id: str, org_id: str | None = None) -> l
     )
     if org_id is not None:
         query = query.eq("org_id", org_id)
-    rows = list(query.execute().data or [])
-    return [r for r in rows if _is_manager(client, str(r["org_id"]), r.get("invited_by"))]
+    rows = list(
+        query.order("created_at", desc=True).limit(MAX_OPEN_INVITATIONS).execute().data or []
+    )
+    issuers = sorted({str(r["invited_by"]) for r in rows if r.get("invited_by")})
+    if not issuers:
+        return []
+    seats = (
+        client.table("memberships")
+        .select("org_id, user_id, role")
+        .in_("user_id", issuers)
+        .not_.is_("accepted_at", "null")
+        .execute()
+    )
+    managers = {
+        (str(m["org_id"]), str(m["user_id"]))
+        for m in seats.data or []
+        if m.get("role") in MANAGER_ROLES
+    }
+    return [r for r in rows if (str(r["org_id"]), str(r.get("invited_by"))) in managers]
 
 
 def _user_id_for_email(client: Any, email: str) -> str | None:
-    result = client.table("user_profiles").select("id").eq("email", email).execute()
-    rows = result.data or []
-    return str(rows[0]["id"]) if rows else None
+    """The account an address belongs to, resolved through ``auth.users``.
+
+    ``None`` when no confirmed account has the address, or more than one
+    does (migration 033). ``user_profiles.email`` is not consulted.
+    """
+    result = client.rpc("auth_user_id_for_email", {"p_email": email}).execute()
+    value = result.data
+    if isinstance(value, list):  # a set-returning shape, should the RPC ever change
+        value = value[0] if len(value) == 1 else None
+    return _canonical_uuid(value) if value else None
 
 
 def _project_org_id(client: Any, project_id: str) -> str | None:
@@ -319,6 +350,7 @@ def list_organizations(caller: Principal = Depends(_caller)) -> dict[str, Any]:
 
 
 @router.post("/organizations")
+@limiter.limit(RATE_LIMIT_WRITE)
 def create_organization(
     req: CreateOrgRequest,
     request: Request,
@@ -403,6 +435,7 @@ def get_organization(org_id: str, caller: Principal = Depends(_caller)) -> dict[
 
 
 @router.post("/organizations/{org_id}/invite")
+@limiter.limit(RATE_LIMIT_WRITE)
 def invite_member(
     org_id: str,
     req: InviteMemberRequest,
@@ -415,7 +448,8 @@ def invite_member(
     invited user accepts it (``POST /organizations/{org_id}/accept``).
     Inviting someone who already has a pending invitation re-issues it:
     the latest role and issuer replace the earlier ones and the acceptance
-    window starts again. Inviting an accepted member changes nothing.
+    window starts again. Inviting an accepted member changes nothing. An
+    address without exactly one confirmed account invites nobody.
 
     The answer and the ``invite_requested`` audit entry echo the REQUESTED
     role and are identical in every case (no account, pending, member), so
@@ -438,14 +472,22 @@ def invite_member(
         rows = existing.data or []
         if not rows:
             # accepted_at stays NULL: pending until the invited user accepts.
-            client.table("memberships").insert(
-                {
-                    "org_id": org_id,
-                    "user_id": target_user_id,
-                    "role": req.role,
-                    "invited_by": caller.user_id,
-                }
-            ).execute()
+            # ON CONFLICT DO NOTHING: a concurrent invite of the same address
+            # must not turn into an error only an existing account can cause.
+            (
+                client.table("memberships")
+                .upsert(
+                    {
+                        "org_id": org_id,
+                        "user_id": target_user_id,
+                        "role": req.role,
+                        "invited_by": caller.user_id,
+                    },
+                    on_conflict="org_id,user_id",
+                    ignore_duplicates=True,
+                )
+                .execute()
+            )
         elif rows[0].get("accepted_at") is None:
             # For a pending row, created_at is when the invitation was last issued.
             (
@@ -471,6 +513,7 @@ def invite_member(
 
 
 @router.post("/organizations/{org_id}/invitations/revoke")
+@limiter.limit(RATE_LIMIT_WRITE)
 def revoke_invitation(
     org_id: str,
     req: RevokeInvitationRequest,
@@ -511,7 +554,11 @@ def revoke_invitation(
 
 
 @router.get("/invitations")
-def list_invitations(caller: Principal = Depends(_caller)) -> dict[str, Any]:
+@limiter.limit(RATE_LIMIT_READ)
+def list_invitations(
+    request: Request,
+    caller: Principal = Depends(_session_caller),
+) -> dict[str, Any]:
     """The calling user's own invitations that can still be accepted."""
     client = _get_supabase()
     invitations = []
@@ -529,23 +576,32 @@ def list_invitations(caller: Principal = Depends(_caller)) -> dict[str, Any]:
 
 
 @router.post("/organizations/{org_id}/accept")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def accept_invitation(
     org_id: str,
     request: Request,
-    caller: Principal = Depends(_caller),
+    req: AcceptInvitationRequest | None = None,
+    caller: Principal = Depends(_session_caller),
 ) -> dict[str, Any]:
     """Accept the calling user's own open invitation to ``org_id``.
 
     Only the caller's own pending row changes, and only while it is open
-    (see :func:`_open_invitations`). No open invitation for the caller
-    (never invited, expired, issuer no longer a manager, already a member,
-    or no such organization) answers ``404``, the same in every case.
+    (see :func:`_open_invitations`). With ``role`` in the body, only an
+    invitation for that role is accepted. No such open invitation for the
+    caller (never invited, expired, issuer no longer a manager, another
+    role, already a member, or no such organization) answers ``404``, the
+    same in every case.
     """
+    expected_role = req.role if req is not None else None
     oid = _canonical_uuid(org_id)
     rows: list[dict[str, Any]] = []
     if oid is not None:
         client = _get_supabase()
-        invitations = _open_invitations(client, caller.user_id, oid)
+        invitations = [
+            i
+            for i in _open_invitations(client, caller.user_id, oid)
+            if expected_role is None or i.get("role") == expected_role
+        ]
         if invitations:
             invitation = invitations[0]
             # Compare-and-set: a re-issue between the check and this write
@@ -578,7 +634,40 @@ def accept_invitation(
     return {"status": "accepted", "org_id": oid, "role": role}
 
 
+@router.post("/organizations/{org_id}/decline")
+@limiter.limit(RATE_LIMIT_MODERATE)
+def decline_invitation(
+    org_id: str,
+    request: Request,
+    caller: Principal = Depends(_session_caller),
+) -> dict[str, Any]:
+    """Decline the calling user's own pending invitation to ``org_id``.
+
+    Deletes the caller's pending row, open or not. No pending row for the
+    caller answers ``404``, as :func:`accept_invitation` does.
+    """
+    oid = _canonical_uuid(org_id)
+    rows: list[dict[str, Any]] = []
+    if oid is not None:
+        result = (
+            _get_supabase()
+            .table("memberships")
+            .delete()
+            .eq("org_id", oid)
+            .eq("user_id", caller.user_id)
+            .is_("accepted_at", "null")
+            .execute()
+        )
+        rows = list(result.data or [])
+    if oid is None or not rows:
+        raise HTTPException(status_code=404, detail=_INVITATION_NOT_FOUND)
+
+    _audit(oid, caller.user_id, "decline_invite", "membership", caller.user_id, request=request)
+    return {"status": "declined", "org_id": oid}
+
+
 @router.delete("/organizations/{org_id}/members/{member_user_id}")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def remove_member(
     org_id: str,
     member_user_id: str,
@@ -587,7 +676,8 @@ def remove_member(
 ) -> dict[str, Any]:
     """Remove a member, or revoke a pending invitation (owner/admin).
 
-    Only an owner may remove an owner.
+    Only an owner may remove an owner, and the last accepted owner cannot
+    be removed.
     """
     client = _get_supabase()
     org_id, caller_role = _require_member(client, caller.user_id, org_id, MANAGER_ROLES)
@@ -598,19 +688,31 @@ def remove_member(
 
     target = (
         client.table("memberships")
-        .select("role")
+        .select("role, accepted_at")
         .eq("org_id", org_id)
         .eq("user_id", target_user_id)
         .execute()
     )
     target_rows = target.data or []
-    if target_rows and target_rows[0].get("role") == "owner" and caller_role != "owner":
-        raise HTTPException(status_code=403, detail="Only an owner can remove an owner")
+    if target_rows and target_rows[0].get("role") == "owner":
+        if caller_role != "owner":
+            raise HTTPException(status_code=403, detail="Only an owner can remove an owner")
+        owners = (
+            client.table("memberships")
+            .select("user_id")
+            .eq("org_id", org_id)
+            .eq("role", "owner")
+            .not_.is_("accepted_at", "null")
+            .execute()
+        )
+        others = {str(o["user_id"]) for o in owners.data or []} - {target_user_id}
+        if not others:
+            raise HTTPException(
+                status_code=409, detail="An organization must keep at least one owner"
+            )
 
-    client.table("memberships").delete().eq("org_id", org_id).eq(
-        "user_id", target_user_id
-    ).execute()
-    # The invitations this member issued in the org are withdrawn with them.
+    # The invitations this member issued in the org are withdrawn first, so
+    # an acceptance racing this removal finds no row to accept.
     (
         client.table("memberships")
         .delete()
@@ -619,6 +721,9 @@ def remove_member(
         .is_("accepted_at", "null")
         .execute()
     )
+    client.table("memberships").delete().eq("org_id", org_id).eq(
+        "user_id", target_user_id
+    ).execute()
 
     _audit(
         org_id,
@@ -636,6 +741,7 @@ def remove_member(
 
 
 @router.post("/shares/project")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def share_project(
     req: ShareProjectRequest,
     request: Request,
@@ -784,6 +890,7 @@ def list_value_milestones(
 
 
 @router.post("/projects/{project_id}/value-milestones")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def create_value_milestone(
     project_id: str,
     req: ValueMilestoneRequest,
@@ -839,9 +946,11 @@ def create_value_milestone(
 
 
 @router.put("/value-milestones/{milestone_id}")
+@limiter.limit(RATE_LIMIT_MODERATE)
 def update_value_milestone(
     milestone_id: str,
     updates: dict[str, Any],
+    request: Request,
     caller: Principal = Depends(_caller),
     ctx: AccessContext = Depends(get_access),
 ) -> dict[str, Any]:
