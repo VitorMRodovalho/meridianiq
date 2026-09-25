@@ -706,6 +706,16 @@ class InMemoryStore:
         """Return the stored ParsedSchedule directly (no re-parse needed in memory)."""
         return self._projects.get(project_id)
 
+    def get_project_owner(self, project_id: str) -> tuple[bool, str | None]:
+        """Return ``(exists, owner_user_id)`` for a project, with no access check.
+
+        This is the lookup the API access layer (``src/api/access.py``) uses
+        to decide visibility; it must never be exposed to callers directly.
+        """
+        if not project_id or self._projects.get(project_id) is None:
+            return False, None
+        return True, self._project_owners.get(project_id)
+
     def get_xer_bytes(self, project_id: str) -> bytes | None:
         """Retrieve raw XER bytes by project_id."""
         return self._projects.get_xer_bytes(project_id)
@@ -2307,6 +2317,28 @@ class SupabaseStore:
         if not rows:
             return None
         return rows[0].get("status") or "ready"
+
+    def get_project_owner(self, project_id: str) -> tuple[bool, str | None]:
+        """Return ``(exists, owner_user_id)`` for a project, with no access check.
+
+        This is the lookup the API access layer (``src/api/access.py``) uses
+        to decide visibility; it must never be exposed to callers directly.
+        A value that is not a UUID cannot name a row, so it returns
+        ``(False, None)`` without a query (Postgres would raise 22P02).
+        """
+        try:
+            canonical = str(uuid.UUID(str(project_id)))
+        except ValueError:
+            return False, None
+        # Python accepts spellings Postgres rejects (urn prefix, odd hyphen
+        # positions); only the canonical form is ever sent.
+        if canonical != str(project_id).lower():
+            return False, None
+        rows = self._select("projects", {"id": canonical}, columns="id,user_id")
+        if not rows:
+            return False, None
+        owner = rows[0].get("user_id")
+        return True, str(owner) if owner else None
 
     def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Retrieve a parsed schedule by downloading XER from the bucket."""
