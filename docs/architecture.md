@@ -5,7 +5,7 @@
 
 MeridianIQ is a **modular monolith**: a single FastAPI application with clearly separated analysis engines, each implementing a specific published methodology and written to stay independent of every other engine. The frontend is a SvelteKit SPA served from Cloudflare Pages and talks to the backend via REST.
 
-As of **v4.3.0** (Z-shape consolidation — Cycle 5 close per ADR-0024; Cycle 6 W3 wave 4 in-flight): 48 analysis engines + 1 export module, 129 API endpoints across 25 routers, 55 SvelteKit pages, 11 hand-crafted SVG chart components, 29 Supabase migrations, 22 MCP tools, 15 PDF report types, 1687 tests.
+As of **v4.3.0** (Z-shape consolidation — Cycle 5 close per ADR-0024; Cycle 6 W3 wave 4 in-flight): 48 analysis engines + 1 export module, 129 API endpoints across 25 routers, 55 SvelteKit pages, 11 hand-crafted SVG chart components, 30 Supabase migrations, 22 MCP tools, 15 PDF report types, 1687 tests.
 
 ```mermaid
 graph TB
@@ -26,7 +26,7 @@ graph TB
 
     subgraph "Platform — Supabase"
         AUTH["Supabase Auth<br/>Google · LinkedIn · Microsoft<br/>ES256 JWT via JWKS"]
-        DB[("PostgreSQL<br/>29 migrations · RLS enforced<br/>projects (pending/ready/failed)<br/>activities · WBS · revision_history<br/>revision_skip_log · audit_log<br/>schedule_derived_artifacts · erp_sources<br/>cbs_elements · cost_snapshots")]
+        DB[("PostgreSQL<br/>30 migrations · RLS enforced<br/>projects (pending/ready/failed)<br/>activities · WBS · revision_history<br/>revision_skip_log · audit_log<br/>schedule_derived_artifacts · erp_sources<br/>cbs_elements · cost_snapshots")]
         STORAGE["Supabase Storage<br/>xer-files bucket · RLS"]
     end
 
@@ -92,7 +92,7 @@ web/
       stores/        auth (lazy init), theme, i18n
       api.ts         API client
 supabase/
-  migrations/        29 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome"; Cycle 4 W1 added `revision_history` per ADR-0022 + Amendment 1; Cycle 5 W3-E added `revision_skip_log` per issue #84)
+  migrations/        30 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome"; Cycle 4 W1 added `revision_history` per ADR-0022 + Amendment 1; Cycle 5 W3-E added `revision_skip_log` per issue #84)
 scripts/
   generate_api_reference.py       → docs/api-reference.md
   generate_mcp_catalog.py         → docs/mcp-tools.md
