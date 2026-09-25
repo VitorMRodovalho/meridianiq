@@ -135,7 +135,6 @@ EXEMPT: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/trends"): "multi-project body route; a separate slice",
 }
 
-_ROUTER_MODULES = {m.__name__ for m in (whatif, intelligence, cost)}
 
 
 # ------------------------------------------------------------------ #
@@ -266,10 +265,13 @@ def _owner_call(w: World, route: Route, headers: dict[str, str], own: str, own2:
 
 
 def test_route_table_covers_every_route_of_these_routers() -> None:
+    # Read each module's own router: from FastAPI 0.141, app.routes holds the
+    # included routers unflattened, so filtering app.routes finds nothing.
     registered = {
         (method, r.path)
-        for r in app.routes
-        if isinstance(r, APIRoute) and r.endpoint.__module__ in _ROUTER_MODULES
+        for module in (whatif, intelligence, cost)
+        for r in module.router.routes
+        if isinstance(r, APIRoute)
         for method in r.methods
     }
     covered = {r.key for r in ROUTES}
