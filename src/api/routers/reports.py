@@ -10,7 +10,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from ..auth import optional_auth
+from ..access import AccessContext, get_access, owned_project
 from ..deps import (
     RATE_LIMIT_EXPENSIVE,
     get_evm_store,
@@ -69,7 +69,7 @@ _VALID_REPORT_TYPES = {
 def generate_report(
     request: Request,
     body: GenerateReportRequest,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> GenerateReportResponse:
     """Generate a PDF report. Returns report ID for download.
 
@@ -81,12 +81,17 @@ def generate_report(
     - risk: Risk Report (requires baseline_id)
     - monthly_review: Monthly Review Report (health + comparison + alerts)
 
+    ``project_id`` and, when given, ``baseline_id`` must both be the
+    caller's. The TIA and risk reports use the caller's latest analysis of
+    this project. The report is stored for the caller only.
+
     Args:
         request: FastAPI request object (consumed by the rate limiter).
         body: Report generation parameters.
 
     Raises:
-        HTTPException: If the project is not found or report type is invalid.
+        HTTPException: 404 if a project is missing or not the caller's;
+            400 if the report type is invalid.
     """
     if body.report_type not in _VALID_REPORT_TYPES:
         raise HTTPException(
@@ -95,8 +100,12 @@ def generate_report(
             f"Valid types: {', '.join(sorted(_VALID_REPORT_TYPES))}",
         )
 
+    project_id = ctx.project(body.project_id)
+    baseline_id = ctx.maybe_project(body.baseline_id)
+    owner_id = ctx.principal.user_id
+
     store = get_store()
-    schedule = store.get(body.project_id)
+    schedule = store.get(project_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -111,13 +120,13 @@ def generate_report(
         elif report_type == "forensic":
             pdf_bytes = _generate_forensic_report(generator, schedule, body, store)
         elif report_type == "tia":
-            pdf_bytes = _generate_tia_report(generator, schedule, body, store)
+            pdf_bytes = _generate_tia_report(generator, project_id, owner_id)
         elif report_type == "risk":
-            pdf_bytes = _generate_risk_report(generator, schedule, body, store)
+            pdf_bytes = _generate_risk_report(generator, project_id, owner_id)
         elif report_type == "monthly_review":
             pdf_bytes = _generate_monthly_review_report(generator, schedule, body, store)
         elif report_type == "executive_summary":
-            pdf_bytes = _generate_executive_summary(generator, schedule, body.project_id, store)
+            pdf_bytes = _generate_executive_summary(generator, schedule, project_id, store)
         elif report_type == "calendar":
             result = validate_calendars(schedule)
             pdf_bytes = generator.generate_calendar_report(schedule, result)
@@ -145,18 +154,20 @@ def generate_report(
 
     report_store = get_report_store()
     report_id = report_store.add(
-        pdf_bytes,
         {
+            "bytes": pdf_bytes,
             "report_type": report_type,
-            "project_id": body.project_id,
+            "project_id": project_id,
             "generated_at": generated_at,
         },
+        owner_id=owner_id,
+        project_ids=[pid for pid in (project_id, baseline_id) if pid],
     )
 
     return GenerateReportResponse(
         report_id=report_id,
         report_type=report_type,
-        project_id=body.project_id,
+        project_id=project_id,
         generated_at=generated_at,
     )
 
@@ -169,7 +180,7 @@ def generate_report(
 @router.get("/api/v1/reports/{report_id}/download")
 def download_report(
     report_id: str,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> StreamingResponse:
     """Download a generated PDF report.
 
@@ -177,10 +188,11 @@ def download_report(
         report_id: The report identifier from generate_report.
 
     Raises:
-        HTTPException: If the report is not found.
+        HTTPException: 404 if the report is missing or not the caller's
+            (the same answer in both cases).
     """
     report_store = get_report_store()
-    report = report_store.get(report_id)
+    report = report_store.get(report_id, owner_id=ctx.principal.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
 
@@ -210,17 +222,18 @@ def download_report(
 
 @router.get("/api/v1/projects/{project_id}/available-reports")
 def get_available_reports(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Check which report types have data available for a project.
 
     Returns a list of report descriptors with ``ready`` boolean and a
     human-readable ``reason`` when the report is not yet available.
+    EVM and risk readiness count only the caller's own analyses.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None
-    schedule = store.get(project_id, user_id=user_id)
+    user_id = ctx.principal.user_id
+    schedule = store.get(project_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -284,12 +297,9 @@ def get_available_reports(
     # --- evm: check if an EVM analysis exists for this project ---
     evm_ready = False
     evm_reason = "Run EVM analysis first"
-    evm_store = get_evm_store()
-    for entry in evm_store.list_all():
-        if entry.get("project_id") == project_id:
-            evm_ready = True
-            evm_reason = ""
-            break
+    if get_evm_store().list(user_id, project_id):
+        evm_ready = True
+        evm_reason = ""
 
     reports.append(
         {
@@ -303,12 +313,9 @@ def get_available_reports(
     # --- risk: check if a risk simulation exists for this project ---
     risk_ready = False
     risk_reason = "Run Monte Carlo simulation first"
-    risk_store = get_risk_store()
-    for entry in risk_store.list_all():
-        if entry.get("project_id") == project_id:
-            risk_ready = True
-            risk_reason = ""
-            break
+    if get_risk_store().list(user_id, project_id):
+        risk_ready = True
+        risk_reason = ""
 
     reports.append(
         {
@@ -497,20 +504,13 @@ def _generate_forensic_report(
 
 def _generate_tia_report(
     generator: ReportGenerator,
-    schedule: ParsedSchedule,
-    request: GenerateReportRequest,
-    store: ProjectStore,
+    project_id: str,
+    owner_id: str,
 ) -> bytes:
-    """Generate a TIA report PDF."""
-    # Look for existing TIA analysis, or create a minimal one
-    tia_store = get_tia_store()
-    analyses = tia_store.list_all()
-    if analyses:
-        # Use the most recent TIA analysis
-        latest = analyses[-1]
-        analysis = tia_store.get(latest["analysis_id"])
-        if analysis:
-            return generator.generate_tia_report(analysis)
+    """Generate a TIA report PDF from the owner's latest TIA of this project."""
+    analysis = get_tia_store().latest(owner_id, project_id)
+    if analysis is not None:
+        return generator.generate_tia_report(analysis)
 
     raise HTTPException(
         status_code=400,
@@ -520,18 +520,13 @@ def _generate_tia_report(
 
 def _generate_risk_report(
     generator: ReportGenerator,
-    schedule: ParsedSchedule,
-    request: GenerateReportRequest,
-    store: ProjectStore,
+    project_id: str,
+    owner_id: str,
 ) -> bytes:
-    """Generate a risk report PDF."""
-    risk_store = get_risk_store()
-    simulations = risk_store.list_all()
-    if simulations:
-        latest = simulations[-1]
-        result = risk_store.get(latest["simulation_id"])
-        if result:
-            return generator.generate_risk_report(result)
+    """Generate a risk report PDF from the owner's latest simulation of this project."""
+    result = get_risk_store().latest(owner_id, project_id)
+    if result is not None:
+        return generator.generate_risk_report(result)
 
     raise HTTPException(
         status_code=400,

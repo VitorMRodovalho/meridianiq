@@ -12,10 +12,11 @@ from src.analytics.tia import (
     DelayFragment,
     FragmentActivity,
     ResponsibleParty,
+    TIAAnalysis,
     TimeImpactAnalyzer,
 )
 
-from ..auth import optional_auth
+from ..access import AccessContext, get_access
 from ..deps import RATE_LIMIT_MODERATE, get_store, get_tia_store, limiter
 from ..schemas import (
     DelayFragmentSchema,
@@ -29,6 +30,16 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+_ANALYSIS_NOT_FOUND = "TIA analysis not found"
+
+
+def _owned_analysis(analysis_id: str, ctx: AccessContext) -> TIAAnalysis:
+    """Return the caller's TIA analysis, or 404 (same answer as a missing one)."""
+    analysis = get_tia_store().get(analysis_id, owner_id=ctx.principal.user_id)
+    if analysis is None:
+        raise HTTPException(status_code=404, detail=_ANALYSIS_NOT_FOUND)
+    return analysis
 
 
 def _fragment_schema_to_model(schema: DelayFragmentSchema) -> DelayFragment:
@@ -125,7 +136,7 @@ def _analysis_to_schema(analysis: Any) -> TIAAnalysisSchema:
 def tia_analyze(
     request: Request,
     body: TIAAnalyzeRequest,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> TIAAnalysisSchema:
     """Run Time Impact Analysis on a project with delay fragments.
 
@@ -137,14 +148,16 @@ def tia_analyze(
         body: Contains project_id and fragment definitions.
 
     Raises:
-        HTTPException: If the project is not found or analysis fails.
+        HTTPException: 404 if the project is missing or not the caller's;
+            500 if the analysis fails.
     """
+    project_id = ctx.project(body.project_id)
     store = get_store()
     tia_store = get_tia_store()
 
-    schedule = store.get(body.project_id)
+    schedule = store.get(project_id)
     if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {body.project_id}")
+        raise HTTPException(status_code=404, detail="Project not found")
 
     # Convert schemas to domain models
     fragments = [_fragment_schema_to_model(f) for f in body.fragments]
@@ -155,15 +168,15 @@ def tia_analyze(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"TIA analysis failed: {exc}")
 
-    tia_store.add(analysis)
+    tia_store.add(analysis, owner_id=ctx.principal.user_id, project_ids=[project_id])
     return _analysis_to_schema(analysis)
 
 
 @router.get("/api/v1/tia/analyses", response_model=TIAListResponse)
-def list_tia_analyses(_user: object = Depends(optional_auth)) -> TIAListResponse:
-    """List all TIA analyses."""
+def list_tia_analyses(ctx: AccessContext = Depends(get_access)) -> TIAListResponse:
+    """List the caller's TIA analyses."""
     tia_store = get_tia_store()
-    items = [TIAAnalysisSummarySchema(**a) for a in tia_store.list_all()]
+    items = [TIAAnalysisSummarySchema(**a) for a in tia_store.summaries(ctx.principal.user_id)]
     return TIAListResponse(analyses=items)
 
 
@@ -171,7 +184,9 @@ def list_tia_analyses(_user: object = Depends(optional_auth)) -> TIAListResponse
     "/api/v1/tia/analyses/{analysis_id}",
     response_model=TIAAnalysisSchema,
 )
-def get_tia_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> TIAAnalysisSchema:
+def get_tia_analysis(
+    analysis_id: str, ctx: AccessContext = Depends(get_access)
+) -> TIAAnalysisSchema:
     """Get full TIA analysis with all fragment results.
 
     Args:
@@ -180,10 +195,7 @@ def get_tia_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -
     Raises:
         HTTPException: If the analysis is not found.
     """
-    tia_store = get_tia_store()
-    analysis = tia_store.get(analysis_id)
-    if analysis is None:
-        raise HTTPException(status_code=404, detail="TIA analysis not found")
+    analysis = _owned_analysis(analysis_id, ctx)
 
     return _analysis_to_schema(analysis)
 
@@ -192,7 +204,9 @@ def get_tia_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -
     "/api/v1/tia/analyses/{analysis_id}/summary",
     response_model=TIASummaryResponse,
 )
-def get_tia_summary(analysis_id: str, _user: object = Depends(optional_auth)) -> TIASummaryResponse:
+def get_tia_summary(
+    analysis_id: str, ctx: AccessContext = Depends(get_access)
+) -> TIASummaryResponse:
     """Get delay-by-responsibility summary for a TIA analysis.
 
     Args:
@@ -201,10 +215,7 @@ def get_tia_summary(analysis_id: str, _user: object = Depends(optional_auth)) ->
     Raises:
         HTTPException: If the analysis is not found.
     """
-    tia_store = get_tia_store()
-    analysis = tia_store.get(analysis_id)
-    if analysis is None:
-        raise HTTPException(status_code=404, detail="TIA analysis not found")
+    analysis = _owned_analysis(analysis_id, ctx)
 
     return TIASummaryResponse(
         analysis_id=analysis.analysis_id,

@@ -8,9 +8,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.analytics.evm import EVMAnalyzer
+from src.analytics.evm import EVMAnalysisResult, EVMAnalyzer
 
-from ..auth import optional_auth
+from ..access import AccessContext, get_access, owned_project
 from ..deps import RATE_LIMIT_MODERATE, get_evm_store, get_store, limiter
 from ..schemas import (
     EVMAnalysisSchema,
@@ -26,6 +26,16 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+_ANALYSIS_NOT_FOUND = "EVM analysis not found"
+
+
+def _owned_analysis(analysis_id: str, ctx: AccessContext) -> EVMAnalysisResult:
+    """Return the caller's EVM analysis, or 404 (same answer as a missing one)."""
+    result = get_evm_store().get(analysis_id, owner_id=ctx.principal.user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=_ANALYSIS_NOT_FOUND)
+    return result
 
 
 def _evm_metrics_to_schema(m: Any) -> EVMMetricsSchema:
@@ -116,7 +126,9 @@ def _evm_result_to_schema(result: Any, project_id: str = "") -> EVMAnalysisSchem
 @router.post("/api/v1/evm/analyze/{project_id}", response_model=EVMAnalysisSchema)
 @limiter.limit(RATE_LIMIT_MODERATE)
 def run_evm_analysis(
-    request: Request, project_id: str, _user: object = Depends(optional_auth)
+    request: Request,
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> EVMAnalysisSchema:
     """Run Earned Value Management analysis on a project.
 
@@ -128,14 +140,15 @@ def run_evm_analysis(
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found or analysis fails.
+        HTTPException: 404 if the project is missing or not the caller's;
+            500 if the analysis fails.
     """
     store = get_store()
     evm_store = get_evm_store()
 
     schedule = store.get(project_id)
     if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail="Project not found")
 
     try:
         analyzer = EVMAnalyzer(schedule)
@@ -144,20 +157,22 @@ def run_evm_analysis(
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"EVM analysis failed: {exc}")
 
-    evm_store.add(result)
+    evm_store.add(result, owner_id=ctx.principal.user_id, project_ids=[project_id])
     return _evm_result_to_schema(result, project_id)
 
 
 @router.get("/api/v1/evm/analyses", response_model=EVMListResponse)
-def list_evm_analyses(_user: object = Depends(optional_auth)) -> EVMListResponse:
-    """List all EVM analyses."""
+def list_evm_analyses(ctx: AccessContext = Depends(get_access)) -> EVMListResponse:
+    """List the caller's EVM analyses."""
     evm_store = get_evm_store()
-    items = [EVMAnalysisSummarySchema(**a) for a in evm_store.list_all()]
+    items = [EVMAnalysisSummarySchema(**a) for a in evm_store.summaries(ctx.principal.user_id)]
     return EVMListResponse(analyses=items)
 
 
 @router.get("/api/v1/evm/analyses/{analysis_id}", response_model=EVMAnalysisSchema)
-def get_evm_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -> EVMAnalysisSchema:
+def get_evm_analysis(
+    analysis_id: str, ctx: AccessContext = Depends(get_access)
+) -> EVMAnalysisSchema:
     """Get full EVM analysis with all metrics.
 
     Args:
@@ -166,16 +181,13 @@ def get_evm_analysis(analysis_id: str, _user: object = Depends(optional_auth)) -
     Raises:
         HTTPException: If the analysis is not found.
     """
-    evm_store = get_evm_store()
-    result = evm_store.get(analysis_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="EVM analysis not found")
+    result = _owned_analysis(analysis_id, ctx)
 
     return _evm_result_to_schema(result, result.project_id)
 
 
 @router.get("/api/v1/evm/analyses/{analysis_id}/s-curve", response_model=SCurveResponse)
-def get_evm_s_curve(analysis_id: str, _user: object = Depends(optional_auth)) -> SCurveResponse:
+def get_evm_s_curve(analysis_id: str, ctx: AccessContext = Depends(get_access)) -> SCurveResponse:
     """Get S-curve data for an EVM analysis.
 
     Returns time-phased cumulative PV, EV, and AC data points
@@ -187,10 +199,7 @@ def get_evm_s_curve(analysis_id: str, _user: object = Depends(optional_auth)) ->
     Raises:
         HTTPException: If the analysis is not found.
     """
-    evm_store = get_evm_store()
-    result = evm_store.get(analysis_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="EVM analysis not found")
+    result = _owned_analysis(analysis_id, ctx)
 
     points = [
         SCurvePointSchema(
@@ -209,7 +218,9 @@ def get_evm_s_curve(analysis_id: str, _user: object = Depends(optional_auth)) ->
     "/api/v1/evm/analyses/{analysis_id}/wbs-drill",
     response_model=WBSDrillResponse,
 )
-def get_evm_wbs_drill(analysis_id: str, _user: object = Depends(optional_auth)) -> WBSDrillResponse:
+def get_evm_wbs_drill(
+    analysis_id: str, ctx: AccessContext = Depends(get_access)
+) -> WBSDrillResponse:
     """Get WBS-level EVM breakdown for an analysis.
 
     Args:
@@ -218,10 +229,7 @@ def get_evm_wbs_drill(analysis_id: str, _user: object = Depends(optional_auth)) 
     Raises:
         HTTPException: If the analysis is not found.
     """
-    evm_store = get_evm_store()
-    result = evm_store.get(analysis_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="EVM analysis not found")
+    result = _owned_analysis(analysis_id, ctx)
 
     wbs_schemas = [
         WBSMetricsSchema(
@@ -240,7 +248,9 @@ def get_evm_wbs_drill(analysis_id: str, _user: object = Depends(optional_auth)) 
     "/api/v1/evm/analyses/{analysis_id}/forecast",
     response_model=ForecastResponse,
 )
-def get_evm_forecast(analysis_id: str, _user: object = Depends(optional_auth)) -> ForecastResponse:
+def get_evm_forecast(
+    analysis_id: str, ctx: AccessContext = Depends(get_access)
+) -> ForecastResponse:
     """Get EAC scenario forecasts for an analysis.
 
     Returns multiple Estimate at Completion scenarios:
@@ -255,10 +265,7 @@ def get_evm_forecast(analysis_id: str, _user: object = Depends(optional_auth)) -
     Raises:
         HTTPException: If the analysis is not found.
     """
-    evm_store = get_evm_store()
-    result = evm_store.get(analysis_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="EVM analysis not found")
+    result = _owned_analysis(analysis_id, ctx)
 
     return ForecastResponse(
         analysis_id=analysis_id,

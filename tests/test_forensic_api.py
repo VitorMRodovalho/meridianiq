@@ -14,7 +14,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import app
-from src.api.storage import ProjectStore, TimelineStore
+from src.api.storage import TimelineStore
+from src.database.store import InMemoryStore
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -22,7 +23,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 @pytest.fixture(autouse=True)
 def _reset_stores(monkeypatch):
     """Reset global stores before each test."""
-    store = ProjectStore()
+    store = InMemoryStore()
     tl_store = TimelineStore()
     monkeypatch.setattr("src.api.deps._store", store)
     monkeypatch.setattr("src.api.deps._timeline_store", tl_store)

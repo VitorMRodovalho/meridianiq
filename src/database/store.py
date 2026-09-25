@@ -35,6 +35,11 @@ logger = logging.getLogger(__name__)
 # and deserves a hard pagination strategy, not a single query.
 RE_MAT_MAX_ROWS = 10_000
 
+# Owner of results saved through the InMemoryStore result methods, which
+# take no caller identity. Matches ``SYSTEM.user_id`` in src/api/access.py;
+# signed-in users carry UUIDs, so their results never share this namespace.
+_LEGACY_RESULT_OWNER = "system"
+
 
 def _json_safe(obj: Any) -> Any:
     """Recursively convert datetime / date to ISO 8601 strings for JSON encoding.
@@ -844,69 +849,84 @@ class InMemoryStore:
         return comparison_id
 
     # -- forensic timelines ----------------------------------------------
+    #
+    # The routers use the owned stores in ``src/api/deps.py``, not these
+    # methods. They have no caller identity, so they act in the ``system``
+    # namespace (``_LEGACY_RESULT_OWNER``) until they take an owner.
 
     def save_forensic_timeline(self, timeline: ForensicTimeline) -> str:
         """Store a forensic timeline and return its timeline_id."""
-        return self._timelines.add(timeline)
+        pids = {
+            pid
+            for w in timeline.windows
+            for pid in (w.window.baseline_project_id, w.window.update_project_id)
+        }
+        return self._timelines.add(timeline, owner_id=_LEGACY_RESULT_OWNER, project_ids=pids)
 
     def get_forensic_timeline(
         self,
         timeline_id: str,
     ) -> ForensicTimeline | None:
         """Retrieve a forensic timeline by timeline_id."""
-        return self._timelines.get(timeline_id)
+        return self._timelines.get(timeline_id, owner_id=_LEGACY_RESULT_OWNER)
 
     def list_forensic_timelines(self) -> list[dict[str, Any]]:
         """List all stored forensic timelines."""
-        return self._timelines.list_all()
+        return self._timelines.summaries(_LEGACY_RESULT_OWNER)
 
     # -- TIA analyses ----------------------------------------------------
 
     def save_tia_analysis(self, analysis: TIAAnalysis) -> str:
         """Store a TIA analysis and return its analysis_id."""
-        return self._tia.add(analysis)
+        return self._tia.add(
+            analysis, owner_id=_LEGACY_RESULT_OWNER, project_ids=[analysis.base_project_id]
+        )
 
     def get_tia_analysis(self, analysis_id: str) -> TIAAnalysis | None:
         """Retrieve a TIA analysis by analysis_id."""
-        return self._tia.get(analysis_id)
+        return self._tia.get(analysis_id, owner_id=_LEGACY_RESULT_OWNER)
 
     def list_tia_analyses(self) -> list[dict[str, Any]]:
         """List all stored TIA analyses."""
-        return self._tia.list_all()
+        return self._tia.summaries(_LEGACY_RESULT_OWNER)
 
     # -- EVM analyses ----------------------------------------------------
 
     def save_evm_analysis(self, analysis: EVMAnalysisResult) -> str:
         """Store an EVM analysis and return its analysis_id."""
-        return self._evm.add(analysis)
+        return self._evm.add(
+            analysis, owner_id=_LEGACY_RESULT_OWNER, project_ids=[analysis.project_id]
+        )
 
     def get_evm_analysis(
         self,
         analysis_id: str,
     ) -> EVMAnalysisResult | None:
         """Retrieve an EVM analysis by analysis_id."""
-        return self._evm.get(analysis_id)
+        return self._evm.get(analysis_id, owner_id=_LEGACY_RESULT_OWNER)
 
     def list_evm_analyses(self) -> list[dict[str, Any]]:
         """List all stored EVM analyses."""
-        return self._evm.list_all()
+        return self._evm.summaries(_LEGACY_RESULT_OWNER)
 
     # -- risk simulations ------------------------------------------------
 
     def save_risk_simulation(self, simulation: SimulationResult) -> str:
         """Store a risk simulation and return its simulation_id."""
-        return self._risk.add(simulation)
+        return self._risk.add(
+            simulation, owner_id=_LEGACY_RESULT_OWNER, project_ids=[simulation.project_id]
+        )
 
     def get_risk_simulation(
         self,
         simulation_id: str,
     ) -> SimulationResult | None:
         """Retrieve a risk simulation by simulation_id."""
-        return self._risk.get(simulation_id)
+        return self._risk.get(simulation_id, owner_id=_LEGACY_RESULT_OWNER)
 
     def list_risk_simulations(self) -> list[dict[str, Any]]:
         """List all stored risk simulations."""
-        return self._risk.list_all()
+        return self._risk.summaries(_LEGACY_RESULT_OWNER)
 
     # -- CBS cost uploads ------------------------------------------------
 

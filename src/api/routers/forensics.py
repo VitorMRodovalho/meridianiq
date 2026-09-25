@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.analytics.forensics import ForensicAnalyzer
+from src.analytics.forensics import ForensicAnalyzer, ForensicTimeline
 from src.analytics.half_step import analyze_half_step
 from src.analytics.mip_observational import analyze_mip_3_1, analyze_mip_3_2
 from src.analytics.mip_additive import analyze_mip_3_5
@@ -20,6 +20,7 @@ from src.analytics.mip_subtractive import (
 )
 from src.parser.models import ParsedSchedule
 
+from ..access import AccessContext, get_access
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, get_store, get_timeline_store, limiter
 from ..schemas import (
@@ -51,6 +52,16 @@ from ..schemas import (
 )
 
 router = APIRouter()
+
+_TIMELINE_NOT_FOUND = "Timeline not found"
+
+
+def _owned_timeline(timeline_id: str, ctx: AccessContext) -> ForensicTimeline:
+    """Return the caller's timeline, or 404 (same answer as a missing one)."""
+    timeline = get_timeline_store().get(timeline_id, owner_id=ctx.principal.user_id)
+    if timeline is None:
+        raise HTTPException(status_code=404, detail=_TIMELINE_NOT_FOUND)
+    return timeline
 
 
 def _window_to_schema(wr: Any) -> WindowSchema:
@@ -98,7 +109,7 @@ def create_timeline(
     request: Request,
     body: CreateTimelineRequest,
     bifurcated: bool = False,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> TimelineDetailSchema:
     """Create a forensic CPA timeline from multiple schedule updates.
 
@@ -112,27 +123,29 @@ def create_timeline(
         bifurcated: If True, run MIP 3.4 half-step analysis per window.
 
     Raises:
-        HTTPException: If any project is not found or analysis fails.
+        HTTPException: 404 if any project is missing or not the caller's
+            (one hidden id fails the whole request); 400/500 if analysis fails.
     """
+    project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
     tl_store = get_timeline_store()
 
     schedules: list[ParsedSchedule] = []
-    for pid in body.project_ids:
+    for pid in project_ids:
         schedule = store.get(pid)
         if schedule is None:
-            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
+            raise HTTPException(status_code=404, detail="Project not found")
         schedules.append(schedule)
 
     try:
-        analyzer = ForensicAnalyzer(schedules, list(body.project_ids), bifurcated=bifurcated)
+        analyzer = ForensicAnalyzer(schedules, list(project_ids), bifurcated=bifurcated)
         timeline = analyzer.analyze()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Forensic analysis failed: {exc}")
 
-    tid = tl_store.add(timeline)
+    tid = tl_store.add(timeline, owner_id=ctx.principal.user_id, project_ids=project_ids)
 
     return TimelineDetailSchema(
         timeline_id=tid,
@@ -154,10 +167,10 @@ def create_timeline(
     "/api/v1/forensic/timelines",
     response_model=TimelineListResponse,
 )
-def list_timelines(_user: object = Depends(optional_auth)) -> TimelineListResponse:
-    """List all forensic timelines."""
+def list_timelines(ctx: AccessContext = Depends(get_access)) -> TimelineListResponse:
+    """List the caller's forensic timelines."""
     tl_store = get_timeline_store()
-    items = [TimelineSummarySchema(**t) for t in tl_store.list_all()]
+    items = [TimelineSummarySchema(**t) for t in tl_store.summaries(ctx.principal.user_id)]
     return TimelineListResponse(timelines=items)
 
 
@@ -165,7 +178,9 @@ def list_timelines(_user: object = Depends(optional_auth)) -> TimelineListRespon
     "/api/v1/forensic/timelines/{timeline_id}",
     response_model=TimelineDetailSchema,
 )
-def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> TimelineDetailSchema:
+def get_timeline(
+    timeline_id: str, ctx: AccessContext = Depends(get_access)
+) -> TimelineDetailSchema:
     """Get full forensic timeline with all window results.
 
     Args:
@@ -174,10 +189,7 @@ def get_timeline(timeline_id: str, _user: object = Depends(optional_auth)) -> Ti
     Raises:
         HTTPException: If the timeline is not found.
     """
-    tl_store = get_timeline_store()
-    timeline = tl_store.get(timeline_id)
-    if timeline is None:
-        raise HTTPException(status_code=404, detail="Timeline not found")
+    timeline = _owned_timeline(timeline_id, ctx)
 
     return TimelineDetailSchema(
         timeline_id=timeline.timeline_id,
@@ -672,7 +684,9 @@ def run_mip_3_5(
     "/api/v1/forensic/timelines/{timeline_id}/delay-trend",
     response_model=DelayTrendResponse,
 )
-def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) -> DelayTrendResponse:
+def get_delay_trend(
+    timeline_id: str, ctx: AccessContext = Depends(get_access)
+) -> DelayTrendResponse:
     """Return delay trend data for charting.
 
     Each point represents one analysis window's data date and the
@@ -684,10 +698,7 @@ def get_delay_trend(timeline_id: str, _user: object = Depends(optional_auth)) ->
     Raises:
         HTTPException: If the timeline is not found.
     """
-    tl_store = get_timeline_store()
-    timeline = tl_store.get(timeline_id)
-    if timeline is None:
-        raise HTTPException(status_code=404, detail="Timeline not found")
+    timeline = _owned_timeline(timeline_id, ctx)
 
     points: list[DelayTrendPoint] = []
     for wr in timeline.windows:
