@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 
 from src.api import progress
 from src.api.app import app
-from src.api.storage import ProjectStore
+from src.database.store import InMemoryStore
 from src.parser.models import (
     Calendar,
     ParsedSchedule,
@@ -48,10 +48,15 @@ def _reset_state() -> None:
 
 @pytest.fixture()
 def client():
-    """TestClient with a fresh ProjectStore bound to deps._store."""
+    """TestClient with a fresh InMemoryStore bound to deps._store.
+
+    Requests are anonymous, so they act as the development principal, which
+    reaches ownerless projects only (ADR-0030). Seeds below are ownerless
+    unless a test needs a named caller.
+    """
     import src.api.deps as deps_module
 
-    test_store = ProjectStore()
+    test_store = InMemoryStore()
     original_store = deps_module._store
     deps_module._store = test_store
     try:
@@ -326,14 +331,18 @@ class TestOptimizeRejectsForeignJobId:
     def test_returns_403_when_channel_bound_to_other_user(
         self,
         client: TestClient,
-        uploaded_project_id: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """If the progress channel was bound to user A and user B calls
         optimize with that job_id, the router must reject with 403 before
-        running the optimizer."""
+        running the optimizer.
+
+        The project is user B's own, so the project access check passes and
+        the 403 can only come from the job-channel check."""
+        import src.api.deps as deps_module
         from src.api import auth as auth_module
 
+        pid = deps_module._store.add(_tiny_optimizable_schedule(), b"raw", user_id="user-B")
         job_id = str(uuid.uuid4())
         progress.open_channel(job_id, owner_user_id="user-A")
 
@@ -344,7 +353,7 @@ class TestOptimizeRejectsForeignJobId:
         app.dependency_overrides[auth_module.optional_auth] = _fake_optional_auth
         try:
             resp = client.post(
-                f"/api/v1/projects/{uploaded_project_id}/optimize?job_id={job_id}",
+                f"/api/v1/projects/{pid}/optimize?job_id={job_id}",
                 json=_fast_config(),
             )
         finally:

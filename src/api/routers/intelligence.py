@@ -10,6 +10,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_READ, RATE_LIMIT_WRITE, get_store, limiter
 from ..kpi_helpers import schedule_kpi_bundle
@@ -51,9 +52,9 @@ _DASHBOARD_MAX_PROJECTS = 50
     response_model=ScheduleHealthResponse,
 )
 def get_project_health(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> ScheduleHealthResponse:
     """Get the composite schedule health score for a project.
 
@@ -66,8 +67,10 @@ def get_project_health(
         baseline_id: Optional baseline project for trend analysis.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project or a given baseline is missing
+            or not the caller's.
     """
+    baseline_id = ctx.maybe_project(baseline_id)
     store = get_store()
     schedule = store.get(project_id)
     if schedule is None:
@@ -105,9 +108,9 @@ def get_project_health(
     response_model=FloatTrendResponse,
 )
 def get_float_trends(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> FloatTrendResponse:
     """Get float trend data between a baseline and update schedule.
 
@@ -119,18 +122,20 @@ def get_float_trends(
         baseline_id: The baseline project identifier.
 
     Raises:
-        HTTPException: If projects are not found.
+        HTTPException: 400 if ``baseline_id`` is absent; 404 if either
+            project is missing or not the caller's.
     """
-    store = get_store()
-    update = store.get(project_id)
-    if update is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
     if not baseline_id:
         raise HTTPException(
             status_code=400,
             detail="baseline_id query parameter is required for float trend analysis",
         )
+    baseline_id = ctx.project(baseline_id)
+
+    store = get_store()
+    update = store.get(project_id)
+    if update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     baseline = store.get(baseline_id)
     if baseline is None:
@@ -170,9 +175,8 @@ def get_float_trends(
 
 @router.get("/api/v1/projects/{project_id}/root-cause")
 def get_root_cause(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     activity_id: str | None = None,
-    _user: object = Depends(optional_auth),
 ) -> dict:
     """Trace backwards through the dependency network to find the root cause.
 
@@ -189,7 +193,7 @@ def get_root_cause(
         RootCauseResult as dict with the driving chain.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
 
     References:
         AACE RP 49R-06 — Identifying Critical Activities.
@@ -213,9 +217,8 @@ def get_root_cause(
 @limiter.limit(RATE_LIMIT_WRITE)
 async def ask_schedule(
     request: Request,
-    project_id: str,
     body: NLPQueryRequest,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> NLPQueryResponse:
     """Ask a natural language question about a schedule.
 
@@ -231,7 +234,8 @@ async def ask_schedule(
         NLPQueryResponse with ``answer``, ``question``, ``tokens_used``, ``model``.
 
     Raises:
-        HTTPException: If project not found, API key missing, or upstream call fails.
+        HTTPException: 404 if the project is missing or not the caller's;
+            400 if the API key is missing; 502 if the upstream call fails.
     """
     store = get_store()
     schedule = store.get(project_id)
@@ -268,8 +272,7 @@ async def ask_schedule(
 
 @router.get("/api/v1/projects/{project_id}/anomalies")
 def get_anomalies(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Detect statistical anomalies in schedule data.
 
@@ -299,10 +302,10 @@ def get_anomalies(
 
 @router.get("/api/v1/projects/{project_id}/delay-prediction")
 def get_delay_prediction(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
     model: str = "rules",
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> DelayPredictionResponse:
     """Predict delay risk for all non-complete activities.
 
@@ -321,6 +324,7 @@ def get_delay_prediction(
     """
     if model not in ("rules", "ml"):
         raise HTTPException(status_code=400, detail="model must be 'rules' or 'ml'")
+    baseline_id = ctx.maybe_project(baseline_id)
 
     store = get_store()
     schedule = store.get(project_id)
@@ -385,9 +389,9 @@ def get_delay_prediction(
     response_model=AlertsResponse,
 )
 def get_project_alerts(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     baseline_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> AlertsResponse:
     """Get early warning alerts for a project.
 
@@ -400,18 +404,20 @@ def get_project_alerts(
         baseline_id: The baseline project identifier.
 
     Raises:
-        HTTPException: If projects are not found.
+        HTTPException: 400 if ``baseline_id`` is absent; 404 if either
+            project is missing or not the caller's.
     """
-    store = get_store()
-    update = store.get(project_id)
-    if update is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
     if not baseline_id:
         raise HTTPException(
             status_code=400,
             detail="baseline_id query parameter is required for early warning analysis",
         )
+    baseline_id = ctx.project(baseline_id)
+
+    store = get_store()
+    update = store.get(project_id)
+    if update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     baseline = store.get(baseline_id)
     if baseline is None:
