@@ -13,7 +13,7 @@ Open-source schedule intelligence platform — from validation to prediction to 
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
 [![Tests](https://img.shields.io/badge/Tests-1687%2B%20passing-brightgreen)]()
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-meridianiq.vitormr.dev-F38020?logo=cloudflare&logoColor=white)](https://meridianiq.vitormr.dev)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-getmeridianiq.com-F38020?logo=cloudflare&logoColor=white)](https://getmeridianiq.com)
 
 [**User Guide**](docs/user-guide/) · [**API Reference**](docs/api-reference.md) · [**Methodologies**](docs/methodologies.md) · [**MCP Tools**](docs/mcp-tools.md) · [**Contributing**](CONTRIBUTING.md) · [**Changelog**](CHANGELOG.md) · [**Roadmap**](docs/ROADMAP.md) · [**Latest Audit**](docs/audit/)
 
@@ -43,7 +43,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | API endpoints | 130 across 26 routers |
 | SVG chart components | 11 (incl. EVM S-Curve + Multi-Revision S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.3.0 |
-| Live platform | [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) |
+| Live platform | [getmeridianiq.com](https://getmeridianiq.com) |
 | Monthly infra cost | $0 (free tier) |
 
 ---
@@ -261,7 +261,7 @@ docker compose up
 
 ### Live Platform
 
-The platform is deployed and available at **[meridianiq.vitormr.dev](https://meridianiq.vitormr.dev)**.
+The platform is deployed and available at **[getmeridianiq.com](https://getmeridianiq.com)**.
 
 ---
 

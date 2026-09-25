@@ -4,4 +4,4 @@ Disallow: /api/
 Disallow: /settings
 Allow: /
 
-Sitemap: https://meridianiq.vitormr.dev/sitemap.xml
+Sitemap: https://getmeridianiq.com/sitemap.xml

@@ -43,7 +43,9 @@ def test_default_origins_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None
     origins = _reload_and_get_origins(monkeypatch, None)
     assert "http://localhost:5173" in origins
     assert "http://localhost:4321" in origins
-    assert "https://meridianiq.vitormr.dev" in origins
+    assert "https://getmeridianiq.com" in origins
+    assert "https://www.getmeridianiq.com" in origins
+    assert "https://meridianiq.vitormr.dev" in origins  # previous address, still redirected
 
 
 def test_custom_origins_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
