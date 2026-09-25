@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..access import owned_project
+from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_MODERATE, RATE_LIMIT_WRITE, get_store, limiter
 
@@ -124,13 +124,16 @@ def get_lookahead(
 
 @router.get("/api/v1/projects/{project_id}/risk-register")
 def get_risk_register(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """List risk register entries plus summary statistics for a project.
 
     Returns both the persisted entries and an aggregated
     ``RiskRegisterSummary`` (counts, expected values, risk score).
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's.
 
     References:
         AACE RP 57R-09, PMI Risk Management, ISO 31000.
@@ -140,7 +143,7 @@ def get_risk_register(
     from src.analytics.risk_register import RiskEntry, summarize_register
 
     store = get_store()
-    user_id = _user["id"] if _user else None  # type: ignore[index]
+    user_id = ctx.principal.user_id
 
     raw_entries = (
         store.list_risk_entries(project_id, user_id=user_id)
@@ -177,17 +180,22 @@ def get_risk_register(
 @limiter.limit(RATE_LIMIT_MODERATE)
 def add_risk_register_entry(
     request: Request,
-    project_id: str,
     body: dict,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Create or upsert a risk register entry for a project.
 
     If ``risk_id`` is missing it is auto-assigned (``R001``, ``R002``, …).
-    Re-posting an existing ``risk_id`` replaces that record.
+    Re-posting an existing ``risk_id`` replaces the caller's record.
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's
+            (checked before the backend is asked to write); 501 if the
+            backend does not persist a risk register.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None  # type: ignore[index]
+    user_id = ctx.principal.user_id
 
     if not hasattr(store, "save_risk_entry"):
         raise HTTPException(
@@ -203,13 +211,19 @@ def add_risk_register_entry(
 @limiter.limit(RATE_LIMIT_MODERATE)
 def delete_risk_register_entry(
     request: Request,
-    project_id: str,
     risk_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
-    """Remove a risk register entry."""
+    """Remove one of the caller's risk register entries.
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's,
+            or if the entry is not found; 501 if the backend does not
+            persist a risk register.
+    """
     store = get_store()
-    user_id = _user["id"] if _user else None  # type: ignore[index]
+    user_id = ctx.principal.user_id
 
     if not hasattr(store, "delete_risk_entry"):
         raise HTTPException(

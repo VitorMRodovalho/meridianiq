@@ -23,7 +23,7 @@ async def upload_cost_data(
     request: Request,
     file: UploadFile = File(...),
     project_id: str | None = None,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Upload a CBS Excel file, parse, and persist as a cost snapshot.
 
@@ -31,8 +31,16 @@ async def upload_cost_data(
     ``project_id`` is provided) a ``snapshot_id`` that can be used to
     list prior uploads via ``GET /projects/{id}/cost/snapshots``.
 
+    A ``project_id`` that is given must be the caller's. It is authorized
+    before the file is read or parsed, and a hidden project answers 404
+    exactly like a missing one. Without ``project_id`` the file is only
+    parsed and nothing is stored.
+
     Reference: AACE RP 10S-90 — Cost Engineering Terminology.
     """
+    if project_id:
+        ctx.project(project_id)
+
     filename = (file.filename or "").lower()
     if not filename.endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="Upload an Excel file (.xlsx)")
@@ -55,11 +63,10 @@ async def upload_cost_data(
     snapshot_id = ""
     if project_id:
         store = get_store()
-        user_id = _user["id"] if _user else None  # type: ignore[index]
         snapshot_id = store.save_cost_upload(
             project_id=project_id,
             result=result,
-            user_id=user_id,
+            user_id=ctx.principal.user_id,
             source_name=file.filename or "CBS Upload",
         )
 
@@ -106,32 +113,40 @@ async def upload_cost_data(
 
 @router.get("/api/v1/projects/{project_id}/cost/snapshots")
 def list_cost_snapshots(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """List all persisted CBS cost snapshots for a project (newest first).
 
     Each snapshot corresponds to one CBS upload and contains summary
     totals (budget, contingency, element count). Returns an empty list
     if no uploads exist or the backend does not support persistence.
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None  # type: ignore[index]
-    snapshots = store.list_cost_snapshots(project_id, user_id=user_id)
+    snapshots = store.list_cost_snapshots(project_id, user_id=ctx.principal.user_id)
     return {"project_id": project_id, "count": len(snapshots), "snapshots": snapshots}
 
 
 @router.get("/api/v1/projects/{project_id}/cost/compare")
 def compare_cost_snapshots_endpoint(
-    project_id: str,
     a: str,
     b: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Compare two persisted CBS cost snapshots element-by-element.
 
-    Requires both snapshot ids to resolve via ``get_cost_snapshot``.
-    Returns totals delta, per-CBS variance, and interpretation insights.
+    Requires both snapshot ids to resolve via ``get_cost_snapshot``
+    inside the (authorized) project: a snapshot of another project is
+    not found here. Returns totals delta, per-CBS variance, and
+    interpretation insights.
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's,
+            or if either snapshot is not one of this project's.
 
     Reference: AACE RP 10S-90 — Cost Engineering Terminology;
                AACE RP 29R-03 §5.3 — variance documentation.
@@ -140,7 +155,7 @@ def compare_cost_snapshots_endpoint(
         raise HTTPException(status_code=400, detail="Snapshot ids a and b must differ")
 
     store = get_store()
-    user_id = _user["id"] if _user else None  # type: ignore[index]
+    user_id = ctx.principal.user_id
 
     snap_a = store.get_cost_snapshot(project_id, a, user_id=user_id)
     snap_b = store.get_cost_snapshot(project_id, b, user_id=user_id)

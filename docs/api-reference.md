@@ -189,7 +189,7 @@ _Generation, build, cashflow, lookahead, risk register_
 | `GET` | `/api/v1/projects/{project_id}/lookahead` | Get look-ahead schedule for the next N weeks. | `dict` | optional |
 | `GET` | `/api/v1/projects/{project_id}/risk-register` | List risk register entries plus summary statistics for a project. | `dict` | optional |
 | `POST` | `/api/v1/projects/{project_id}/risk-register` | Create or upsert a risk register entry for a project. | `dict` | optional |
-| `DELETE` | `/api/v1/projects/{project_id}/risk-register/{risk_id}` | Remove a risk register entry. | `dict` | optional |
+| `DELETE` | `/api/v1/projects/{project_id}/risk-register/{risk_id}` | Remove one of the caller's risk register entries. | `dict` | optional |
 | `POST` | `/api/v1/schedule/build` | Build a schedule from natural language description. | `dict` | optional |
 | `POST` | `/api/v1/schedule/generate` | Generate a complete schedule from project parameters. | `dict` | optional |
 
