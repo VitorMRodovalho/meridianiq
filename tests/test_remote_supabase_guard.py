@@ -123,11 +123,22 @@ class TestMcpStore:
         mcp_server = pytest.importorskip("src.mcp_server")
         monkeypatch.setattr(mcp_server, "_store", None)
 
-    def test_uses_in_memory_store_without_opt_in(self, fake_credentials: list) -> None:
+    def test_uses_in_memory_store_without_opt_in(
+        self, monkeypatch: pytest.MonkeyPatch, fake_credentials: list
+    ) -> None:
+        from src.database import store as store_module
         from src.database.store import InMemoryStore
         from src.mcp_server import _get_store
 
-        assert isinstance(_get_store(), InMemoryStore)
+        class _Sentinel:
+            pass
+
+        # Replace SupabaseStore so the inner client guard cannot mask a
+        # missing MCP-level guard: only the MCP check can keep this in memory.
+        monkeypatch.setattr(store_module, "SupabaseStore", _Sentinel)
+        result = _get_store()
+        assert isinstance(result, InMemoryStore)
+        assert not isinstance(result, _Sentinel)
         assert fake_credentials == []
 
     def test_selects_supabase_store_with_opt_in(
@@ -149,6 +160,24 @@ def test_conftest_blanks_credentials_for_the_suite() -> None:
     import os
 
     # Read in a fresh test with no monkeypatching: conftest's values stand.
-    assert os.environ.get("ALLOW_REMOTE_SUPABASE") is None
+    assert os.environ.get("ALLOW_REMOTE_SUPABASE") == ""
     assert os.environ.get("SUPABASE_URL") == ""
     assert os.environ.get("SUPABASE_SERVICE_ROLE_KEY") == ""
+
+
+def test_production_without_opt_in_logs_an_error(
+    monkeypatch: pytest.MonkeyPatch, fake_credentials: list, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A lost opt-in must not look like a healthy, empty production app."""
+    import logging
+
+    from src.database import config
+    from src.database import store as store_module
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setattr(config, "settings", config.Settings())
+    monkeypatch.setattr(store_module, "_store_instance", None)
+    with caplog.at_level(logging.ERROR, logger=store_module.__name__):
+        result = store_module.get_store()
+    assert isinstance(result, store_module.InMemoryStore)
+    assert any("will not persist" in r.getMessage() for r in caplog.records)
