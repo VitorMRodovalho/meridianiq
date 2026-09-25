@@ -1079,6 +1079,7 @@ export interface AuditEntry {
 	action: string;
 	entity_type: string;
 	entity_id?: string | null;
+	user_id?: string | null;
 	details?: Record<string, unknown>;
 	ip_address?: string | null;
 	user_agent?: string | null;
@@ -1154,6 +1155,21 @@ export async function acceptInvitation(
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ role })
+		}
+	);
+}
+
+/** Withdraw the pending invitation of an address (owner/admin). Same answer in every case. */
+export async function revokeInvitation(
+	orgId: string,
+	email: string
+): Promise<{ status: string; email: string }> {
+	return request<{ status: string; email: string }>(
+		`/api/v1/organizations/${orgId}/invitations/revoke`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email })
 		}
 	);
 }

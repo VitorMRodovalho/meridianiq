@@ -1548,6 +1548,21 @@ class TestProjectOrganizationClaim:
         (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
         assert entry["org_id"] is None
 
+    def test_a_viewer_does_not_file_work_under_the_org(self, world: World) -> None:
+        pid = str(world.store.add(XERReader(FIXTURES / "sample.xer").parse(), b"x", user_id=VIEWER))
+        world.db.seed("projects", id=pid, org_id=ORG_A, user_id=VIEWER)
+        _ok(_share(world, VIEWER, pid, ORG_B), "share own project as a viewer of ORG_A")
+        (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
+        assert entry["org_id"] is None
+
+    def test_a_member_files_work_under_the_org(self, world: World) -> None:
+        """Control for the viewer case: the member role is enough."""
+        pid = str(world.store.add(XERReader(FIXTURES / "sample.xer").parse(), b"x", user_id=MEMBER))
+        world.db.seed("projects", id=pid, org_id=ORG_A, user_id=MEMBER)
+        _ok(_share(world, MEMBER, pid, ORG_B), "share own project as a member of ORG_A")
+        (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
+        assert entry["org_id"] == ORG_A
+
     def test_members_keep_their_org(self, world: World) -> None:
         """Control: a project in the caller's own organization is still filed there."""
         _ok(_share(world, USER_A, world.pa, ORG_B), "share as a member of ORG_A")

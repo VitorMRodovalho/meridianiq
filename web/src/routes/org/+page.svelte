@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import {
 		getOrganizations,
 		createOrganization,
@@ -22,6 +22,8 @@
 	let invitations: Invitation[] = $state([]);
 	let answering = $state('');
 	let invitationError = $state('');
+	let invitationStatus = $state('');
+	let invitationsHeading: HTMLHeadingElement | undefined = $state();
 
 	const orgTypeKeys: { value: string; labelKey: string }[] = [
 		{ value: 'owner', labelKey: 'org.type_owner' },
@@ -33,38 +35,57 @@
 	];
 
 	onMount(async () => {
-		try {
-			const res = await getOrganizations();
-			orgs = res.organizations;
-		} catch {
-			error = $t('org.load_failed');
-		} finally {
-			loading = false;
-		}
+		// Both lists load together, so the invitations panel does not appear
+		// above the organization cards after they have rendered.
+		const [orgResult, invResult] = await Promise.allSettled([
+			getOrganizations(),
+			listInvitations()
+		]);
+		if (orgResult.status === 'fulfilled') orgs = orgResult.value.organizations;
+		else error = $t('org.load_failed');
+		// Invitations are secondary to the organization list: on failure the panel stays hidden.
+		if (invResult.status === 'fulfilled') invitations = invResult.value.invitations;
+		loading = false;
+	});
+
+	async function refreshInvitations() {
 		try {
 			invitations = (await listInvitations()).invitations;
 		} catch {
-			// Invitations are secondary to the organization list: leave the panel hidden.
+			invitations = [];
 		}
-	});
+	}
 
 	async function answer(inv: Invitation, accept: boolean) {
-		answering = inv.org_id;
+		answering = `${accept ? 'accept' : 'decline'}:${inv.org_id}`;
 		invitationError = '';
+		invitationStatus = '';
 		try {
 			if (accept) {
 				const res = await acceptInvitation(inv.org_id, inv.role);
-				const listed = await getOrganizations();
-				orgs = listed.organizations;
-				if (!orgs.some((o) => o.id === res.org_id)) invitationError = $t('org.invitation_failed');
+				invitations = invitations.filter((i) => i.org_id !== inv.org_id);
+				invitationStatus = `${$t('org.joined_prefix')} ${inv.org_name ?? $t('org_detail.fallback_name')}.`;
+				try {
+					orgs = (await getOrganizations()).organizations;
+				} catch {
+					// The accept succeeded; show the organization even if the refresh failed.
+					if (!orgs.some((o) => o.id === res.org_id)) {
+						orgs = [
+							...orgs,
+							{ id: res.org_id, name: inv.org_name ?? '', slug: '', org_type: 'general', role: res.role }
+						];
+					}
+				}
 			} else {
 				await declineInvitation(inv.org_id);
+				invitations = invitations.filter((i) => i.org_id !== inv.org_id);
+				invitationStatus = $t('org.declined');
 			}
-			invitations = invitations.filter((i) => i.org_id !== inv.org_id);
 		} catch (e: unknown) {
 			if (e instanceof ApiError && e.status === 404) {
-				// Expired, re-issued for another role, or withdrawn: drop it from the list.
-				invitations = invitations.filter((i) => i.org_id !== inv.org_id);
+				// Expired, withdrawn, already answered, or re-issued with another role:
+				// show the server's current list instead of guessing.
+				await refreshInvitations();
 				invitationError = $t('org.invitation_gone');
 			} else if (e instanceof ApiError && e.status === 429) {
 				invitationError = $t('error.rate_limited');
@@ -73,6 +94,10 @@
 			}
 		} finally {
 			answering = '';
+			// The answered row (and its focused button) may be gone: move focus to
+			// the panel heading so keyboard and screen-reader users keep their place.
+			await tick();
+			invitationsHeading?.focus();
 		}
 	}
 
@@ -129,23 +154,33 @@
 	</div>
 
 	{#if error}
-		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm mb-6">{error}</div>
+		<div role="alert" class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-6">{error}</div>
 	{/if}
 
-	{#if invitations.length > 0 || invitationError}
+	{#if invitations.length > 0 || invitationError || invitationStatus}
 		<section
 			class="bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 rounded-lg p-5 mb-6"
 			aria-labelledby="invitations-title"
 		>
-			<h2 id="invitations-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+			<h2
+				id="invitations-title"
+				tabindex="-1"
+				bind:this={invitationsHeading}
+				class="text-lg font-semibold text-gray-900 dark:text-gray-100 focus:outline-none"
+			>
 				{$t('org.invitations_title')}
 			</h2>
 			<p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 mb-4">{$t('org.invitations_hint')}</p>
 			{#if invitationError}
-				<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm mb-3">
+				<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-3">
 					{invitationError}
 				</div>
 			{/if}
+			<div role="status" class="text-sm">
+				{#if invitationStatus}
+					<p class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 mb-3">{invitationStatus}</p>
+				{/if}
+			</div>
 			<ul class="divide-y divide-gray-100 dark:divide-gray-800">
 				{#each invitations as inv (inv.org_id)}
 					<li class="flex flex-wrap items-center justify-between gap-3 py-3">
@@ -163,14 +198,14 @@
 								disabled={answering !== ''}
 								class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 							>
-								{$t('org.btn_accept')}
+								{answering === `accept:${inv.org_id}` ? $t('org.btn_accepting') : $t('org.btn_accept')}
 							</button>
 							<button
 								onclick={() => answer(inv, false)}
 								disabled={answering !== ''}
 								class="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
 							>
-								{$t('org.btn_decline')}
+								{answering === `decline:${inv.org_id}` ? $t('org.btn_declining') : $t('org.btn_decline')}
 							</button>
 						</div>
 					</li>

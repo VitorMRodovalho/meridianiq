@@ -102,6 +102,9 @@ SharePermission = Literal["viewer", "editor", "admin"]
 
 MEMBER_ROLES: tuple[OrgRole, ...] = ("owner", "admin", "member", "viewer")
 MANAGER_ROLES: tuple[OrgRole, ...] = ("owner", "admin")
+#: Roles whose work is filed under the organization (the value_milestones
+#: INSERT policy of migration 008 uses the same set).
+WRITER_ROLES: tuple[OrgRole, ...] = ("owner", "admin", "member")
 
 #: How long an invitation can be accepted after it was last issued.
 INVITATION_TTL = timedelta(days=14)
@@ -298,13 +301,14 @@ def _user_id_for_email(client: Any, email: str) -> str | None:
 
 
 def _project_org_id(client: Any, project_id: str, user_id: str) -> str | None:
-    """The organization of an (already authorized) project, for its members only.
+    """The organization of an (already authorized) project, for its writers only.
 
     ``projects.org_id`` is not set by this API, and the projects INSERT
     policy of migration 007 checks only the owner, so a project's claim to
     an organization is honoured only when ``user_id`` is an accepted member
-    of that organization. Otherwise the project is treated as having none,
-    and nothing is written into that organization's records.
+    of that organization with one of ``WRITER_ROLES``. Otherwise the project
+    is treated as having none, and nothing is written into that
+    organization's records.
     """
     result = client.table("projects").select("org_id").eq("id", project_id).execute()
     rows = result.data or []
@@ -319,7 +323,7 @@ def _project_org_id(client: Any, project_id: str, user_id: str) -> str | None:
         .not_.is_("accepted_at", "null")
         .execute()
     )
-    return org_id if seat.data else None
+    return org_id if any(r.get("role") in WRITER_ROLES for r in seat.data or []) else None
 
 
 def _attach_profiles(client: Any, rows: list[dict[str, Any]], columns: str) -> list[dict[str, Any]]:
