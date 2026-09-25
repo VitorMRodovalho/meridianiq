@@ -15,7 +15,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import app
-from src.api.storage import EVMStore, ProjectStore
+from src.api.storage import EVMStore
+from src.database.store import InMemoryStore
 from tests.fixtures.sample_xer_generator import generate_sample_xer
 
 
@@ -24,7 +25,7 @@ def client():
     """Create a test client with fresh stores."""
     import src.api.deps as deps_module
 
-    test_store = ProjectStore()
+    test_store = InMemoryStore()
     test_evm_store = EVMStore()
 
     original_store = deps_module._store

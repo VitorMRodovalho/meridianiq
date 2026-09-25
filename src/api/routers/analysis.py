@@ -8,6 +8,7 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..access import AccessContext, get_access
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, get_store, get_tia_store, limiter
 from ..schemas import (
@@ -260,7 +261,7 @@ def get_milestones(project_id: str, _user: object = Depends(optional_auth)) -> M
 def contract_check(
     request: Request,
     body: ContractCheckRequest,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> ContractCheckResponse:
     """Run contract compliance checks against a TIA analysis.
 
@@ -272,12 +273,13 @@ def contract_check(
         body: Contains the analysis_id to check.
 
     Raises:
-        HTTPException: If the analysis is not found.
+        HTTPException: 404 if the analysis is missing or not the caller's
+            (the same answer in both cases).
     """
     tia_store = get_tia_store()
-    analysis = tia_store.get(body.analysis_id)
+    analysis = tia_store.get(body.analysis_id, owner_id=ctx.principal.user_id)
     if analysis is None:
-        raise HTTPException(status_code=404, detail=f"TIA analysis not found: {body.analysis_id}")
+        raise HTTPException(status_code=404, detail="TIA analysis not found")
 
     checker = ContractComplianceChecker()
     checks = checker.check_all(analysis.fragments, analysis.results)

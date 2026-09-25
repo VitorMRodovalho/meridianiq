@@ -14,8 +14,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from src.analytics.risk import SimulationResult
 from src.api.app import app
-from src.api.storage import ProjectStore, RiskStore
+from src.api.storage import RiskStore
+from src.database.store import InMemoryStore
 from tests.fixtures.sample_xer_generator import generate_sample_xer
 
 
@@ -24,7 +26,7 @@ def client():
     """Create a test client with fresh stores."""
     import src.api.deps as deps_module
 
-    test_store = ProjectStore()
+    test_store = InMemoryStore()
     test_risk_store = RiskStore()
 
     original_store = deps_module._store
@@ -250,33 +252,49 @@ class TestRiskStoreBindJob:
 
     Per ADR-0019 W1 D4. The store maps job_id (progress channel id) to
     simulation_id so the WS-recovery poller can recover a completed
-    simulation after a transient WebSocket disconnect.
+    simulation after a transient WebSocket disconnect. Per ADR-0030 the
+    lookup answers only for the simulation's owner.
     """
 
+    OWNER = "owner-a"
+
+    @staticmethod
+    def _add(store: RiskStore, owner_id: str = "owner-a") -> str:
+        return store.add(SimulationResult(), owner_id=owner_id, project_ids=["proj-0001"])
+
     def test_bind_job_returns_simulation_id(self) -> None:
-        """get_simulation_id_by_job returns the bound id."""
+        """get_simulation_id_by_job returns the bound id to its owner."""
         store = RiskStore()
-        store.bind_job("job-abc", "risk-0001")
-        assert store.get_simulation_id_by_job("job-abc") == "risk-0001"
+        sid = self._add(store)
+        store.bind_job("job-abc", sid)
+        assert store.get_simulation_id_by_job("job-abc", owner_id=self.OWNER) == sid
+
+    def test_bound_job_is_hidden_from_another_owner(self) -> None:
+        """Another owner sees None, the same answer as a job still running."""
+        store = RiskStore()
+        sid = self._add(store)
+        store.bind_job("job-abc", sid)
+        assert store.get_simulation_id_by_job("job-abc", owner_id="owner-b") is None
 
     def test_unbound_job_returns_none(self) -> None:
         """Lookup for a never-bound job returns None (still running / never started)."""
         store = RiskStore()
-        assert store.get_simulation_id_by_job("job-never-bound") is None
+        assert store.get_simulation_id_by_job("job-never-bound", owner_id=self.OWNER) is None
 
     def test_clear_resets_jobs(self) -> None:
         """clear() drops the job index alongside simulations."""
         store = RiskStore()
-        store.bind_job("job-abc", "risk-0001")
+        store.bind_job("job-abc", self._add(store))
         store.clear()
-        assert store.get_simulation_id_by_job("job-abc") is None
+        assert store.get_simulation_id_by_job("job-abc", owner_id=self.OWNER) is None
 
     def test_rebinding_overwrites(self) -> None:
         """Last bind wins when the same job_id is bound twice."""
         store = RiskStore()
-        store.bind_job("job-abc", "risk-0001")
-        store.bind_job("job-abc", "risk-0002")
-        assert store.get_simulation_id_by_job("job-abc") == "risk-0002"
+        first, second = self._add(store), self._add(store)
+        store.bind_job("job-abc", first)
+        store.bind_job("job-abc", second)
+        assert store.get_simulation_id_by_job("job-abc", owner_id=self.OWNER) == second
 
 
 class TestRiskByJobEndpoint:
@@ -298,12 +316,16 @@ class TestRiskByJobEndpoint:
         # Bind directly via the store fixture (avoids needing the full
         # simulation flow; the bind_job + lookup path is what we assert).
         import src.api.deps as deps_module
+        from src.api.access import DEV_USER_ID
 
-        deps_module._risk_store.bind_job("job-bound-1", "risk-0042")
+        sid = deps_module._risk_store.add(
+            SimulationResult(), owner_id=DEV_USER_ID, project_ids=["proj-0001"]
+        )
+        deps_module._risk_store.bind_job("job-bound-1", sid)
 
         resp = client.get("/api/v1/risk/simulations/by-job/job-bound-1")
         assert resp.status_code == 200
-        assert resp.json() == {"simulation_id": "risk-0042"}
+        assert resp.json() == {"simulation_id": sid}
 
     def test_simulate_binds_job_id_to_result(
         self, client: TestClient, uploaded_project: str

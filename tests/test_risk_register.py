@@ -285,6 +285,7 @@ class TestSimulationRegisterLinkage:
             SimulationResult,
         )
         from src.api.app import app
+        from src.api.access import DEV_USER_ID
         from src.api.deps import get_risk_store, get_store
 
         store = get_store()
@@ -332,7 +333,7 @@ class TestSimulationRegisterLinkage:
                 )
             ],
         )
-        sim_id = get_risk_store().add(result)
+        sim_id = get_risk_store().add(result, owner_id=DEV_USER_ID, project_ids=["p-sim"])
 
         resp = client.get(
             f"/api/v1/risk/simulations/{sim_id}/register-entries",
@@ -363,6 +364,7 @@ class TestSimulationRegisterLinkage:
             SimulationResult,
         )
         from src.api.app import app
+        from src.api.access import DEV_USER_ID
         from src.api.deps import get_risk_store, get_store
 
         store = get_store()
@@ -392,7 +394,7 @@ class TestSimulationRegisterLinkage:
                 SensitivityEntry(activity_id="Y2", activity_name="Other", correlation=0.9)
             ],
         )
-        sim_id = get_risk_store().add(result)
+        sim_id = get_risk_store().add(result, owner_id=DEV_USER_ID, project_ids=["p-no-overlap"])
 
         resp = client.get(f"/api/v1/risk/simulations/{sim_id}/register-entries")
         assert resp.status_code == 200

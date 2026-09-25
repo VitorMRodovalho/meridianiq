@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_EXPENSIVE, get_risk_store, get_store, limiter
 from ..schemas import (
@@ -33,9 +34,20 @@ from src.analytics.risk import (
     MonteCarloSimulator,
     RiskEvent,
     SimulationConfig,
+    SimulationResult,
 )
 
 router = APIRouter()
+
+_SIMULATION_NOT_FOUND = "Risk simulation not found"
+
+
+def _owned_simulation(simulation_id: str, ctx: AccessContext) -> SimulationResult:
+    """Return the caller's simulation, or 404 (same answer as a missing one)."""
+    result = get_risk_store().get(simulation_id, owner_id=ctx.principal.user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=_SIMULATION_NOT_FOUND)
+    return result
 
 
 def _assert_channel_owner(job_id: str, user: object) -> None:
@@ -142,9 +154,10 @@ def _simulation_to_schema(result: Any) -> SimulationResultSchema:
 @limiter.limit(RATE_LIMIT_EXPENSIVE)
 async def run_risk_simulation(
     request: Request,
-    project_id: str,
     body: RunSimulationRequest,
+    project_id: str = Depends(owned_project),
     job_id: str | None = None,
+    ctx: AccessContext = Depends(get_access),
     _user: object = Depends(optional_auth),
 ) -> SimulationResultSchema:
     """Run Monte Carlo schedule risk simulation (QSRA) on a project.
@@ -164,7 +177,8 @@ async def run_risk_simulation(
             "done", "total", "pct"}`` events plus a final ``{"type": "done"}``.
 
     Raises:
-        HTTPException: If the project is not found or simulation fails.
+        HTTPException: 404 if the project is missing or not the caller's;
+            500 if the simulation fails.
     """
     import asyncio
 
@@ -175,7 +189,7 @@ async def run_risk_simulation(
 
     schedule = store.get(project_id)
     if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {project_id}")
+        raise HTTPException(status_code=404, detail="Project not found")
 
     # Convert body schemas to domain models
     config = None
@@ -247,7 +261,7 @@ async def run_risk_simulation(
             publish(job_id, {"type": "error", "message": str(exc)})
         raise HTTPException(status_code=500, detail=f"Risk simulation failed: {exc}")
 
-    risk_store.add(result)
+    risk_store.add(result, owner_id=ctx.principal.user_id, project_ids=[project_id])
 
     if job_id:
         # ADR-0019 §"W1 — D4" — bind job_id → simulation_id so the
@@ -261,11 +275,11 @@ async def run_risk_simulation(
 
 @router.get("/api/v1/risk/simulations", response_model=SimulationListResponse)
 def list_risk_simulations(
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> SimulationListResponse:
-    """List all risk simulations."""
+    """List the caller's risk simulations."""
     risk_store = get_risk_store()
-    items = [SimulationSummarySchema(**s) for s in risk_store.list_all()]
+    items = [SimulationSummarySchema(**s) for s in risk_store.summaries(ctx.principal.user_id)]
     return SimulationListResponse(simulations=items)
 
 
@@ -275,6 +289,7 @@ def list_risk_simulations(
 )
 def get_risk_simulation_by_job(
     job_id: str,
+    ctx: AccessContext = Depends(get_access),
     _user: object = Depends(optional_auth),
 ) -> RiskSimulationByJobResponse:
     """Look up a risk simulation by its progress channel job_id.
@@ -285,7 +300,8 @@ def get_risk_simulation_by_job(
 
     Returns 200 in both states — the poller's contract distinguishes
     completion via the ``simulation_id`` value (string → done, null →
-    still running or never bound).
+    still running, never bound, or bound to a simulation the caller
+    does not own).
 
     Args:
         job_id: Progress channel id allocated by
@@ -298,7 +314,7 @@ def get_risk_simulation_by_job(
     _assert_channel_owner(job_id, _user)
 
     risk_store = get_risk_store()
-    sid = risk_store.get_simulation_id_by_job(job_id)
+    sid = risk_store.get_simulation_id_by_job(job_id, owner_id=ctx.principal.user_id)
     return RiskSimulationByJobResponse(simulation_id=sid)
 
 
@@ -307,7 +323,7 @@ def get_risk_simulation_by_job(
     response_model=SimulationResultSchema,
 )
 def get_risk_simulation(
-    simulation_id: str, _user: object = Depends(optional_auth)
+    simulation_id: str, ctx: AccessContext = Depends(get_access)
 ) -> SimulationResultSchema:
     """Get full risk simulation result with all analysis data.
 
@@ -317,10 +333,7 @@ def get_risk_simulation(
     Raises:
         HTTPException: If the simulation is not found.
     """
-    risk_store = get_risk_store()
-    result = risk_store.get(simulation_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Risk simulation not found")
+    result = _owned_simulation(simulation_id, ctx)
 
     return _simulation_to_schema(result)
 
@@ -330,7 +343,7 @@ def get_risk_simulation(
     response_model=HistogramResponse,
 )
 def get_risk_histogram(
-    simulation_id: str, _user: object = Depends(optional_auth)
+    simulation_id: str, ctx: AccessContext = Depends(get_access)
 ) -> HistogramResponse:
     """Get histogram data for a risk simulation.
 
@@ -343,10 +356,7 @@ def get_risk_histogram(
     Raises:
         HTTPException: If the simulation is not found.
     """
-    risk_store = get_risk_store()
-    result = risk_store.get(simulation_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Risk simulation not found")
+    result = _owned_simulation(simulation_id, ctx)
 
     return HistogramResponse(
         simulation_id=simulation_id,
@@ -375,7 +385,9 @@ def get_risk_histogram(
     "/api/v1/risk/simulations/{simulation_id}/tornado",
     response_model=TornadoResponse,
 )
-def get_risk_tornado(simulation_id: str, _user: object = Depends(optional_auth)) -> TornadoResponse:
+def get_risk_tornado(
+    simulation_id: str, ctx: AccessContext = Depends(get_access)
+) -> TornadoResponse:
     """Get sensitivity / tornado data for a risk simulation.
 
     Returns Spearman rank correlations between each activity's
@@ -388,10 +400,7 @@ def get_risk_tornado(simulation_id: str, _user: object = Depends(optional_auth))
     Raises:
         HTTPException: If the simulation is not found.
     """
-    risk_store = get_risk_store()
-    result = risk_store.get(simulation_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Risk simulation not found")
+    result = _owned_simulation(simulation_id, ctx)
 
     # Return top 15 by absolute correlation
     top_entries = result.sensitivity[:15]
@@ -414,7 +423,7 @@ def get_risk_tornado(simulation_id: str, _user: object = Depends(optional_auth))
     response_model=CriticalityResponse,
 )
 def get_risk_criticality(
-    simulation_id: str, _user: object = Depends(optional_auth)
+    simulation_id: str, ctx: AccessContext = Depends(get_access)
 ) -> CriticalityResponse:
     """Get criticality index data for a risk simulation.
 
@@ -427,10 +436,7 @@ def get_risk_criticality(
     Raises:
         HTTPException: If the simulation is not found.
     """
-    risk_store = get_risk_store()
-    result = risk_store.get(simulation_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Risk simulation not found")
+    result = _owned_simulation(simulation_id, ctx)
 
     return CriticalityResponse(
         simulation_id=simulation_id,
@@ -449,6 +455,7 @@ def get_risk_criticality(
 def get_simulation_register_entries(
     simulation_id: str,
     top_n: int = 15,
+    ctx: AccessContext = Depends(get_access),
     _user: object = Depends(optional_auth),
 ) -> dict:
     """Return register entries that touch the simulation's most-sensitive activities.
@@ -468,12 +475,9 @@ def get_simulation_register_entries(
 
     Reference: AACE RP 57R-09 — Schedule Risk Analysis.
     """
-    risk_store = get_risk_store()
     store = get_store()
 
-    result = risk_store.get(simulation_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Risk simulation not found")
+    result = _owned_simulation(simulation_id, ctx)
 
     if not hasattr(store, "list_risk_entries"):
         return {
@@ -532,7 +536,7 @@ def get_simulation_register_entries(
     response_model=RiskSCurveResponse,
 )
 def get_risk_s_curve(
-    simulation_id: str, _user: object = Depends(optional_auth)
+    simulation_id: str, ctx: AccessContext = Depends(get_access)
 ) -> RiskSCurveResponse:
     """Get cumulative probability S-curve data for a risk simulation.
 
@@ -545,10 +549,7 @@ def get_risk_s_curve(
     Raises:
         HTTPException: If the simulation is not found.
     """
-    risk_store = get_risk_store()
-    result = risk_store.get(simulation_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="Risk simulation not found")
+    result = _owned_simulation(simulation_id, ctx)
 
     return RiskSCurveResponse(
         simulation_id=simulation_id,

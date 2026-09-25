@@ -9,10 +9,32 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..auth import optional_auth, require_auth
-from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_WRITE, get_store, limiter
+from ..deps import (
+    RATE_LIMIT_EXPENSIVE,
+    RATE_LIMIT_WRITE,
+    get_evm_store,
+    get_report_store,
+    get_risk_store,
+    get_store,
+    get_tia_store,
+    get_timeline_store,
+    limiter,
+)
 from ..schemas import GDPRDeleteResponse
 
 router = APIRouter()
+
+
+def _purge_owned_results(user_id: str) -> int:
+    """Delete every in-memory analysis result and report owned by ``user_id``."""
+    stores = (
+        get_timeline_store(),
+        get_tia_store(),
+        get_evm_store(),
+        get_risk_store(),
+        get_report_store(),
+    )
+    return sum(store.purge_owner(user_id) for store in stores)
 
 
 # ------------------------------------------------------------------
@@ -103,6 +125,11 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
     user_id = _user.get("id") if isinstance(_user, dict) else None
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Stored results (timelines, TIA, EVM, risk, reports) live in process
+    # memory, outside the database cascade below, so erase them first:
+    # every return path after this point has already done it.
+    _purge_owned_results(str(user_id))
 
     store = get_store()
 
