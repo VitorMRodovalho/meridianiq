@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..access import owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_EXPENSIVE, RATE_LIMIT_MODERATE, RATE_LIMIT_WRITE, get_store, limiter
 
@@ -74,8 +75,7 @@ async def build_schedule_endpoint(
 
 @router.get("/api/v1/projects/{project_id}/cashflow")
 def get_cashflow(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Get cash flow analysis with S-Curve data.
 
@@ -99,9 +99,8 @@ def get_cashflow(
 
 @router.get("/api/v1/projects/{project_id}/lookahead")
 def get_lookahead(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     weeks: int = 2,
-    _user: object = Depends(optional_auth),
 ) -> dict:
     """Get look-ahead schedule for the next N weeks.
 

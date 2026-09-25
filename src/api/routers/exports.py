@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 
-from ..auth import optional_auth
+from ..access import AccessContext, get_access, owned_project
 from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 
 from src.analytics.float_trends import compute_float_entropy
@@ -175,8 +175,7 @@ def _build_export_data(
 @limiter.limit(RATE_LIMIT_MODERATE)
 def export_xer(
     request: Request,
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Export a project schedule to XER format for P6 import.
 
@@ -207,8 +206,8 @@ def export_xer(
 @limiter.limit(RATE_LIMIT_MODERATE)
 def export_excel(
     request: Request,
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ):
     """Export project schedule data as an Excel workbook.
 
@@ -219,10 +218,11 @@ def export_excel(
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found or openpyxl is unavailable.
+        HTTPException: 404 if the project is missing or not the caller's;
+            501 if openpyxl is unavailable.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None
+    user_id = ctx.principal.user_id
     schedule = store.get(project_id, user_id=user_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -321,12 +321,12 @@ def export_excel(
 @limiter.limit(RATE_LIMIT_MODERATE)
 def export_aia_g703(
     request: Request,
-    project_id: str,
     snapshot_id: str,
+    project_id: str = Depends(owned_project),
     retainage_pct: float = 0.10,
     application_number: int = 1,
     period_to: str = "",
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ):
     """Export CBS snapshot as an AIA G703 Continuation Sheet workbook.
 
@@ -343,17 +343,17 @@ def export_aia_g703(
         period_to: Period-end date string (default empty).
 
     Raises:
-        HTTPException: 404 if project or snapshot not retrievable;
-        501 if openpyxl is not available.
+        HTTPException: 404 if the project is missing or not the caller's,
+        or if the snapshot is not one of this project's; 501 if openpyxl
+        is not available.
 
     Reference: AIA Document G703™ — Continuation Sheet.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None
+    user_id = ctx.principal.user_id
 
-    schedule = store.get(project_id, user_id=user_id) if hasattr(store, "get") else None
-    if schedule is None and hasattr(store, "get_parsed_schedule"):
-        schedule = store.get_parsed_schedule(project_id)
+    # Only the project name comes from the schedule; without one the id is used.
+    schedule = store.get(project_id, user_id=user_id)
 
     project_name = (
         schedule.projects[0].proj_short_name if schedule and schedule.projects else project_id
@@ -508,8 +508,8 @@ def export_aia_g703(
 
 @router.get("/api/v1/projects/{project_id}/export/json")
 def export_json(
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
 ) -> StreamingResponse:
     """Export project schedule data and analysis results as JSON.
 
@@ -521,10 +521,10 @@ def export_json(
         project_id: The stored project identifier.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None
+    user_id = ctx.principal.user_id
     schedule = store.get(project_id, user_id=user_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -550,9 +550,9 @@ def export_json(
 
 @router.get("/api/v1/projects/{project_id}/export/csv")
 def export_csv(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     dataset: str = "activities",
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> StreamingResponse:
     """Export project data as CSV.
 
@@ -566,7 +566,8 @@ def export_csv(
         dataset: Which dataset to export (activities, dcma, relationships).
 
     Raises:
-        HTTPException: If the project is not found or dataset is invalid.
+        HTTPException: 404 if the project is missing or not the caller's;
+            400 if the dataset is invalid.
     """
     valid_datasets = {"activities", "dcma", "relationships"}
     if dataset not in valid_datasets:
@@ -576,7 +577,7 @@ def export_csv(
         )
 
     store = get_store()
-    user_id = _user["id"] if _user else None
+    user_id = ctx.principal.user_id
     schedule = store.get(project_id, user_id=user_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -639,10 +640,10 @@ def export_csv(
 
 @router.get("/api/v1/projects/{project_id}/activities")
 def search_activities(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     q: str = "",
     limit: int = 20,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Search activities by ID or name.  Used by the TIA activity picker.
 
@@ -655,15 +656,10 @@ def search_activities(
         Dict with ``activities`` list and ``total`` count of all activities.
 
     Raises:
-        HTTPException: If the project is not found.
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
-    user_id = _user["id"] if _user else None
-    schedule = store.get(project_id, user_id=user_id)
-    if schedule is None:
-        # Fallback: try get_parsed_schedule (SupabaseStore path)
-        if hasattr(store, "get_parsed_schedule"):
-            schedule = store.get_parsed_schedule(project_id)
+    schedule = store.get(project_id, user_id=ctx.principal.user_id)
     if schedule is None:
         raise HTTPException(status_code=404, detail="Project not found")
 

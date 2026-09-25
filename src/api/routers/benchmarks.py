@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..access import owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 from ..schemas import (
@@ -27,8 +28,7 @@ _benchmark_dataset: list[Any] = []
 @limiter.limit(RATE_LIMIT_MODERATE)
 def contribute_benchmark(
     request: Request,
-    project_id: str,
-    _user: object = Depends(optional_auth),
+    project_id: str = Depends(owned_project),
 ) -> dict:
     """Contribute anonymized schedule metrics to the benchmark database.
 
@@ -37,10 +37,14 @@ def contribute_benchmark(
     identifying data is stored.
 
     Args:
-        project_id: The project to extract metrics from.
+        project_id: The project to extract metrics from; it must be the
+            caller's.
 
     Returns:
         Extracted benchmark metrics (anonymized).
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
     schedule = store.get(project_id)
@@ -59,9 +63,8 @@ def contribute_benchmark(
     response_model=BenchmarkCompareResponse,
 )
 def compare_benchmark(
-    project_id: str,
+    project_id: str = Depends(owned_project),
     filter_size: bool = True,
-    _user: object = Depends(optional_auth),
 ) -> BenchmarkCompareResponse:
     """Compare a project's metrics against the benchmark dataset.
 
@@ -69,8 +72,11 @@ def compare_benchmark(
     relative to other contributed projects.
 
     Args:
-        project_id: The project to compare.
+        project_id: The project to compare; it must be the caller's.
         filter_size: If True, compare only against same size category.
+
+    Raises:
+        HTTPException: 404 if the project is missing or not the caller's.
     """
     store = get_store()
     schedule = store.get(project_id)
