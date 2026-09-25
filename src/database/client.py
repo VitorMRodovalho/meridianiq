@@ -31,7 +31,13 @@ def get_supabase_client() -> Any:
             "supabase-py is required for production mode. Install it with: pip install supabase"
         ) from exc
 
-    from .config import settings
+    from .config import remote_supabase_allowed, settings
+
+    if not remote_supabase_allowed():
+        raise RuntimeError(
+            "Remote Supabase access is disabled in this process. "
+            "Set ALLOW_REMOTE_SUPABASE=1 to opt in explicitly."
+        )
 
     # Use service_role_key for backend operations (bypasses RLS)
     key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY

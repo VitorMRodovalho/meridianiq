@@ -7,6 +7,9 @@ primary_region = "iad"
 [env]
   ENVIRONMENT = "production"
   PORT = "8080"
+  # Explicit opt-in for Supabase clients (src/database/config.py
+  # remote_supabase_allowed). Local processes never inherit it from .env.
+  ALLOW_REMOTE_SUPABASE = "1"
 
 [http_service]
   internal_port = 8080
