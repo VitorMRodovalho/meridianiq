@@ -38,9 +38,25 @@ def _get_jwks_client() -> PyJWKClient | None:
     global _jwks_client
     if _jwks_client is None and settings.SUPABASE_URL:
         jwks_url = f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
-        _jwks_client = PyJWKClient(jwks_url)
+        # A short timeout: a JWKS outage is answered with a 503 that the
+        # browser retries, so a slow fetch must not pin a worker for 30 s.
+        _jwks_client = PyJWKClient(jwks_url, timeout=5)
         logger.info("Initialized JWKS client: %s", jwks_url)
     return _jwks_client
+
+
+#: PyJWT's message for a kid that is absent from the JWKS
+#: (``PyJWKClient.get_signing_key``); pinned by tests/test_auth.py.
+_UNKNOWN_KID_PREFIX = "Unable to find a signing key that matches"
+
+
+def _auth_unavailable() -> HTTPException:
+    """503 for a key-server failure, with a retry hint for clients."""
+    return HTTPException(
+        status_code=503,
+        detail="Authentication temporarily unavailable",
+        headers={"Retry-After": "5"},
+    )
 
 
 def get_current_user(
@@ -91,10 +107,14 @@ def get_current_user(
                     detail="Server misconfiguration: SUPABASE_URL not set for JWKS",
                 )
             signing_key = jwks_client.get_signing_key_from_jwt(token)
+            # The header's alg is attacker-controlled; the key decides. A
+            # mismatch (e.g. RS256 against an EC key) is a bad token, not a 500.
+            if signing_key.algorithm_name != alg:
+                raise HTTPException(status_code=401, detail="Invalid token: algorithm/key mismatch")
             payload = jwt.decode(
                 token,
                 signing_key.key,
-                algorithms=[alg],
+                algorithms=[signing_key.algorithm_name],
                 audience="authenticated",
             )
         else:
@@ -112,14 +132,24 @@ def get_current_user(
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.PyJWKClientConnectionError as e:
-        # The JWKS endpoint was unreachable: the token was not judged, so
-        # this is neither a 401 nor an unhandled 500.
+        # The JWKS endpoint was unreachable: the token was not judged.
         logger.warning("JWKS fetch failed: %s", e)
-        raise HTTPException(status_code=503, detail="Authentication temporarily unavailable")
+        raise _auth_unavailable() from e
     except jwt.PyJWKClientError as e:
-        # No matching signing key (unknown kid, malformed JWKS response).
+        # PyJWT uses this one class both for "no key matches this kid" (the
+        # token's fault) and for a JWKS response that is not usable (the key
+        # server's fault). Only the first is the caller's problem.
         logger.warning("JWT signing key lookup failed: %s", e)
-        raise HTTPException(status_code=401, detail="Invalid token: signing key not found")
+        if str(e).startswith(_UNKNOWN_KID_PREFIX):
+            raise HTTPException(status_code=401, detail="Invalid token: signing key not found")
+        raise _auth_unavailable() from e
+    except jwt.PyJWKSetError as e:
+        # The JWKS carried no usable keys: a key-server problem.
+        logger.warning("JWKS unusable: %s", e)
+        raise _auth_unavailable() from e
+    except (jwt.InvalidKeyError, jwt.PyJWKError) as e:
+        logger.warning("JWT key rejected: %s", e)
+        raise HTTPException(status_code=401, detail="Invalid token: unusable signing key")
     except jwt.InvalidTokenError as e:
         logger.warning("JWT validation failed: %s", e)
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
@@ -205,7 +235,8 @@ def optional_auth(
     In production: raises 401 when no token is sent.
     In development: returns None when no token is sent (tests pass without tokens).
     In every environment: a token that is sent but fails verification raises,
-    so a bad token can never be downgraded to an anonymous caller.
+    so a bad token can never be downgraded to an anonymous HTTP caller. (The
+    WebSocket handshake in ``routers/ws.py`` has its own handling.)
     """
     # Check API key first
     api_key = request.headers.get("x-api-key")
