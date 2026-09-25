@@ -85,7 +85,7 @@ Required in `.env`:
 - Fly.io cold start ~10s causes 502+CORS on first request (BUG-007)
 - `web/src/lib/stores/auth.ts` uses dynamic import to break circular dependency
 - Supabase clients are only created when `ALLOW_REMOTE_SUPABASE=1` (set in `fly.toml`). `.env` is loaded at import and usually holds production credentials, so local scripts, tests and MCP sessions stay in-memory unless you opt in deliberately. Note: `env -u VAR` does not isolate, because `load_dotenv` re-reads the unset key from `.env`; blank it (`VAR=`) instead.
-- CORS origins are configurable via `ALLOWED_ORIGINS` env (comma-separated); defaults cover localhost + `meridianiq.vitormr.dev`
+- CORS origins are configurable via `ALLOWED_ORIGINS` env (comma-separated); defaults cover localhost + `getmeridianiq.com` (+ `www.`) and the previous `meridianiq.vitormr.dev`
 - `api_keys` table schema: columns are `id` (bigint), `key_id`, `key_hash`, `user_id`, `name`, `created_at`, `revoked_at`. See ADR-0017 if you find legacy 012-style columns (`key_prefix`, `is_active`, `expires_at`).
 
 ## Workflow

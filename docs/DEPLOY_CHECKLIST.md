@@ -44,13 +44,13 @@ Learned from ai-pm-research-hub: 5-phase sprint closure (Execute -> Audit -> Fix
 
 ## Post-Deploy Smoke Test
 
-- [ ] Visit https://meridianiq.vitormr.dev — landing page loads
+- [ ] Visit https://getmeridianiq.com — landing page loads
 - [ ] Login with Google OAuth — redirects correctly
 - [ ] Upload a test XER file — parses successfully
 - [ ] View project detail — health score, DCMA, charts render
 - [ ] Generate a PDF report — downloads correctly
 - [ ] Check Sentry — no new errors
-- [ ] Check API health: `curl https://meridianiq-api.fly.dev/health`
+- [ ] Check API health: `curl https://api.getmeridianiq.com/health`
 
 ## Rollback
 
