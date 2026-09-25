@@ -48,8 +48,14 @@ def get_current_user(
 ) -> Optional[dict]:
     """Extract and verify user from Supabase JWT.
 
-    Supports both HS256 and RS256 algorithms. Checks the token header
-    to determine which verification method to use.
+    Returns ``None`` only when no token was sent. A token that is present
+    but cannot be verified is always a 401 (or a 503 when the key server
+    is unreachable), never an anonymous caller.
+
+    Asymmetric tokens (ES256 and friends) are verified against the
+    project's JWKS. HS256 is the legacy shared-secret scheme: it is
+    accepted only when ``SUPABASE_JWT_SECRET`` is configured, so a
+    deployment that no longer sets the secret rejects forged HS256 tokens.
     """
     if credentials is None:
         return None
@@ -57,17 +63,19 @@ def get_current_user(
     token = credentials.credentials
 
     try:
-        # Read the token header to detect algorithm
+        # Read the token header to detect algorithm. A missing ``alg`` is
+        # rejected rather than defaulted, so it cannot select a weaker path.
         unverified_header = jwt.get_unverified_header(token)
-        alg = unverified_header.get("alg", "HS256")
+        alg = unverified_header.get("alg")
         logger.debug("JWT algorithm: %s", alg)
+        if not alg:
+            raise HTTPException(status_code=401, detail="Invalid token: missing algorithm")
 
         if alg == "HS256":
-            # Classic Supabase: verify with shared secret
+            # Legacy Supabase: verify with shared secret, only if configured
             jwt_secret = settings.SUPABASE_JWT_SECRET
             if not jwt_secret:
-                logger.warning("SUPABASE_JWT_SECRET not set — auth disabled")
-                return None
+                raise HTTPException(status_code=401, detail="Invalid token: HS256 not accepted")
             payload = jwt.decode(
                 token,
                 jwt_secret,
@@ -103,6 +111,15 @@ def get_current_user(
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.PyJWKClientConnectionError as e:
+        # The JWKS endpoint was unreachable: the token was not judged, so
+        # this is neither a 401 nor an unhandled 500.
+        logger.warning("JWKS fetch failed: %s", e)
+        raise HTTPException(status_code=503, detail="Authentication temporarily unavailable")
+    except jwt.PyJWKClientError as e:
+        # No matching signing key (unknown kid, malformed JWKS response).
+        logger.warning("JWT signing key lookup failed: %s", e)
+        raise HTTPException(status_code=401, detail="Invalid token: signing key not found")
     except jwt.InvalidTokenError as e:
         logger.warning("JWT validation failed: %s", e)
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
@@ -182,11 +199,13 @@ def optional_auth(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Optional[dict]:
-    """Optional auth — returns user or None, never raises in development.
+    """Optional auth — returns the user, or None only for an anonymous dev caller.
 
     Checks X-API-Key header first, then falls back to JWT Bearer token.
-    In production: raises 401 if no valid token.
-    In development: returns None (tests pass without tokens).
+    In production: raises 401 when no token is sent.
+    In development: returns None when no token is sent (tests pass without tokens).
+    In every environment: a token that is sent but fails verification raises,
+    so a bad token can never be downgraded to an anonymous caller.
     """
     # Check API key first
     api_key = request.headers.get("x-api-key")
@@ -204,12 +223,7 @@ def optional_auth(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return None
-    try:
-        return get_current_user(credentials)
-    except HTTPException:
-        if settings.ENVIRONMENT == "production":
-            raise
-        return None
+    return get_current_user(credentials)
 
 
 # ══════════════════════════════════════════════════════════
