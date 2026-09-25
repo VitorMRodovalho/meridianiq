@@ -14,7 +14,6 @@ import os
 from typing import Any
 
 from src.database.store import get_store as _get_db_store
-from src.parser.models import ParsedSchedule
 
 from .storage import EVMStore, ReportStore, RiskStore, TIAStore, TimelineStore
 
@@ -92,17 +91,6 @@ def get_risk_store() -> RiskStore:
 def get_report_store() -> ReportStore:
     """Return the report store."""
     return _report_store
-
-
-def get_schedule_or_404(project_id: str, user_id: str | None = None) -> ParsedSchedule:
-    """Fetch a parsed schedule, raising 404 if not found."""
-    from fastapi import HTTPException
-
-    store = get_store()
-    schedule = store.get(project_id, user_id=user_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
-    return schedule
 
 
 # Shared rate-limit buckets — use these instead of hard-coding per-router
