@@ -8,7 +8,8 @@ from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..auth import optional_auth, require_auth
+from ..access import AccessContext, get_access
+from ..auth import require_auth
 from ..deps import (
     RATE_LIMIT_EXPENSIVE,
     RATE_LIMIT_WRITE,
@@ -191,12 +192,13 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 def reconcile_ips(
     request: Request,
     body: dict,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Run IPS reconciliation between a master schedule and sub-schedules.
 
     Per AACE RP 71R-12. Checks milestone alignment, date consistency,
-    float consistency, and WBS alignment.
+    float consistency, and WBS alignment. Every id is authorized before
+    any schedule is read.
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
@@ -207,6 +209,11 @@ def reconcile_ips(
 
     Returns:
         IPSReconciliationResult as dict.
+
+    Raises:
+        HTTPException: 400 if an id is absent or not a string; 404 if any
+            project is missing or not the caller's (one hidden id fails the
+            whole request).
     """
     from src.analytics.ips_reconciliation import IPSReconciler
 
@@ -218,19 +225,29 @@ def reconcile_ips(
             status_code=400,
             detail="master_project_id and sub_project_ids are required",
         )
+    if (
+        not isinstance(master_id, str)
+        or not isinstance(sub_ids, list)
+        or not all(isinstance(sid, str) for sid in sub_ids)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="master_project_id must be a string and sub_project_ids a list of strings",
+        )
+    master_id = ctx.project(master_id)
+    sub_ids = ctx.projects(sub_ids)
 
     store = get_store()
-    user_id = _user["id"] if _user else None
 
-    master = store.get(master_id, user_id=user_id)
+    master = store.get(master_id)
     if master is None:
-        raise HTTPException(status_code=404, detail=f"Master project {master_id} not found")
+        raise HTTPException(status_code=404, detail="Project not found")
 
     subs = []
     for sid in sub_ids:
-        sub = store.get(sid, user_id=user_id)
+        sub = store.get(sid)
         if sub is None:
-            raise HTTPException(status_code=404, detail=f"Sub-schedule {sid} not found")
+            raise HTTPException(status_code=404, detail="Project not found")
         subs.append(sub)
 
     reconciler = IPSReconciler(master)
@@ -249,12 +266,13 @@ def reconcile_ips(
 def validate_recovery(
     request: Request,
     body: dict,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> dict:
     """Validate a recovery schedule against the impacted schedule.
 
     Per AACE RP 29R-03 Section 4. Checks duration compression,
-    scope changes, float consumption, and logic integrity.
+    scope changes, float consumption, and logic integrity. Both ids are
+    authorized before either schedule is read.
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
@@ -262,6 +280,10 @@ def validate_recovery(
 
             - impacted_project_id (str): the impacted schedule
             - recovery_project_id (str): the proposed recovery schedule
+
+    Raises:
+        HTTPException: 400 if an id is absent or not a string; 404 if either
+            project is missing or not the caller's.
     """
     from src.analytics.recovery_validation import RecoveryValidator
 
@@ -273,17 +295,19 @@ def validate_recovery(
             status_code=400,
             detail="impacted_project_id and recovery_project_id are required",
         )
+    if not isinstance(impacted_id, str) or not isinstance(recovery_id, str):
+        raise HTTPException(
+            status_code=400,
+            detail="impacted_project_id and recovery_project_id must be strings",
+        )
+    impacted_id, recovery_id = ctx.projects([impacted_id, recovery_id])
 
     store = get_store()
-    user_id = _user["id"] if _user else None
 
-    impacted = store.get(impacted_id, user_id=user_id)
-    if impacted is None:
-        raise HTTPException(status_code=404, detail=f"Impacted schedule {impacted_id} not found")
-
-    recovery = store.get(recovery_id, user_id=user_id)
-    if recovery is None:
-        raise HTTPException(status_code=404, detail=f"Recovery schedule {recovery_id} not found")
+    impacted = store.get(impacted_id)
+    recovery = store.get(recovery_id)
+    if impacted is None or recovery is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     validator = RecoveryValidator(impacted, recovery)
     result = validator.validate()

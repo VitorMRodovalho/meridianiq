@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.analytics.comparison import ScheduleComparison
 
-from ..auth import optional_auth
+from ..access import AccessContext, get_access
 from ..deps import RATE_LIMIT_ANALYSIS, get_store, limiter
 from ..schemas import (
     ActivityChangeSchema,
@@ -31,28 +31,26 @@ router = APIRouter()
 def compare_schedules(
     request: Request,
     body: CompareRequest,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> CompareResponse:
     """Compare two uploaded projects (baseline vs update).
+
+    Both ids are authorized before either schedule is read.
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
         body: Contains baseline_id and update_id.
 
     Raises:
-        HTTPException: If either project is not found.
+        HTTPException: 404 if either project is missing or not the caller's.
     """
+    baseline_id, update_id = ctx.projects([body.baseline_id, body.update_id])
     store = get_store()
 
-    baseline = store.get(body.baseline_id)
-    if baseline is None:
-        raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {body.baseline_id}"
-        )
-
-    update = store.get(body.update_id)
-    if update is None:
-        raise HTTPException(status_code=404, detail=f"Update project not found: {body.update_id}")
+    baseline = store.get(baseline_id)
+    update = store.get(update_id)
+    if baseline is None or update is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     comparison = ScheduleComparison(baseline, update)
     result = comparison.compare()
