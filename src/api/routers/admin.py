@@ -22,7 +22,7 @@ from ..deps import (
     granted_schedule,
     limiter,
 )
-from ..schemas import MAX_PROJECT_IDS, GDPRDeleteResponse
+from ..schemas import MAX_SERIES_PROJECT_IDS, GDPRDeleteResponse
 
 router = APIRouter()
 
@@ -213,7 +213,7 @@ def reconcile_ips(
 
     Raises:
         HTTPException: 400 if an id is absent or not a string, or if there
-            are more than 50 sub-projects; 404 if any project is missing or
+            are more than MAX_SERIES_PROJECT_IDS sub-projects; 404 if any project is missing or
             not the caller's (one hidden id fails the whole request).
     """
     from src.analytics.ips_reconciliation import IPSReconciler
@@ -235,10 +235,10 @@ def reconcile_ips(
             status_code=400,
             detail="master_project_id must be a string and sub_project_ids a list of strings",
         )
-    if len(sub_ids) > MAX_PROJECT_IDS:
+    if len(sub_ids) > MAX_SERIES_PROJECT_IDS:
         raise HTTPException(
             status_code=400,
-            detail=f"Maximum {MAX_PROJECT_IDS} sub-projects per reconciliation",
+            detail=f"Maximum {MAX_SERIES_PROJECT_IDS} sub-projects per reconciliation",
         )
     master_id = ctx.project(master_id)
     sub_ids = ctx.projects(sub_ids)

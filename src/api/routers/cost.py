@@ -18,7 +18,7 @@ from ..deps import (
     granted_schedule,
     limiter,
 )
-from ..schemas import MAX_PROJECT_IDS
+from ..schemas import MAX_TREND_PROJECT_IDS
 
 router = APIRouter()
 
@@ -201,7 +201,7 @@ def get_schedule_trends(
 
     Raises:
         HTTPException: 400 if ``project_ids`` is empty, not a list of
-            strings, or longer than 50; 404 if any project is missing, not
+            strings, or longer than MAX_TREND_PROJECT_IDS; 404 if any project is missing, not
             the caller's, or has no loadable schedule.
 
     Reference: AACE RP 29R-03 — Forensic Schedule Analysis.
@@ -211,8 +211,10 @@ def get_schedule_trends(
         raise HTTPException(status_code=400, detail="project_ids required")
     if not isinstance(project_ids, list) or not all(isinstance(p, str) for p in project_ids):
         raise HTTPException(status_code=400, detail="project_ids must be a list of strings")
-    if len(project_ids) > MAX_PROJECT_IDS:
-        raise HTTPException(status_code=400, detail=f"Maximum {MAX_PROJECT_IDS} projects per trend")
+    if len(project_ids) > MAX_TREND_PROJECT_IDS:
+        raise HTTPException(
+            status_code=400, detail=f"Maximum {MAX_TREND_PROJECT_IDS} projects per trend"
+        )
     project_ids = ctx.projects(project_ids)
 
     include_scorecard: bool = body.get("include_scorecard", False)

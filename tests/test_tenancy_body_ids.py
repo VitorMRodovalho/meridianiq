@@ -65,6 +65,7 @@ from pydantic import BaseModel, Field
 
 import src.api.deps as deps
 import src.api.routers as routers_pkg
+from src.api import schemas
 from src.api import access, auth, organizations
 from src.api.app import app
 from src.api.routers import admin, comparison, cost, forensics
@@ -462,15 +463,24 @@ def test_malformed_ids_are_a_bad_request_before_any_lookup(
 # ------------------------------------------------------------------ #
 
 #: Routes whose body carries a list of ids: the most ids ``Route.body`` may
-#: hold, and the answer to one more. Reconcile holds a master id plus 50 sub ids.
+#: hold, and the answer to one more. Reconcile holds a master id plus the subs.
+_SERIES = schemas.MAX_SERIES_PROJECT_IDS
 CAPPED: list[tuple[str, int, int]] = [
-    ("/api/v1/forensic/mip-3-2", 50, 422),
-    ("/api/v1/forensic/mip-3-5", 50, 422),
-    ("/api/v1/forensic/mip-3-7", 50, 422),
-    ("/api/v1/forensic/create-timeline", 50, 422),
-    ("/api/v1/trends", 50, 400),
-    ("/api/v1/ips/reconcile", 51, 400),
+    ("/api/v1/forensic/mip-3-2", _SERIES, 422),
+    ("/api/v1/forensic/mip-3-5", _SERIES, 422),
+    ("/api/v1/forensic/mip-3-7", _SERIES, 422),
+    ("/api/v1/forensic/create-timeline", _SERIES, 422),
+    ("/api/v1/trends", schemas.MAX_TREND_PROJECT_IDS, 400),
+    ("/api/v1/ips/reconcile", _SERIES + 1, 400),
 ]
+
+
+def test_series_routes_accept_a_multi_year_program() -> None:
+    """Forensic series must fit five years of monthly updates (60), as on main."""
+    assert schemas.MAX_SERIES_PROJECT_IDS >= 60
+    assert schemas.MAX_TREND_PROJECT_IDS == 50  # unchanged from main
+
+
 _BY_PATH = {r.path: r for r in ROUTES}
 
 

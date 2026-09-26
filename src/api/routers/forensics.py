@@ -123,7 +123,7 @@ def create_timeline(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: Contains a list of project_ids (2 to 50).
+        body: Contains a list of project_ids (2 to MAX_SERIES_PROJECT_IDS).
         bifurcated: If True, run MIP 3.4 half-step analysis per window.
 
     Raises:
@@ -338,7 +338,7 @@ def run_mip_3_2(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: Contains project_ids (2 to 50).
+        body: Contains project_ids (2 to MAX_SERIES_PROJECT_IDS).
 
     Raises:
         HTTPException: 404 if any project is missing or not the caller's
@@ -484,7 +484,7 @@ def run_mip_3_7(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: project_ids (2 to 50) + optional per-window delay
+        body: project_ids (2 to MAX_SERIES_PROJECT_IDS) + optional per-window delay
             event bundles.
 
     Raises:
@@ -583,7 +583,7 @@ def run_mip_3_5(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: project_ids (2 to 50) + optional per-window delay
+        body: project_ids (2 to MAX_SERIES_PROJECT_IDS) + optional per-window delay
             event bundles.
 
     Raises:
