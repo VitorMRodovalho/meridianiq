@@ -11,7 +11,10 @@ CREATE ROLE service_role NOLOGIN BYPASSRLS;
 CREATE ROLE supabase_auth_admin LOGIN NOINHERIT CREATEROLE NOSUPERUSER;
 GRANT anon, authenticated, service_role TO postgres;
 
--- Schema public is owned by postgres, and the client roles can use it.
+-- The database is owned by postgres, as in Supabase's image (so postgres
+-- can create schemas). Schema public is owned by postgres, and the client
+-- roles can use it.
+ALTER DATABASE postgres OWNER TO postgres;
 ALTER SCHEMA public OWNER TO postgres;
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 

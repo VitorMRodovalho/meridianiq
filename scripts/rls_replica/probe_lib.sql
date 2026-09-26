@@ -85,6 +85,22 @@ LANGUAGE sql AS $fn$
     SELECT 'INFO  ' || p_label || '  =>  ' || coalesce(p_actual, '<null>')
 $fn$;
 
+-- plan(sql) returns the EXPLAIN (COSTS OFF) output of sql as one text,
+-- planned as the calling role (so its policies are expanded).
+CREATE FUNCTION pg_temp.plan(p_sql text)
+RETURNS text
+LANGUAGE plpgsql AS $fn$
+DECLARE
+    v_line text;
+    v_out  text := '';
+BEGIN
+    FOR v_line IN EXECUTE 'EXPLAIN (COSTS OFF) ' || p_sql LOOP
+        v_out := v_out || v_line || E'\n';
+    END LOOP;
+    RETURN v_out;
+END
+$fn$;
+
 -- Fixture identities (fixed, synthetic).
 \set A '''a0000000-0000-4000-8000-000000000001'''
 \set B '''b0000000-0000-4000-8000-000000000002'''

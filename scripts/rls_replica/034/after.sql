@@ -7,32 +7,75 @@ SELECT pg_temp.expect('s01 policies reading memberships directly', 'OK 0',
               AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ '\mmemberships\M'));
 SELECT pg_temp.expect('s02 helper definer / stable / search_path empty / owner', 'OK true|s|true|postgres',
     'OK ' || (SELECT prosecdef::text || '|' || provolatile::text || '|' || (proconfig = ARRAY['search_path=""'])::text || '|' || pg_get_userbyid(proowner)
-              FROM pg_proc WHERE oid = 'public.is_org_member(uuid, text[])'::regprocedure));
+              FROM pg_proc WHERE oid = 'private.is_org_member(uuid, text[])'::regprocedure));
 SELECT pg_temp.expect('s03 helper EXECUTE anon/authenticated/service_role', 'OK f/t/t',
-    'OK ' || has_function_privilege('anon', 'public.is_org_member(uuid, text[])', 'EXECUTE')::text::char(1)
-    || '/' || has_function_privilege('authenticated', 'public.is_org_member(uuid, text[])', 'EXECUTE')::text::char(1)
-    || '/' || has_function_privilege('service_role', 'public.is_org_member(uuid, text[])', 'EXECUTE')::text::char(1));
-SELECT pg_temp.expect('s04 tables where anon or authenticated may INSERT/UPDATE/DELETE/TRUNCATE', 'OK 0 of 56',
+    'OK ' || has_function_privilege('anon', 'private.is_org_member(uuid, text[])', 'EXECUTE')::text::char(1)
+    || '/' || has_function_privilege('authenticated', 'private.is_org_member(uuid, text[])', 'EXECUTE')::text::char(1)
+    || '/' || has_function_privilege('service_role', 'private.is_org_member(uuid, text[])', 'EXECUTE')::text::char(1));
+SELECT pg_temp.expect('s03b is_org_member exists only in schema private, owned by postgres, no client USAGE on it', 'OK private|postgres|f/f',
+    'OK ' || (SELECT string_agg(pronamespace::regnamespace::text, ',') FROM pg_proc WHERE proname = 'is_org_member')
+    || '|' || (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'private')
+    || '|' || has_schema_privilege('anon', 'private', 'USAGE')::text::char(1)
+    || '/' || has_schema_privilege('authenticated', 'private', 'USAGE')::text::char(1));
+-- Write privileges: table level, and column level (INSERT/UPDATE/REFERENCES
+-- on a column survive a table-level check), over every relation kind a
+-- client could reach.
+SELECT pg_temp.expect('s04 relations where anon or authenticated may write (table or column level)', 'OK 0 of 56',
     'OK ' || (SELECT count(*) FROM pg_class c CROSS JOIN (VALUES ('anon'), ('authenticated')) AS r(role)
-              WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
-                AND has_table_privilege(r.role, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
-    || ' of ' || (SELECT count(*) FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'));
+              WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+                AND (has_table_privilege(r.role, c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN')
+                     OR has_any_column_privilege(r.role, c.oid, 'INSERT, UPDATE, REFERENCES')))
+    || ' of ' || (SELECT count(*) FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r', 'p', 'v', 'm', 'f')));
+SELECT pg_temp.expect('s04b instrument control: a column-level UPDATE grant, table-level predicate vs s04 predicate', 'OK 0/1',
+    pg_temp.run_as('service_role', NULL,
+        $q$SELECT (SELECT count(*) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
+                     AND has_table_privilege('authenticated', c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE'))
+           || '/' || (SELECT count(*) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
+                     AND has_any_column_privilege('authenticated', c.oid, 'INSERT, UPDATE, REFERENCES'))$q$,
+        'GRANT UPDATE (notes) ON public.value_milestones TO authenticated'));
 SELECT pg_temp.expect('s05 tables where service_role keeps SELECT+INSERT+UPDATE+DELETE', 'OK 56',
     'OK ' || (SELECT count(*) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
               AND has_table_privilege('service_role', c.oid, 'SELECT')
               AND has_table_privilege('service_role', c.oid, 'INSERT')
               AND has_table_privilege('service_role', c.oid, 'UPDATE')
               AND has_table_privilege('service_role', c.oid, 'DELETE')));
-SELECT pg_temp.expect('s06 org tables readable by anon', 'OK 0',
+SELECT pg_temp.expect('s06 org tables readable by anon (any column)', 'OK 0',
     'OK ' || (SELECT count(*) FROM unnest(ARRAY['organizations','memberships','project_shares','program_shares','audit_log','forensic_access_log','value_milestones']) t
-              WHERE has_table_privilege('anon', format('public.%I', t), 'SELECT')));
-SELECT pg_temp.expect('s07 org tables readable by authenticated (program_shares excluded)', 'OK 6',
+              WHERE has_any_column_privilege('anon', format('public.%I', t), 'SELECT')));
+SELECT pg_temp.expect('s07 org tables readable by authenticated, any column (program_shares excluded)', 'OK 6',
     'OK ' || (SELECT count(*) FROM unnest(ARRAY['organizations','memberships','project_shares','program_shares','audit_log','forensic_access_log','value_milestones']) t
-              WHERE has_table_privilege('authenticated', format('public.%I', t), 'SELECT')));
+              WHERE has_any_column_privilege('authenticated', format('public.%I', t), 'SELECT')));
+SELECT pg_temp.expect('s07b memberships columns authenticated may read', 'OK accepted_at,org_id,role,user_id',
+    'OK ' || (SELECT string_agg(attname, ',' ORDER BY attname) FROM pg_attribute
+              WHERE attrelid = 'public.memberships'::regclass AND attnum > 0 AND NOT attisdropped
+                AND has_column_privilege('authenticated', attrelid, attnum, 'SELECT')));
 SELECT pg_temp.expect('s08 other tables keep SELECT for anon', 'OK 49',
     'OK ' || (SELECT count(*) FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
               AND c.relname NOT IN ('organizations','memberships','project_shares','program_shares','audit_log','forensic_access_log','value_milestones')
               AND has_table_privilege('anon', c.oid, 'SELECT')));
+SELECT pg_temp.expect('s09 default privileges of postgres in public, for anon and authenticated', 'OK anon=SELECT,authenticated=SELECT',
+    'OK ' || (SELECT string_agg(pg_get_userbyid(a.grantee) || '=' || a.privilege_type, ',' ORDER BY 1)
+              FROM pg_default_acl d CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+              WHERE d.defaclrole = 'postgres'::regrole AND d.defaclnamespace = 'public'::regnamespace
+                AND d.defaclobjtype = 'r' AND a.grantee IN ('anon'::regrole, 'authenticated'::regrole)));
+SELECT pg_temp.expect('s10 a table postgres creates after 034: anon INSERT / authenticated DELETE / authenticated SELECT', 'OK f/f/t',
+    pg_temp.run_as('service_role', NULL,
+        $q$SELECT has_table_privilege('anon', 'public.probe_future', 'INSERT')::text::char(1)
+                  || '/' || has_table_privilege('authenticated', 'public.probe_future', 'DELETE')::text::char(1)
+                  || '/' || has_table_privilege('authenticated', 'public.probe_future', 'SELECT')::text::char(1)$q$,
+        'SET LOCAL ROLE postgres; CREATE TABLE public.probe_future (id int); RESET ROLE'));
+SELECT pg_temp.expect('s11 policies of 034 that call auth.uid() outside a scalar subquery', 'OK 0',
+    'OK ' || (SELECT count(*) FROM pg_policies
+              WHERE schemaname = 'public'
+                AND policyname IN ('projects_select_owner', 'project_shares_select_project_owner',
+                                   'value_milestones_select_project_owner', 'forensic_timelines_select_owner')
+                AND regexp_count(qual, 'uid\(\)') <> regexp_count(qual, 'SELECT (auth\.)?uid\(\) AS uid')));
+SELECT pg_temp.expect('s12 instrument control: a bare auth.uid() filter plans no InitPlan, a scalar subquery does', 'OK false/true',
+    pg_temp.run_as('service_role', NULL,
+        $q$SELECT (pg_temp.plan('SELECT * FROM public.forensic_timelines WHERE user_id = auth.uid()') ~ 'InitPlan')::text
+                  || '/' || (pg_temp.plan('SELECT * FROM public.forensic_timelines WHERE user_id = (SELECT auth.uid())') ~ 'InitPlan')::text$q$));
+SELECT pg_temp.expect('s13 forensic_timelines read as authenticated evaluates auth.uid() once (InitPlan)', 'OK true',
+    pg_temp.run_as('authenticated', :A, $q$SELECT (pg_temp.plan('SELECT * FROM public.forensic_timelines') ~ 'InitPlan')::text$q$));
 
 \echo == reads as authenticated: organizations
 SELECT pg_temp.expect('r01 A organizations', 'OK Alice''s Workspace,Org X',
@@ -61,6 +104,12 @@ SELECT pg_temp.expect('r15 D sees nothing of X', 'OK 0',
     pg_temp.run_as('authenticated', :D, format('SELECT count(*)::text FROM public.memberships WHERE org_id = %L', :X)));
 SELECT pg_temp.expect('r16 no jwt subject sees no memberships', 'OK 0',
     pg_temp.run_as('authenticated', NULL, 'SELECT count(*)::text FROM public.memberships'));
+SELECT pg_temp.expect('r17 B reads invited_by of X members (not granted)', 'ERR 42501 permission denied for table memberships',
+    pg_temp.run_as('authenticated', :B, format('SELECT count(invited_by)::text FROM public.memberships WHERE org_id = %L', :X)));
+SELECT pg_temp.expect('r18 B reads created_at and id of X members (not granted)', 'ERR 42501 permission denied for table memberships',
+    pg_temp.run_as('authenticated', :B, format('SELECT count(created_at)::text || count(id)::text FROM public.memberships WHERE org_id = %L', :X)));
+SELECT pg_temp.expect('r19 B reads the granted columns of X members', 'OK 3/3/3',
+    pg_temp.run_as('authenticated', :B, format('SELECT count(user_id) || ''/'' || count(accepted_at) || ''/'' || count(org_id) FROM public.memberships WHERE org_id = %L', :X)));
 
 \echo == reads as authenticated: audit and forensic logs (owner/admin of X)
 SELECT pg_temp.expect('r20 A audit_log', 'OK 1', pg_temp.run_as('authenticated', :A, 'SELECT count(*)::text FROM public.audit_log'));
@@ -92,14 +141,15 @@ SELECT pg_temp.expect('r44 E forensic_timelines (org admin)', 'OK 0', pg_temp.ru
 SELECT pg_temp.expect('r45 A revision_history', 'OK 1', pg_temp.run_as('authenticated', :A, 'SELECT count(*)::text FROM public.revision_history'));
 SELECT pg_temp.expect('r46 D revision_history', 'OK 0', pg_temp.run_as('authenticated', :D, 'SELECT count(*)::text FROM public.revision_history'));
 
-\echo == helper answers (org X, org X as owner/admin)
-SELECT pg_temp.expect('h01 A', 'OK t/t', pg_temp.run_as('authenticated', :A, format($q$SELECT public.is_org_member(%L)::text::char(1) || '/' || public.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X)));
-SELECT pg_temp.expect('h02 B', 'OK t/f', pg_temp.run_as('authenticated', :B, format($q$SELECT public.is_org_member(%L)::text::char(1) || '/' || public.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X)));
-SELECT pg_temp.expect('h03 C (pending admin)', 'OK f/f', pg_temp.run_as('authenticated', :C, format($q$SELECT public.is_org_member(%L)::text::char(1) || '/' || public.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X)));
-SELECT pg_temp.expect('h04 D', 'OK f/f', pg_temp.run_as('authenticated', :D, format($q$SELECT public.is_org_member(%L)::text::char(1) || '/' || public.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X)));
-SELECT pg_temp.expect('h05 E', 'OK t/t', pg_temp.run_as('authenticated', :E, format($q$SELECT public.is_org_member(%L)::text::char(1) || '/' || public.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X)));
-SELECT pg_temp.expect('h06 A with NULL org', 'OK false', pg_temp.run_as('authenticated', :A, 'SELECT public.is_org_member(NULL)::text'));
-SELECT pg_temp.expect('h07 no jwt subject', 'OK false', pg_temp.run_as('authenticated', NULL, format('SELECT public.is_org_member(%L)::text', :X)));
+\echo == helper answers (org X, org X as owner/admin); USAGE on private granted inside each rolled-back probe
+\set usage '''GRANT USAGE ON SCHEMA private TO authenticated'''
+SELECT pg_temp.expect('h01 A', 'OK t/t', pg_temp.run_as('authenticated', :A, format($q$SELECT private.is_org_member(%L)::text::char(1) || '/' || private.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X), :usage));
+SELECT pg_temp.expect('h02 B', 'OK t/f', pg_temp.run_as('authenticated', :B, format($q$SELECT private.is_org_member(%L)::text::char(1) || '/' || private.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X), :usage));
+SELECT pg_temp.expect('h03 C (pending admin)', 'OK f/f', pg_temp.run_as('authenticated', :C, format($q$SELECT private.is_org_member(%L)::text::char(1) || '/' || private.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X), :usage));
+SELECT pg_temp.expect('h04 D', 'OK f/f', pg_temp.run_as('authenticated', :D, format($q$SELECT private.is_org_member(%L)::text::char(1) || '/' || private.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X), :usage));
+SELECT pg_temp.expect('h05 E', 'OK t/t', pg_temp.run_as('authenticated', :E, format($q$SELECT private.is_org_member(%L)::text::char(1) || '/' || private.is_org_member(%L, ARRAY['owner','admin'])::text::char(1)$q$, :X, :X), :usage));
+SELECT pg_temp.expect('h06 A with NULL org', 'OK false', pg_temp.run_as('authenticated', :A, 'SELECT private.is_org_member(NULL)::text', :usage));
+SELECT pg_temp.expect('h07 no jwt subject', 'OK false', pg_temp.run_as('authenticated', NULL, format('SELECT private.is_org_member(%L)::text', :X), :usage));
 
 \echo == mutation control: a helper whose parameter is named like a column
 SELECT pg_temp.expect('m01 shadowed helper answers true for outsider D on X', 'OK true',
@@ -121,9 +171,9 @@ SELECT pg_temp.expect('m02 shadowed helper answers true for a random org id', 'O
                                 AND (roles IS NULL OR m.role = ANY (roles))) $b$;
            GRANT EXECUTE ON FUNCTION public.is_org_member_shadowed(uuid, text[]) TO authenticated$s$));
 SELECT pg_temp.expect('m03 real helper for outsider D on X', 'OK false',
-    pg_temp.run_as('authenticated', :D, format('SELECT public.is_org_member(%L)::text', :X)));
+    pg_temp.run_as('authenticated', :D, format('SELECT private.is_org_member(%L)::text', :X), :usage));
 SELECT pg_temp.expect('m04 real helper for a random org id', 'OK false',
-    pg_temp.run_as('authenticated', :A, 'SELECT public.is_org_member(gen_random_uuid())::text'));
+    pg_temp.run_as('authenticated', :A, 'SELECT private.is_org_member(gen_random_uuid())::text', :usage));
 
 \echo == writes as authenticated (the grant layer answers first)
 SELECT pg_temp.expect('w01 A insert memberships into X', 'ERR 42501 permission denied for table memberships',
@@ -201,8 +251,12 @@ SELECT pg_temp.expect('a02 anon select memberships', 'ERR 42501 permission denie
     pg_temp.run_as('anon', NULL, 'SELECT count(*)::text FROM public.memberships'));
 SELECT pg_temp.expect('a03 anon select projects', 'OK 0',
     pg_temp.run_as('anon', NULL, 'SELECT count(*)::text FROM public.projects'));
-SELECT pg_temp.expect('a04 anon call is_org_member', 'ERR 42501 permission denied for function is_org_member',
-    pg_temp.run_as('anon', NULL, format('SELECT public.is_org_member(%L)::text', :X)));
+SELECT pg_temp.expect('a04 anon call is_org_member', 'ERR 42501 permission denied for schema private',
+    pg_temp.run_as('anon', NULL, format('SELECT private.is_org_member(%L)::text', :X)));
+SELECT pg_temp.expect('a05 authenticated direct call is_org_member (policies still use it: r01-r16)', 'ERR 42501 permission denied for schema private',
+    pg_temp.run_as('authenticated', :A, format('SELECT private.is_org_member(%L)::text', :X)));
+SELECT pg_temp.expect('a06 anon call is_org_member with USAGE granted: the function grant answers', 'ERR 42501 permission denied for function is_org_member',
+    pg_temp.run_as('anon', NULL, format('SELECT private.is_org_member(%L)::text', :X), 'GRANT USAGE ON SCHEMA private TO anon'));
 
 \echo == RPCs for their callers
 SELECT pg_temp.expect('p01 set_project_sandbox, owner A', 'OK {"project_id" : "30000000-0000-4000-8000-0000000000b1", "is_sandbox" : true}',
