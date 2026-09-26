@@ -12,13 +12,18 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from fastapi import HTTPException
 
 from starlette.requests import Request
 
 from src.database.store import get_store as _get_db_store
 
 from .storage import EVMStore, ReportStore, RiskStore, TIAStore, TimelineStore
+
+if TYPE_CHECKING:
+    from src.parser.models import ParsedSchedule
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +45,22 @@ _sandbox_projects: set[str] = set()
 def get_store() -> Any:
     """Return the global data store (InMemory or Supabase)."""
     return _store
+
+
+def granted_schedule(store: Any, project_id: str) -> ParsedSchedule:
+    """Load the schedule of a project the access context has already granted.
+
+    A ``None`` from the store is then not an access decision: the caller may
+    reach the project, so it was deleted after the check or its schedule could
+    not be rebuilt (the Supabase store returns ``None`` on a storage or parse
+    failure). The answer stays a 404, and the id is logged, so a "Project not
+    found" report can be traced to the project that failed to load.
+    """
+    schedule: ParsedSchedule | None = store.get(project_id)
+    if schedule is None:
+        logger.warning("granted project %s has no loadable schedule", project_id)
+        raise HTTPException(status_code=404, detail="Project not found")
+    return schedule
 
 
 # ------------------------------------------------------------------ #

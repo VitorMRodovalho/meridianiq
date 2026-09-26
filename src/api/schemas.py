@@ -373,11 +373,23 @@ class CompareResponse(BaseModel):
 # ── Forensic Analysis ─────────────────────────────────
 
 
+#: Most schedule updates one forensic or IPS request may name. Each id costs a
+#: full schedule load and an engine pass, so the list is bounded before any
+#: lookup; 200 covers about four years of weekly updates (AACE RP 29R-03
+#: windows analyses use every update in the period).
+MAX_SERIES_PROJECT_IDS = 200
+#: Most projects one /trends request may name (the limit that route has always had).
+MAX_TREND_PROJECT_IDS = 50
+
+
 class CreateTimelineRequest(BaseModel):
     """Request body for POST /api/v1/forensic/create-timeline."""
 
     project_ids: list[str] = Field(
-        ..., min_length=2, description="At least 2 project IDs sorted by data date"
+        ...,
+        min_length=2,
+        max_length=MAX_SERIES_PROJECT_IDS,
+        description=f"2 to {MAX_SERIES_PROJECT_IDS} project IDs sorted by data date",
     )
 
 
@@ -446,7 +458,10 @@ class Mip32Request(BaseModel):
     """Request body for POST /api/v1/forensic/mip-3-2."""
 
     project_ids: list[str] = Field(
-        ..., min_length=2, description="At least 2 project IDs in chronological order"
+        ...,
+        min_length=2,
+        max_length=MAX_SERIES_PROJECT_IDS,
+        description=f"2 to {MAX_SERIES_PROJECT_IDS} project IDs in chronological order",
     )
 
 
@@ -535,7 +550,8 @@ class Mip37Request(BaseModel):
     project_ids: list[str] = Field(
         ...,
         min_length=2,
-        description="At least 2 project IDs in chronological order",
+        max_length=MAX_SERIES_PROJECT_IDS,
+        description=f"2 to {MAX_SERIES_PROJECT_IDS} project IDs in chronological order",
     )
     window_delay_events: list[WindowDelayEventsSchema] = Field(
         default_factory=list,
@@ -574,7 +590,8 @@ class Mip35Request(BaseModel):
     project_ids: list[str] = Field(
         ...,
         min_length=2,
-        description="At least 2 project IDs in chronological order",
+        max_length=MAX_SERIES_PROJECT_IDS,
+        description=f"2 to {MAX_SERIES_PROJECT_IDS} project IDs in chronological order",
     )
     window_delay_events: list[WindowDelayEventsSchema] = Field(
         default_factory=list,

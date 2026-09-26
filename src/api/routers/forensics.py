@@ -18,11 +18,15 @@ from src.analytics.mip_subtractive import (
     analyze_mip_3_6,
     analyze_mip_3_7,
 )
-from src.parser.models import ParsedSchedule
 
 from ..access import AccessContext, get_access
-from ..auth import optional_auth
-from ..deps import RATE_LIMIT_MODERATE, get_store, get_timeline_store, limiter
+from ..deps import (
+    RATE_LIMIT_MODERATE,
+    get_store,
+    get_timeline_store,
+    granted_schedule,
+    limiter,
+)
 from ..schemas import (
     AppliedAdditiveEventSchema,
     AppliedDelayEventSchema,
@@ -119,7 +123,7 @@ def create_timeline(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: Contains a list of project_ids (minimum 2).
+        body: Contains a list of project_ids (2 to MAX_SERIES_PROJECT_IDS).
         bifurcated: If True, run MIP 3.4 half-step analysis per window.
 
     Raises:
@@ -130,12 +134,7 @@ def create_timeline(
     store = get_store()
     tl_store = get_timeline_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     try:
         analyzer = ForensicAnalyzer(schedules, list(project_ids), bifurcated=bifurcated)
@@ -215,31 +214,27 @@ def get_timeline(
 def run_half_step(
     request: Request,
     body: HalfStepRequest,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> HalfStepResponse:
     """Run a half-step (bifurcation) analysis between two schedule updates.
 
     Per AACE RP 29R-03 MIP 3.4, separates delay into progress effect
     (actual work performance) and revision effect (logic/plan changes).
+    Both ids are authorized before either schedule is read.
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
         body: Contains baseline_id and update_id.
 
     Raises:
-        HTTPException: If either project is not found or analysis fails.
+        HTTPException: 404 if either project is missing or not the caller's;
+            500 if the analysis fails.
     """
+    baseline_id, update_id = ctx.projects([body.baseline_id, body.update_id])
     store = get_store()
 
-    baseline = store.get(body.baseline_id)
-    if baseline is None:
-        raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {body.baseline_id}"
-        )
-
-    update = store.get(body.update_id)
-    if update is None:
-        raise HTTPException(status_code=404, detail=f"Update project not found: {body.update_id}")
+    baseline = granted_schedule(store, baseline_id)
+    update = granted_schedule(store, update_id)
 
     try:
         result = analyze_half_step(baseline, update)
@@ -273,36 +268,29 @@ def run_half_step(
 def run_mip_3_1(
     request: Request,
     body: Mip31Request,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> Mip31Response:
     """Run MIP 3.1 — Observational Static Logic / Gross comparison.
 
     Compares only the earliest (baseline) and latest (as-built) schedules
-    per AACE RP 29R-03 §3.1. No intermediate updates are examined.
+    per AACE RP 29R-03 §3.1. No intermediate updates are examined. Both
+    ids are authorized before either schedule is read.
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
         body: Contains baseline_id and final_id.
 
     Raises:
-        HTTPException: If either project is not found.
+        HTTPException: 404 if either project is missing or not the caller's.
     """
+    baseline_id, final_id = ctx.projects([body.baseline_id, body.final_id])
     store = get_store()
 
-    baseline = store.get(body.baseline_id)
-    if baseline is None:
-        raise HTTPException(
-            status_code=404, detail=f"Baseline project not found: {body.baseline_id}"
-        )
-
-    final = store.get(body.final_id)
-    if final is None:
-        raise HTTPException(status_code=404, detail=f"Final project not found: {body.final_id}")
+    baseline = granted_schedule(store, baseline_id)
+    final = granted_schedule(store, final_id)
 
     try:
-        result = analyze_mip_3_1(
-            baseline, final, baseline_id=body.baseline_id, final_id=body.final_id
-        )
+        result = analyze_mip_3_1(baseline, final, baseline_id=baseline_id, final_id=final_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"MIP 3.1 analysis failed: {exc}")
 
@@ -341,7 +329,7 @@ def run_mip_3_1(
 def run_mip_3_2(
     request: Request,
     body: Mip32Request,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> Mip32Response:
     """Run MIP 3.2 — Observational Dynamic Logic / Contemporaneous As-Is.
 
@@ -350,22 +338,19 @@ def run_mip_3_2(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: Contains project_ids (minimum 2).
+        body: Contains project_ids (2 to MAX_SERIES_PROJECT_IDS).
 
     Raises:
-        HTTPException: 404 if any project is missing, 400 on invalid input.
+        HTTPException: 404 if any project is missing or not the caller's
+            (one hidden id fails the whole request); 400 on invalid input.
     """
+    project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in body.project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     try:
-        result = analyze_mip_3_2(schedules, project_ids=list(body.project_ids))
+        result = analyze_mip_3_2(schedules, project_ids=project_ids)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -411,7 +396,7 @@ def run_mip_3_2(
 def run_mip_3_6(
     request: Request,
     body: Mip36Request,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> Mip36Response:
     """Run MIP 3.6 — Modified / Subtractive Single Simulation (Collapsed As-Built).
 
@@ -428,13 +413,13 @@ def run_mip_3_6(
         body: ``Mip36Request`` with project_id + list of delay events.
 
     Raises:
-        HTTPException: 404 if project missing, 400 on negative days.
+        HTTPException: 404 if the project is missing or not the caller's,
+            400 on negative days.
     """
+    project_id = ctx.project(body.project_id)
     store = get_store()
 
-    schedule = store.get(body.project_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail=f"Project not found: {body.project_id}")
+    schedule = granted_schedule(store, project_id)
 
     events = [
         DelayEvent(
@@ -488,7 +473,7 @@ def run_mip_3_6(
 def run_mip_3_7(
     request: Request,
     body: Mip37Request,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> Mip37Response:
     """Run MIP 3.7 — Modified / Subtractive Multiple Simulation (Windowed Collapsed).
 
@@ -499,21 +484,18 @@ def run_mip_3_7(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: project_ids (minimum 2) + optional per-window delay
+        body: project_ids (2 to MAX_SERIES_PROJECT_IDS) + optional per-window delay
             event bundles.
 
     Raises:
-        HTTPException: 404 if any project is missing, 400 on invalid
+        HTTPException: 404 if any project is missing or not the caller's
+            (one hidden id fails the whole request), 400 on invalid
             window_number or negative days.
     """
+    project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in body.project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     bundles = [
         WindowDelayEvents(
@@ -530,7 +512,7 @@ def run_mip_3_7(
         result = analyze_mip_3_7(
             schedules,
             window_delay_events=bundles,
-            project_ids=list(body.project_ids),
+            project_ids=project_ids,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -586,7 +568,7 @@ def run_mip_3_7(
 def run_mip_3_5(
     request: Request,
     body: Mip35Request,
-    _user: object = Depends(optional_auth),
+    ctx: AccessContext = Depends(get_access),
 ) -> Mip35Response:
     """Run MIP 3.5 — Modified / Additive Multiple Base (Impacted As-Planned).
 
@@ -601,21 +583,18 @@ def run_mip_3_5(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: project_ids (minimum 2) + optional per-window delay
+        body: project_ids (2 to MAX_SERIES_PROJECT_IDS) + optional per-window delay
             event bundles.
 
     Raises:
-        HTTPException: 404 if any project is missing, 400 on invalid
+        HTTPException: 404 if any project is missing or not the caller's
+            (one hidden id fails the whole request), 400 on invalid
             window_number or negative days.
     """
+    project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in body.project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail=f"Project not found: {pid}")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     bundles = [
         WindowDelayEvents(
@@ -632,7 +611,7 @@ def run_mip_3_5(
         result = analyze_mip_3_5(
             schedules,
             window_delay_events=bundles,
-            project_ids=list(body.project_ids),
+            project_ids=project_ids,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
