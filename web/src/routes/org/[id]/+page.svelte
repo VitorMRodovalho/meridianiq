@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		getOrganization,
@@ -51,6 +51,9 @@
 	let revoking = $state(false);
 	let revokeError = $state('');
 	let revokeDone = $state('');
+	let auditLoading = $state(false);
+	let inviteInput: HTMLInputElement | undefined = $state();
+	let revokeInput: HTMLInputElement | undefined = $state();
 
 	onMount(async () => {
 		try {
@@ -66,6 +69,7 @@
 
 	async function loadAudit() {
 		auditError = '';
+		auditLoading = true;
 		try {
 			const res = await getAuditLog(orgId);
 			auditEntries = res.entries;
@@ -75,6 +79,8 @@
 				e instanceof ApiError && e.status === 403
 					? $t('org_detail.manager_only')
 					: $t('org_detail.audit_load_failed');
+		} finally {
+			auditLoading = false;
 		}
 	}
 
@@ -104,6 +110,10 @@
 			inviteError = failureMessage(e, 'org_detail.invite_failed');
 		} finally {
 			inviting = false;
+			// The submit button is disabled while the request runs, which drops
+			// focus; return it to the address field.
+			await tick();
+			inviteInput?.focus();
 		}
 	}
 
@@ -128,9 +138,11 @@
 			revokeDone = `${$t('org_detail.revoke_done_prefix')} ${res.email} ${$t('org_detail.revoke_done_suffix')}`;
 			revokeEmail = '';
 		} catch (e: unknown) {
-			revokeError = failureMessage(e, 'org_detail.invite_failed');
+			revokeError = failureMessage(e, 'org_detail.revoke_failed');
 		} finally {
 			revoking = false;
+			await tick();
+			revokeInput?.focus();
 		}
 	}
 
@@ -259,15 +271,19 @@
 				{#if inviteError}
 					<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-4">{inviteError}</div>
 				{/if}
-				{#if inviteSuccess}
-					<div role="status" class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 text-sm mb-4">{inviteSuccess}</div>
-				{/if}
+				<!-- The status region stays mounted so its updates are announced. -->
+				<div role="status">
+					{#if inviteSuccess}
+						<div class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 text-sm mb-4">{inviteSuccess}</div>
+					{/if}
+				</div>
 				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
 					<label class="block sm:col-span-2">
 						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_email')}</span>
 						<input
 							type="email"
 							maxlength="320"
+							bind:this={inviteInput}
 							bind:value={inviteEmail}
 							placeholder={$t('org_detail.placeholder_email')}
 							class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
@@ -297,15 +313,18 @@
 				{#if revokeError}
 					<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-4">{revokeError}</div>
 				{/if}
-				{#if revokeDone}
-					<div role="status" class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 text-sm mb-4">{revokeDone}</div>
-				{/if}
+				<div role="status">
+					{#if revokeDone}
+						<div class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 text-sm mb-4">{revokeDone}</div>
+					{/if}
+				</div>
 				<div class="flex flex-wrap items-end gap-3">
-					<label class="block flex-1 min-w-[16rem]">
+					<label class="block w-full min-w-0 sm:w-auto sm:flex-1">
 						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_email')}</span>
 						<input
 							type="email"
 							maxlength="320"
+							bind:this={revokeInput}
 							bind:value={revokeEmail}
 							placeholder={$t('org_detail.placeholder_email')}
 							class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
@@ -323,7 +342,9 @@
 
 		{:else if activeTab === 'audit'}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
-				{#if auditError}
+				{#if auditLoading}
+					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">{$t('common.loading')}</div>
+				{:else if auditError}
 					<div role="alert" class="m-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm">{auditError}</div>
 				{:else if auditEntries.length === 0}
 					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">{$t('org_detail.empty_audit')}</div>

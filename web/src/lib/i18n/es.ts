@@ -287,6 +287,7 @@ export default {
 	'org.joined_prefix': 'Se unió a',
 	'org.declined': 'Invitación rechazada.',
 	'org.invitation_gone': 'Esta invitación cambió o ya no está disponible. La lista se actualizó.',
+	'org.invitation_gone_reload': 'Esta invitación cambió o ya no está disponible. Recargue la página para ver la lista actual.',
 	'org.invitation_failed': 'No se pudo responder a la invitación. Vuelva a intentar.',
 	'org.name_invalid': 'El nombre de la organización debe tener entre 1 y 120 caracteres.',
 
@@ -711,12 +712,13 @@ export default {
 	'org_detail.revoke_hint': 'Retira una invitación pendiente para esta dirección. Quienes ya se unieron se eliminan en la pestaña Miembros.',
 	'org_detail.btn_revoke': 'Retirar',
 	'org_detail.btn_revoking': 'Retirando...',
+	'org_detail.revoke_failed': 'No se pudo retirar la invitación.',
 	'org_detail.revoke_done_prefix': 'Cualquier invitación pendiente para',
 	'org_detail.revoke_done_suffix': 'ha sido retirada.',
 	'org_detail.audit_load_failed': 'No se pudo cargar la auditoría.',
 	'org_detail.deleted_user': 'Usuario eliminado',
-	'org_detail.action_invite_requested': 'Invitó (pendiente de aceptación)',
-	'org_detail.action_invite_revoked': 'Revocó invitación',
+	'org_detail.action_invite_requested': 'Emitió invitación',
+	'org_detail.action_invite_revoked': 'Retiró invitación',
 	'org_detail.action_accept_invite': 'Se unió por invitación',
 
 	// Milestones page

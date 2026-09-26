@@ -287,6 +287,7 @@ export default {
 	'org.joined_prefix': 'Você entrou em',
 	'org.declined': 'Convite recusado.',
 	'org.invitation_gone': 'Este convite mudou ou não está mais disponível. A lista foi atualizada.',
+	'org.invitation_gone_reload': 'Este convite mudou ou não está mais disponível. Recarregue a página para ver a lista atual.',
 	'org.invitation_failed': 'Não foi possível responder ao convite. Tente novamente.',
 	'org.name_invalid': 'O nome da organização deve ter de 1 a 120 caracteres.',
 
@@ -711,12 +712,13 @@ export default {
 	'org_detail.revoke_hint': 'Retira um convite pendente para este endereço. Quem já entrou é removido na aba Membros.',
 	'org_detail.btn_revoke': 'Retirar',
 	'org_detail.btn_revoking': 'Retirando...',
+	'org_detail.revoke_failed': 'Falha ao retirar o convite.',
 	'org_detail.revoke_done_prefix': 'Qualquer convite pendente para',
 	'org_detail.revoke_done_suffix': 'foi retirado.',
 	'org_detail.audit_load_failed': 'Falha ao carregar a trilha de auditoria.',
 	'org_detail.deleted_user': 'Usuário excluído',
-	'org_detail.action_invite_requested': 'Convidou (aguarda aceite)',
-	'org_detail.action_invite_revoked': 'Revogou convite',
+	'org_detail.action_invite_requested': 'Emitiu convite',
+	'org_detail.action_invite_revoked': 'Retirou convite',
 	'org_detail.action_accept_invite': 'Entrou por convite',
 
 	// Milestones page

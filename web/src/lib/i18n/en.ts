@@ -287,6 +287,7 @@ export default {
 	'org.joined_prefix': 'You joined',
 	'org.declined': 'Invitation declined.',
 	'org.invitation_gone': 'This invitation changed or is no longer available. The list was refreshed.',
+	'org.invitation_gone_reload': 'This invitation changed or is no longer available. Reload the page to see the current list.',
 	'org.invitation_failed': 'Could not answer the invitation. Please try again.',
 	'org.name_invalid': 'Organization names must be 1 to 120 characters.',
 
@@ -711,12 +712,13 @@ export default {
 	'org_detail.revoke_hint': 'Withdraws a pending invitation for this address. People who already joined are removed from the Members tab.',
 	'org_detail.btn_revoke': 'Withdraw',
 	'org_detail.btn_revoking': 'Withdrawing...',
+	'org_detail.revoke_failed': 'Failed to withdraw the invitation.',
 	'org_detail.revoke_done_prefix': 'Any pending invitation for',
 	'org_detail.revoke_done_suffix': 'has been withdrawn.',
 	'org_detail.audit_load_failed': 'Failed to load the audit trail.',
 	'org_detail.deleted_user': 'Deleted user',
-	'org_detail.action_invite_requested': 'Invited (pending acceptance)',
-	'org_detail.action_invite_revoked': 'Revoked invitation',
+	'org_detail.action_invite_requested': 'Issued invitation',
+	'org_detail.action_invite_revoked': 'Withdrew invitation',
 	'org_detail.action_accept_invite': 'Joined by invitation',
 
 	// Milestones page

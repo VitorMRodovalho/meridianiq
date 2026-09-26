@@ -24,6 +24,7 @@
 	let invitationError = $state('');
 	let invitationStatus = $state('');
 	let invitationsHeading: HTMLHeadingElement | undefined = $state();
+	let invitationsSection: HTMLElement | undefined = $state();
 
 	const orgTypeKeys: { value: string; labelKey: string }[] = [
 		{ value: 'owner', labelKey: 'org.type_owner' },
@@ -48,11 +49,13 @@
 		loading = false;
 	});
 
-	async function refreshInvitations() {
+	/** Reload the invitations; on failure keep the current list and report false. */
+	async function refreshInvitations(): Promise<boolean> {
 		try {
 			invitations = (await listInvitations()).invitations;
+			return true;
 		} catch {
-			invitations = [];
+			return false;
 		}
 	}
 
@@ -72,7 +75,13 @@
 					if (!orgs.some((o) => o.id === res.org_id)) {
 						orgs = [
 							...orgs,
-							{ id: res.org_id, name: inv.org_name ?? '', slug: '', org_type: 'general', role: res.role }
+							{
+								id: res.org_id,
+								name: inv.org_name ?? $t('org_detail.fallback_name'),
+								slug: '',
+								org_type: '',
+								role: res.role
+							}
 						];
 					}
 				}
@@ -85,8 +94,12 @@
 			if (e instanceof ApiError && e.status === 404) {
 				// Expired, withdrawn, already answered, or re-issued with another role:
 				// show the server's current list instead of guessing.
-				await refreshInvitations();
-				invitationError = $t('org.invitation_gone');
+				if (await refreshInvitations()) {
+					invitationError = $t('org.invitation_gone');
+				} else {
+					invitations = invitations.filter((i) => i.org_id !== inv.org_id);
+					invitationError = $t('org.invitation_gone_reload');
+				}
 			} else if (e instanceof ApiError && e.status === 429) {
 				invitationError = $t('error.rate_limited');
 			} else {
@@ -95,9 +108,13 @@
 		} finally {
 			answering = '';
 			// The answered row (and its focused button) may be gone: move focus to
-			// the panel heading so keyboard and screen-reader users keep their place.
+			// the panel heading so keyboard and screen-reader users keep their place,
+			// unless the user has already moved on to something else.
 			await tick();
-			invitationsHeading?.focus();
+			const active = document.activeElement;
+			if (!active || active === document.body || invitationsSection?.contains(active)) {
+				invitationsHeading?.focus();
+			}
 		}
 	}
 
@@ -161,6 +178,7 @@
 		<section
 			class="bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 rounded-lg p-5 mb-6"
 			aria-labelledby="invitations-title"
+			bind:this={invitationsSection}
 		>
 			<h2
 				id="invitations-title"

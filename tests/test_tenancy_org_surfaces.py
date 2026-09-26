@@ -1555,11 +1555,12 @@ class TestProjectOrganizationClaim:
         (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
         assert entry["org_id"] is None
 
-    def test_a_member_files_work_under_the_org(self, world: World) -> None:
-        """Control for the viewer case: the member role is enough."""
-        pid = str(world.store.add(XERReader(FIXTURES / "sample.xer").parse(), b"x", user_id=MEMBER))
-        world.db.seed("projects", id=pid, org_id=ORG_A, user_id=MEMBER)
-        _ok(_share(world, MEMBER, pid, ORG_B), "share own project as a member of ORG_A")
+    @pytest.mark.parametrize("writer", [MEMBER, ADMIN])
+    def test_writers_file_work_under_the_org(self, world: World, writer: str) -> None:
+        """Control for the viewer case: member and admin roles are enough."""
+        pid = str(world.store.add(XERReader(FIXTURES / "sample.xer").parse(), b"x", user_id=writer))
+        world.db.seed("projects", id=pid, org_id=ORG_A, user_id=writer)
+        _ok(_share(world, writer, pid, ORG_B), f"share own project as {NAMES[writer]} of ORG_A")
         (entry,) = [e for e in world.db.rows("audit_log", action="share") if e["entity_id"] == pid]
         assert entry["org_id"] == ORG_A
 
