@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 
 from src.analytics.comparison import ScheduleComparison
 
 from ..access import AccessContext, get_access
-from ..deps import RATE_LIMIT_ANALYSIS, get_store, limiter
+from ..deps import RATE_LIMIT_ANALYSIS, get_store, granted_schedule, limiter
 from ..schemas import (
     ActivityChangeSchema,
     CodeRestructuringSchema,
@@ -47,10 +47,8 @@ def compare_schedules(
     baseline_id, update_id = ctx.projects([body.baseline_id, body.update_id])
     store = get_store()
 
-    baseline = store.get(baseline_id)
-    update = store.get(update_id)
-    if baseline is None or update is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+    baseline = granted_schedule(store, baseline_id)
+    update = granted_schedule(store, update_id)
 
     comparison = ScheduleComparison(baseline, update)
     result = comparison.compare()

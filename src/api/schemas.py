@@ -373,11 +373,19 @@ class CompareResponse(BaseModel):
 # ── Forensic Analysis ─────────────────────────────────
 
 
+#: Most project ids one request body may name. Each id costs a full schedule
+#: load and a pass of the engine, so the list is bounded before any lookup.
+MAX_PROJECT_IDS = 50
+
+
 class CreateTimelineRequest(BaseModel):
     """Request body for POST /api/v1/forensic/create-timeline."""
 
     project_ids: list[str] = Field(
-        ..., min_length=2, description="At least 2 project IDs sorted by data date"
+        ...,
+        min_length=2,
+        max_length=MAX_PROJECT_IDS,
+        description="2 to 50 project IDs sorted by data date",
     )
 
 
@@ -446,7 +454,10 @@ class Mip32Request(BaseModel):
     """Request body for POST /api/v1/forensic/mip-3-2."""
 
     project_ids: list[str] = Field(
-        ..., min_length=2, description="At least 2 project IDs in chronological order"
+        ...,
+        min_length=2,
+        max_length=MAX_PROJECT_IDS,
+        description="2 to 50 project IDs in chronological order",
     )
 
 
@@ -535,7 +546,8 @@ class Mip37Request(BaseModel):
     project_ids: list[str] = Field(
         ...,
         min_length=2,
-        description="At least 2 project IDs in chronological order",
+        max_length=MAX_PROJECT_IDS,
+        description="2 to 50 project IDs in chronological order",
     )
     window_delay_events: list[WindowDelayEventsSchema] = Field(
         default_factory=list,
@@ -574,7 +586,8 @@ class Mip35Request(BaseModel):
     project_ids: list[str] = Field(
         ...,
         min_length=2,
-        description="At least 2 project IDs in chronological order",
+        max_length=MAX_PROJECT_IDS,
+        description="2 to 50 project IDs in chronological order",
     )
     window_delay_events: list[WindowDelayEventsSchema] = Field(
         default_factory=list,

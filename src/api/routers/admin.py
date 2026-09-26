@@ -19,9 +19,10 @@ from ..deps import (
     get_store,
     get_tia_store,
     get_timeline_store,
+    granted_schedule,
     limiter,
 )
-from ..schemas import GDPRDeleteResponse
+from ..schemas import MAX_PROJECT_IDS, GDPRDeleteResponse
 
 router = APIRouter()
 
@@ -211,9 +212,9 @@ def reconcile_ips(
         IPSReconciliationResult as dict.
 
     Raises:
-        HTTPException: 400 if an id is absent or not a string; 404 if any
-            project is missing or not the caller's (one hidden id fails the
-            whole request).
+        HTTPException: 400 if an id is absent or not a string, or if there
+            are more than 50 sub-projects; 404 if any project is missing or
+            not the caller's (one hidden id fails the whole request).
     """
     from src.analytics.ips_reconciliation import IPSReconciler
 
@@ -234,21 +235,18 @@ def reconcile_ips(
             status_code=400,
             detail="master_project_id must be a string and sub_project_ids a list of strings",
         )
+    if len(sub_ids) > MAX_PROJECT_IDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {MAX_PROJECT_IDS} sub-projects per reconciliation",
+        )
     master_id = ctx.project(master_id)
     sub_ids = ctx.projects(sub_ids)
 
     store = get_store()
 
-    master = store.get(master_id)
-    if master is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    subs = []
-    for sid in sub_ids:
-        sub = store.get(sid)
-        if sub is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        subs.append(sub)
+    master = granted_schedule(store, master_id)
+    subs = [granted_schedule(store, sid) for sid in sub_ids]
 
     reconciler = IPSReconciler(master)
     result = reconciler.reconcile(subs)
@@ -304,10 +302,8 @@ def validate_recovery(
 
     store = get_store()
 
-    impacted = store.get(impacted_id)
-    recovery = store.get(recovery_id)
-    if impacted is None or recovery is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+    impacted = granted_schedule(store, impacted_id)
+    recovery = granted_schedule(store, recovery_id)
 
     validator = RecoveryValidator(impacted, recovery)
     result = validator.validate()

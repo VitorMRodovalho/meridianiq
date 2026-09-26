@@ -18,10 +18,15 @@ from src.analytics.mip_subtractive import (
     analyze_mip_3_6,
     analyze_mip_3_7,
 )
-from src.parser.models import ParsedSchedule
 
 from ..access import AccessContext, get_access
-from ..deps import RATE_LIMIT_MODERATE, get_store, get_timeline_store, limiter
+from ..deps import (
+    RATE_LIMIT_MODERATE,
+    get_store,
+    get_timeline_store,
+    granted_schedule,
+    limiter,
+)
 from ..schemas import (
     AppliedAdditiveEventSchema,
     AppliedDelayEventSchema,
@@ -118,7 +123,7 @@ def create_timeline(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: Contains a list of project_ids (minimum 2).
+        body: Contains a list of project_ids (2 to 50).
         bifurcated: If True, run MIP 3.4 half-step analysis per window.
 
     Raises:
@@ -129,12 +134,7 @@ def create_timeline(
     store = get_store()
     tl_store = get_timeline_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     try:
         analyzer = ForensicAnalyzer(schedules, list(project_ids), bifurcated=bifurcated)
@@ -233,10 +233,8 @@ def run_half_step(
     baseline_id, update_id = ctx.projects([body.baseline_id, body.update_id])
     store = get_store()
 
-    baseline = store.get(baseline_id)
-    update = store.get(update_id)
-    if baseline is None or update is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+    baseline = granted_schedule(store, baseline_id)
+    update = granted_schedule(store, update_id)
 
     try:
         result = analyze_half_step(baseline, update)
@@ -288,10 +286,8 @@ def run_mip_3_1(
     baseline_id, final_id = ctx.projects([body.baseline_id, body.final_id])
     store = get_store()
 
-    baseline = store.get(baseline_id)
-    final = store.get(final_id)
-    if baseline is None or final is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+    baseline = granted_schedule(store, baseline_id)
+    final = granted_schedule(store, final_id)
 
     try:
         result = analyze_mip_3_1(baseline, final, baseline_id=baseline_id, final_id=final_id)
@@ -342,7 +338,7 @@ def run_mip_3_2(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: Contains project_ids (minimum 2).
+        body: Contains project_ids (2 to 50).
 
     Raises:
         HTTPException: 404 if any project is missing or not the caller's
@@ -351,12 +347,7 @@ def run_mip_3_2(
     project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     try:
         result = analyze_mip_3_2(schedules, project_ids=project_ids)
@@ -428,9 +419,7 @@ def run_mip_3_6(
     project_id = ctx.project(body.project_id)
     store = get_store()
 
-    schedule = store.get(project_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+    schedule = granted_schedule(store, project_id)
 
     events = [
         DelayEvent(
@@ -495,7 +484,7 @@ def run_mip_3_7(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: project_ids (minimum 2) + optional per-window delay
+        body: project_ids (2 to 50) + optional per-window delay
             event bundles.
 
     Raises:
@@ -506,12 +495,7 @@ def run_mip_3_7(
     project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     bundles = [
         WindowDelayEvents(
@@ -599,7 +583,7 @@ def run_mip_3_5(
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).
-        body: project_ids (minimum 2) + optional per-window delay
+        body: project_ids (2 to 50) + optional per-window delay
             event bundles.
 
     Raises:
@@ -610,12 +594,7 @@ def run_mip_3_5(
     project_ids = ctx.projects(list(body.project_ids))
     store = get_store()
 
-    schedules: list[ParsedSchedule] = []
-    for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        schedules.append(schedule)
+    schedules = [granted_schedule(store, pid) for pid in project_ids]
 
     bundles = [
         WindowDelayEvents(

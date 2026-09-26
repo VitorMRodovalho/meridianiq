@@ -11,7 +11,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from ..access import AccessContext, get_access, owned_project
-from ..deps import RATE_LIMIT_MODERATE, RATE_LIMIT_WRITE, get_store, limiter
+from ..deps import (
+    RATE_LIMIT_MODERATE,
+    RATE_LIMIT_WRITE,
+    get_store,
+    granted_schedule,
+    limiter,
+)
+from ..schemas import MAX_PROJECT_IDS
 
 router = APIRouter()
 
@@ -188,12 +195,14 @@ def get_schedule_trends(
     Accepts a list of project IDs representing sequential schedule updates.
     Returns trend data points and insights. Every id is authorized before
     any schedule is read: one missing or hidden id makes the whole request
-    a 404, and no id is silently left out of the series.
+    a 404, and no id is silently left out of the series. A granted project
+    whose schedule cannot be loaded also fails the request, and its id is
+    logged.
 
     Raises:
         HTTPException: 400 if ``project_ids`` is empty, not a list of
-            strings, or longer than 50; 404 if any project is missing or
-            not the caller's.
+            strings, or longer than 50; 404 if any project is missing, not
+            the caller's, or has no loadable schedule.
 
     Reference: AACE RP 29R-03 — Forensic Schedule Analysis.
     """
@@ -202,8 +211,8 @@ def get_schedule_trends(
         raise HTTPException(status_code=400, detail="project_ids required")
     if not isinstance(project_ids, list) or not all(isinstance(p, str) for p in project_ids):
         raise HTTPException(status_code=400, detail="project_ids must be a list of strings")
-    if len(project_ids) > 50:
-        raise HTTPException(status_code=400, detail="Maximum 50 projects per trend")
+    if len(project_ids) > MAX_PROJECT_IDS:
+        raise HTTPException(status_code=400, detail=f"Maximum {MAX_PROJECT_IDS} projects per trend")
     project_ids = ctx.projects(project_ids)
 
     include_scorecard: bool = body.get("include_scorecard", False)
@@ -215,9 +224,7 @@ def get_schedule_trends(
 
     points = []
     for pid in project_ids:
-        schedule = store.get(pid)
-        if schedule is None:
-            raise HTTPException(status_code=404, detail="Project not found")
+        schedule = granted_schedule(store, pid)
         meta = extract_metadata(
             filename="",
             project_name=schedule.projects[0].proj_short_name if schedule.projects else "",
