@@ -150,14 +150,15 @@ def start_progress_job(
     attacker who guessed a victim's id could steal their progress
     events.
 
-    Rate limit: ``RATE_LIMIT_READ`` (30/minute per remote IP). Each
+    Rate limit: ``RATE_LIMIT_READ`` (30/minute per client and per machine,
+    ``deps.rate_limit_key``). Each
     successful call allocates an in-memory queue (~20 KB); without a
     cap a single client could exhaust memory by opening channels in
     a tight loop. The 15-minute reaper bounds long-term leakage but
     does nothing against burst abuse — that is this decorator's job.
 
     Why ``READ`` (30/min) instead of ``MODERATE`` (10/min): slowapi
-    keys on remote IP via ``get_remote_address``, not on
+    keys on the client address (``deps.rate_limit_key``), not on the
     authenticated user, and ``startProgressJob()`` is invoked by every
     page entry that uses the WS progress composable. A small
     enterprise team behind a single egress NAT can legitimately exceed

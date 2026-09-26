@@ -10,6 +10,10 @@ primary_region = "iad"
   # Explicit opt-in for Supabase clients (src/database/config.py
   # remote_supabase_allowed). Local processes never inherit it from .env.
   ALLOW_REMOTE_SUPABASE = "1"
+  # Fly's edge sets Fly-Client-IP to the client address. Rate limits and the
+  # audit trail read it (src/api/deps.py trusted_client_ip); without this,
+  # every request would be attributed to the proxy's internal address.
+  TRUSTED_CLIENT_IP_HEADER = "fly-client-ip"
 
 [http_service]
   internal_port = 8080
