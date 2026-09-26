@@ -49,36 +49,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from .access import AccessContext, Principal, get_access, get_principal
-from .deps import RATE_LIMIT_MODERATE, RATE_LIMIT_READ, RATE_LIMIT_WRITE, limiter
+from .deps import (
+    RATE_LIMIT_MODERATE,
+    RATE_LIMIT_READ,
+    RATE_LIMIT_WRITE,
+    limiter,
+    trusted_client_ip,
+)
 
 
-def _client_ip(request: Request | None) -> str | None:
-    """Return the client address recorded in the audit trail.
-
-    Only values set by infrastructure the app trusts are read:
-
-    1. ``Fly-Client-IP``. Fly.io's edge sets it to the address it accepted
-       the connection from, replacing any value the client sent.
-    2. Otherwise the RIGHTMOST ``X-Forwarded-For`` entry, the one appended
-       by the proxy directly in front of the app. Every entry to its left
-       came from the client and can say anything, so the leftmost entry
-       would let a caller write an arbitrary address into the audit log.
-    3. Otherwise the socket peer, ``request.client.host``.
-
-    ``X-Real-IP`` is not read: no proxy in this deployment sets it, so it
-    would carry only what the client chose to send. Returns ``None`` when
-    there is no request or no client (synthesised test requests).
-    """
-    if request is None:
-        return None
-    fly_ip = (request.headers.get("fly-client-ip") or "").strip()
-    if fly_ip:
-        return fly_ip
-    xff = request.headers.get("x-forwarded-for") or ""
-    hops = [hop.strip() for hop in xff.split(",") if hop.strip()]
-    if hops:
-        return hops[-1]
-    return request.client.host if request.client else None
+#: The audit trail attributes a request to the same address the rate limits use.
+_client_ip = trusted_client_ip
 
 
 def _user_agent(request: Request | None) -> str | None:
@@ -357,7 +338,7 @@ def _audit(
     """Write an audit log entry.
 
     When ``request`` is supplied, the originating client IP (see
-    :func:`_client_ip` for which headers are trusted) and User-Agent are
+    :func:`deps.trusted_client_ip` for which headers are trusted) and User-Agent are
     captured on the row. Required for litigation-grade traceability per
     the ``audit_log`` schema in migration 007.
     """

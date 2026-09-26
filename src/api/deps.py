@@ -13,6 +13,8 @@ import logging
 import os
 from typing import Any
 
+from starlette.requests import Request
+
 from src.database.store import get_store as _get_db_store
 
 from .storage import EVMStore, ReportStore, RiskStore, TIAStore, TimelineStore
@@ -118,13 +120,51 @@ RATE_LIMIT_READ = "30/minute"
 RATE_LIMIT_LIGHT = "60/minute"
 
 
+def trusted_client_ip(request: Request | None) -> str | None:
+    """The client address a request is attributed to (rate limits, audit trail).
+
+    Only values set by infrastructure the app trusts are read:
+
+    1. ``Fly-Client-IP``. Fly.io's edge sets it to the address it accepted
+       the connection from, replacing any value the client sent.
+    2. Otherwise the RIGHTMOST ``X-Forwarded-For`` entry, the one appended
+       by the proxy directly in front of the app. Every entry to its left
+       came from the client and can say anything, so the leftmost entry
+       would let a caller choose its own address.
+    3. Otherwise the socket peer, ``request.client.host``.
+
+    The socket peer alone is not enough in production: uvicorn trusts
+    forwarding headers only from ``FORWARDED_ALLOW_IPS`` (default
+    127.0.0.1), and on Fly every connection arrives from the proxy's private
+    address, so keying on the peer would put all clients in one bucket.
+
+    ``X-Real-IP`` is not read: no proxy in this deployment sets it, so it
+    would carry only what the client chose to send. Returns ``None`` when
+    there is no request or no client (synthesised test requests).
+    """
+    if request is None:
+        return None
+    fly_ip = (request.headers.get("fly-client-ip") or "").strip()
+    if fly_ip:
+        return fly_ip
+    xff = request.headers.get("x-forwarded-for") or ""
+    hops = [hop.strip() for hop in xff.split(",") if hop.strip()]
+    if hops:
+        return hops[-1]
+    return request.client.host if request.client else None
+
+
+def rate_limit_key(request: Request) -> str:
+    """slowapi key: one bucket per client address (see :func:`trusted_client_ip`)."""
+    return trusted_client_ip(request) or "127.0.0.1"
+
+
 # Rate limiter (shared instance)
 try:
     from slowapi import Limiter
-    from slowapi.util import get_remote_address
 
     limiter = Limiter(
-        key_func=get_remote_address,
+        key_func=rate_limit_key,
         default_limits=[RATE_LIMIT_LIGHT],
         enabled=os.getenv("RATE_LIMIT_ENABLED", "true").lower() != "false",
     )
