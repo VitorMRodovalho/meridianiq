@@ -41,7 +41,7 @@ from src.analytics.revision_trends import (
 )
 
 from ..auth import require_auth
-from ..deps import RATE_LIMIT_ANALYSIS, RATE_LIMIT_WRITE, get_store, limiter
+from ..deps import RATE_LIMIT_ANALYSIS, RATE_LIMIT_WRITE, get_store, limiter, trusted_client_ip
 from ..revision_detection import compute_xer_content_hash, detect_candidate_parent
 from ..schemas import (
     ChangePointMarkerSchema,
@@ -381,9 +381,7 @@ def tombstone_revision_endpoint(
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    ip_address = (request.client.host if request.client else None) or request.headers.get(
-        "x-forwarded-for"
-    )
+    ip_address = trusted_client_ip(request)
     user_agent = request.headers.get("user-agent")
 
     result = store.tombstone_revision(

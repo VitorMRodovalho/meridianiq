@@ -1378,15 +1378,27 @@ class TestAuditTrailAddress:
         (row,) = world.db.rows("audit_log", action="invite_requested")
         return row["ip_address"]
 
-    def test_client_supplied_forwarded_for_is_not_recorded(self, world: World) -> None:
+    def test_client_supplied_forwarded_for_is_not_recorded(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TRUSTED_CLIENT_IP_HEADER", "x-forwarded-for")
         spoof = {"X-Forwarded-For": "6.6.6.6, 203.0.113.7", "X-Real-IP": "6.6.6.6"}
         _ok(_invite(world, USER_A, ORG_A, email(NEWBIE), headers=spoof), "invite")
         assert self._recorded_ip(world) == "203.0.113.7"
 
-    def test_fly_client_ip_wins(self, world: World) -> None:
+    def test_fly_client_ip_on_fly(self, world: World, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TRUSTED_CLIENT_IP_HEADER", "fly-client-ip")
         headers = {"Fly-Client-IP": "198.51.100.5", "X-Forwarded-For": "6.6.6.6, 203.0.113.7"}
         _ok(_invite(world, USER_A, ORG_A, email(NEWBIE), headers=headers), "invite")
         assert self._recorded_ip(world) == "198.51.100.5"
+
+    def test_headers_are_ignored_without_a_trusted_proxy(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("TRUSTED_CLIENT_IP_HEADER", raising=False)
+        headers = {"Fly-Client-IP": "6.6.6.6", "X-Forwarded-For": "6.6.6.6"}
+        _ok(_invite(world, USER_A, ORG_A, email(NEWBIE), headers=headers), "invite")
+        assert self._recorded_ip(world) == "testclient"
 
 
 # ------------------------------------------------------------------ #

@@ -150,7 +150,7 @@ def start_progress_job(
     attacker who guessed a victim's id could steal their progress
     events.
 
-    Rate limit: ``RATE_LIMIT_READ`` (30/minute per client address,
+    Rate limit: ``RATE_LIMIT_READ`` (30/minute per client and per machine,
     ``deps.rate_limit_key``). Each
     successful call allocates an in-memory queue (~20 KB); without a
     cap a single client could exhaust memory by opening channels in

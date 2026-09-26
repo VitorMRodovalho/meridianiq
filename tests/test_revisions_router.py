@@ -771,6 +771,51 @@ def test_tombstone_writes_audit_log_row(client: TestClient, fresh_store: InMemor
     assert audit_rows[0]["details"]["reason"] == "mis-grouped — not a revision of PROJ-A"
 
 
+@pytest.mark.parametrize(
+    ("trusted_header", "expected_ip"),
+    [("fly-client-ip", "198.51.100.5"), (None, "testclient")],
+)
+def test_tombstone_audit_records_the_trusted_client_address(
+    client: TestClient,
+    fresh_store: InMemoryStore,
+    monkeypatch: pytest.MonkeyPatch,
+    trusted_header: str | None,
+    expected_ip: str,
+) -> None:
+    """The tombstone audit row uses deps.trusted_client_ip, like the org audit trail."""
+    if trusted_header is None:
+        monkeypatch.delenv("TRUSTED_CLIENT_IP_HEADER", raising=False)
+    else:
+        monkeypatch.setenv("TRUSTED_CLIENT_IP_HEADER", trusted_header)
+    parent = fresh_store.save_project(
+        upload_id="u-parent",
+        schedule=_schedule("PROJ-A", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"parent",
+        user_id="user-w2-test",
+    )
+    child = fresh_store.save_project(
+        upload_id="u-child",
+        schedule=_schedule("PROJ-A", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        xer_bytes=b"child",
+        user_id="user-w2-test",
+    )
+    auth = {"Authorization": f"Bearer {_make_token()}"}
+    confirm = client.post(
+        f"/api/v1/projects/{child}/confirm-revision-of",
+        headers=auth,
+        json={"parent_project_id": parent},
+    )
+    assert confirm.status_code == 200, confirm.text
+    resp = client.post(
+        f"/api/v1/revisions/{confirm.json()['revision_id']}/tombstone",
+        headers={**auth, "Fly-Client-IP": "198.51.100.5", "X-Forwarded-For": "6.6.6.6"},
+        json={"reason": "not a revision"},
+    )
+    assert resp.status_code == 200, resp.text
+    (row,) = [r for r in fresh_store._audit_log if r.get("action") == "revision_tombstoned"]
+    assert row["ip_address"] == expected_ip
+
+
 def test_tombstone_idempotent(client: TestClient, fresh_store: InMemoryStore) -> None:
     """Re-tombstone returns existing tombstoned_at (no double audit row)."""
     parent = fresh_store.save_project(
