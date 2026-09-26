@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **130 endpoints** across **26 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **134 endpoints** across **26 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -30,7 +30,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Hooks](#hooks) — 1 endpoints
 - [Lifecycle](#lifecycle) — 4 endpoints
 - [Observability](#observability) — 1 endpoints
-- [Organizations](#organizations) — 11 endpoints
+- [Organizations](#organizations) — 15 endpoints
 - [Plugins](#plugins) — 2 endpoints
 - [Revisions](#revisions) — 6 endpoints
 - [Ws](#ws) — 1 endpoints
@@ -295,17 +295,21 @@ _Readiness and liveness_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
-| `GET` | `/api/v1/organizations` | List organizations the current user belongs to. | `—` | optional |
-| `POST` | `/api/v1/organizations` | Create a new organization and add the creator as owner. | `—` | optional |
-| `GET` | `/api/v1/organizations/{org_id}` | Get organization details including members. | `—` | optional |
-| `GET` | `/api/v1/organizations/{org_id}/audit` | Get audit log for an organization. Required for litigation traceability. | `—` | optional |
-| `POST` | `/api/v1/organizations/{org_id}/invite` | Invite a user to the organization by email. | `—` | optional |
-| `DELETE` | `/api/v1/organizations/{org_id}/members/{member_user_id}` | Remove a member from the organization. | `—` | optional |
-| `GET` | `/api/v1/projects/{project_id}/value-milestones` | List all value milestones for a project. | `—` | optional |
-| `POST` | `/api/v1/projects/{project_id}/value-milestones` | Create a value milestone linking a schedule milestone to commercial value. | `—` | optional |
-| `POST` | `/api/v1/shares/project` | Share a project with another organization. | `—` | optional |
-| `GET` | `/api/v1/shares/project/{project_id}` | List all organizations a project is shared with. | `—` | optional |
-| `PUT` | `/api/v1/value-milestones/{milestone_id}` | Update a value milestone (status, dates, value). | `—` | optional |
+| `GET` | `/api/v1/invitations` | The calling user's own invitations that can still be accepted. | `dict` | optional |
+| `GET` | `/api/v1/organizations` | List organizations the current user is an accepted member of. | `dict` | optional |
+| `POST` | `/api/v1/organizations` | Create a new organization and add the creator as owner. | `dict` | optional |
+| `GET` | `/api/v1/organizations/{org_id}` | Get organization details and its accepted members (members only). | `dict` | optional |
+| `POST` | `/api/v1/organizations/{org_id}/accept` | Accept the calling user's own open invitation to ``org_id``. | `dict` | optional |
+| `GET` | `/api/v1/organizations/{org_id}/audit` | Get audit log for an organization. Required for litigation traceability. | `dict` | optional |
+| `POST` | `/api/v1/organizations/{org_id}/decline` | Decline the calling user's own pending invitation to ``org_id``. | `dict` | optional |
+| `POST` | `/api/v1/organizations/{org_id}/invitations/revoke` | Withdraw the pending invitation of an address (owner/admin). | `dict` | optional |
+| `POST` | `/api/v1/organizations/{org_id}/invite` | Invite a user to the organization by email (owner/admin). | `dict` | optional |
+| `DELETE` | `/api/v1/organizations/{org_id}/members/{member_user_id}` | Remove a member, or revoke a pending invitation (owner/admin). | `dict` | optional |
+| `GET` | `/api/v1/projects/{project_id}/value-milestones` | List all value milestones for a project. | `dict` | optional |
+| `POST` | `/api/v1/projects/{project_id}/value-milestones` | Create a value milestone linking a schedule milestone to commercial value. | `dict` | optional |
+| `POST` | `/api/v1/shares/project` | Share a project with another organization (project owner only). | `dict` | optional |
+| `GET` | `/api/v1/shares/project/{project_id}` | List all organizations a project is shared with (project owner only). | `dict` | optional |
+| `PUT` | `/api/v1/value-milestones/{milestone_id}` | Update a value milestone (status, dates, value). It never changes project. | `dict` | optional |
 
 ## Plugins
 

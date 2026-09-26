@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		getOrganization,
 		inviteMember,
 		removeMember,
 		getAuditLog,
+		revokeInvitation,
+		ApiError,
 		type Organization,
 		type OrgMember,
 		type AuditEntry
@@ -19,6 +21,9 @@
 		compare: 'org_detail.action_compare',
 		export: 'org_detail.action_export',
 		invite: 'org_detail.action_invite',
+		invite_requested: 'org_detail.action_invite_requested',
+		invite_revoked: 'org_detail.action_invite_revoked',
+		accept_invite: 'org_detail.action_accept_invite',
 		remove_member: 'org_detail.action_remove_member',
 		create: 'org_detail.action_create',
 		delete: 'org_detail.action_delete',
@@ -38,6 +43,17 @@
 	let inviting = $state(false);
 	let inviteError = $state('');
 	let inviteSuccess = $state('');
+	let removeError = $state('');
+	let auditError = $state('');
+
+	// Withdraw form
+	let revokeEmail = $state('');
+	let revoking = $state(false);
+	let revokeError = $state('');
+	let revokeDone = $state('');
+	let auditLoading = $state(false);
+	let inviteInput: HTMLInputElement | undefined = $state();
+	let revokeInput: HTMLInputElement | undefined = $state();
 
 	onMount(async () => {
 		try {
@@ -52,12 +68,31 @@
 	});
 
 	async function loadAudit() {
+		auditError = '';
+		auditLoading = true;
 		try {
 			const res = await getAuditLog(orgId);
 			auditEntries = res.entries;
-		} catch {
-			// silently fail
+		} catch (e: unknown) {
+			auditEntries = [];
+			auditError =
+				e instanceof ApiError && e.status === 403
+					? $t('org_detail.manager_only')
+					: $t('org_detail.audit_load_failed');
+		} finally {
+			auditLoading = false;
 		}
+	}
+
+	/** A localized message for the answers these actions can get, else `fallbackKey`. */
+	function failureMessage(e: unknown, fallbackKey: string): string {
+		if (e instanceof ApiError) {
+			if (e.status === 422) return $t('org_detail.invite_invalid_email');
+			if (e.status === 429) return $t('error.rate_limited');
+			if (e.status === 403) return $t('org_detail.manager_only');
+			if (e.status === 409) return $t('org_detail.last_owner');
+		}
+		return $t(fallbackKey);
 	}
 
 	async function handleInvite() {
@@ -66,25 +101,48 @@
 		inviteError = '';
 		inviteSuccess = '';
 		try {
-			await inviteMember(orgId, inviteEmail.trim(), inviteRole);
-			inviteSuccess = `${$t('org_detail.invite_sent_prefix')} ${inviteEmail} ${$t('org_detail.invite_sent_infix')} ${inviteRole}`;
+			const res = await inviteMember(orgId, inviteEmail.trim(), inviteRole);
+			// The API records a request; it never says whether the address has an
+			// account, so the message does not claim that anyone was added.
+			inviteSuccess = `${$t('org_detail.invite_requested_prefix')} ${res.email} (${$t(`org_detail.role_${res.role}`)}).`;
 			inviteEmail = '';
-			// Reload members
-			const res = await getOrganization(orgId);
-			members = res.members;
 		} catch (e: unknown) {
-			inviteError = e instanceof Error ? e.message : $t('org_detail.invite_failed');
+			inviteError = failureMessage(e, 'org_detail.invite_failed');
 		} finally {
 			inviting = false;
+			// The submit button is disabled while the request runs, which drops
+			// focus; return it to the address field.
+			await tick();
+			inviteInput?.focus();
 		}
 	}
 
 	async function handleRemove(userId: string) {
+		removeError = '';
 		try {
 			await removeMember(orgId, userId);
 			members = members.filter(m => m.user_id !== userId);
-		} catch {
-			error = $t('org_detail.remove_failed');
+		} catch (e: unknown) {
+			removeError = failureMessage(e, 'org_detail.remove_failed');
+		}
+	}
+
+	async function handleRevoke() {
+		if (!revokeEmail.trim()) return;
+		revoking = true;
+		revokeError = '';
+		revokeDone = '';
+		try {
+			const res = await revokeInvitation(orgId, revokeEmail.trim());
+			// The API answers the same whether or not there was an invitation.
+			revokeDone = `${$t('org_detail.revoke_done_prefix')} ${res.email} ${$t('org_detail.revoke_done_suffix')}`;
+			revokeEmail = '';
+		} catch (e: unknown) {
+			revokeError = failureMessage(e, 'org_detail.revoke_failed');
+		} finally {
+			revoking = false;
+			await tick();
+			revokeInput?.focus();
 		}
 	}
 
@@ -129,7 +187,7 @@
 			{$t('common.loading')}
 		</div>
 	{:else if error}
-		<div class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+		<div role="alert" class="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm">{error}</div>
 	{:else if org}
 		<div class="mb-6">
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{org.name}</h1>
@@ -153,6 +211,9 @@
 		</div>
 
 		{#if activeTab === 'members'}
+			{#if removeError}
+				<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-4">{removeError}</div>
+			{/if}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200">
 					<thead class="bg-gray-50 dark:bg-gray-800">
@@ -206,17 +267,23 @@
 		{:else if activeTab === 'invite'}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
 				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('org_detail.invite_title')}</h2>
+				<p class="text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4">{$t('org_detail.invite_requested_note')}</p>
 				{#if inviteError}
-					<div class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg text-red-700 text-sm mb-4">{inviteError}</div>
+					<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-4">{inviteError}</div>
 				{/if}
-				{#if inviteSuccess}
-					<div class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg text-green-700 text-sm mb-4">{inviteSuccess}</div>
-				{/if}
+				<!-- The status region stays mounted so its updates are announced. -->
+				<div role="status">
+					{#if inviteSuccess}
+						<div class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 text-sm mb-4">{inviteSuccess}</div>
+					{/if}
+				</div>
 				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
 					<label class="block sm:col-span-2">
 						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_email')}</span>
 						<input
 							type="email"
+							maxlength="320"
+							bind:this={inviteInput}
 							bind:value={inviteEmail}
 							placeholder={$t('org_detail.placeholder_email')}
 							class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
@@ -240,9 +307,46 @@
 				</button>
 			</div>
 
+			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mt-6">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('org_detail.revoke_title')}</h2>
+				<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">{$t('org_detail.revoke_hint')}</p>
+				{#if revokeError}
+					<div role="alert" class="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm mb-4">{revokeError}</div>
+				{/if}
+				<div role="status">
+					{#if revokeDone}
+						<div class="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-200 text-sm mb-4">{revokeDone}</div>
+					{/if}
+				</div>
+				<div class="flex flex-wrap items-end gap-3">
+					<label class="block w-full min-w-0 sm:w-auto sm:flex-1">
+						<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('org_detail.field_email')}</span>
+						<input
+							type="email"
+							maxlength="320"
+							bind:this={revokeInput}
+							bind:value={revokeEmail}
+							placeholder={$t('org_detail.placeholder_email')}
+							class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+						/>
+					</label>
+					<button
+						onclick={handleRevoke}
+						disabled={revoking || !revokeEmail.trim()}
+						class="px-6 py-2 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+					>
+						{revoking ? $t('org_detail.btn_revoking') : $t('org_detail.btn_revoke')}
+					</button>
+				</div>
+			</div>
+
 		{:else if activeTab === 'audit'}
 			<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
-				{#if auditEntries.length === 0}
+				{#if auditLoading}
+					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">{$t('common.loading')}</div>
+				{:else if auditError}
+					<div role="alert" class="m-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm">{auditError}</div>
+				{:else if auditEntries.length === 0}
 					<div class="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">{$t('org_detail.empty_audit')}</div>
 				{:else}
 					<table class="min-w-full divide-y divide-gray-200">
@@ -258,7 +362,7 @@
 							{#each auditEntries as entry}
 								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(entry.created_at)}</td>
-									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{entry.user_profiles?.full_name || entry.user_profiles?.email || $t('org_detail.system_user')}</td>
+									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{entry.user_profiles?.full_name || entry.user_profiles?.email || (entry.user_id ? $t('org_detail.deleted_user') : $t('org_detail.system_user'))}</td>
 									<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{actionLabel(entry.action)}</td>
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 font-mono text-xs max-w-xs truncate">
 										{entry.entity_type}

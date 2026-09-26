@@ -79,6 +79,8 @@ from src.api.deps import (
 )
 
 ROUTERS_DIR = Path(__file__).parent.parent / "src" / "api" / "routers"
+# Route modules that live outside ``routers/`` and are scanned with them.
+EXTRA_ROUTE_MODULES = (Path(__file__).parent.parent / "src" / "api" / "organizations.py",)
 
 # Constant-name → rate-string lookup.  Imported from ``src.api.deps`` so a
 # future rate-value tweak (e.g., ``RATE_LIMIT_WRITE`` "5/minute" → "8/minute")
@@ -317,13 +319,22 @@ def _extract_endpoints(router_path: Path) -> Iterable[Endpoint]:
 
 
 def _all_endpoints() -> list[Endpoint]:
-    """Collect every router endpoint in ``src/api/routers/``."""
+    """Collect every endpoint in ``src/api/routers/`` and ``EXTRA_ROUTE_MODULES``."""
     endpoints: list[Endpoint] = []
     for router_path in sorted(ROUTERS_DIR.glob("*.py")):
         if router_path.name == "__init__.py":
             continue
         endpoints.extend(_extract_endpoints(router_path))
+    for module_path in EXTRA_ROUTE_MODULES:
+        endpoints.extend(_extract_endpoints(module_path))
     return endpoints
+
+
+def test_modules_outside_routers_are_scanned() -> None:
+    """Control: the organization write routes are part of the scanned set."""
+    scanned = {(ep.router, ep.function) for ep in _all_endpoints()}
+    assert ("organizations", "invite_member") in scanned
+    assert ("organizations", "accept_invitation") in scanned
 
 
 # --------------------------------------------------------------------------- #

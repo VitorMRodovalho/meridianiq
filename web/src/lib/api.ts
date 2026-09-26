@@ -119,6 +119,47 @@ export class TimeoutError extends ApiError {
 const PER_ATTEMPT_TIMEOUT_MS = 12_000;
 const REQUEST_TOTAL_BUDGET_MS = 120_000;
 
+/**
+ * Turn an error response body into a message and an optional machine code.
+ *
+ * - `{detail: {error_code, message}}` (issue #86): both are used.
+ * - `{detail: "..."}`: the string.
+ * - `{detail: [{msg}, ...]}` (Pydantic 422): the messages joined, never the raw JSON.
+ * - `{error: "..."}` (slowapi 429): the string.
+ * - anything else: the body text, or `Request failed: <status>` when empty.
+ */
+export function parseErrorBody(
+	status: number,
+	text: string
+): { message: string; errorCode: string | null } {
+	let errorCode: string | null = null;
+	let message = text || `Request failed: ${status}`;
+	try {
+		const parsed = JSON.parse(text);
+		const detail = parsed?.detail;
+		if (detail && typeof detail === 'object' && typeof detail.error_code === 'string') {
+			errorCode = detail.error_code;
+			if (typeof detail.message === 'string') {
+				message = detail.message;
+			}
+		} else if (typeof detail === 'string') {
+			message = detail;
+		} else if (Array.isArray(detail)) {
+			const msgs = detail
+				.map((d: unknown) =>
+					d && typeof (d as { msg?: unknown }).msg === 'string' ? (d as { msg: string }).msg : ''
+				)
+				.filter(Boolean);
+			if (msgs.length) message = msgs.join('; ');
+		} else if (typeof parsed?.error === 'string') {
+			message = parsed.error;
+		}
+	} catch {
+		// Body wasn't JSON — keep the plain text as the message.
+	}
+	return { message, errorCode };
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -168,23 +209,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 				// codes rather than fragile text-pattern matching. Legacy
 				// string-detail responses degrade to errorCode=null.
 				const status = res.status;
-				const text = await res.text();
-				let errorCode: string | null = null;
-				let message = text || `Request failed: ${status}`;
-				try {
-					const parsed = JSON.parse(text);
-					const detail = parsed?.detail;
-					if (detail && typeof detail === 'object' && typeof detail.error_code === 'string') {
-						errorCode = detail.error_code;
-						if (typeof detail.message === 'string') {
-							message = detail.message;
-						}
-					} else if (typeof detail === 'string') {
-						message = detail;
-					}
-				} catch {
-					// Body wasn't JSON — keep the plain text as the message.
-				}
+				const { message, errorCode } = parseErrorBody(status, await res.text());
 				throw new ApiError(message, status, errorCode);
 			}
 		} catch (err) {
@@ -1054,6 +1079,7 @@ export interface AuditEntry {
 	action: string;
 	entity_type: string;
 	entity_id?: string | null;
+	user_id?: string | null;
 	details?: Record<string, unknown>;
 	ip_address?: string | null;
 	user_agent?: string | null;
@@ -1104,6 +1130,54 @@ export async function inviteMember(
 			body: JSON.stringify({ email, role })
 		}
 	);
+}
+
+export interface Invitation {
+	org_id: string;
+	org_name: string | null;
+	role: string;
+	invited_at: string | null;
+}
+
+/** The signed-in user's own invitations that can still be accepted. */
+export async function listInvitations(): Promise<{ invitations: Invitation[] }> {
+	return request<{ invitations: Invitation[] }>('/api/v1/invitations');
+}
+
+export async function acceptInvitation(
+	orgId: string,
+	role: string
+): Promise<{ status: string; org_id: string; role: string }> {
+	// The role the user was shown: a re-issued invitation for another role is refused.
+	return request<{ status: string; org_id: string; role: string }>(
+		`/api/v1/organizations/${orgId}/accept`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ role })
+		}
+	);
+}
+
+/** Withdraw the pending invitation of an address (owner/admin). Same answer in every case. */
+export async function revokeInvitation(
+	orgId: string,
+	email: string
+): Promise<{ status: string; email: string }> {
+	return request<{ status: string; email: string }>(
+		`/api/v1/organizations/${orgId}/invitations/revoke`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email })
+		}
+	);
+}
+
+export async function declineInvitation(orgId: string): Promise<{ status: string; org_id: string }> {
+	return request<{ status: string; org_id: string }>(`/api/v1/organizations/${orgId}/decline`, {
+		method: 'POST'
+	});
 }
 
 export async function removeMember(
