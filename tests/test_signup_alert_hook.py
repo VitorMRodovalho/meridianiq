@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import urllib.request
+
 from typing import Any
 
 import pytest
@@ -103,7 +105,7 @@ def test_resend_failure_never_reaches_the_webhook(monkeypatch: pytest.MonkeyPatc
     def boom(*args: Any, **kwargs: Any) -> Any:
         raise OSError("network down")
 
-    monkeypatch.setattr(hooks.urllib.request, "urlopen", boom)
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
     hooks._send_via_resend(
         "re_test", "a@example.com", "b@example.com", {"subject": "s", "text": "t"}
     )
@@ -132,7 +134,7 @@ def test_resend_request_shape(monkeypatch: pytest.MonkeyPatch) -> None:
         captured["timeout"] = timeout
         return _Resp()
 
-    monkeypatch.setattr(hooks.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     hooks._send_via_resend("re_key", "from@x", "to@x", {"subject": "S", "text": "T"})
     assert captured["url"] == "https://api.resend.com/emails"
     assert captured["auth"] == "Bearer re_key"
@@ -206,7 +208,7 @@ def test_send_failure_logs_only_the_status_code(
             request.full_url, 403, "secret-bearing message re_key", {}, io.BytesIO(b"")
         )
 
-    monkeypatch.setattr(hooks.urllib.request, "urlopen", forbidden)
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden)
     with caplog.at_level(logging.INFO, logger=hooks.__name__):
         hooks._send_via_resend("re_key", "f@x", "t@x", {"subject": "s", "text": "t"})
     messages = [r.getMessage() for r in caplog.records]

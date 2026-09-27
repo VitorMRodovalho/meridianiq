@@ -4,7 +4,8 @@
 
 Sentry captures the local variables of every frame and the request body by
 default. In the AI path those hold the user's question, the schedule
-summary sent to the model, and, on the operator routes, email addresses.
+summary sent to the model, an access request's note, and, on the operator
+routes, email addresses.
 ``scrub_ai_event`` is the ``before_send`` hook: it drops the locals of AI
 frames and the body of AI requests, and leaves every other event as it is.
 
@@ -18,13 +19,27 @@ from typing import Any
 
 #: Modules whose frames never keep their locals.
 AI_MODULES = frozenset({"src.api.ai_gate", "src.api.routers.ai", "src.analytics.nlp_query"})
-#: Single functions elsewhere that handle AI input.
-AI_FUNCTIONS = frozenset({("src.api.routers.intelligence", "ask_schedule")})
+#: Single functions elsewhere that handle AI input, a request note or an address.
+AI_FUNCTIONS = frozenset(
+    {("src.api.routers.intelligence", "ask_schedule")}
+    | {
+        ("src.database.store", name)
+        for name in (
+            "ai_request_access",
+            "ai_pending_requests",
+            "ai_approve_request",
+            "ai_dismiss_request",
+            "ai_grant",
+            "ai_revoke",
+            "user_id_for_email",
+        )
+    }
+)
 
 
 def _is_ai_path(url: str) -> bool:
     path = url.split("?", 1)[0].rstrip("/")
-    return path.endswith("/ask") or path.endswith("/ai/status") or "/superadmin/ai" in path
+    return path.endswith("/ask") or "/ai/" in path or path.endswith("/superadmin/ai")
 
 
 def _scrub_frames(frames: Any) -> None:

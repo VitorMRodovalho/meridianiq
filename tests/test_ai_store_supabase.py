@@ -29,15 +29,17 @@ U = "00000000-0000-4000-8000-0000000a1a01"
 
 
 def _signature(function: str) -> set[str]:
-    """Parameter names of ``public.<function>`` in the migrations."""
+    """Parameter names of ``public.<function>`` as its LAST migration defines it."""
+    found: set[str] | None = None
     for path in sorted(MIGRATIONS.glob("*.sql")):
         text = path.read_text(encoding="utf-8")
-        m = re.search(
+        for m in re.finditer(
             rf"create or replace function public\.{function}\((.*?)\)\s*returns", text, re.I | re.S
-        )
-        if m:
-            return {line.split()[0] for line in m.group(1).split(",") if line.strip()}
-    raise AssertionError(f"no function public.{function} in the migrations")
+        ):
+            found = {line.split()[0] for line in m.group(1).split(",") if line.strip()}
+    if found is None:
+        raise AssertionError(f"no function public.{function} in the migrations")
+    return found
 
 
 class Recorder:
@@ -224,3 +226,78 @@ def test_signature_reader_negative_control() -> None:
     with pytest.raises(AssertionError):
         _signature("no_such_function")
     assert _signature("ai_revoke") == {"p_user_id", "p_revoked_by", "p_ip_address", "p_user_agent"}
+
+
+def test_access_state_and_request_parse_their_rows(wire: tuple[SupabaseStore, Recorder]) -> None:
+    store, rec = wire
+    rec.answers["ai_access_state"] = (
+        200,
+        json.dumps(
+            [{"state": "pending", "requested_at": "2026-09-27T12:00:00+00:00", "retry_after": None}]
+        ),
+    )
+    st = store.ai_access_state(U)
+    assert (st.state, st.requested_at, st.retry_after) == (
+        "pending",
+        "2026-09-27T12:00:00+00:00",
+        None,
+    )
+    assert set(rec.body("ai_access_state")) == _signature("ai_access_state")
+    rec.answers["ai_request_access"] = (
+        200,
+        json.dumps(
+            [
+                {
+                    "outcome": "created",
+                    "requested_at": "2026-09-27T12:00:00+00:00",
+                    "retry_after": None,
+                }
+            ]
+        ),
+    )
+    assert store.ai_request_access(U, "why").state == "created"
+    body = rec.body("ai_request_access")
+    assert set(body) == _signature("ai_request_access") and body["p_note"] == "why"
+    rec.answers["ai_request_access"] = (200, "[]")
+    with pytest.raises(RuntimeError):
+        store.ai_request_access(U, None)
+
+
+def test_pending_requests_parse_the_json_object(wire: tuple[SupabaseStore, Recorder]) -> None:
+    store, rec = wire
+    rec.answers["ai_pending_requests"] = (
+        200,
+        json.dumps(
+            {"total": 3, "items": [{"user_id": U, "email": None, "note": "n", "requested_at": "t"}]}
+        ),
+    )
+    out = store.ai_pending_requests(None, 200)
+    assert out["total"] == 3 and out["items"][0]["email"] is None
+    assert set(rec.body("ai_pending_requests")) == _signature("ai_pending_requests")
+
+
+def test_approve_and_dismiss_read_the_boolean(wire: tuple[SupabaseStore, Recorder]) -> None:
+    store, rec = wire
+    for name, call in (
+        ("ai_approve_request", lambda: store.ai_approve_request(user_id=U, approved_by=U)),
+        ("ai_dismiss_request", lambda: store.ai_dismiss_request(user_id=U, dismissed_by=U)),
+    ):
+        rec.answers[name] = (200, "true")
+        assert call() is True
+        rec.answers[name] = (200, "false")
+        assert call() is False
+        assert set(rec.body(name)) == _signature(name)
+
+
+def test_signature_reader_takes_the_last_definition() -> None:
+    # ai_grant is defined in 035 and replaced in 036 with the same parameters.
+    assert _signature("ai_grant") == {
+        "p_user_id",
+        "p_email",
+        "p_granted_by",
+        "p_daily_questions",
+        "p_monthly_budget_usd",
+        "p_note",
+        "p_ip_address",
+        "p_user_agent",
+    }

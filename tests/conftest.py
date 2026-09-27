@@ -35,6 +35,11 @@ for _key in (
     "AI_DEFAULT_DAILY_QUESTIONS",
     "AI_DEFAULT_ACCOUNT_MONTHLY_BUDGET_USD",
     "SUPERADMIN_USER_IDS",
+    # Operator email (src/api/notify.py): an access request sends one from an
+    # ordinary signed-in POST, so no test may find a real key in .env.
+    "RESEND_API_KEY",
+    "SIGNUP_ALERT_TO",
+    "SIGNUP_ALERT_FROM",
 ):
     os.environ[_key] = ""
 
@@ -88,3 +93,23 @@ def _no_real_model_client(monkeypatch: pytest.MonkeyPatch) -> None:
         raise AssertionError("a test tried to build a real Anthropic client")
 
     monkeypatch.setattr(anthropic, "Anthropic", _refuse)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_email(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test that reaches the Resend API fails instead of sending mail.
+
+    Tests of the senders replace ``urllib.request.urlopen`` themselves; this
+    guard only stands behind them.
+    """
+    import urllib.request
+
+    original = urllib.request.urlopen
+
+    def _guard(url: object, *args: object, **kwargs: object) -> object:
+        target = getattr(url, "full_url", url)
+        if "resend.com" in str(target):
+            raise AssertionError("a test tried to send a real email through Resend")
+        return original(url, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(urllib.request, "urlopen", _guard)

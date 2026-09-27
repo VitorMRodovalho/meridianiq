@@ -8,7 +8,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ── Health ───────────────────────────────────────────────
@@ -1290,6 +1290,13 @@ class AIStatusResponse(BaseModel):
     used_today: Optional[int] = None
     remaining_today: Optional[int] = None
     resets_at: Optional[str] = Field(None, description="Next UTC midnight, ISO-8601")
+    access: Optional[str] = Field(
+        None,
+        description="The caller's access request: entitled | pending | dismissed | none "
+        "(only when reason is ai_disabled or ai_not_entitled)",
+    )
+    access_requested_at: Optional[str] = None
+    access_retry_after: Optional[str] = Field(None, description="When a new request is allowed")
 
 
 class AIConfigFlags(BaseModel):
@@ -1335,6 +1342,15 @@ class AIEntitlementSchema(BaseModel):
     spent_month_usd: str = "0"
 
 
+class AIAccessRequestItem(BaseModel):
+    """A pending AI access request, for the operator."""
+
+    user_id: str
+    email: Optional[str] = Field(None, description="The account's confirmed address, if any")
+    note: Optional[str] = None
+    requested_at: Optional[str] = None
+
+
 class AIAdminResponse(BaseModel):
     """Response for GET /api/v1/superadmin/ai."""
 
@@ -1352,6 +1368,10 @@ class AIAdminResponse(BaseModel):
     defaults: AIDefaults
     stale_reservations: int
     entitlements: list[AIEntitlementSchema]
+    requests: Optional[list[AIAccessRequestItem]] = Field(
+        None, description="Pending requests, oldest first; null when they could not be read"
+    )
+    requests_total: Optional[int] = None
 
 
 class AIEntitlementGrantRequest(BaseModel):
@@ -1361,6 +1381,42 @@ class AIEntitlementGrantRequest(BaseModel):
     daily_questions: Optional[int] = Field(None, ge=0, le=10_000)
     monthly_budget_usd: Optional[Decimal] = Field(None, ge=0, le=100_000, decimal_places=6)
     note: Optional[str] = Field(None, max_length=500)
+
+
+_CONTROL_CHARS = {chr(c) for c in range(32)} - {"\n", "\t"} | {"\x7f"}
+
+
+class AIAccessRequestBody(BaseModel):
+    """Body for POST /api/v1/ai/access-request."""
+
+    note: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("note")
+    @classmethod
+    def _clean_note(cls, value: Optional[str]) -> Optional[str]:
+        """Trim; empty is no note; no control characters other than newline and tab."""
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if any(ch in _CONTROL_CHARS for ch in value):
+            raise ValueError("note contains control characters")
+        return value
+
+
+class AIAccessRequestResponse(BaseModel):
+    """Response for POST /api/v1/ai/access-request."""
+
+    state: str = Field(..., description="created | pending | entitled | dismissed")
+    requested_at: Optional[str] = None
+    retry_after: Optional[str] = None
+
+
+class AIRequestDismissResponse(BaseModel):
+    """Response for DELETE /api/v1/superadmin/ai/requests/{user_id}."""
+
+    dismissed: bool
 
 
 class AIRevokeResponse(BaseModel):

@@ -37,6 +37,7 @@ repo=$(cd "$here/../.." && pwd)
 migrations="$repo/supabase/migrations"
 m034="$migrations/034_org_rls_rewrite.sql"
 m035="$migrations/035_ai_access_ledger.sql"
+m036="$migrations/036_ai_access_requests.sql"
 image="${1:-postgres:17}"
 name="mq-rls-replica-$$-$RANDOM"
 password=$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')
@@ -413,6 +414,76 @@ if [[ $n_real == 5 ]]; then pass "real ai_reserve granted exactly 5"; else fail 
 if [[ $n_lock == 5 ]]; then pass "locked copy with a pause granted exactly 5"; else fail "locked copy granted $n_lock"; fi
 if [[ $n_nolock =~ ^[0-9]+$ && $n_nolock -gt 5 ]]; then pass "no-lock control overran ($n_nolock): the probe can say no"; else fail "no-lock control granted $n_nolock: the probe cannot tell"; fi
 psql_as supabase_admin -q -c "DROP SCHEMA probe035 CASCADE; DELETE FROM public.ai_usage; DELETE FROM public.ai_entitlements;" > /dev/null 2>&1
+
+stage "apply 036 as postgres (1st)"
+rc=0
+psql_as postgres -v ON_ERROR_STOP=1 < "$m036" > "$work/apply036_1.log" 2>&1 || rc=$?
+grep -E 'ERROR|WARNING' "$work/apply036_1.log" || true
+if [[ $rc -eq 0 ]]; then pass "036 apply #1 rc=0"; else fail "036 apply #1 rc=$rc"; cat "$work/apply036_1.log"; exit 1; fi
+fp6=$(psql_as supabase_admin < "$here/fingerprint.sql")
+
+stage "apply 036 as postgres (2nd, must be a no-op)"
+rc=0
+psql_as postgres -v ON_ERROR_STOP=1 < "$m036" > "$work/apply036_2.log" 2>&1 || rc=$?
+if [[ $rc -eq 0 ]]; then pass "036 apply #2 rc=0"; else fail "036 apply #2 rc=$rc"; cat "$work/apply036_2.log"; fi
+fp7=$(psql_as supabase_admin < "$here/fingerprint.sql")
+if [[ -n $fp6 && $fp6 == "$fp7" ]]; then pass "catalog fingerprint unchanged by the 2nd 036 apply"; else fail "catalog fingerprint changed by the 2nd 036 apply"; fi
+
+stage "postcheck after 036 (read-only)"
+psql_as supabase_admin -At < "$here/034/postcheck.sql" > "$work/postcheck036.log" 2>&1
+tally "$work/postcheck036.log"
+
+stage "036 access request scenarios as service_role (mirror tests/test_ai_requests.py)"
+cat "$here/probe_lib.sql" "$here/036/scenarios.sql" | psql_as supabase_admin > "$work/scenarios036.log" 2>&1
+tally "$work/scenarios036.log"
+
+stage "035 ledger scenarios again, after 036 replaced ai_grant"
+cat "$here/probe_lib.sql" "$here/035/scenarios.sql" | psql_as supabase_admin > "$work/scenarios035b.log" 2>&1
+tally "$work/scenarios035b.log"
+
+# Concurrency: N sessions of the same account ask at once. The real function
+# must answer 'created' exactly once (one request, one operator email). A
+# naive copy that reads, pauses and then writes answers 'created' more than
+# once: if it does not, the probe cannot tell.
+concurrent_ask() {  # <function> <sessions>
+    local fn=$1 n=$2 i
+    psql_as supabase_admin -q -c "DELETE FROM public.ai_access_requests; DELETE FROM public.ai_entitlements;"
+    for i in $(seq 1 "$n"); do
+        psql_as supabase_admin -At -c "SET ROLE service_role; SELECT outcome FROM $fn('b0000000-0000-4000-8000-000000000002', NULL);" > "$work/ask_$i.out" 2>&1 &
+    done
+    wait
+    cat "$work"/ask_*.out | grep -c '^created$' || true
+    rm -f "$work"/ask_*.out
+}
+stage "036 concurrency: one request and one email per account (with a naive control)"
+psql_as supabase_admin -v ON_ERROR_STOP=1 -q > "$work/probe036.log" 2>&1 <<'SQL'
+CREATE SCHEMA probe036;
+GRANT USAGE ON SCHEMA probe036 TO service_role;
+CREATE FUNCTION probe036.request_naive(p_user_id uuid, p_note text)
+RETURNS TABLE (outcome text)
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.ai_access_requests AS r
+                WHERE r.user_id = p_user_id AND r.status = 'pending') THEN
+        RETURN QUERY SELECT 'pending'::text;
+        RETURN;
+    END IF;
+    PERFORM pg_sleep(1.0);
+    INSERT INTO public.ai_access_requests (user_id, status, note, requested_at)
+    VALUES (p_user_id, 'pending', p_note, now())
+    ON CONFLICT (user_id) DO UPDATE SET requested_at = now();
+    RETURN QUERY SELECT 'created'::text;
+END
+$$;
+GRANT EXECUTE ON FUNCTION probe036.request_naive(uuid, text) TO service_role;
+SQL
+if grep -q 'ERROR' "$work/probe036.log"; then fail "036 concurrency probe setup"; cat "$work/probe036.log"; fi
+c_real=$(concurrent_ask public.ai_request_access 12)
+c_naive=$(concurrent_ask probe036.request_naive 12)
+echo "'created' answers of 12 concurrent requests from one account: real=$c_real naive=$c_naive"
+if [[ $c_real == 1 ]]; then pass "real ai_request_access created exactly once"; else fail "real ai_request_access created $c_real times"; fi
+if [[ $c_naive =~ ^[0-9]+$ && $c_naive -gt 1 ]]; then pass "naive control created $c_naive times: the probe can say no"; else fail "naive control created $c_naive times: the probe cannot tell"; fi
+psql_as supabase_admin -q -c "DROP SCHEMA probe036 CASCADE; DELETE FROM public.ai_access_requests;" > /dev/null 2>&1
 
 stage "summary ($image)"
 echo "failures=$failures"

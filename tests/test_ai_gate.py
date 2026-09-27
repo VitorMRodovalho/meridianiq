@@ -309,6 +309,10 @@ def test_owner_without_entitlement_is_refused_before_the_schedule_loads(gate: Ga
         "used_today": None,
         "remaining_today": None,
         "resets_at": None,
+        # The panel offers an access request (migration 036).
+        "access": "none",
+        "access_requested_at": None,
+        "access_retry_after": None,
     }
 
 
