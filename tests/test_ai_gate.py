@@ -606,6 +606,27 @@ def test_grant_and_revoke_round_trip_with_audit(gate: Gate) -> None:
     assert all("email" not in str(r["details"]) for r in gate.store._audit_log)
 
 
+@pytest.mark.parametrize(
+    ("body", "daily", "budget"),
+    [
+        # The two shapes web/src/routes/admin/ai sends: a number, and explicit nulls.
+        ({"daily_questions": 5, "monthly_budget_usd": 2.5, "note": None}, 5, "2.5"),
+        ({"daily_questions": None, "monthly_budget_usd": None, "note": None}, None, None),
+    ],
+)
+def test_grant_accepts_the_admin_page_shapes(
+    gate: Gate, body: dict[str, Any], daily: int | None, budget: str | None
+) -> None:
+    resp = gate.client.post(
+        "/api/v1/superadmin/ai/entitlements",
+        json={"email": "b@example.test", **body},
+        headers=_auth(ADMIN),
+    )
+    assert resp.status_code == 200, resp.text
+    ent = resp.json()
+    assert (ent["daily_questions"], ent["monthly_budget_usd"]) == (daily, budget)
+
+
 def test_grant_errors(gate: Gate) -> None:
     headers = _auth(ADMIN)
     url = "/api/v1/superadmin/ai/entitlements"
