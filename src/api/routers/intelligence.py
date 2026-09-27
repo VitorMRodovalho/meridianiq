@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..access import AccessContext, get_access, owned_project
+from .. import ai_gate
+from ..access import AccessContext, Principal, get_access, get_principal, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_READ, RATE_LIMIT_WRITE, get_store, limiter
 from ..kpi_helpers import schedule_kpi_bundle
@@ -215,58 +216,51 @@ def get_root_cause(
     response_model=NLPQueryResponse,
 )
 @limiter.limit(RATE_LIMIT_WRITE)
-async def ask_schedule(
+def ask_schedule(
     request: Request,
     body: NLPQueryRequest,
     project_id: str = Depends(owned_project),
+    principal: Principal = Depends(get_principal),
+    store: Any = Depends(get_store),
 ) -> NLPQueryResponse:
     """Ask a natural language question about a schedule.
 
-    Uses Claude API to interpret the question and generate an answer
-    grounded in the schedule's actual data. Does NOT send raw schedule
-    data to the API — only a compact statistical summary.
+    Only for accounts granted AI access, within their daily and monthly
+    limits and the global budget (``src/api/ai_gate.py``, migration 035).
+    The model receives a compact statistical summary, never the raw
+    schedule. A plain ``def``: the provider call and the ledger round trips
+    are blocking, so FastAPI runs this handler in its threadpool.
 
     Args:
         project_id: The stored project identifier.
-        body: ``question`` (required) and optional ``api_key``.
+        body: ``question`` (1-1000 characters).
 
     Returns:
-        NLPQueryResponse with ``answer``, ``question``, ``tokens_used``, ``model``.
+        NLPQueryResponse with ``answer``, ``question``, ``tokens_used``,
+        ``model`` and the questions left today.
 
     Raises:
         HTTPException: 404 if the project is missing or not the caller's;
-            400 if the API key is missing; 502 if the upstream call fails.
+            403/429 with an ``error_code`` when the gate refuses; 400 if the
+            prompt is too large; 502 if the provider call fails.
     """
-    store = get_store()
-    schedule = store.get(project_id)
-    if schedule is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
     question = body.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="question is required")
 
-    api_key = body.api_key or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="Anthropic API key required. Pass api_key in body or set ANTHROPIC_API_KEY env var.",
-        )
-
-    from src.analytics.nlp_query import query_schedule
-
-    try:
-        result = await query_schedule(schedule, question, api_key=api_key)
-    except Exception as exc:
-        is_dev = os.getenv("ENVIRONMENT", "development") == "development"
-        detail = f"NLP query failed: {exc}" if is_dev else "NLP query failed"
-        raise HTTPException(status_code=502, detail=detail) from exc
-
+    result = ai_gate.answer_question(
+        principal=principal,
+        project_id=project_id,
+        question=question,
+        store=store,
+        load_schedule=lambda: store.get(project_id),
+    )
     return NLPQueryResponse(
-        question=result.question,
+        question=question,
         answer=result.answer,
         model=result.model,
         tokens_used=result.tokens_used,
+        remaining_today=result.remaining_today,
     )
 
 

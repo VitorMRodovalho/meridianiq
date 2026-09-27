@@ -160,13 +160,16 @@ export function parseErrorBody(
 	return { message, errorCode };
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+/** The bearer header for the current session, or none when signed out. */
+async function authHeader(): Promise<Record<string, string>> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;
-	const authHeaders: Record<string, string> = token
-		? { Authorization: `Bearer ${token}` }
-		: {};
+	return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+	const authHeaders = await authHeader();
 
 	const mergedInit: RequestInit = {
 		...init,
@@ -1680,5 +1683,210 @@ export async function getRevisionTrends(
 ): Promise<import('./types').RevisionTrendsResponse> {
 	return request<import('./types').RevisionTrendsResponse>(
 		`/api/v1/projects/${projectId}/revision-trends`
+	);
+}
+
+// ── AI access gate (Ask Your Schedule) ─────────────────
+
+/**
+ * `GET /api/v1/ai/status`: whether the signed-in account may ask now. Gate
+ * states answer 200 with `available: false` and a `reason`; only a signed-out
+ * caller gets an error (401).
+ */
+export interface AiStatus {
+	available: boolean;
+	reason: string | null;
+	daily_limit: number | null;
+	used_today: number | null;
+	remaining_today: number | null;
+	/** When today's question count renews (ISO-8601, UTC). */
+	resets_at: string | null;
+}
+
+export interface AskResponse {
+	question: string;
+	answer: string;
+	model: string;
+	tokens_used: number;
+	remaining_today: number | null;
+}
+
+/** Status is a plain GET, so the cold-start retry in `request()` is safe here. */
+export async function getAiStatus(): Promise<AiStatus> {
+	return request<AiStatus>('/api/v1/ai/status');
+}
+
+/**
+ * Exactly one fetch, for calls that must not be repeated automatically.
+ *
+ * `request()` retries 502/503, network errors and per-attempt timeouts up to
+ * MAX_RETRIES times. That is right for reads and wrong for a call whose first
+ * attempt may already have taken effect on the server: a billed model call, a
+ * grant, a revoke. Here a 502/503 or a network error is thrown as is, and the
+ * timeout throws `TimeoutError`. In every one of those cases the server may
+ * still have done the work, so callers reload the state they show afterwards.
+ */
+async function requestOnce<T>(url: string, init: RequestInit, timeoutMs: number): Promise<T> {
+	const headers = {
+		...(await authHeader()),
+		...(init.headers as Record<string, string> | undefined)
+	};
+	let res: Response;
+	try {
+		res = await fetch(`${BASE}${url}`, {
+			...init,
+			headers,
+			signal: AbortSignal.timeout(timeoutMs)
+		});
+	} catch (err) {
+		if (err instanceof DOMException && err.name === 'TimeoutError') {
+			throw new TimeoutError('Request timed out', { cause: err });
+		}
+		throw err;
+	}
+	if (!res.ok) {
+		const { message, errorCode } = parseErrorBody(res.status, await res.text());
+		throw new ApiError(message, res.status, errorCode);
+	}
+	return res.json();
+}
+
+// How long the browser waits for one answer. It must outlast the server's own
+// budget for the call: the provider request may take up to 45 s plus 5 s to
+// connect, and the API also loads the schedule and makes ledger round trips
+// before and after it. A call the browser stops waiting for may still be billed,
+// so giving up first only hides an answer that was paid for. Not a cold-start
+// allowance: the page loads the status first, which wakes the machine through
+// the retry path in `request()`.
+const ASK_TIMEOUT_MS = 90_000;
+
+/**
+ * Ask one question about a schedule.
+ *
+ * Single attempt (`requestOnce`): every retry of this POST could be another
+ * billed model call. A timeout throws `TimeoutError`; the call may still have
+ * been counted on the server, so callers reload the status afterwards.
+ */
+export async function askSchedule(projectId: string, question: string): Promise<AskResponse> {
+	return requestOnce<AskResponse>(
+		`/api/v1/projects/${encodeURIComponent(projectId)}/ask`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ question })
+		},
+		ASK_TIMEOUT_MS
+	);
+}
+
+export interface AiAdminConfig {
+	enabled: boolean;
+	api_key_set: boolean;
+	model_set: boolean;
+	prices_set: boolean;
+	global_budget_set: boolean;
+	sdk_available: boolean;
+	durable_ledger: boolean;
+}
+
+/** One approved account. Money fields are decimal strings (e.g. "5.00"). */
+export interface AiEntitlement {
+	user_id: string;
+	/** The address given at grant time; null when none was stored. */
+	email: string | null;
+	active: boolean;
+	granted_at: string | null;
+	revoked_at: string | null;
+	/** Null means the account uses the default. */
+	daily_questions: number | null;
+	/** Null means the account uses the default. */
+	monthly_budget_usd: string | null;
+	note: string | null;
+	used_today: number;
+	spent_month_usd: string;
+}
+
+/** Calls this UTC month by ledger status. */
+export interface AiMonthCalls {
+	/** Reserved and not settled yet (in flight, or stale). */
+	reserved: number;
+	completed: number;
+	/** Failed before generation (cost 0). */
+	failed: number;
+	/** Timed out, lost the connection or was cancelled: counted at the reserved amount. */
+	unknown: number;
+}
+
+/**
+ * `GET /api/v1/superadmin/ai`. When the usage ledger cannot be read the route
+ * still answers 200, with `available: false`, `reason: "ai_ledger_unavailable"`,
+ * the config flags, and zeros or empty values in every ledger field.
+ */
+export interface AiAdminSummary {
+	available: boolean;
+	reason: string | null;
+	config: AiAdminConfig;
+	model: string | null;
+	global_budget_usd: string | null;
+	global_spent_month_usd: string;
+	defaults: { daily_questions: number; account_monthly_budget_usd: string };
+	stale_reservations: number;
+	month_calls: AiMonthCalls;
+	/** Last failed or unknown-outcome call, any time (ISO-8601), or null. */
+	last_failure_at: string | null;
+	/** Worst case reserved for a typical question at the configured prices; null when prices are not set. */
+	reserve_per_question_usd: string | null;
+	entitlements: AiEntitlement[];
+}
+
+export interface AiGrantRequest {
+	email: string;
+	/** Null puts the account on the default. */
+	daily_questions: number | null;
+	/** Null puts the account on the default. */
+	monthly_budget_usd: number | string | null;
+	note: string | null;
+}
+
+/** Superadmin only: 401 signed out, 403 for everyone else. */
+export async function getAiAdmin(): Promise<AiAdminSummary> {
+	return request<AiAdminSummary>('/api/v1/superadmin/ai');
+}
+
+// A grant or a revoke is a few database writes. The page loads the summary
+// through `request()` first, which absorbs a cold start, so this only has to
+// cover the write itself.
+const AI_ADMIN_WRITE_TIMEOUT_MS = 30_000;
+
+/**
+ * Grant or re-grant (upsert). 404 `ai_account_not_found` when no account uses the address.
+ *
+ * Single attempt (`requestOnce`): the outcome of a failed or timed-out grant
+ * is unknown, so the page reloads the list instead of repeating the write.
+ */
+export async function grantAiAccess(body: AiGrantRequest): Promise<AiEntitlement> {
+	return requestOnce<AiEntitlement>(
+		'/api/v1/superadmin/ai/entitlements',
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		},
+		AI_ADMIN_WRITE_TIMEOUT_MS
+	);
+}
+
+/**
+ * Soft revoke. 404 `ai_entitlement_not_found` when there is nothing to revoke.
+ *
+ * Single attempt (`requestOnce`): a revoke repeated after the first one took
+ * effect on the server answers 404, which would read as "this account had no
+ * active AI access" for an account that had it until a moment ago.
+ */
+export async function revokeAiAccess(userId: string): Promise<{ revoked: boolean }> {
+	return requestOnce<{ revoked: boolean }>(
+		`/api/v1/superadmin/ai/entitlements/${encodeURIComponent(userId)}`,
+		{ method: 'DELETE' },
+		AI_ADMIN_WRITE_TIMEOUT_MS
 	);
 }

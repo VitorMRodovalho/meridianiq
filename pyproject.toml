@@ -56,7 +56,10 @@ dependencies = [
 api = ["fastapi>=0.136.1", "uvicorn[standard]>=0.46", "slowapi>=0.1.9", "psutil>=5.9"]
 export = ["pandas>=2.2", "openpyxl>=3.1"]
 reports = ["weasyprint>=70.0"]
-ai = ["anthropic>=0.100"]
+# Upper bound: the AI gate classifies provider errors by their status code and
+# response (src/api/ai_gate.py _outcome_of) and builds the client with
+# max_retries/timeout; a major SDK release is a conscious bump.
+ai = ["anthropic>=0.100,<1"]
 ml = ["scikit-learn>=1.8"]
 # Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
 # replaces the ``FastMCP`` API used at ``src/mcp_server.py:61`` with

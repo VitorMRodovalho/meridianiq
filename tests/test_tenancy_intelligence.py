@@ -39,7 +39,6 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 import src.api.deps as deps
-from src.analytics.nlp_query import NLPQueryResult
 from src.api import access, auth
 from src.api.app import app
 from src.api.routers import cost, intelligence, whatif
@@ -47,6 +46,7 @@ from src.database import config
 from src.database.store import InMemoryStore
 from src.parser.models import ParsedSchedule
 from src.parser.xer_reader import XERReader
+from tests import ai_fakes
 
 FIXTURES = Path(__file__).parent / "fixtures"
 TEST_JWT_SECRET = "test-secret"  # tests/conftest.py sets SUPABASE_JWT_SECRET to this
@@ -114,7 +114,7 @@ ROUTES: list[Route] = [
     Route("GET", f"{_P}/health", secondary="baseline_id"),
     Route("GET", f"{_P}/float-trends", secondary="baseline_id", secondary_required=True),
     Route("GET", f"{_P}/root-cause"),
-    Route("POST", f"{_P}/ask", body={"question": "Which path drives completion?", "api_key": "k"}),
+    Route("POST", f"{_P}/ask", body={"question": "Which path drives completion?"}),
     Route("GET", f"{_P}/anomalies"),
     Route("GET", f"{_P}/delay-prediction", secondary="baseline_id"),
     Route("GET", f"{_P}/alerts", secondary="baseline_id", secondary_required=True),
@@ -165,6 +165,7 @@ class World:
     reads: list[str] = field(default_factory=list)  # project ids whose schedule was read
     cache_calls: list[str] = field(default_factory=list)  # analysis-cache methods called
     asked: list[str] = field(default_factory=list)  # questions that reached the NLP engine
+    store: Any = None
 
     def call(
         self,
@@ -197,6 +198,7 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         return str(store.add(copy.deepcopy(_parsed(name)), b"x", user_id=owner))
 
     w = World(
+        store=store,
         client=TestClient(app),
         a={"Authorization": f"Bearer {_token(USER_A)}"},
         b={"Authorization": f"Bearer {_token(USER_B)}"},
@@ -232,12 +234,19 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     for name in ("get_analysis", "save_analysis", "invalidate_analysis"):
         spy_cache(name)
 
-    # /ask must not reach the Claude API from a test; the stub records who got through.
-    async def fake_query(schedule: ParsedSchedule, question: str, **_: Any) -> NLPQueryResult:
-        w.asked.append(question)
-        return NLPQueryResult(question=question, answer="stub", model="stub", tokens_used=0)
-
-    monkeypatch.setattr("src.analytics.nlp_query.query_schedule", fake_query)
+    # /ask runs through the AI gate with a fake provider client that records
+    # who got through. Both tenants are entitled, so a refusal below is the
+    # access layer's, not the gate's.
+    ai_fakes.enable_ai(monkeypatch, questions=w.asked)
+    for user in (USER_A, USER_B):
+        store.ai_grant(
+            user_id=user,
+            email=f"{user}@example.test",
+            granted_by=USER_A,
+            daily_questions=None,
+            monthly_budget_usd=None,
+            note=None,
+        )
     return w
 
 
@@ -313,6 +322,7 @@ def test_other_tenant_gets_not_found_like_a_random_id(world: World, route: Route
 
     # A second id, when required, is B's own: only the path id is foreign.
     second = w.pb if route.secondary_required else None
+    usage_before = len(w.store._ai_usage)
     foreign = w.call(route, w.b, w.pa, secondary=second)
     foreign2 = w.call(route, w.b, w.pa2, secondary=second)
     random_id = w.call(route, w.b, str(uuid.uuid4()), secondary=second)
@@ -322,6 +332,7 @@ def test_other_tenant_gets_not_found_like_a_random_id(world: World, route: Route
     assert _answer(foreign) == _answer(foreign2) == _answer(random_id) == _answer(sequential)
     assert w.reads == [], f"{route} read a schedule before refusing: {w.reads}"
     assert w.asked == []
+    assert len(w.store._ai_usage) == usage_before, "a refused request reserved AI spend"
 
 
 @pytest.mark.parametrize("route", WITH_SECONDARY, ids=str)

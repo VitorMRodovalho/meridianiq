@@ -731,12 +731,12 @@ Reference: AACE RP 29R-03 — Forensic Schedule Analysis (narrative requirements
 
 **NLP Schedule Query engine — natural language interface for schedule data.**
 
-Allows users to ask questions about a schedule in plain language. Uses Claude API to interpret the question, extract relevant data, and generate a human-readable answer grounded in the schedule facts.
+Allows users to ask questions about a schedule in plain language. The engine builds a bounded prompt from a structured summary of the schedule and reads the model's answer; it never constructs an API client and never reads credentials. The caller (``src/api/ai_gate.py``) decides who may ask, reserves the cost, passes a client in, and settles the cost.
 
 The engine does NOT send raw schedule data to the API. Instead, it:
 1. Pre-computes a structured summary of the schedule
 2. Sends the summary + user question to Claude
-3. Returns the answer with citations to specific activities
+3. Returns the answer grounded in the summary's numbers
 
 This approach minimizes token usage and prevents sensitive data exposure.
 
@@ -966,7 +966,7 @@ Standards:
 
 **Conversational schedule builder — NLP-driven schedule generation.**
 
-Uses Claude API to interpret a natural language project description and extract structured parameters, then calls the schedule generation engine to produce a complete schedule.
+Interprets a natural language project description, extracts structured parameters, then calls the schedule generation engine to produce a complete schedule. Without a model client it uses keyword rules (``_fallback_build``), which is what every current caller does. A client is obtained only through ``src/api/ai_gate.py``, which owns access, limits and cost; this module never constructs one.
 
 **Standards implemented:**
 

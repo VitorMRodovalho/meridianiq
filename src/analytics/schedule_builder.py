@@ -2,9 +2,12 @@
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Conversational schedule builder — NLP-driven schedule generation.
 
-Uses Claude API to interpret a natural language project description and
-extract structured parameters, then calls the schedule generation engine
-to produce a complete schedule.
+Interprets a natural language project description, extracts structured
+parameters, then calls the schedule generation engine to produce a complete
+schedule. Without a model client it uses keyword rules
+(``_fallback_build``), which is what every current caller does. A client is
+obtained only through ``src/api/ai_gate.py``, which owns access, limits and
+cost; this module never constructs one.
 
 References:
     - AbdElMottaleb (2025) — ML for Construction Scheduling
@@ -15,7 +18,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -59,17 +61,18 @@ User's project description:
 
 async def build_schedule(
     description: str,
-    api_key: str | None = None,
+    client: Any | None = None,
     model: str = "claude-sonnet-4-6",
 ) -> BuilderResult:
     """Build a schedule from a natural language project description.
 
-    Uses Claude to interpret the description, extract parameters, and
-    generate a complete schedule.
+    With a model client, the model interprets the description and extracts
+    the parameters; without one, keyword rules do.
 
     Args:
         description: Natural language project description.
-        api_key: Anthropic API key. Falls back to ANTHROPIC_API_KEY env var.
+        client: A model client from ``src/api/ai_gate.py``, or ``None`` for
+            the keyword rules.
         model: Claude model to use.
 
     Returns:
@@ -81,15 +84,11 @@ async def build_schedule(
     """
     result = BuilderResult()
 
-    key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
-    if not key:
+    if client is None:
         # Fallback: parse keywords manually
         return _fallback_build(description)
 
     try:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=key)
         response = client.messages.create(
             model=model,
             max_tokens=500,

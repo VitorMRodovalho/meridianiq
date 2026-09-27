@@ -2,6 +2,7 @@
 User-agent: *
 Disallow: /api/
 Disallow: /settings
+Disallow: /admin
 Allow: /
 
 Sitemap: https://getmeridianiq.com/sitemap.xml

@@ -56,6 +56,13 @@ SERVICE_ROLE_ONLY: dict[str, str] = {
     # program-sharing UX must remove this entry and ship CREATE POLICY rows
     # in the same migration.
     "program_shares": "dormant since migration 007; no user-facing code path",
+    # Migration 035: the AI access ledger. Written and read only by the API
+    # (service_role) through ai_quota / ai_reserve / ai_settle /
+    # ai_admin_report; a client that could read or write these rows could
+    # grant itself AI access or erase its spend. Deny-all for clients is the
+    # design, checked in the replica (scripts/rls_replica/035/scenarios.sql, s16).
+    "ai_entitlements": "AI grants; API-only (migration 035)",
+    "ai_usage": "AI spend ledger; API-only (migration 035)",
 }
 
 _CREATE_TABLE_RE = re.compile(

@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **134 endpoints** across **26 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **138 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -26,6 +26,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Reports](#reports) — 3 endpoints
 - [Admin](#admin) — 6 endpoints
 - [Health](#health) — 2 endpoints
+- [Ai](#ai) — 4 endpoints
 - [Bi](#bi) — 3 endpoints
 - [Hooks](#hooks) — 1 endpoints
 - [Lifecycle](#lifecycle) — 4 endpoints
@@ -261,6 +262,15 @@ _Readiness and liveness_
 |---|---|---|---|---|
 | `GET` | `/api/v1/health` | Health check endpoint. | `HealthResponse` | none |
 | `GET` | `/health` | — | `dict` | none |
+
+## Ai
+
+| Method | Path | Summary | Response | Auth |
+|---|---|---|---|---|
+| `GET` | `/api/v1/ai/status` | Whether the caller may use the AI assistant now, and why not. | `AIStatusResponse` | optional |
+| `GET` | `/api/v1/superadmin/ai` | Configuration state (never secret values), spend and entitlements. | `AIAdminResponse` | optional |
+| `POST` | `/api/v1/superadmin/ai/entitlements` | Grant AI access to the account that owns ``email``. | `AIEntitlementSchema` | optional |
+| `DELETE` | `/api/v1/superadmin/ai/entitlements/{user_id}` | Revoke an account's AI access (soft: the row and its history stay). Audited. | `AIRevokeResponse` | optional |
 
 ## Bi
 

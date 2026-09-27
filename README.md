@@ -39,8 +39,8 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | MCP tools | 22 (Claude integration via FastMCP) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 1687 backend + 175 Vitest (composables + Svelte 5 components + i18n key-parity + charts) + 64 Playwright E2E |
-| Frontend pages | 55 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
-| API endpoints | 134 across 26 routers |
+| Frontend pages | 56 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |
+| API endpoints | 138 across 27 routers |
 | SVG chart components | 11 (incl. EVM S-Curve + Multi-Revision S-Curve) + ScheduleViewer (hand-crafted, no chart.js) |
 | Released versions | v0.1.0 → v4.3.0 |
 | Live platform | [getmeridianiq.com](https://getmeridianiq.com) |
@@ -120,7 +120,7 @@ graph TB
     end
 
     subgraph "Compute Layer — Fly.io"
-        FASTAPI["FastAPI Container<br/>Analysis Engines (48)<br/>134 endpoints"]
+        FASTAPI["FastAPI Container<br/>Analysis Engines (48)<br/>138 endpoints"]
     end
 
     subgraph "Platform Layer — Supabase"
@@ -327,12 +327,12 @@ meridianiq/
 │   ├── database/         # Supabase client, config, store abstraction
 │   └── api/
 │       ├── app.py        # FastAPI entry point
-│       ├── routers/      # 134 endpoints across modular routers
+│       ├── routers/      # 138 endpoints across modular routers
 │       └── schemas.py    # Request/response models
-├── web/                  # SvelteKit + Tailwind (55 pages)
+├── web/                  # SvelteKit + Tailwind (56 pages)
 ├── tests/                # 1687+ backend tests
 ├── supabase/
-│   └── migrations/       # PostgreSQL schema migrations (34 files)
+│   └── migrations/       # PostgreSQL schema migrations (35 files)
 ├── .github/
 │   └── workflows/ci.yml  # CI/CD: test + lint + E2E + deploy
 ├── docs/                 # Discovery & definition documents

@@ -29,11 +29,16 @@ except Exception:
     _RELEASE = "meridianiq-api@unknown"
 
 if dsn := os.environ.get("SENTRY_DSN"):
+    from .sentry_scrub import scrub_ai_event
+
     sentry_sdk.init(
         dsn=dsn,
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
         release=_RELEASE,
+        # AI frames and requests carry the user's question, the prompt and,
+        # on the operator routes, email addresses (src/api/sentry_scrub.py).
+        before_send=scrub_ai_event,
     )
 
 from fastapi import FastAPI, Request
@@ -134,6 +139,7 @@ from .routers.lifecycle import router as lifecycle_router  # noqa: E402
 from .routers.observability import router as observability_router  # noqa: E402
 from .routers.revisions import router as revisions_router  # noqa: E402
 from .routers.hooks import router as hooks_router  # noqa: E402
+from .routers.ai import router as ai_router  # noqa: E402
 
 # Discover third-party analysis-engine plugins at startup so the registry
 # is populated by the time the first request hits /api/v1/plugins.
@@ -167,6 +173,7 @@ app.include_router(lifecycle_router)
 app.include_router(observability_router)
 app.include_router(revisions_router)
 app.include_router(hooks_router)
+app.include_router(ai_router)
 
 
 @app.exception_handler(Exception)
