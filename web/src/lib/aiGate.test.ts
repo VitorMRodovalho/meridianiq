@@ -35,27 +35,32 @@ function apiError(status: number, errorCode: string | null): ApiError {
 }
 
 describe('reasonView / gateView', () => {
-	const cases: [string, 'closed' | 'exhausted', string][] = [
-		['ai_not_entitled', 'closed', 'ask.reason_not_entitled'],
-		['ai_disabled', 'closed', 'ask.reason_disabled'],
-		['ai_global_budget', 'closed', 'ask.reason_global_budget'],
-		['ai_session_required', 'closed', 'ask.reason_session_required'],
-		['ai_daily_quota', 'exhausted', 'ask.reason_daily_quota'],
-		['ai_account_budget', 'exhausted', 'ask.reason_account_budget']
+	const cases: [string, 'closed' | 'exhausted', string, string | null][] = [
+		['ai_not_entitled', 'closed', 'ask.reason_not_entitled', 'ask.access_title'],
+		['ai_disabled', 'closed', 'ask.reason_disabled', 'ask.access_title'],
+		['ai_global_budget', 'closed', 'ask.reason_global_budget', 'ask.paused_title'],
+		['ai_session_required', 'closed', 'ask.reason_session_required', 'ask.signin_title'],
+		['ai_daily_quota', 'exhausted', 'ask.reason_daily_quota', null],
+		['ai_account_budget', 'exhausted', 'ask.reason_account_budget', null]
 	];
 
-	for (const [reason, mode, key] of cases) {
+	for (const [reason, mode, key, titleKey] of cases) {
 		it(`${reason} → ${mode} with ${key}`, () => {
-			expect(reasonView(reason)).toEqual({ mode, reason, key });
-			expect(gateView({ available: false, reason })).toEqual({ mode, reason, key });
+			expect(reasonView(reason)).toEqual({ mode, reason, key, titleKey });
+			expect(gateView({ available: false, reason })).toEqual({ mode, reason, key, titleKey });
 		});
 	}
+
+	it('not approved and not open yet read the same to the user: early access', () => {
+		expect(reasonView('ai_not_entitled').titleKey).toBe(reasonView('ai_disabled').titleKey);
+	});
 
 	it('fails closed on an unknown reason', () => {
 		expect(reasonView('ai_something_new')).toEqual({
 			mode: 'closed',
 			reason: null,
-			key: AI_UNAVAILABLE_KEY
+			key: AI_UNAVAILABLE_KEY,
+			titleKey: 'ask.unavailable_title'
 		});
 	});
 
@@ -69,7 +74,12 @@ describe('reasonView / gateView', () => {
 	});
 
 	it('fails closed when the status could not be loaded', () => {
-		expect(gateView(null)).toEqual({ mode: 'closed', reason: null, key: AI_UNAVAILABLE_KEY });
+		expect(gateView(null)).toEqual({
+			mode: 'closed',
+			reason: null,
+			key: AI_UNAVAILABLE_KEY,
+			titleKey: 'ask.unavailable_title'
+		});
 		expect(gateView(undefined).mode).toBe('closed');
 	});
 
@@ -77,7 +87,8 @@ describe('reasonView / gateView', () => {
 		expect(gateView({ available: true, reason: null })).toEqual({
 			mode: 'available',
 			reason: null,
-			key: null
+			key: null,
+			titleKey: null
 		});
 		// A truthy non-boolean is not a yes.
 		const loose = { available: 'yes' as unknown as boolean, reason: null };
