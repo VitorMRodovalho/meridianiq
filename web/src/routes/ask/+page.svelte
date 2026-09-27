@@ -225,8 +225,36 @@
 			</a>
 		</div>
 	{:else}
-		{#if view.mode !== 'available'}
-			<!-- Focus target when a send ends in a gate state; the disabled input points here. -->
+		{#if view.mode === 'closed'}
+			<!-- A designed state, not an error: what the feature is, how it is
+				 enabled (administrators' approval during the beta, a paid plan
+				 later), and where to go next, so the journey does not end here.
+				 Also the focus target when a send ends in a closed state. -->
+			<div
+				id="ask-gate-message"
+				bind:this={gateMessageEl}
+				tabindex="-1"
+				class="mb-6 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 p-8 text-center focus:outline-none focus:ring-2 focus:ring-violet-500"
+			>
+				<svg class="mx-auto h-10 w-10 text-violet-600 dark:text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+				</svg>
+				<h2 class="mt-4 text-lg font-semibold text-violet-950 dark:text-violet-50">{$t(view.titleKey ?? 'ask.unavailable_title')}</h2>
+				<p class="mt-2 text-sm text-violet-900 dark:text-violet-100 max-w-xl mx-auto">{gateText}</p>
+				<p class="mt-3 text-sm text-violet-800 dark:text-violet-200 max-w-xl mx-auto">{$t('ask.rest_available')}</p>
+				<div class="mt-6 flex flex-wrap justify-center gap-3">
+					<a
+						href="/projects"
+						class="inline-block bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+					>{$t('ask.go_projects')}</a>
+					<a
+						href="/upload"
+						class="inline-block border border-violet-300 dark:border-violet-700 text-violet-900 dark:text-violet-100 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900 transition-colors"
+					>{$t('ask.go_upload')}</a>
+				</div>
+			</div>
+		{:else if view.mode === 'exhausted'}
+			<!-- Focus target when a send ends in a quota state; the disabled input points here. -->
 			<div
 				id="ask-gate-message"
 				bind:this={gateMessageEl}

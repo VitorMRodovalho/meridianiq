@@ -17,7 +17,10 @@
  * How the /ask page presents the current state.
  * - `available`: the composer is usable.
  * - `closed`: nothing on this page can change it (not approved, not open,
- *   paused): the project selector, the input and the suggestions are removed.
+ *   paused): the project selector, the input and the suggestions are removed,
+ *   and a panel says why, as a designed state rather than an error: the
+ *   feature is enabled by the administrators' approval during the beta and
+ *   will later be part of a paid plan.
  * - `exhausted`: a quota ran out: the conversation stays, the composer is disabled.
  */
 export type AiGateMode = 'available' | 'closed' | 'exhausted';
@@ -28,16 +31,30 @@ export interface GateView {
 	reason: string | null;
 	/** i18n key of the message, or null when available. */
 	key: string | null;
+	/** i18n key of the panel title for a closed state, else null. */
+	titleKey: string | null;
 }
 
 /** The generic message for anything not recognised. */
 export const AI_UNAVAILABLE_KEY = 'ask.unavailable';
+const AI_UNAVAILABLE_TITLE_KEY = 'ask.unavailable_title';
 
 const CLOSED_REASONS: Record<string, string> = {
 	ai_not_entitled: 'ask.reason_not_entitled',
 	ai_disabled: 'ask.reason_disabled',
 	ai_global_budget: 'ask.reason_global_budget',
 	ai_session_required: 'ask.reason_session_required'
+};
+
+/**
+ * Titles of the closed panel. Not approved and not open yet read the same to
+ * the user (an early-access feature), so neither looks like a failure.
+ */
+const CLOSED_TITLES: Record<string, string> = {
+	ai_not_entitled: 'ask.access_title',
+	ai_disabled: 'ask.access_title',
+	ai_global_budget: 'ask.paused_title',
+	ai_session_required: 'ask.signin_title'
 };
 
 const EXHAUSTED_REASONS: Record<string, string> = {
@@ -62,7 +79,9 @@ const ERROR_KEYS = {
 /** Every i18n key this module can hand to a page (tested against the locales). */
 export const AI_GATE_MESSAGE_KEYS: readonly string[] = [
 	AI_UNAVAILABLE_KEY,
+	AI_UNAVAILABLE_TITLE_KEY,
 	...Object.values(CLOSED_REASONS),
+	...Object.values(CLOSED_TITLES),
 	...Object.values(EXHAUSTED_REASONS),
 	DAILY_QUOTA_NO_TIME_KEY,
 	...Object.values(ERROR_KEYS),
@@ -82,11 +101,11 @@ export function isGateReason(code: string | null | undefined): boolean {
 export function reasonView(reason: string | null | undefined): GateView {
 	if (reason) {
 		const closed = own(CLOSED_REASONS, reason);
-		if (closed) return { mode: 'closed', reason, key: closed };
+		if (closed) return { mode: 'closed', reason, key: closed, titleKey: own(CLOSED_TITLES, reason) };
 		const exhausted = own(EXHAUSTED_REASONS, reason);
-		if (exhausted) return { mode: 'exhausted', reason, key: exhausted };
+		if (exhausted) return { mode: 'exhausted', reason, key: exhausted, titleKey: null };
 	}
-	return { mode: 'closed', reason: null, key: AI_UNAVAILABLE_KEY };
+	return { mode: 'closed', reason: null, key: AI_UNAVAILABLE_KEY, titleKey: AI_UNAVAILABLE_TITLE_KEY };
 }
 
 /**
@@ -97,7 +116,7 @@ export function gateView(
 	status: { available: boolean; reason: string | null } | null | undefined
 ): GateView {
 	if (!status) return reasonView(null);
-	if (status.available === true) return { mode: 'available', reason: null, key: null };
+	if (status.available === true) return { mode: 'available', reason: null, key: null, titleKey: null };
 	return reasonView(status.reason);
 }
 
