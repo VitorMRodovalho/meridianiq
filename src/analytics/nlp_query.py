@@ -3,13 +3,15 @@
 """NLP Schedule Query engine — natural language interface for schedule data.
 
 Allows users to ask questions about a schedule in plain language.
-Uses Claude API to interpret the question, extract relevant data,
-and generate a human-readable answer grounded in the schedule facts.
+The engine builds a bounded prompt from a structured summary of the
+schedule and reads the model's answer; it never constructs an API client
+and never reads credentials. The caller (``src/api/ai_gate.py``) decides
+who may ask, reserves the cost, passes a client in, and settles the cost.
 
 The engine does NOT send raw schedule data to the API. Instead, it:
 1. Pre-computes a structured summary of the schedule
 2. Sends the summary + user question to Claude
-3. Returns the answer with citations to specific activities
+3. Returns the answer grounded in the summary's numbers
 
 This approach minimizes token usage and prevents sensitive data exposure.
 
@@ -22,8 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from src.parser.models import ParsedSchedule
@@ -31,23 +32,29 @@ from src.parser.models import ParsedSchedule
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class NLPQueryResult:
-    """Result of a natural language schedule query.
+#: Longest project short name copied into the prompt. The name comes from
+#: the uploaded XER, so it is user-controlled text of any length.
+MAX_PROJECT_NAME_CHARS = 120
+
+#: Relationship types P6 defines; anything else in the XER is counted as "other".
+_RELATIONSHIP_TYPES = {"PR_FS", "PR_SS", "PR_FF", "PR_SF"}
+
+
+@dataclass(frozen=True)
+class ModelUsage:
+    """Token counts the provider reported for one call.
 
     Attributes:
-        question: The original user question.
-        answer: Claude's natural language answer.
-        data_context: Key data points used to generate the answer.
-        model: The Claude model used.
-        tokens_used: Total tokens consumed.
+        input_tokens: Uncached input tokens.
+        output_tokens: Generated tokens.
+        cache_creation_input_tokens: Input tokens written to the prompt cache.
+        cache_read_input_tokens: Input tokens read from the prompt cache.
     """
 
-    question: str = ""
-    answer: str = ""
-    data_context: dict[str, Any] = field(default_factory=dict)
-    model: str = ""
-    tokens_used: int = 0
+    input_tokens: int
+    output_tokens: int
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 def _build_schedule_summary(schedule: ParsedSchedule) -> dict[str, Any]:
@@ -61,7 +68,7 @@ def _build_schedule_summary(schedule: ParsedSchedule) -> dict[str, Any]:
     data_date = None
     if schedule.projects:
         proj = schedule.projects[0]
-        project_name = proj.proj_short_name or ""
+        project_name = (proj.proj_short_name or "")[:MAX_PROJECT_NAME_CHARS]
         dd = proj.last_recalc_date or proj.sum_data_date
         if dd:
             data_date = dd.isoformat()
@@ -116,6 +123,8 @@ def _build_schedule_summary(schedule: ParsedSchedule) -> dict[str, Any]:
     rel_types: dict[str, int] = {}
     for r in schedule.relationships:
         rt = r.pred_type.upper()
+        if rt not in _RELATIONSHIP_TYPES:
+            rt = "other"
         rel_types[rt] = rel_types.get(rt, 0) + 1
 
     # WBS depth
@@ -185,35 +194,25 @@ Do NOT:
 Respond in the same language the user's question is written in."""
 
 
-async def query_schedule(
-    schedule: ParsedSchedule,
-    question: str,
-    api_key: str | None = None,
-    model: str = "claude-sonnet-4-6",
-) -> NLPQueryResult:
-    """Ask a natural language question about a schedule.
+def build_prompt(schedule: ParsedSchedule, question: str) -> tuple[str, str]:
+    """Build the system prompt and the user message for one question.
+
+    The user message holds the schedule summary, the DCMA 14-Point summary
+    when it can be computed, and the question. Every part is bounded: the
+    summary is counts and rounded numbers, the project name is truncated and
+    relationship types are grouped, so the size depends on the question
+    (limited by the API schema), not on the uploaded file.
+
+    Standards:
+        DCMA 14-Point Assessment (the summary quoted to the model).
 
     Args:
-        schedule: The parsed schedule to query.
-        question: User's question in natural language.
-        api_key: Anthropic API key. Falls back to ANTHROPIC_API_KEY env var.
-        model: Claude model to use.
+        schedule: The parsed schedule the question is about.
+        question: The user's question, already validated for length.
 
     Returns:
-        NLPQueryResult with the answer and context.
-
-    Raises:
-        ValueError: If no API key is available.
-        RuntimeError: If the Claude API call fails.
+        ``(system_prompt, user_message)``.
     """
-    key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
-    if not key:
-        raise ValueError(
-            "Anthropic API key required. Set ANTHROPIC_API_KEY environment variable "
-            "or pass api_key parameter."
-        )
-
-    # Build context
     summary = _build_schedule_summary(schedule)
     dcma = _build_dcma_summary(schedule)
 
@@ -226,34 +225,47 @@ async def query_schedule(
 DCMA 14-Point Assessment:
 {json.dumps(dcma, indent=2)}"""
 
-    try:
-        import anthropic
+    return SYSTEM_PROMPT, f"{context}\n\nQuestion: {question}"
 
-        client = anthropic.Anthropic(api_key=key)
-        response = client.messages.create(
-            model=model,
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"{context}\n\nQuestion: {question}",
-                }
-            ],
-        )
 
-        answer = response.content[0].text if response.content else ""
-        tokens = (
-            (response.usage.input_tokens + response.usage.output_tokens) if response.usage else 0
-        )
+def call_model(
+    client: Any,
+    *,
+    model: str,
+    system: str,
+    message: str,
+    max_tokens: int,
+) -> Any:
+    """Send one message to the model and return the provider's response.
 
-        return NLPQueryResult(
-            question=question,
-            answer=answer,
-            data_context=summary,
-            model=model,
-            tokens_used=tokens,
-        )
+    Exactly one request: retries and timeouts are properties of ``client``,
+    which the caller builds. Nothing is parsed here, so the caller can read
+    the usage before anything else can fail.
+    """
+    return client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": message}],
+    )
 
-    except Exception as exc:
-        raise RuntimeError(f"Claude API call failed: {exc}") from exc
+
+def usage_of(response: Any) -> ModelUsage | None:
+    """The token counts of a response, or ``None`` if it carries none."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    return ModelUsage(
+        input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+        output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+        cache_creation_input_tokens=int(getattr(usage, "cache_creation_input_tokens", 0) or 0),
+        cache_read_input_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
+    )
+
+
+def answer_text(response: Any) -> str:
+    """The text of a response: its text blocks joined, or ``""``."""
+    blocks = getattr(response, "content", None) or []
+    return "".join(
+        getattr(block, "text", "") for block in blocks if getattr(block, "type", "") == "text"
+    )

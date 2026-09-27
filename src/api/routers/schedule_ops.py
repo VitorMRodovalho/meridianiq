@@ -57,7 +57,8 @@ async def build_schedule_endpoint(
 ) -> dict:
     """Build a schedule from natural language description.
 
-    Uses Claude API to extract parameters, falls back to keyword matching.
+    Extracts the parameters with keyword rules (``_fallback_build``); no
+    model is called.
 
     Args:
         request: FastAPI request object (consumed by the rate limiter).

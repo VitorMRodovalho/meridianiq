@@ -16,8 +16,11 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+import threading
 import uuid
-from datetime import UTC, date, datetime
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +62,61 @@ def _json_safe(obj: Any) -> Any:
     if isinstance(obj, list | tuple):
         return [_json_safe(x) for x in obj]
     return obj
+
+
+# ------------------------------------------------------------------ #
+# AI access ledger (migration 035) — shared shapes                   #
+# ------------------------------------------------------------------ #
+
+
+@dataclass(frozen=True)
+class AIQuota:
+    """One account's AI entitlement and usage in the current UTC windows.
+
+    Mirrors ``public.ai_quota`` (migration 035). ``daily_limit`` and
+    ``account_budget_usd`` already have the defaults applied.
+    """
+
+    entitled: bool
+    daily_limit: int
+    used_today: int
+    account_budget_usd: Decimal
+    account_spent_usd: Decimal
+    global_spent_usd: Decimal
+
+
+#: A reservation still unsettled after this long is reported as stale.
+AI_STALE_RESERVATION = timedelta(minutes=10)
+
+
+def ai_usage_spend(row: dict[str, Any]) -> Decimal:
+    """What one ``ai_usage`` row counts against a budget (migration 035 rule).
+
+    ``completed`` counts its real cost, ``failed`` counts nothing, and
+    ``reserved`` / ``unknown`` count the worst case that was reserved.
+    """
+    status = row["status"]
+    if status == "completed":
+        return Decimal(row["cost_usd"])
+    if status == "failed":
+        return Decimal(0)
+    return Decimal(row["reserved_usd"])
+
+
+def utc_day_start(now: datetime) -> datetime:
+    """Start of the UTC calendar day containing ``now``."""
+    now = now.astimezone(UTC)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def utc_month_start(now: datetime) -> datetime:
+    """Start of the UTC calendar month containing ``now``."""
+    return utc_day_start(now).replace(day=1)
+
+
+def _money_text(value: Any) -> str:
+    """A money amount as text, for a Postgres ``numeric`` parameter."""
+    return format(Decimal(str(value)), "f")
 
 
 # ------------------------------------------------------------------ #
@@ -105,6 +163,13 @@ class InMemoryStore:
         self._derived_artifact_counter: int = 0
         # Shadow audit_log (in-memory mirror of supabase audit_log for tests)
         self._audit_log: list[dict[str, Any]] = []
+        # AI access ledger (migration 035). The lock plays the part of the
+        # advisory lock in ai_reserve: check-and-insert is one step.
+        self._ai_entitlements: dict[str, dict[str, Any]] = {}
+        self._ai_usage: list[dict[str, Any]] = []
+        self._ai_lock = threading.Lock()
+        # Accounts by address, standing in for auth.users (dev and tests).
+        self._accounts_by_email: dict[str, str] = {}
         # Cycle 1 Wave 2 — projects.status state machine (ADR-0015).
         # Default 'ready' on save_project here because the InMemoryStore
         # represents the ADR-0015 sync-fast-path (under-threshold schedules
@@ -772,6 +837,9 @@ class InMemoryStore:
         self._cost_uploads.clear()
         self._cost_upload_counter = 0
         self._risk_entries.clear()
+        self._ai_entitlements.clear()
+        self._ai_usage.clear()
+        self._accounts_by_email.clear()
 
     # -- analysis results ------------------------------------------------
 
@@ -1394,6 +1462,235 @@ class InMemoryStore:
         """Return the most-recent override for a project or None."""
         rows = self.list_lifecycle_overrides(project_id, limit=1)
         return rows[0] if rows else None
+
+    # -- AI access ledger (migration 035) --------------------------------
+
+    def register_account(self, user_id: str, email: str) -> None:
+        """Record an account's address (stands in for ``auth.users``)."""
+        self._accounts_by_email[email.strip().lower()] = user_id
+
+    def user_id_for_email(self, email: str) -> str | None:
+        """The account an address belongs to, or ``None``."""
+        return self._accounts_by_email.get(email.strip().lower())
+
+    def _ai_quota_locked(
+        self, user_id: str, default_daily: int, default_account_usd: Decimal, now: datetime
+    ) -> AIQuota:
+        ent = self._ai_entitlements.get(user_id)
+        active = ent is not None and ent["revoked_at"] is None
+        day, month = utc_day_start(now), utc_month_start(now)
+        month_rows = [r for r in self._ai_usage if r["created_at"] >= month]
+        mine = [r for r in month_rows if r["user_id"] == user_id]
+        daily = ent["daily_questions"] if active and ent["daily_questions"] is not None else None
+        budget = (
+            ent["monthly_budget_usd"]
+            if active and ent["monthly_budget_usd"] is not None
+            else default_account_usd
+        )
+        return AIQuota(
+            entitled=active,
+            daily_limit=default_daily if daily is None else daily,
+            used_today=sum(1 for r in mine if r["status"] != "failed" and r["created_at"] >= day),
+            account_budget_usd=Decimal(budget),
+            account_spent_usd=sum((ai_usage_spend(r) for r in mine), Decimal(0)),
+            global_spent_usd=sum((ai_usage_spend(r) for r in month_rows), Decimal(0)),
+        )
+
+    def ai_quota(self, user_id: str, default_daily: int, default_account_usd: Decimal) -> AIQuota:
+        """Entitlement and usage of one account (``public.ai_quota``)."""
+        with self._ai_lock:
+            return self._ai_quota_locked(
+                user_id, default_daily, default_account_usd, datetime.now(UTC)
+            )
+
+    def ai_reserve(
+        self,
+        *,
+        user_id: str,
+        project_id: str | None,
+        reserve_usd: Decimal,
+        default_daily: int,
+        default_account_usd: Decimal,
+        global_budget_usd: Decimal,
+        model: str,
+        price_input: Decimal,
+        price_output: Decimal,
+    ) -> tuple[int | None, str | None]:
+        """Reserve one call's worst-case cost, or say why not (``public.ai_reserve``)."""
+        if reserve_usd <= 0 or global_budget_usd <= 0:
+            raise ValueError("ai_reserve: reserve and global budget must be positive")
+        with self._ai_lock:
+            now = datetime.now(UTC)
+            q = self._ai_quota_locked(user_id, default_daily, default_account_usd, now)
+            if not q.entitled:
+                return None, "ai_not_entitled"
+            if q.used_today >= q.daily_limit:
+                return None, "ai_daily_quota"
+            if q.account_spent_usd + reserve_usd > q.account_budget_usd:
+                return None, "ai_account_budget"
+            if q.global_spent_usd + reserve_usd > global_budget_usd:
+                return None, "ai_global_budget"
+            reservation_id = len(self._ai_usage) + 1
+            self._ai_usage.append(
+                {
+                    "id": reservation_id,
+                    "user_id": user_id,
+                    "project_id": project_id,
+                    "created_at": now,
+                    "settled_at": None,
+                    "status": "reserved",
+                    "model": model,
+                    "price_input_usd_per_mtok": price_input,
+                    "price_output_usd_per_mtok": price_output,
+                    "reserved_usd": reserve_usd,
+                    "input_tokens": None,
+                    "output_tokens": None,
+                    "cost_usd": None,
+                }
+            )
+            return reservation_id, None
+
+    def ai_settle(
+        self,
+        reservation_id: int,
+        status: str,
+        input_tokens: int | None,
+        output_tokens: int | None,
+        cost_usd: Decimal | None,
+    ) -> bool:
+        """Settle a reservation once (``public.ai_settle``). True if it was reserved."""
+        if status not in ("completed", "failed", "unknown"):
+            raise ValueError(f"ai_settle: invalid status {status}")
+        if status == "completed" and cost_usd is None:
+            raise ValueError("ai_settle: a completed call needs its cost")
+        with self._ai_lock:
+            for row in self._ai_usage:
+                if row["id"] == reservation_id and row["status"] == "reserved":
+                    row.update(
+                        status=status,
+                        settled_at=datetime.now(UTC),
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost_usd=cost_usd,
+                    )
+                    return True
+            return False
+
+    def ai_grant(
+        self,
+        *,
+        user_id: str,
+        email: str,
+        granted_by: str,
+        daily_questions: int | None,
+        monthly_budget_usd: Decimal | None,
+        note: str | None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        """Grant (or re-grant, replacing the limits) AI access, with an audit row."""
+        now = datetime.now(UTC)
+        with self._ai_lock:
+            self._ai_entitlements[user_id] = {
+                "user_id": user_id,
+                "email": email,
+                "granted_by": granted_by,
+                "granted_at": now,
+                "revoked_at": None,
+                "revoked_by": None,
+                "daily_questions": daily_questions,
+                "monthly_budget_usd": monthly_budget_usd,
+                "note": note,
+            }
+        self._audit_log.append(
+            {
+                "id": f"audit-{len(self._audit_log) + 1:04d}",
+                "user_id": granted_by,
+                "action": "ai_access_granted",
+                "entity_type": "ai_entitlement",
+                "entity_id": user_id,
+                "details": {
+                    "daily_questions": daily_questions,
+                    "monthly_budget_usd": (
+                        None if monthly_budget_usd is None else str(monthly_budget_usd)
+                    ),
+                },
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "created_at": now.isoformat(),
+            }
+        )
+
+    def ai_revoke(
+        self,
+        *,
+        user_id: str,
+        revoked_by: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        """Revoke an active entitlement, with an audit row. False if none was active."""
+        now = datetime.now(UTC)
+        with self._ai_lock:
+            ent = self._ai_entitlements.get(user_id)
+            if ent is None or ent["revoked_at"] is not None:
+                return False
+            ent["revoked_at"] = now
+            ent["revoked_by"] = revoked_by
+        self._audit_log.append(
+            {
+                "id": f"audit-{len(self._audit_log) + 1:04d}",
+                "user_id": revoked_by,
+                "action": "ai_access_revoked",
+                "entity_type": "ai_entitlement",
+                "entity_id": user_id,
+                "details": {},
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "created_at": now.isoformat(),
+            }
+        )
+        return True
+
+    def ai_admin_report(self, default_daily: int, default_account_usd: Decimal) -> dict[str, Any]:
+        """Global month spend, stale reservations, entitlements with usage."""
+        now = datetime.now(UTC)
+        with self._ai_lock:
+            month = utc_month_start(now)
+            rows = []
+            for ent in sorted(
+                self._ai_entitlements.values(), key=lambda e: e["granted_at"], reverse=True
+            ):
+                q = self._ai_quota_locked(ent["user_id"], default_daily, default_account_usd, now)
+                rows.append(
+                    {
+                        **ent,
+                        "active": ent["revoked_at"] is None,
+                        "used_today": q.used_today,
+                        "spent_month_usd": q.account_spent_usd,
+                    }
+                )
+            return {
+                "global_spent_month_usd": sum(
+                    (ai_usage_spend(r) for r in self._ai_usage if r["created_at"] >= month),
+                    Decimal(0),
+                ),
+                "stale_reservations": sum(
+                    1
+                    for r in self._ai_usage
+                    if r["status"] == "reserved" and r["created_at"] < now - AI_STALE_RESERVATION
+                ),
+                "entitlements": rows,
+            }
+
+
+def _rpc_rows(data: Any) -> list[dict[str, Any]]:
+    """A set-returning RPC result as a list of rows, whatever shape arrives."""
+    if data is None:
+        return []
+    if isinstance(data, dict):
+        return [data]
+    return [r for r in data if isinstance(r, dict)]
 
 
 # ------------------------------------------------------------------ #
@@ -3961,10 +4258,220 @@ class SupabaseStore:
         rows = self.list_lifecycle_overrides(project_id, limit=1)
         return rows[0] if rows else None
 
+    # ------------------------------------------------------------------ #
+    # Helpers                                                            #
+    # ------------------------------------------------------------------ #
 
-# ------------------------------------------------------------------ #
-# Helpers                                                            #
-# ------------------------------------------------------------------ #
+    # -- AI access ledger (migration 035) --------------------------------
+
+    def user_id_for_email(self, email: str) -> str | None:
+        """The single confirmed account with this address (migration 033), or ``None``."""
+        value = self._client.rpc("auth_user_id_for_email", {"p_email": email}).execute().data
+        if isinstance(value, list):
+            value = value[0] if len(value) == 1 else None
+        if isinstance(value, dict):
+            value = value.get("auth_user_id_for_email")
+        if not value:
+            return None
+        try:
+            return str(uuid.UUID(str(value)))
+        except ValueError:
+            return None
+
+    def ai_quota(self, user_id: str, default_daily: int, default_account_usd: Decimal) -> AIQuota:
+        rows = _rpc_rows(
+            self._client.rpc(
+                "ai_quota",
+                {
+                    "p_user_id": user_id,
+                    "p_default_daily": default_daily,
+                    "p_default_account_usd": _money_text(default_account_usd),
+                },
+            )
+            .execute()
+            .data
+        )
+        if len(rows) != 1:
+            raise RuntimeError(f"ai_quota returned {len(rows)} rows")
+        r = rows[0]
+        return AIQuota(
+            entitled=bool(r["entitled"]),
+            daily_limit=int(r["daily_limit"]),
+            used_today=int(r["used_today"]),
+            account_budget_usd=Decimal(str(r["account_budget_usd"])),
+            account_spent_usd=Decimal(str(r["account_spent_usd"])),
+            global_spent_usd=Decimal(str(r["global_spent_usd"])),
+        )
+
+    def ai_reserve(
+        self,
+        *,
+        user_id: str,
+        project_id: str | None,
+        reserve_usd: Decimal,
+        default_daily: int,
+        default_account_usd: Decimal,
+        global_budget_usd: Decimal,
+        model: str,
+        price_input: Decimal,
+        price_output: Decimal,
+    ) -> tuple[int | None, str | None]:
+        rows = _rpc_rows(
+            self._client.rpc(
+                "ai_reserve",
+                {
+                    "p_user_id": user_id,
+                    "p_project_id": project_id,
+                    "p_reserve_usd": _money_text(reserve_usd),
+                    "p_default_daily": default_daily,
+                    "p_default_account_usd": _money_text(default_account_usd),
+                    "p_global_budget_usd": _money_text(global_budget_usd),
+                    "p_model": model,
+                    "p_price_input": _money_text(price_input),
+                    "p_price_output": _money_text(price_output),
+                },
+            )
+            .execute()
+            .data
+        )
+        if len(rows) != 1:
+            raise RuntimeError(f"ai_reserve returned {len(rows)} rows")
+        rid, reason = rows[0].get("reservation_id"), rows[0].get("reason")
+        if rid is None and not reason:
+            raise RuntimeError("ai_reserve returned neither a reservation nor a reason")
+        return (int(rid) if rid is not None else None), (str(reason) if reason else None)
+
+    def ai_settle(
+        self,
+        reservation_id: int,
+        status: str,
+        input_tokens: int | None,
+        output_tokens: int | None,
+        cost_usd: Decimal | None,
+    ) -> bool:
+        data = (
+            self._client.rpc(
+                "ai_settle",
+                {
+                    "p_reservation_id": reservation_id,
+                    "p_status": status,
+                    "p_input_tokens": input_tokens,
+                    "p_output_tokens": output_tokens,
+                    "p_cost_usd": None if cost_usd is None else _money_text(cost_usd),
+                },
+            )
+            .execute()
+            .data
+        )
+        if isinstance(data, list):
+            data = data[0] if data else None
+        return data is True
+
+    def _ai_audit(self, row: dict[str, Any]) -> None:
+        self._client.table("audit_log").insert(row).execute()
+
+    def ai_grant(
+        self,
+        *,
+        user_id: str,
+        email: str,
+        granted_by: str,
+        daily_questions: int | None,
+        monthly_budget_usd: Decimal | None,
+        note: str | None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        budget = None if monthly_budget_usd is None else _money_text(monthly_budget_usd)
+        self._client.table("ai_entitlements").upsert(
+            {
+                "user_id": user_id,
+                "email": email,
+                "granted_by": granted_by,
+                "granted_at": datetime.now(UTC).isoformat(),
+                "revoked_at": None,
+                "revoked_by": None,
+                "daily_questions": daily_questions,
+                "monthly_budget_usd": budget,
+                "note": note,
+            },
+            on_conflict="user_id",
+        ).execute()
+        self._ai_audit(
+            {
+                "user_id": granted_by,
+                "action": "ai_access_granted",
+                "entity_type": "ai_entitlement",
+                "entity_id": user_id,
+                "details": {"daily_questions": daily_questions, "monthly_budget_usd": budget},
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+            },
+        )
+
+    def ai_revoke(
+        self,
+        *,
+        user_id: str,
+        revoked_by: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        result = (
+            self._client.table("ai_entitlements")
+            .update({"revoked_at": datetime.now(UTC).isoformat(), "revoked_by": revoked_by})
+            .eq("user_id", user_id)
+            .is_("revoked_at", "null")
+            .execute()
+        )
+        if not result.data:
+            return False
+        self._ai_audit(
+            {
+                "user_id": revoked_by,
+                "action": "ai_access_revoked",
+                "entity_type": "ai_entitlement",
+                "entity_id": user_id,
+                "details": {},
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+            },
+        )
+        return True
+
+    def ai_admin_report(self, default_daily: int, default_account_usd: Decimal) -> dict[str, Any]:
+        data = (
+            self._client.rpc(
+                "ai_admin_report",
+                {
+                    "p_default_daily": default_daily,
+                    "p_default_account_usd": _money_text(default_account_usd),
+                },
+            )
+            .execute()
+            .data
+        )
+        if isinstance(data, list):
+            data = data[0] if len(data) == 1 else None
+        if isinstance(data, dict) and "ai_admin_report" in data:
+            data = data["ai_admin_report"]
+        if not isinstance(data, dict):
+            raise RuntimeError("ai_admin_report returned an unexpected shape")
+        entitlements = []
+        for e in data.get("entitlements") or []:
+            budget = e.get("monthly_budget_usd")
+            entitlements.append(
+                {
+                    **e,
+                    "monthly_budget_usd": None if budget is None else Decimal(str(budget)),
+                    "spent_month_usd": Decimal(str(e.get("spent_month_usd") or 0)),
+                }
+            )
+        return {
+            "global_spent_month_usd": Decimal(str(data.get("global_spent_month_usd") or 0)),
+            "stale_reservations": int(data.get("stale_reservations") or 0),
+            "entitlements": entitlements,
+        }
 
 
 def _parse_dt(value: str | datetime | None) -> datetime | None:

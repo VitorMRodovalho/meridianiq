@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -1252,10 +1253,14 @@ class HealthRequest(BaseModel):
 
 
 class NLPQueryRequest(BaseModel):
-    """Request body for POST /api/v1/projects/{id}/ask."""
+    """Request body for POST /api/v1/projects/{id}/ask.
+
+    The server's own key is the only one used (``src/api/ai_gate.py``); a
+    client-supplied key is no longer accepted, and an ``api_key`` field sent
+    anyway is ignored, never echoed.
+    """
 
     question: str = Field(..., min_length=1, max_length=1000)
-    api_key: Optional[str] = None
 
 
 class NLPQueryResponse(BaseModel):
@@ -1265,6 +1270,89 @@ class NLPQueryResponse(BaseModel):
     answer: str
     model: str
     tokens_used: int = 0
+    remaining_today: Optional[int] = None
+
+
+# ── AI access gate (src/api/ai_gate.py, migration 035) ──
+# Money is a decimal string ("5", "0.0123") so no amount crosses JSON as a float.
+
+
+class AIStatusResponse(BaseModel):
+    """Response for GET /api/v1/ai/status.
+
+    Gate states answer 200 with ``available=false`` and a ``reason``; the
+    counters are present once the caller is entitled.
+    """
+
+    available: bool
+    reason: Optional[str] = None
+    daily_limit: Optional[int] = None
+    used_today: Optional[int] = None
+    remaining_today: Optional[int] = None
+    resets_at: Optional[str] = Field(None, description="Next UTC midnight, ISO-8601")
+
+
+class AIConfigFlags(BaseModel):
+    """Which AI requirement is met. Never the values themselves."""
+
+    enabled: bool
+    api_key_set: bool
+    model_set: bool
+    prices_set: bool
+    global_budget_set: bool
+    sdk_available: bool
+    durable_ledger: bool
+
+
+class AIDefaults(BaseModel):
+    """Limits applied to an entitlement that does not override them."""
+
+    daily_questions: int
+    account_monthly_budget_usd: str
+
+
+class AIEntitlementSchema(BaseModel):
+    """One account's AI access and its usage in the current UTC windows."""
+
+    user_id: str
+    email: Optional[str] = None
+    active: bool
+    granted_at: Optional[str] = None
+    revoked_at: Optional[str] = None
+    daily_questions: Optional[int] = None
+    monthly_budget_usd: Optional[str] = None
+    note: Optional[str] = None
+    used_today: int = 0
+    spent_month_usd: str = "0"
+
+
+class AIAdminResponse(BaseModel):
+    """Response for GET /api/v1/superadmin/ai."""
+
+    available: bool
+    reason: Optional[str] = None
+    config: AIConfigFlags
+    model: Optional[str] = None
+    global_budget_usd: Optional[str] = None
+    global_spent_month_usd: str
+    defaults: AIDefaults
+    stale_reservations: int
+    entitlements: list[AIEntitlementSchema]
+
+
+class AIEntitlementGrantRequest(BaseModel):
+    """Body for POST /api/v1/superadmin/ai/entitlements (a re-grant replaces the limits)."""
+
+    email: str = Field(min_length=3, max_length=320, pattern=r"^\s*[^@\s]+@[^@\s]+\s*$")
+    daily_questions: Optional[int] = Field(None, ge=0, le=10_000)
+    monthly_budget_usd: Optional[Decimal] = Field(None, ge=0, le=100_000, decimal_places=6)
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class AIRevokeResponse(BaseModel):
+    """Response for DELETE /api/v1/superadmin/ai/entitlements/{user_id}."""
+
+    revoked: bool
 
 
 # ── Delay Prediction ─────────────────────────────────────

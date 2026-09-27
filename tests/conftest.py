@@ -22,6 +22,20 @@ os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["ALLOW_REMOTE_SUPABASE"] = ""
 for _key in ("SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "DATABASE_URL"):
     os.environ[_key] = ""
+# The same for the AI provider: no key and AI switched off, whatever .env
+# holds. Tests that exercise the gate set these explicitly.
+for _key in (
+    "ANTHROPIC_API_KEY",
+    "AI_ENABLED",
+    "AI_MODEL",
+    "AI_PRICE_INPUT_USD_PER_MTOK",
+    "AI_PRICE_OUTPUT_USD_PER_MTOK",
+    "AI_GLOBAL_MONTHLY_BUDGET_USD",
+    "AI_DEFAULT_DAILY_QUESTIONS",
+    "AI_DEFAULT_ACCOUNT_MONTHLY_BUDGET_USD",
+    "SUPERADMIN_USER_IDS",
+):
+    os.environ[_key] = ""
 
 # Auto-generate synthetic XER fixtures (gitignored via *.xer)
 _fixtures_dir = Path(__file__).parent / "fixtures"
@@ -53,3 +67,23 @@ def _reset_kpi_cache() -> None:
     from src.api.cache import invalidate_namespace
 
     invalidate_namespace("schedule:kpis")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_model_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A test that reaches the real provider client fails instead of calling out.
+
+    Tests of the AI gate replace ``src.api.ai_gate.make_client`` with a fake;
+    one that forgets would otherwise build a real client (the SDK is
+    installed in dev environments) and, with a key in the environment, bill
+    a call.
+    """
+    try:
+        import anthropic
+    except ImportError:
+        return
+
+    def _refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a test tried to build a real Anthropic client")
+
+    monkeypatch.setattr(anthropic, "Anthropic", _refuse)

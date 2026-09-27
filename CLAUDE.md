@@ -40,9 +40,9 @@ mypy src/ --strict              # type check
 ## Architecture
 
 - **48 analysis engines** in `src/analytics/` + 1 export module in `src/export/` — each standalone, no cross-dependencies
-- **API**: FastAPI with 134 endpoints under `/api/v1/` across 26 routers, rate-limited critical endpoints
+- **API**: FastAPI with 138 endpoints under `/api/v1/` across 27 routers, rate-limited critical endpoints
 - **Frontend**: SvelteKit + Tailwind v4, 55 pages, Svelte 5 runes ($state, $derived, $effect), dark mode, i18n (en/pt-BR/es), keyboard shortcuts (?)
-- **Database**: Supabase PostgreSQL with RLS, 34 migrations in `supabase/migrations/`
+- **Database**: Supabase PostgreSQL with RLS, 35 migrations in `supabase/migrations/`
 - **Auth**: Supabase Auth (Google + LinkedIn + Microsoft OAuth), ES256 JWT
 - **Storage**: Supabase Storage for XER files and PDFs
 - **Deploy**: Fly.io (backend, port 8080) + Cloudflare Pages (frontend)
@@ -86,6 +86,7 @@ Required in `.env`:
 - `web/src/lib/stores/auth.ts` uses dynamic import to break circular dependency
 - Supabase clients are only created when `ALLOW_REMOTE_SUPABASE=1` (set in `fly.toml`). `.env` is loaded at import and usually holds production credentials, so local scripts, tests and MCP sessions stay in-memory unless you opt in deliberately. Note: `env -u VAR` does not isolate, because `load_dotenv` re-reads the unset key from `.env`; blank it (`VAR=`) instead.
 - Rate limits and the audit trail attribute a request to `deps.trusted_client_ip`: the header named in `TRUSTED_CLIENT_IP_HEADER` (`fly.toml` sets `fly-client-ip`; `x-forwarded-for` uses the rightmost hop), else the socket peer. Leave it unset when clients connect directly (e.g. `docker compose`), since the client writes those headers. Limits are per machine (in-memory) and IPv6 is keyed on its /64.
+- AI ("Ask Your Schedule", the only LLM call) is off unless ALL of `AI_ENABLED=1`, `ANTHROPIC_API_KEY`, `AI_MODEL`, `AI_PRICE_INPUT_USD_PER_MTOK`, `AI_PRICE_OUTPUT_USD_PER_MTOK`, `AI_GLOBAL_MONTHLY_BUDGET_USD` are set, the image ships the `ai` extra, and migration 035 is applied. Even then only accounts granted by an operator in `SUPERADMIN_USER_IDS` (page `/admin/ai`) may ask, within per-account daily/monthly limits and the global budget. `src/api/ai_gate.py` is the only module allowed to import the SDK or build a client (AST test).
 - CORS origins are configurable via `ALLOWED_ORIGINS` env (comma-separated); defaults cover localhost + `getmeridianiq.com` (+ `www.`) and the previous `meridianiq.vitormr.dev`
 - `api_keys` table schema: columns are `id` (bigint), `key_id`, `key_hash`, `user_id`, `name`, `created_at`, `revoked_at`. See ADR-0017 if you find legacy 012-style columns (`key_prefix`, `is_active`, `expires_at`).
 

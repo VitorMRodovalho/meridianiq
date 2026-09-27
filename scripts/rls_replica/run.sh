@@ -36,6 +36,7 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd "$here/../.." && pwd)
 migrations="$repo/supabase/migrations"
 m034="$migrations/034_org_rls_rewrite.sql"
+m035="$migrations/035_ai_access_ledger.sql"
 image="${1:-postgres:17}"
 name="mq-rls-replica-$$-$RANDOM"
 password=$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')
@@ -341,6 +342,77 @@ negative "n16 schema private owned by another role" nonzero \
 
 fp3=$(psql_as supabase_admin < "$here/fingerprint.sql")
 if [[ $fp3 == "$fp2" ]]; then pass "catalog unchanged by the negative controls"; else fail "negative controls changed the catalog"; fi
+
+stage "apply 035 as postgres (1st)"
+rc=0
+psql_as postgres -v ON_ERROR_STOP=1 < "$m035" > "$work/apply035_1.log" 2>&1 || rc=$?
+grep -E 'ERROR|WARNING' "$work/apply035_1.log" || true
+if [[ $rc -eq 0 ]]; then pass "035 apply #1 rc=0"; else fail "035 apply #1 rc=$rc"; cat "$work/apply035_1.log"; exit 1; fi
+fp4=$(psql_as supabase_admin < "$here/fingerprint.sql")
+
+stage "apply 035 as postgres (2nd, must be a no-op)"
+rc=0
+psql_as postgres -v ON_ERROR_STOP=1 < "$m035" > "$work/apply035_2.log" 2>&1 || rc=$?
+if [[ $rc -eq 0 ]]; then pass "035 apply #2 rc=0"; else fail "035 apply #2 rc=$rc"; cat "$work/apply035_2.log"; fi
+fp5=$(psql_as supabase_admin < "$here/fingerprint.sql")
+if [[ -n $fp4 && $fp4 == "$fp5" ]]; then pass "catalog fingerprint unchanged by the 2nd 035 apply"; else fail "catalog fingerprint changed by the 2nd 035 apply"; fi
+
+stage "postcheck after 035 (read-only)"
+psql_as supabase_admin -At < "$here/034/postcheck.sql" > "$work/postcheck035.log" 2>&1
+tally "$work/postcheck035.log"
+
+stage "035 ledger scenarios as service_role (mirror tests/test_ai_gate.py)"
+cat "$here/probe_lib.sql" "$here/035/scenarios.sql" | psql_as supabase_admin > "$work/scenarios035.log" 2>&1
+tally "$work/scenarios035.log"
+
+# Concurrency: N sessions reserve at once against a daily limit of 5. The
+# real function must grant exactly 5. Two copies of it with a pause between
+# reading the quota and inserting show that the advisory lock is what holds
+# the limit: with the lock exactly 5, without it more than 5. If the no-lock
+# copy does not overrun, the instrument cannot say no, and that is a failure.
+concurrent_reserve() {  # <function> <sessions>
+    local fn=$1 n=$2 i
+    psql_as supabase_admin -q -c "DELETE FROM public.ai_usage; DELETE FROM public.ai_entitlements;
+        INSERT INTO public.ai_entitlements (user_id, daily_questions) VALUES ('a0000000-0000-4000-8000-000000000001', 5);"
+    for i in $(seq 1 "$n"); do
+        psql_as supabase_admin -q -c "SET ROLE service_role; SELECT reservation_id FROM $fn('a0000000-0000-4000-8000-000000000001', NULL, 0.01, 20, 5, 50, 'm', 3, 15);" > /dev/null 2>&1 &
+    done
+    wait
+    psql_as supabase_admin -At -c "SELECT count(*) FROM public.ai_usage"
+}
+stage "035 concurrency: the advisory lock holds a limit (with a no-lock control)"
+psql_as supabase_admin -v ON_ERROR_STOP=1 -q > "$work/probe035.log" 2>&1 <<'SQL'
+CREATE SCHEMA probe035;
+GRANT USAGE ON SCHEMA probe035 TO service_role;
+DO $$
+DECLARE
+    v_def text := pg_get_functiondef('public.ai_reserve(uuid, uuid, numeric, integer, numeric, numeric, text, numeric, numeric)'::regprocedure);
+    -- The first statement after the quota read: the pause goes before it,
+    -- between reading the quota and inserting the reservation.
+    v_after_read text := 'IF NOT v_q.entitled THEN';
+BEGIN
+    IF position(v_after_read IN v_def) = 0 OR position('PERFORM pg_advisory_xact_lock' IN v_def) = 0 THEN
+        RAISE EXCEPTION 'ai_reserve body changed: update the concurrency probe';
+    END IF;
+    v_def := replace(v_def, 'public.ai_reserve(', 'probe035.reserve_lock(');
+    v_def := replace(v_def, v_after_read, 'PERFORM pg_sleep(1.0); ' || v_after_read);
+    EXECUTE v_def;
+    v_def := replace(v_def, 'probe035.reserve_lock(', 'probe035.reserve_nolock(');
+    v_def := regexp_replace(v_def, 'PERFORM pg_advisory_xact_lock\([^;]*;', '');
+    EXECUTE v_def;
+END
+$$;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA probe035 TO service_role;
+SQL
+if grep -q 'ERROR' "$work/probe035.log"; then fail "concurrency probe setup"; cat "$work/probe035.log"; fi
+n_real=$(concurrent_reserve public.ai_reserve 12)
+n_lock=$(concurrent_reserve probe035.reserve_lock 12)
+n_nolock=$(concurrent_reserve probe035.reserve_nolock 12)
+echo "reservations granted of 12 concurrent, daily limit 5: real=$n_real lock+pause=$n_lock nolock+pause=$n_nolock"
+if [[ $n_real == 5 ]]; then pass "real ai_reserve granted exactly 5"; else fail "real ai_reserve granted $n_real"; fi
+if [[ $n_lock == 5 ]]; then pass "locked copy with a pause granted exactly 5"; else fail "locked copy granted $n_lock"; fi
+if [[ $n_nolock =~ ^[0-9]+$ && $n_nolock -gt 5 ]]; then pass "no-lock control overran ($n_nolock): the probe can say no"; else fail "no-lock control granted $n_nolock: the probe cannot tell"; fi
+psql_as supabase_admin -q -c "DROP SCHEMA probe035 CASCADE; DELETE FROM public.ai_usage; DELETE FROM public.ai_entitlements;" > /dev/null 2>&1
 
 stage "summary ($image)"
 echo "failures=$failures"

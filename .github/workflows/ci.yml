@@ -29,7 +29,10 @@ jobs:
         # in `tests/test_dependency_caps.py` both skip, and a skip is exactly
         # what let #227 widen `mcp<2` to `<3` with a green Backend job while
         # `src/mcp_server.py` was broken at import (fix #244, guard #245).
-        run: pip install -e ".[dev,mcp]"
+        # `[ai]` for the same reason: the AI gate tests that build the real
+        # client (retries off, bounded timeout) need the SDK. The production
+        # image does not install it; the gate reports AI as disabled there.
+        run: pip install -e ".[dev,mcp,ai]"
 
       - name: Lint
         # No `pip install ruff` here: a bare install resolves the newest ruff
