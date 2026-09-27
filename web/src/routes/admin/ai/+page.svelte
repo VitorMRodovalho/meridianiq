@@ -296,8 +296,19 @@
 					return;
 				}
 				if (e instanceof ApiError && e.errorCode === 'ai_request_not_found') {
-					// Approved, dismissed or withdrawn elsewhere: not an error.
-					await refresh();
+					// Approved, dismissed or withdrawn elsewhere: not an error. The 404
+					// proves it is no longer pending, so drop it even if the reload fails.
+					if (!(await refresh()) && summary) {
+						const listed = summary.requests ?? null;
+						const rest = listed ? listed.filter((r) => r.user_id !== req.user_id) : null;
+						const removed = listed && rest ? listed.length - rest.length : 0;
+						const total = summary.requests_total;
+						summary = {
+							...summary,
+							requests: rest,
+							requests_total: typeof total === 'number' ? Math.max(0, total - removed) : total
+						};
+					}
 					requestNoticeIsSuccess = false;
 					requestNotice = $t('admin_ai.request_not_found');
 				} else if (outcomeUnknown(e)) {
@@ -422,7 +433,7 @@
 				id="ai-requests-title"
 				tabindex="-1"
 				bind:this={requestsHeading}
-				class="text-lg font-semibold text-gray-900 dark:text-gray-100 focus:outline-none"
+				class="text-lg font-semibold text-gray-900 dark:text-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
 			>
 				{requestsTotal === null
 					? $t('admin_ai.requests_heading')
@@ -667,7 +678,7 @@
 				id="ai-list-title"
 				tabindex="-1"
 				bind:this={listHeading}
-				class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 focus:outline-none"
+				class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
 			>
 				{$t('admin_ai.entitlements_heading')}
 			</h2>

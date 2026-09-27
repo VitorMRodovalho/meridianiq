@@ -143,6 +143,14 @@ describe('accessFromRequestOutcome', () => {
 });
 
 describe('formatAccessDate', () => {
+	it('adds the local time of day when asked (a block ends at an exact moment)', () => {
+		const withTime = formatAccessDate('2026-10-27T17:05:00Z', 'pt-BR', true);
+		expect(withTime).not.toBeNull();
+		expect(withTime).toContain('2026');
+		expect(withTime).toMatch(/\d{1,2}:\d{2}/);
+		expect(formatAccessDate('2026-10-27T17:05:00Z', 'pt-BR')).not.toMatch(/\d{1,2}:\d{2}/);
+	});
+
 	// Near midnight UTC, so the local day and the UTC day differ.
 	const iso = '2026-09-27T01:30:00Z';
 	let previousTz: string | undefined;

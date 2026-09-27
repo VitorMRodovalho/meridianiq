@@ -173,7 +173,10 @@ describe('/ask request access: states', () => {
 		);
 		const heading = await renderPanel();
 		const panel = heading.closest('#ask-gate-message') as HTMLElement;
-		expect(panel.textContent).toContain(`You can send a new request from ${longDate(RETRY_AFTER)}.`);
+		// With the time of day: the block ends at an exact moment, not at midnight.
+		expect(panel.textContent).toContain(
+			`You can send a new request from ${new Date(RETRY_AFTER).toLocaleString('en', { dateStyle: 'long', timeStyle: 'short' })}.`
+		);
 		expect(noteBox()).toBeNull();
 		expect(requestButton()).toBeNull();
 		expect(screen.queryByRole('alert')).toBeNull();
@@ -245,6 +248,27 @@ describe('/ask request access: sending', () => {
 		await fireEvent.click(requestButton() as HTMLElement);
 		await screen.findByText(/^Request sent\./);
 		expect(requestMock).toHaveBeenCalledWith('weekly look-ahead');
+	});
+
+	it('removes control characters the API would refuse, keeping newlines', async () => {
+		statusMock.mockResolvedValue(closed('ai_disabled', 'none'));
+		requestMock.mockResolvedValue({ state: 'created', requested_at: REQUESTED_AT, retry_after: null });
+		await renderPanel();
+		const pasted = 'line one\u0000\nline\u0007 two\u007f';
+		await fireEvent.input(noteBox() as HTMLElement, { target: { value: pasted } });
+		await fireEvent.click(requestButton() as HTMLElement);
+		await screen.findByText(/^Request sent\./);
+		expect(requestMock).toHaveBeenCalledWith('line one\nline two');
+	});
+
+	it('a note of only control characters is sent as no note', async () => {
+		statusMock.mockResolvedValue(closed('ai_disabled', 'none'));
+		requestMock.mockResolvedValue({ state: 'created', requested_at: REQUESTED_AT, retry_after: null });
+		await renderPanel();
+		await fireEvent.input(noteBox() as HTMLElement, { target: { value: '\u0001\u0002' } });
+		await fireEvent.click(requestButton() as HTMLElement);
+		await screen.findByText(/^Request sent\./);
+		expect(requestMock).toHaveBeenCalledWith(null);
 	});
 
 	it('a double click sends one request, with the button disabled and busy meanwhile', async () => {

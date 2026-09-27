@@ -87,6 +87,17 @@
 	/** Same bound as the API's `note` field. */
 	const MAX_ACCESS_NOTE_LENGTH = 500;
 	let accessNote = $state('');
+
+	/**
+	 * The note as the API accepts it: control characters it would refuse (C0
+	 * except newline and tab, and DEL) removed, trimmed, and empty as null, so a
+	 * pasted note never fails in a way that retrying cannot fix.
+	 */
+	function cleanNote(note: string): string | null {
+		// eslint-disable-next-line no-control-regex
+		const cleaned = note.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim();
+		return cleaned || null;
+	}
 	let requesting = $state(false);
 	// i18n key of the outcome of a request that did not reach a new state.
 	let accessAlertKey = $state('');
@@ -224,7 +235,7 @@
 		// True when the panel moved to a new state (focus goes to its message).
 		let settled = false;
 		try {
-			const res = await requestAiAccess(accessNote.trim() || null);
+			const res = await requestAiAccess(cleanNote(accessNote));
 			const next = accessFromRequestOutcome(res.state);
 			if (next === null) {
 				// Accepted, with an outcome this build does not know: read the state.
@@ -256,7 +267,8 @@
 		if (phase !== 'ready') return;
 		await tick();
 		// The state message is not a live region, so focusing it reads it once.
-		if (settled) (accessStateEl ?? gateMessageEl)?.focus();
+		// If the account turned out to be open, the panel is gone: go to the composer.
+		if (settled) (accessStateEl ?? gateMessageEl ?? inputEl)?.focus();
 		else accessSubmitEl?.focus();
 	}
 

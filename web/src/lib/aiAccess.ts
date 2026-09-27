@@ -94,13 +94,21 @@ export function accessFromRequestOutcome(state: unknown): AiAccessState | null {
  * A date in the viewer's own time zone ("September 27, 2026"), or null when
  * missing or unreadable. `formatDate` in i18n/format.ts is not used here on
  * purpose: it forces UTC, and the day a request was made must read in local time.
+ * `withTime` adds the time of day, for instants that end at an exact moment
+ * (a new request is allowed from that time, not from the start of that day).
  */
-export function formatAccessDate(iso: string | null | undefined, locale: string): string | null {
+export function formatAccessDate(
+	iso: string | null | undefined,
+	locale: string,
+	withTime = false
+): string | null {
 	if (!iso) return null;
 	const parsed = new Date(iso);
 	if (Number.isNaN(parsed.getTime())) return null;
 	try {
-		return parsed.toLocaleDateString(locale, { dateStyle: 'long' });
+		return withTime
+			? parsed.toLocaleString(locale, { dateStyle: 'long', timeStyle: 'short' })
+			: parsed.toLocaleDateString(locale, { dateStyle: 'long' });
 	} catch {
 		return null;
 	}
@@ -165,7 +173,7 @@ export function accessMessage(
 		return justSent ? `${t(MESSAGE_KEYS.sent)} ${body}` : body;
 	}
 	if (state === 'dismissed') {
-		const date = formatAccessDate(retryAfter, locale);
+		const date = formatAccessDate(retryAfter, locale, true);
 		return date
 			? interpolate(t(MESSAGE_KEYS.dismissed), { date })
 			: t(MESSAGE_KEYS.dismissedNoDate);
