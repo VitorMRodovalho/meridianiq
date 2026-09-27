@@ -322,12 +322,12 @@ def test_other_tenant_gets_not_found_like_a_random_id(world: World, route: Route
 
     # A second id, when required, is B's own: only the path id is foreign.
     second = w.pb if route.secondary_required else None
+    usage_before = len(w.store._ai_usage)
     foreign = w.call(route, w.b, w.pa, secondary=second)
     foreign2 = w.call(route, w.b, w.pa2, secondary=second)
     random_id = w.call(route, w.b, str(uuid.uuid4()), secondary=second)
     sequential = w.call(route, w.b, "proj-9999", secondary=second)
 
-    usage_before = len(w.store._ai_usage)
     assert _answer(foreign) == (404, NOT_FOUND), foreign.text
     assert _answer(foreign) == _answer(foreign2) == _answer(random_id) == _answer(sequential)
     assert w.reads == [], f"{route} read a schedule before refusing: {w.reads}"

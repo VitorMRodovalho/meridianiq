@@ -25,6 +25,7 @@ from ..schemas import (
     AIDefaults,
     AIEntitlementGrantRequest,
     AIEntitlementSchema,
+    AIMonthCalls,
     AIRevokeResponse,
     AIStatusResponse,
 )
@@ -97,11 +98,12 @@ def ai_admin_overview(
     _operator: Principal = Depends(_ai_admin),
     store: Any = Depends(get_store),
 ) -> AIAdminResponse:
-    """Configuration state (never secret values), spend and entitlements."""
-    try:
-        report = ai_gate.admin_report(store)
-    except Exception as exc:
-        raise ai_gate.error(500, "ai_ledger_unavailable") from exc
+    """Configuration state (never secret values), spend and entitlements.
+
+    Answers 200 with ``reason="ai_ledger_unavailable"`` and the configuration
+    flags when the ledger cannot be read.
+    """
+    report = ai_gate.admin_report(store)
     return AIAdminResponse(
         available=report["available"],
         reason=report["reason"],
@@ -109,6 +111,9 @@ def ai_admin_overview(
         model=report["model"],
         global_budget_usd=_money(report["global_budget_usd"]),
         global_spent_month_usd=_money(report["global_spent_month_usd"]) or "0",
+        month_calls=AIMonthCalls(**report["month_calls"]),
+        last_failure_at=_when(report["last_failure_at"]),
+        reserve_per_question_usd=_money(report["reserve_per_question_usd"]),
         defaults=AIDefaults(
             daily_questions=report["defaults"]["daily_questions"],
             account_monthly_budget_usd=_money(report["defaults"]["account_monthly_budget_usd"])

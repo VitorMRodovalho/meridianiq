@@ -1477,16 +1477,17 @@ class InMemoryStore:
         self, user_id: str, default_daily: int, default_account_usd: Decimal, now: datetime
     ) -> AIQuota:
         ent = self._ai_entitlements.get(user_id)
-        active = ent is not None and ent["revoked_at"] is None
+        daily: int | None = None
+        budget: Decimal = default_account_usd
+        active = False
+        if ent is not None and ent["revoked_at"] is None:
+            active = True
+            daily = ent["daily_questions"]
+            if ent["monthly_budget_usd"] is not None:
+                budget = ent["monthly_budget_usd"]
         day, month = utc_day_start(now), utc_month_start(now)
         month_rows = [r for r in self._ai_usage if r["created_at"] >= month]
         mine = [r for r in month_rows if r["user_id"] == user_id]
-        daily = ent["daily_questions"] if active and ent["daily_questions"] is not None else None
-        budget = (
-            ent["monthly_budget_usd"]
-            if active and ent["monthly_budget_usd"] is not None
-            else default_account_usd
-        )
         return AIQuota(
             entitled=active,
             daily_limit=default_daily if daily is None else daily,
@@ -1670,11 +1671,22 @@ class InMemoryStore:
                         "spent_month_usd": q.account_spent_usd,
                     }
                 )
+            this_month = [r for r in self._ai_usage if r["created_at"] >= month]
+            failures = [
+                r["settled_at"] or r["created_at"]
+                for r in self._ai_usage
+                if r["status"] in ("failed", "unknown")
+            ]
             return {
                 "global_spent_month_usd": sum(
-                    (ai_usage_spend(r) for r in self._ai_usage if r["created_at"] >= month),
+                    (ai_usage_spend(r) for r in this_month),
                     Decimal(0),
                 ),
+                "month_calls": {
+                    status: sum(1 for r in this_month if r["status"] == status)
+                    for status in ("reserved", "completed", "failed", "unknown")
+                },
+                "last_failure_at": max(failures) if failures else None,
                 "stale_reservations": sum(
                     1
                     for r in self._ai_usage
@@ -4258,10 +4270,6 @@ class SupabaseStore:
         rows = self.list_lifecycle_overrides(project_id, limit=1)
         return rows[0] if rows else None
 
-    # ------------------------------------------------------------------ #
-    # Helpers                                                            #
-    # ------------------------------------------------------------------ #
-
     # -- AI access ledger (migration 035) --------------------------------
 
     def user_id_for_email(self, email: str) -> str | None:
@@ -4367,9 +4375,6 @@ class SupabaseStore:
             data = data[0] if data else None
         return data is True
 
-    def _ai_audit(self, row: dict[str, Any]) -> None:
-        self._client.table("audit_log").insert(row).execute()
-
     def ai_grant(
         self,
         *,
@@ -4382,32 +4387,22 @@ class SupabaseStore:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> None:
-        budget = None if monthly_budget_usd is None else _money_text(monthly_budget_usd)
-        self._client.table("ai_entitlements").upsert(
+        """Grant (or re-grant) AI access and its audit row in one transaction (``ai_grant``)."""
+        self._client.rpc(
+            "ai_grant",
             {
-                "user_id": user_id,
-                "email": email,
-                "granted_by": granted_by,
-                "granted_at": datetime.now(UTC).isoformat(),
-                "revoked_at": None,
-                "revoked_by": None,
-                "daily_questions": daily_questions,
-                "monthly_budget_usd": budget,
-                "note": note,
+                "p_user_id": user_id,
+                "p_email": email,
+                "p_granted_by": granted_by,
+                "p_daily_questions": daily_questions,
+                "p_monthly_budget_usd": (
+                    None if monthly_budget_usd is None else _money_text(monthly_budget_usd)
+                ),
+                "p_note": note,
+                "p_ip_address": ip_address,
+                "p_user_agent": user_agent,
             },
-            on_conflict="user_id",
         ).execute()
-        self._ai_audit(
-            {
-                "user_id": granted_by,
-                "action": "ai_access_granted",
-                "entity_type": "ai_entitlement",
-                "entity_id": user_id,
-                "details": {"daily_questions": daily_questions, "monthly_budget_usd": budget},
-                "ip_address": ip_address,
-                "user_agent": user_agent,
-            },
-        )
 
     def ai_revoke(
         self,
@@ -4417,27 +4412,23 @@ class SupabaseStore:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> bool:
-        result = (
-            self._client.table("ai_entitlements")
-            .update({"revoked_at": datetime.now(UTC).isoformat(), "revoked_by": revoked_by})
-            .eq("user_id", user_id)
-            .is_("revoked_at", "null")
+        """Revoke an active entitlement and audit it in one transaction (``ai_revoke``)."""
+        data = (
+            self._client.rpc(
+                "ai_revoke",
+                {
+                    "p_user_id": user_id,
+                    "p_revoked_by": revoked_by,
+                    "p_ip_address": ip_address,
+                    "p_user_agent": user_agent,
+                },
+            )
             .execute()
+            .data
         )
-        if not result.data:
-            return False
-        self._ai_audit(
-            {
-                "user_id": revoked_by,
-                "action": "ai_access_revoked",
-                "entity_type": "ai_entitlement",
-                "entity_id": user_id,
-                "details": {},
-                "ip_address": ip_address,
-                "user_agent": user_agent,
-            },
-        )
-        return True
+        if isinstance(data, list):
+            data = data[0] if data else None
+        return data is True
 
     def ai_admin_report(self, default_daily: int, default_account_usd: Decimal) -> dict[str, Any]:
         data = (
@@ -4467,11 +4458,22 @@ class SupabaseStore:
                     "spent_month_usd": Decimal(str(e.get("spent_month_usd") or 0)),
                 }
             )
+        calls = data.get("month_calls") or {}
         return {
             "global_spent_month_usd": Decimal(str(data.get("global_spent_month_usd") or 0)),
+            "month_calls": {
+                status: int(calls.get(status) or 0)
+                for status in ("reserved", "completed", "failed", "unknown")
+            },
+            "last_failure_at": data.get("last_failure_at"),
             "stale_reservations": int(data.get("stale_reservations") or 0),
             "entitlements": entitlements,
         }
+
+
+# ------------------------------------------------------------------ #
+# Helpers                                                            #
+# ------------------------------------------------------------------ #
 
 
 def _parse_dt(value: str | datetime | None) -> datetime | None:

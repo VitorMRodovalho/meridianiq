@@ -1260,7 +1260,7 @@ class NLPQueryRequest(BaseModel):
     anyway is ignored, never echoed.
     """
 
-    question: str = Field(..., min_length=1, max_length=1000)
+    question: str = Field(..., min_length=1, max_length=1000, pattern=r"\S")
 
 
 class NLPQueryResponse(BaseModel):
@@ -1311,6 +1311,15 @@ class AIDefaults(BaseModel):
     account_monthly_budget_usd: str
 
 
+class AIMonthCalls(BaseModel):
+    """This UTC month's AI calls by ledger outcome."""
+
+    reserved: int = 0
+    completed: int = 0
+    failed: int = 0
+    unknown: int = 0
+
+
 class AIEntitlementSchema(BaseModel):
     """One account's AI access and its usage in the current UTC windows."""
 
@@ -1335,6 +1344,11 @@ class AIAdminResponse(BaseModel):
     model: Optional[str] = None
     global_budget_usd: Optional[str] = None
     global_spent_month_usd: str
+    month_calls: AIMonthCalls
+    last_failure_at: Optional[str] = Field(None, description="Last failed or unknown call")
+    reserve_per_question_usd: Optional[str] = Field(
+        None, description="Worst case reserved for a typical question at the configured prices"
+    )
     defaults: AIDefaults
     stale_reservations: int
     entitlements: list[AIEntitlementSchema]

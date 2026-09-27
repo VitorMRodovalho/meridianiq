@@ -22,6 +22,8 @@ FUNCTIONS = {
     "ai_reserve": "uuid, uuid, numeric, integer, numeric, numeric, text, numeric, numeric",
     "ai_settle": "bigint, text, integer, integer, numeric",
     "ai_admin_report": "integer, numeric",
+    "ai_grant": "uuid, text, uuid, integer, numeric, text, text, text",
+    "ai_revoke": "uuid, uuid, text, text",
 }
 
 
@@ -59,6 +61,25 @@ def test_tables_have_rls_and_nothing_for_client_roles() -> None:
     assert not re.search(r"create policy", sql)
 
 
+def test_service_role_can_neither_delete_nor_truncate() -> None:
+    sql = _normalised()
+    assert "revoke all on table public.ai_entitlements, public.ai_usage from service_role;" in sql
+    grants = re.findall(
+        r"grant ([^;]*?) on table public\.(ai_entitlements|ai_usage) to service_role;", sql
+    )
+    assert sorted(grants) == [
+        ("select, insert, update", "ai_entitlements"),
+        ("select, insert, update", "ai_usage"),
+    ]
+
+
+def test_grant_and_revoke_write_their_audit_row_inside_the_function() -> None:
+    for name, action in (("ai_grant", "ai_access_granted"), ("ai_revoke", "ai_access_revoked")):
+        body = _function_body(name)
+        assert "insert into public.audit_log" in body, name
+        assert f"'{action}'" in body, name
+
+
 def test_the_ledger_survives_account_and_project_deletion() -> None:
     sql = _normalised()
     usage = sql[sql.index("create table if not exists public.ai_usage") :]
@@ -87,7 +108,7 @@ def test_functions_are_invoker_with_an_empty_search_path() -> None:
 
 def test_writers_are_volatile_and_readers_stable() -> None:
     # PostgREST runs a STABLE function in a read-only transaction.
-    for name in ("ai_reserve", "ai_settle"):
+    for name in ("ai_reserve", "ai_settle", "ai_grant", "ai_revoke"):
         body = _function_body(name)
         assert "language plpgsql volatile" in body, name
     for name in ("ai_quota", "ai_admin_report"):

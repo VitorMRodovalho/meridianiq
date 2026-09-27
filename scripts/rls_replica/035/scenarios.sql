@@ -165,6 +165,68 @@ SELECT pg_temp.expect('s14 deleting the account and project keeps usage, drops t
        || (SELECT count(*) FROM public.ai_entitlements WHERE user_id = :X));
 ROLLBACK;
 
+-- ---------------------------------------------------------------- s17 grant/revoke + audit, atomically
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.ai_grant(:B, 'b@example.test', :A, 3, 1.5, NULL, '1.2.3.4', 'ua') AS g1 \gset
+SELECT public.ai_grant(:B, 'b@example.test', :A, NULL, NULL, 'regrant', NULL, NULL) AS g2 \gset
+SELECT public.ai_revoke(:B, :A, NULL, NULL) AS r1 \gset
+SELECT public.ai_revoke(:B, :A, NULL, NULL) AS r2 \gset
+RESET ROLE;
+SELECT pg_temp.expect('s17 re-grant replaces limits; revoke once; one audit row per change',
+       't f | NULL NULL regrant revoked | granted,granted,revoked',
+       :'r1' || ' ' || :'r2' || ' | '
+       || (SELECT coalesce(daily_questions::text, 'NULL') || ' ' || coalesce(monthly_budget_usd::text, 'NULL')
+                  || ' ' || note || ' ' || CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END
+             FROM public.ai_entitlements WHERE user_id = :B) || ' | '
+       || (SELECT string_agg(replace(action, 'ai_access_', ''), ',' ORDER BY created_at, action)
+             FROM public.audit_log WHERE entity_type = 'ai_entitlement' AND entity_id = :B));
+ROLLBACK;
+-- A grant whose audit row cannot be written leaves no grant behind, while
+-- the caller's transaction goes on (the exception is caught). A granter that
+-- is not an account makes the audit insert fail (audit_log.user_id FK).
+BEGIN;
+SELECT set_config('probe.b', :B, true) AS _b \gset
+SET LOCAL ROLE service_role;
+DO $$
+BEGIN
+    PERFORM public.ai_grant(current_setting('probe.b')::uuid, NULL,
+                            '99999999-0000-4000-8000-000000000000', NULL, NULL, NULL, NULL, NULL);
+    RAISE NOTICE 'probe: ai_grant did not fail';
+EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+END
+$$;
+RESET ROLE;
+SELECT pg_temp.expect('s17b a failed audit insert leaves no grant, the transaction goes on', '0',
+       (SELECT count(*)::text FROM public.ai_entitlements WHERE user_id = :B));
+ROLLBACK;
+
+-- ---------------------------------------------------------------- s18 service_role cannot erase the ledger
+SELECT pg_temp.expect('s18 service_role cannot DELETE from ai_usage', 'ERR 42501 permission denied for table ai_usage',
+       pg_temp.run_as('service_role', NULL, 'DELETE FROM public.ai_usage'));
+SELECT pg_temp.expect('s18 service_role cannot TRUNCATE ai_usage', 'ERR 42501 permission denied for table ai_usage',
+       pg_temp.run_as('service_role', NULL, 'TRUNCATE public.ai_usage'));
+SELECT pg_temp.expect('s18 service_role cannot DELETE from ai_entitlements', 'ERR 42501 permission denied for table ai_entitlements',
+       pg_temp.run_as('service_role', NULL, 'DELETE FROM public.ai_entitlements'));
+
+-- ---------------------------------------------------------------- s19 month outcomes in the report
+BEGIN;
+INSERT INTO public.ai_usage (user_id, model, price_input_usd_per_mtok, price_output_usd_per_mtok,
+                             reserved_usd, status, cost_usd, settled_at)
+VALUES (:A, 'm', 3, 15, 0.02, 'completed', 0.004, now()),
+       (:A, 'm', 3, 15, 0.02, 'failed', NULL, now()),
+       (:A, 'm', 3, 15, 0.02, 'unknown', NULL, now());
+SET LOCAL ROLE service_role;
+SELECT public.ai_admin_report(20, 5)::text AS report \gset
+RESET ROLE;
+SELECT pg_temp.expect('s19 report counts calls by outcome and dates the last failure', '0 1 1 1 yes',
+       (SELECT (r -> 'month_calls' ->> 'reserved') || ' ' || (r -> 'month_calls' ->> 'completed') || ' '
+               || (r -> 'month_calls' ->> 'failed') || ' ' || (r -> 'month_calls' ->> 'unknown') || ' '
+               || CASE WHEN r ->> 'last_failure_at' IS NOT NULL THEN 'yes' ELSE 'no' END
+          FROM (SELECT :'report'::jsonb AS r) AS x));
+ROLLBACK;
+
 -- ---------------------------------------------------------------- s15 guards on inputs
 SELECT pg_temp.expect('s15 a non-positive reservation is rejected', 'ERR P0001 ai_reserve: reserve and global budget must be positive',
        pg_temp.run_as('service_role', NULL,
@@ -186,5 +248,10 @@ SELECT pg_temp.expect('s16 anon cannot read ai_entitlements', 'ERR 42501 permiss
        pg_temp.run_as('anon', NULL, 'SELECT count(*)::text FROM public.ai_entitlements'));
 SELECT pg_temp.expect('s16 authenticated cannot grant itself access', 'ERR 42501 permission denied for table ai_entitlements',
        pg_temp.run_as('authenticated', :A, format('INSERT INTO public.ai_entitlements (user_id) VALUES (%L)', :A)));
+SELECT pg_temp.expect('s16 authenticated cannot call ai_grant', 'ERR 42501 permission denied for function ai_grant',
+       pg_temp.run_as('authenticated', :A,
+                      format('SELECT public.ai_grant(%L, NULL, %L, NULL, NULL, NULL, NULL, NULL)::text', :A, :A)));
+SELECT pg_temp.expect('s16 anon cannot call ai_revoke', 'ERR 42501 permission denied for function ai_revoke',
+       pg_temp.run_as('anon', NULL, format('SELECT public.ai_revoke(%L, %L, NULL, NULL)::text', :A, :A)));
 SELECT pg_temp.expect('s16 service_role can call ai_quota (positive control)', 'OK 0',
        pg_temp.run_as('service_role', NULL, format('SELECT used_today::text FROM public.ai_quota(%L, 20, 5)', :A)));

@@ -215,6 +215,34 @@ def test_invalid_settings_disable_ai(
     assert gate.fake.calls == []
 
 
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("AI_PRICED_MODEL", "another-model"),  # the model changed, the prices did not
+        ("AI_PRICE_INPUT_USD_PER_MTOK", "0.003"),  # typed per thousand tokens
+        ("AI_PRICE_OUTPUT_USD_PER_MTOK", "0.000015"),  # typed per token
+        ("AI_PRICE_OUTPUT_USD_PER_MTOK", "15000"),  # a thousand times too high
+        ("AI_PRICE_OUTPUT_USD_PER_MTOK", "1"),  # output cheaper than input
+    ],
+)
+def test_prices_must_match_the_model_and_be_plausible(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch, key: str, value: str
+) -> None:
+    monkeypatch.setenv(key, value)
+    config = ai_gate.load_config(gate.store)
+    assert config.flags()["prices_set"] is False
+    resp = gate.ask()
+    assert (resp.status_code, _code(resp)) == (403, "ai_disabled")
+    assert gate.fake.calls == []
+
+
+def test_config_never_holds_the_key(gate: Gate) -> None:
+    config = ai_gate.load_config(gate.store)
+    assert config.api_key_set is True
+    assert ai_fakes.AI_ENV["ANTHROPIC_API_KEY"] not in repr(config)
+    assert ai_fakes.AI_ENV["ANTHROPIC_API_KEY"] not in str(vars(config))
+
+
 def test_missing_sdk_disables_ai(gate: Gate, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ai_gate, "sdk_available", lambda: False)
     assert (gate.ask().status_code, gate.status()["reason"]) == (403, "ai_disabled")
@@ -436,9 +464,17 @@ def test_reservations_do_not_overrun_a_limit_under_concurrency() -> None:
 # ------------------------------------------------------------------ #
 
 
-def test_provider_refusal_settles_failed_and_costs_nothing(gate: Gate) -> None:
+def test_provider_refusal_settles_failed_and_costs_nothing(
+    gate: Gate, caplog: pytest.LogCaptureFixture
+) -> None:
     gate.fake.raise_exc = ai_fakes.FakeProviderError(400)
-    resp = gate.ask()
+    with caplog.at_level("ERROR", logger="src.api.ai_gate"):
+        resp = gate.ask()
+    # An ERROR record reaches the error tracker; it carries no stack (the
+    # frames hold the prompt) and never the question.
+    (record,) = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert "outcome=failed" in record.getMessage() and record.exc_info is None
+    assert QUESTION not in record.getMessage()
     assert (resp.status_code, _code(resp)) == (502, "ai_upstream_failed")
     (row,) = gate.rows()
     assert row["status"] == "failed" and row["cost_usd"] is None
@@ -459,6 +495,37 @@ def test_uncertain_failure_keeps_the_reservation_counting(gate: Gate, exc: BaseE
     assert gate.status()["used_today"] == 1
     quota = gate.store.ai_quota(USER_A, 20, Decimal("5"))
     assert quota.account_spent_usd == row["reserved_usd"]
+
+
+def test_real_sdk_errors_are_classified() -> None:
+    """The classification read against the SDK's own exception classes."""
+    import anthropic
+    import httpx
+
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+
+    def status_error(code: int) -> anthropic.APIStatusError:
+        cls = {400: anthropic.BadRequestError, 401: anthropic.AuthenticationError}.get(
+            code, anthropic.APIStatusError
+        )
+        response = httpx.Response(code, request=request, json={"error": {"message": "x"}})
+        return cls(message="x", response=response, body=None)
+
+    assert ai_gate._outcome_of(status_error(400)) == "failed"
+    assert ai_gate._outcome_of(status_error(401)) == "failed"
+    assert ai_gate._outcome_of(status_error(429)) == "failed"
+    assert ai_gate._outcome_of(status_error(529)) == "unknown"
+    assert ai_gate._outcome_of(status_error(500)) == "unknown"
+    assert ai_gate._outcome_of(anthropic.APITimeoutError(request=request)) == "unknown"
+    assert ai_gate._outcome_of(anthropic.APIConnectionError(request=request)) == "unknown"
+
+
+def test_whitespace_only_question_is_a_validation_error(gate: Gate) -> None:
+    resp = gate.client.post(
+        f"/api/v1/projects/{gate.pa}/ask", json={"question": "   "}, headers=_auth(USER_A)
+    )
+    assert resp.status_code == 422
+    assert gate.fake.calls == []
 
 
 def test_answer_without_usage_keeps_the_reservation_counting(gate: Gate) -> None:
@@ -576,9 +643,37 @@ def test_operator_overview_reports_flags_never_secrets(gate: Gate) -> None:
     assert body["global_budget_usd"] == "50"
     assert Decimal(body["global_spent_month_usd"]) == FAKE_CALL_COST
     assert body["defaults"] == {"daily_questions": 20, "account_monthly_budget_usd": "5"}
+    assert body["month_calls"] == {"reserved": 0, "completed": 1, "failed": 0, "unknown": 0}
+    assert body["last_failure_at"] is None
+    assert Decimal(body["reserve_per_question_usd"]) == ai_gate.worst_case_cost(
+        ai_gate.TYPICAL_PROMPT_BYTES, ai_gate.load_config(gate.store)
+    )
     (ent,) = body["entitlements"]
     assert ent["user_id"] == USER_A and ent["active"] is True and ent["used_today"] == 1
     assert Decimal(ent["spent_month_usd"]) == FAKE_CALL_COST
+
+
+def test_operator_overview_survives_a_broken_ledger(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("function ai_admin_report does not exist")
+
+    monkeypatch.setattr(gate.store, "ai_admin_report", broken)
+    resp = gate.client.get("/api/v1/superadmin/ai", headers=_auth(ADMIN))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert (body["available"], body["reason"]) == (False, "ai_ledger_unavailable")
+    assert all(body["config"].values())
+    assert body["entitlements"] == []
+
+
+def test_failures_show_in_the_operator_overview(gate: Gate) -> None:
+    gate.fake.raise_exc = ai_fakes.FakeProviderError(404)  # e.g. a retired model
+    gate.ask()
+    body = gate.client.get("/api/v1/superadmin/ai", headers=_auth(ADMIN)).json()
+    assert body["month_calls"]["failed"] == 1
+    assert body["last_failure_at"] is not None
 
 
 def test_grant_and_revoke_round_trip_with_audit(gate: Gate) -> None:

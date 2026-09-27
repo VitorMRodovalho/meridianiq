@@ -29,11 +29,16 @@ except Exception:
     _RELEASE = "meridianiq-api@unknown"
 
 if dsn := os.environ.get("SENTRY_DSN"):
+    from .sentry_scrub import scrub_ai_event
+
     sentry_sdk.init(
         dsn=dsn,
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
         release=_RELEASE,
+        # AI frames and requests carry the user's question, the prompt and,
+        # on the operator routes, email addresses (src/api/sentry_scrub.py).
+        before_send=scrub_ai_event,
     )
 
 from fastapi import FastAPI, Request

@@ -18,7 +18,8 @@
 --    user_id and project_id have NO foreign key: deleting an account's data
 --    (delete_user_data) must not erase the ledger and hand the quota back.
 -- 3. public.ai_quota / ai_reserve / ai_settle / ai_admin_report: the only
---    place the limits are computed. Windows are UTC calendar day and month.
+--    place the limits are computed. ai_grant / ai_revoke change an
+--    entitlement and write its audit_log row in the same transaction. Windows are UTC calendar day and month.
 --    ai_reserve serialises every reservation on one transaction-level
 --    advisory lock taken as its own statement, so the sums it reads include
 --    every reservation committed before it (READ COMMITTED takes a fresh
@@ -28,7 +29,9 @@
 -- Access: RLS on with no policies, every privilege revoked from the client
 -- roles, and the functions executable by service_role only (the API). The
 -- functions are SECURITY INVOKER: service_role bypasses RLS and holds the
--- table privileges granted below. Supabase's default privileges grant
+-- table privileges granted below, which are SELECT, INSERT and UPDATE only:
+-- nothing in the API deletes from the ledger or the grants (a revoke is a
+-- soft update), so DELETE and TRUNCATE are withheld even from service_role. Supabase's default privileges grant
 -- EXECUTE on new functions to anon and authenticated, hence the explicit
 -- REVOKEs (see migration 030).
 --
@@ -84,6 +87,7 @@ ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.ai_entitlements, public.ai_usage FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON SEQUENCE public.ai_usage_id_seq FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.ai_entitlements, public.ai_usage FROM service_role;
 
 GRANT SELECT, INSERT, UPDATE ON TABLE public.ai_entitlements TO service_role;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.ai_usage TO service_role;
@@ -238,8 +242,82 @@ BEGIN
 END
 $$;
 
--- Operator view: this month's global spend, reservations left unsettled for
--- more than 10 minutes, and every entitlement with its usage.
+-- Grant (or re-grant, replacing the limits) AI access, and audit it, in one
+-- transaction. Re-granting reactivates a revoked entitlement.
+CREATE OR REPLACE FUNCTION public.ai_grant(
+    p_user_id uuid,
+    p_email text,
+    p_granted_by uuid,
+    p_daily_questions integer,
+    p_monthly_budget_usd numeric,
+    p_note text,
+    p_ip_address text,
+    p_user_agent text
+)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+    INSERT INTO public.ai_entitlements (user_id, email, granted_by, granted_at, revoked_at,
+                                        revoked_by, daily_questions, monthly_budget_usd, note)
+    VALUES (p_user_id, p_email, p_granted_by, now(), NULL, NULL, p_daily_questions,
+            p_monthly_budget_usd, p_note)
+    ON CONFLICT (user_id) DO UPDATE
+       SET email = EXCLUDED.email,
+           granted_by = EXCLUDED.granted_by,
+           granted_at = EXCLUDED.granted_at,
+           revoked_at = NULL,
+           revoked_by = NULL,
+           daily_questions = EXCLUDED.daily_questions,
+           monthly_budget_usd = EXCLUDED.monthly_budget_usd,
+           note = EXCLUDED.note;
+
+    INSERT INTO public.audit_log (user_id, action, entity_type, entity_id, details,
+                                  ip_address, user_agent)
+    VALUES (p_granted_by, 'ai_access_granted', 'ai_entitlement', p_user_id,
+            jsonb_build_object('daily_questions', p_daily_questions,
+                               'monthly_budget_usd', p_monthly_budget_usd::text),
+            p_ip_address, p_user_agent);
+END
+$$;
+
+-- Revoke an active entitlement and audit it. Returns false when none was active.
+CREATE OR REPLACE FUNCTION public.ai_revoke(
+    p_user_id uuid,
+    p_revoked_by uuid,
+    p_ip_address text,
+    p_user_agent text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+VOLATILE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+    UPDATE public.ai_entitlements
+       SET revoked_at = now(),
+           revoked_by = p_revoked_by
+     WHERE user_id = p_user_id
+       AND revoked_at IS NULL;
+    IF NOT FOUND THEN
+        RETURN false;
+    END IF;
+
+    INSERT INTO public.audit_log (user_id, action, entity_type, entity_id, details,
+                                  ip_address, user_agent)
+    VALUES (p_revoked_by, 'ai_access_revoked', 'ai_entitlement', p_user_id, '{}'::jsonb,
+            p_ip_address, p_user_agent);
+    RETURN true;
+END
+$$;
+
+-- Operator view: this month's global spend and calls by outcome, the last
+-- failed or unknown call, reservations left unsettled for more than 10
+-- minutes, and every entitlement with its usage.
 CREATE OR REPLACE FUNCTION public.ai_admin_report(
     p_default_daily integer,
     p_default_account_usd numeric
@@ -262,6 +340,18 @@ AS $$
            FROM public.ai_usage AS u
           WHERE u.status = 'reserved'
             AND u.created_at < now() - interval '10 minutes'),
+        'month_calls',
+        (SELECT jsonb_build_object(
+                    'reserved', count(*) FILTER (WHERE u.status = 'reserved'),
+                    'completed', count(*) FILTER (WHERE u.status = 'completed'),
+                    'failed', count(*) FILTER (WHERE u.status = 'failed'),
+                    'unknown', count(*) FILTER (WHERE u.status = 'unknown'))
+           FROM public.ai_usage AS u
+          WHERE u.created_at >= date_trunc('month', now(), 'UTC')),
+        'last_failure_at',
+        (SELECT max(coalesce(u.settled_at, u.created_at))
+           FROM public.ai_usage AS u
+          WHERE u.status IN ('failed', 'unknown')),
         'entitlements',
         coalesce((
             SELECT jsonb_agg(jsonb_build_object(
@@ -287,12 +377,18 @@ REVOKE ALL ON FUNCTION public.ai_reserve(uuid, uuid, numeric, integer, numeric, 
     FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ai_settle(bigint, text, integer, integer, numeric) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ai_admin_report(integer, numeric) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_grant(uuid, text, uuid, integer, numeric, text, text, text)
+    FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_revoke(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.ai_quota(uuid, integer, numeric) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_reserve(uuid, uuid, numeric, integer, numeric, numeric, text, numeric, numeric)
     TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_settle(bigint, text, integer, integer, numeric) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_admin_report(integer, numeric) TO service_role;
+GRANT EXECUTE ON FUNCTION public.ai_grant(uuid, text, uuid, integer, numeric, text, text, text)
+    TO service_role;
+GRANT EXECUTE ON FUNCTION public.ai_revoke(uuid, uuid, text, text) TO service_role;
 
 -- Make the new functions visible to PostgREST without waiting for a reload.
 NOTIFY pgrst, 'reload schema';

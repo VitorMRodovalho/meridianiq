@@ -22,6 +22,7 @@ AI_ENV = {
     "AI_ENABLED": "1",
     "ANTHROPIC_API_KEY": "sk-test-not-a-real-key",
     "AI_MODEL": MODEL,
+    "AI_PRICED_MODEL": MODEL,
     "AI_PRICE_INPUT_USD_PER_MTOK": "3",
     "AI_PRICE_OUTPUT_USD_PER_MTOK": "15",
     "AI_GLOBAL_MONTHLY_BUDGET_USD": "50",

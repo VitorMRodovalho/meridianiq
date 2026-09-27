@@ -13,10 +13,13 @@ Layers, each failing closed:
 1. Configuration, read on every request. AI is on only with ``AI_ENABLED=1``
    (the kill switch), ``ANTHROPIC_API_KEY``, an explicit ``AI_MODEL`` with
    both prices (``AI_PRICE_INPUT_USD_PER_MTOK`` /
-   ``AI_PRICE_OUTPUT_USD_PER_MTOK``), ``AI_GLOBAL_MONTHLY_BUDGET_USD``, the
-   ``anthropic`` SDK importable, and, in production, a ledger that survives
-   restarts and is shared by every machine. Anything missing means
-   ``ai_disabled`` for everyone.
+   ``AI_PRICE_OUTPUT_USD_PER_MTOK``) stated for that same model
+   (``AI_PRICED_MODEL``) and within plausible bounds,
+   ``AI_GLOBAL_MONTHLY_BUDGET_USD``, the ``anthropic`` SDK importable, and,
+   in production, a ledger that survives restarts and is shared by every
+   machine. Anything missing means ``ai_disabled`` for everyone. On Fly a
+   changed variable takes effect only after a restart; the fastest stop is
+   disabling the key in the provider's console.
 2. Entitlement: an active ``ai_entitlements`` row, granted by an operator
    listed in ``SUPERADMIN_USER_IDS``.
 3. Limits: questions per UTC day and USD per UTC month for each account,
@@ -67,12 +70,23 @@ MAX_OUTPUT_TOKENS = 1024
 MAX_PROMPT_BYTES = 16_000
 #: Tokens added on top of the prompt bytes for message framing.
 PROMPT_OVERHEAD_TOKENS = 64
-#: Seconds the single request may take, and the connect part of it.
-REQUEST_TIMEOUT_S = 60.0
+#: Seconds the single provider request may take, and the connect part of it.
+#: Kept well under the browser's wait for /ask (ASK_TIMEOUT_MS = 90 s in
+#: web/src/lib/api.ts), which also covers the schedule load and the ledger
+#: round trips: a call the browser stopped waiting for is still billed.
+REQUEST_TIMEOUT_S = 45.0
 CONNECT_TIMEOUT_S = 5.0
 
 DEFAULT_DAILY_QUESTIONS = 20
 DEFAULT_ACCOUNT_MONTHLY_BUDGET_USD = Decimal("5")
+
+#: Plausible range of a price per million tokens. A price typed per thousand
+#: tokens, or per token, falls below it; one typed a thousand times too high
+#: falls above it. Either way the prices are treated as not set.
+PRICE_MIN_USD_PER_MTOK = Decimal("0.01")
+PRICE_MAX_USD_PER_MTOK = Decimal("1000")
+#: Prompt size used to show the operator what one question reserves.
+TYPICAL_PROMPT_BYTES = 4_000
 
 _MTOK = Decimal(1_000_000)
 _MICRO_USD = Decimal("0.000001")
@@ -152,8 +166,38 @@ def _default_decimal(name: str, default: Decimal) -> Decimal:
 
 
 def sdk_available() -> bool:
-    """True when the provider SDK can be imported (the image may not ship it)."""
-    return importlib.util.find_spec("anthropic") is not None
+    """True when the provider SDK imports (the image may not ship it)."""
+    if importlib.util.find_spec("anthropic") is None:
+        return False
+    try:
+        import anthropic  # noqa: F401
+    except Exception:
+        logger.exception("the anthropic SDK is installed but does not import")
+        return False
+    return True
+
+
+def _prices() -> tuple[Decimal | None, Decimal | None]:
+    """Both prices, or ``(None, None)`` when they cannot be trusted.
+
+    They must be stated for the configured model (``AI_PRICED_MODEL`` equal
+    to ``AI_MODEL``), so changing the model without the prices disables AI
+    instead of mis-costing every call, and each must lie in the plausible
+    range, with output not cheaper than input.
+    """
+    model = os.environ.get("AI_MODEL", "").strip()
+    priced_for = os.environ.get("AI_PRICED_MODEL", "").strip()
+    price_in = _positive_decimal("AI_PRICE_INPUT_USD_PER_MTOK")
+    price_out = _positive_decimal("AI_PRICE_OUTPUT_USD_PER_MTOK")
+    if not model or priced_for != model or price_in is None or price_out is None:
+        return None, None
+    in_range = all(
+        PRICE_MIN_USD_PER_MTOK <= price <= PRICE_MAX_USD_PER_MTOK for price in (price_in, price_out)
+    )
+    if not in_range or price_out < price_in:
+        logger.warning("AI prices outside the plausible range; AI stays disabled")
+        return None, None
+    return price_in, price_out
 
 
 def ledger_is_durable(store: Any) -> bool:
@@ -172,10 +216,15 @@ def ledger_is_durable(store: Any) -> bool:
 
 @dataclass(frozen=True)
 class AIConfig:
-    """The AI configuration of one request (see the module docstring)."""
+    """The AI configuration of one request (see the module docstring).
+
+    Holds whether the API key is set, never the key: this object is a local
+    in the frames an error report may capture. Only :func:`make_client`
+    reads the key, straight from the environment.
+    """
 
     enabled: bool
-    api_key: str
+    api_key_set: bool
     model: str
     price_input: Decimal | None
     price_output: Decimal | None
@@ -189,7 +238,7 @@ class AIConfig:
         """Which requirement is met; never the values."""
         return {
             "enabled": self.enabled,
-            "api_key_set": bool(self.api_key),
+            "api_key_set": self.api_key_set,
             "model_set": bool(self.model),
             "prices_set": self.price_input is not None and self.price_output is not None,
             "global_budget_set": self.global_budget is not None,
@@ -204,12 +253,13 @@ class AIConfig:
 
 def load_config(store: Any) -> AIConfig:
     """Read the AI configuration from the environment, now."""
+    price_input, price_output = _prices()
     return AIConfig(
         enabled=os.environ.get("AI_ENABLED", "").strip() == "1",
-        api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
+        api_key_set=bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()),
         model=os.environ.get("AI_MODEL", "").strip(),
-        price_input=_positive_decimal("AI_PRICE_INPUT_USD_PER_MTOK"),
-        price_output=_positive_decimal("AI_PRICE_OUTPUT_USD_PER_MTOK"),
+        price_input=price_input,
+        price_output=price_output,
         global_budget=_positive_decimal("AI_GLOBAL_MONTHLY_BUDGET_USD"),
         default_daily=_default_int("AI_DEFAULT_DAILY_QUESTIONS", DEFAULT_DAILY_QUESTIONS),
         default_account_budget=_default_decimal(
@@ -223,6 +273,9 @@ def load_config(store: Any) -> AIConfig:
 def make_client(config: AIConfig) -> Any:
     """Build the model client: one attempt per call, bounded in time.
 
+    ``config`` must be ready (``config.ready``); the key is read here, from
+    the environment, and nowhere else.
+
     The SDK retries twice by default, and a retry after a read timeout can
     bill a call the provider already answered, so retries are off.
     """
@@ -230,7 +283,7 @@ def make_client(config: AIConfig) -> Any:
     import httpx
 
     return anthropic.Anthropic(
-        api_key=config.api_key,
+        api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
         max_retries=0,
         timeout=httpx.Timeout(REQUEST_TIMEOUT_S, connect=CONNECT_TIMEOUT_S),
     )
@@ -323,7 +376,8 @@ def worst_case_cost(prompt_bytes: int, config: AIConfig) -> Decimal:
     logs its estimate against the real count, and a call that cost more than
     its reservation logs a warning.
     """
-    assert config.price_input is not None and config.price_output is not None
+    if config.price_input is None or config.price_output is None:
+        raise error(403, "ai_disabled")
     cost = _usd(prompt_bytes + PROMPT_OVERHEAD_TOKENS, config.price_input) + _usd(
         MAX_OUTPUT_TOKENS, config.price_output
     )
@@ -337,7 +391,8 @@ def cost_of(usage: nlp_query.ModelUsage, config: AIConfig) -> Decimal:
     does not request prompt caching, so the cache counts are expected to be
     zero.
     """
-    assert config.price_input is not None and config.price_output is not None
+    if config.price_input is None or config.price_output is None:
+        raise error(403, "ai_disabled")
     input_tokens = (
         usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens
     )
@@ -392,8 +447,10 @@ def answer_question(
     status = status_for(principal, store, config)
     if not status.available:
         raise refusal(status.reason or "ai_disabled")
-    assert config.price_input is not None and config.price_output is not None
-    assert config.global_budget is not None
+    price_input, price_output = config.price_input, config.price_output
+    global_budget = config.global_budget
+    if price_input is None or price_output is None or global_budget is None:
+        raise refusal("ai_disabled")
 
     schedule = load_schedule()
     if schedule is None:
@@ -418,10 +475,10 @@ def answer_question(
             reserve_usd=reserve_usd,
             default_daily=config.default_daily,
             default_account_usd=config.default_account_budget,
-            global_budget_usd=config.global_budget,
+            global_budget_usd=global_budget,
             model=config.model,
-            price_input=config.price_input,
-            price_output=config.price_output,
+            price_input=price_input,
+            price_output=price_output,
         )
     except Exception as exc:
         logger.exception("ai_reserve failed; the model was not called")
@@ -443,7 +500,16 @@ def answer_question(
         )
     except Exception as exc:
         outcome = _outcome_of(exc)
-        logger.warning("ai call failed (%s): %s", outcome, type(exc).__name__)
+        # ERROR, so it reaches the error tracker: a retired model or a revoked
+        # key fails every call at no cost, and nobody would see it otherwise.
+        # No exc_info: the frames hold the prompt.
+        logger.error(
+            "ai provider call failed: outcome=%s error=%s status=%s reservation=%s",
+            outcome,
+            type(exc).__name__,
+            getattr(exc, "status_code", None),
+            reservation_id,
+        )
         raise error(502, "ai_upstream_failed") from exc
     else:
         usage = nlp_query.usage_of(response)
@@ -552,13 +618,32 @@ def is_ai_admin(principal: Principal) -> bool:
 
 
 def admin_report(store: Any) -> dict[str, Any]:
-    """Configuration state, spend and entitlements for the operator page."""
+    """Configuration state, spend and entitlements for the operator page.
+
+    The configuration flags are reported even when the ledger cannot be
+    read (migration 035 not applied, schema cache stale), so the operator
+    can see which requirement is unmet.
+    """
     config = load_config(store)
-    report = store.ai_admin_report(config.default_daily, config.default_account_budget)
-    status: Reason | None = None if config.ready else "ai_disabled"
+    status: str | None = None if config.ready else "ai_disabled"
+    try:
+        report = store.ai_admin_report(config.default_daily, config.default_account_budget)
+    except Exception:
+        logger.exception("ai_admin_report failed")
+        status = "ai_ledger_unavailable"
+        report = {
+            "global_spent_month_usd": Decimal(0),
+            "month_calls": {"reserved": 0, "completed": 0, "failed": 0, "unknown": 0},
+            "last_failure_at": None,
+            "stale_reservations": 0,
+            "entitlements": [],
+        }
     if status is None and config.global_budget is not None:
         if report["global_spent_month_usd"] >= config.global_budget:
             status = "ai_global_budget"
+    typical = None
+    if config.price_input is not None and config.price_output is not None:
+        typical = worst_case_cost(TYPICAL_PROMPT_BYTES, config)
     return {
         "available": status is None,
         "reason": status,
@@ -566,6 +651,9 @@ def admin_report(store: Any) -> dict[str, Any]:
         "model": config.model or None,
         "global_budget_usd": config.global_budget,
         "global_spent_month_usd": report["global_spent_month_usd"],
+        "month_calls": report["month_calls"],
+        "last_failure_at": report["last_failure_at"],
+        "reserve_per_question_usd": typical,
         "defaults": {
             "daily_questions": config.default_daily,
             "account_monthly_budget_usd": config.default_account_budget,
