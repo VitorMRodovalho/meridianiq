@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { getProjects, getAiStatus, askSchedule, ApiError, type AiStatus } from '$lib/api';
+	import {
+		getProjects,
+		getAiStatus,
+		askSchedule,
+		requestAiAccess,
+		ApiError,
+		type AiStatus
+	} from '$lib/api';
 	import type { ProjectListItem } from '$lib/types';
 	import { supabase } from '$lib/supabase';
 	import { t, locale, dateLocale } from '$lib/i18n';
@@ -12,6 +19,15 @@
 		remainingMessage,
 		interpolate
 	} from '$lib/aiGate';
+	import {
+		ACCESS_ALERT_KEYS,
+		ACCESS_FORM_KEYS,
+		accessFromRequestOutcome,
+		accessLookupFailed,
+		accessMessage,
+		accessView,
+		classifyAccessRequestError
+	} from '$lib/aiAccess';
 
 	interface QA {
 		question: string;
@@ -64,6 +80,41 @@
 			: ''
 	);
 	const canCompose = $derived(view.mode === 'available' && !!selectedProject && !loading);
+
+	// Request access: a block inside the closed panel, only for "not open yet"
+	// and "not approved", and only for an access value this build knows.
+	// Anything else (a null lookup, an API without the field) is the plain panel.
+	/** Same bound as the API's `note` field. */
+	const MAX_ACCESS_NOTE_LENGTH = 500;
+	let accessNote = $state('');
+	let requesting = $state(false);
+	// i18n key of the outcome of a request that did not reach a new state.
+	let accessAlertKey = $state('');
+	// True right after a submit that recorded the request: the text starts with "Request sent."
+	let accessJustSent = $state(false);
+	let accessStateEl: HTMLParagraphElement | undefined = $state();
+	let accessSubmitEl: HTMLButtonElement | undefined = $state();
+
+	const access = $derived(accessView(status));
+	const accessText = $derived(
+		accessMessage(
+			$t,
+			access,
+			status?.access_requested_at,
+			status?.access_retry_after,
+			dateLocale($locale),
+			accessJustSent
+		)
+	);
+	// Not confirming is a warning (the request may be recorded), not a failure.
+	const accessAlertIsWarning = $derived(
+		accessAlertKey === ACCESS_ALERT_KEYS.unconfirmedResend ||
+			accessAlertKey === ACCESS_ALERT_KEYS.unconfirmedReload
+	);
+	const primaryLinkClass =
+		'inline-block bg-blue-600 dark:bg-blue-600 text-white dark:text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 dark:hover:bg-blue-500 transition-colors';
+	const outlineLinkClass =
+		'inline-block border border-violet-300 dark:border-violet-700 text-violet-900 dark:text-violet-100 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900 transition-colors';
 
 	function isUnauthorized(e: unknown): boolean {
 		return e instanceof ApiError && e.status === 401;
@@ -161,6 +212,97 @@
 		}
 	}
 
+	/**
+	 * Send the access request once (single attempt). A success moves the panel
+	 * to its new state; a refusal keeps the form and the note; an unknown
+	 * outcome (timeout, network error, 5xx) reads the status to find out.
+	 */
+	async function requestAccess(): Promise<void> {
+		if (requesting || access !== 'none') return;
+		requesting = true;
+		accessAlertKey = '';
+		// True when the panel moved to a new state (focus goes to its message).
+		let settled = false;
+		try {
+			const res = await requestAiAccess(accessNote.trim() || null);
+			const next = accessFromRequestOutcome(res.state);
+			if (next === null) {
+				// Accepted, with an outcome this build does not know: read the state.
+				settled = await confirmAccessRequest();
+			} else {
+				status = {
+					...(status ?? NO_STATUS),
+					access: next,
+					access_requested_at: res.requested_at ?? null,
+					access_retry_after: res.retry_after ?? null
+				};
+				accessJustSent = next === 'pending';
+				accessNote = '';
+				settled = true;
+				// Already approved: the feature may be open for this account by now.
+				if (next === 'entitled') await refreshStatusKeepingPanel();
+			}
+		} catch (e: unknown) {
+			const failure = classifyAccessRequestError(e);
+			if (failure.kind === 'signin') {
+				phase = 'signed_out';
+				return;
+			}
+			if (failure.kind === 'refused') accessAlertKey = failure.key;
+			else settled = await confirmAccessRequest();
+		} finally {
+			requesting = false;
+		}
+		if (phase !== 'ready') return;
+		await tick();
+		// The state message is not a live region, so focusing it reads it once.
+		if (settled) (accessStateEl ?? gateMessageEl)?.focus();
+		else accessSubmitEl?.focus();
+	}
+
+	/**
+	 * After a request whose outcome is unknown, read the status to learn
+	 * whether it was recorded. Unlike reloadStatus(), a failure keeps the
+	 * current status, so the form and the note stay. True when the panel moved
+	 * to a new state.
+	 */
+	async function confirmAccessRequest(): Promise<boolean> {
+		let fresh: AiStatus;
+		try {
+			fresh = await getAiStatus();
+		} catch (e: unknown) {
+			if (isUnauthorized(e)) phase = 'signed_out';
+			else accessAlertKey = ACCESS_ALERT_KEYS.unconfirmedReload;
+			return false;
+		}
+		const next = accessView(fresh);
+		if (next === 'none') {
+			// Not recorded. Sending again is safe: the server keeps one request per account.
+			accessAlertKey = ACCESS_ALERT_KEYS.unconfirmedResend;
+			return false;
+		}
+		if (accessLookupFailed(fresh)) {
+			accessAlertKey = ACCESS_ALERT_KEYS.unconfirmedReload;
+			return false;
+		}
+		status = fresh;
+		if (next === 'pending') {
+			accessJustSent = true;
+			accessNote = '';
+		}
+		return true;
+	}
+
+	/** Reload the status; on failure, or when it says nothing about access, keep the panel as it is. */
+	async function refreshStatusKeepingPanel(): Promise<void> {
+		try {
+			const fresh = await getAiStatus();
+			if (!accessLookupFailed(fresh)) status = fresh;
+		} catch (e: unknown) {
+			if (isUnauthorized(e)) phase = 'signed_out';
+		}
+	}
+
 	/** A suggestion fills the input; the user still decides to send. */
 	function useSuggestion(key: string) {
 		question = $t(key);
@@ -234,23 +376,75 @@
 				id="ask-gate-message"
 				bind:this={gateMessageEl}
 				tabindex="-1"
-				class="mb-6 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 p-8 text-center focus:outline-none focus:ring-2 focus:ring-violet-500"
+				class="mb-6 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 p-5 sm:p-8 text-center focus:outline-none focus:ring-2 focus:ring-violet-500"
 			>
 				<svg class="mx-auto h-10 w-10 text-violet-600 dark:text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
 				</svg>
 				<h2 class="mt-4 text-lg font-semibold text-violet-950 dark:text-violet-50">{$t(view.titleKey ?? 'ask.unavailable_title')}</h2>
 				<p class="mt-2 text-sm text-violet-900 dark:text-violet-100 max-w-xl mx-auto">{gateText}</p>
+				{#if access}
+					<div class="mt-5 mx-auto max-w-md text-left">
+						{#if access === 'none'}
+							<form
+								novalidate
+								onsubmit={(e) => {
+									e.preventDefault();
+									requestAccess();
+								}}
+							>
+								<label for="ask-access-note" class="block text-sm font-medium text-violet-950 dark:text-violet-50">
+									{$t(ACCESS_FORM_KEYS.label)}
+								</label>
+								<p id="ask-access-note-hint" class="mt-1 text-xs text-violet-800 dark:text-violet-200">
+									{$t(ACCESS_FORM_KEYS.hint)}
+								</p>
+								<textarea
+									id="ask-access-note"
+									rows="3"
+									maxlength={MAX_ACCESS_NOTE_LENGTH}
+									bind:value={accessNote}
+									readonly={requesting}
+									aria-describedby="ask-access-note-hint"
+									class="mt-2 block w-full rounded-lg border border-violet-300 dark:border-violet-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400"
+								></textarea>
+								{#if accessAlertKey}
+									<div
+										role="alert"
+										class="mt-3 p-3 rounded-lg border text-sm {accessAlertIsWarning
+											? 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+											: 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-200'}"
+									>
+										{$t(accessAlertKey)}
+									</div>
+								{/if}
+								<button
+									type="submit"
+									bind:this={accessSubmitEl}
+									disabled={requesting}
+									class="mt-3 w-full sm:w-auto min-h-11 px-5 py-2 rounded-lg text-sm font-semibold bg-blue-600 dark:bg-blue-600 text-white dark:text-white hover:bg-blue-700 dark:hover:bg-blue-500 disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-violet-50 dark:focus:ring-offset-violet-950"
+								>
+									{requesting ? $t(ACCESS_FORM_KEYS.submitting) : $t(ACCESS_FORM_KEYS.submit)}
+								</button>
+							</form>
+						{:else}
+							<!-- Not a live region: focus lands here after a submit, and a
+								 live region would read the message a second time. -->
+							<p
+								bind:this={accessStateEl}
+								tabindex="-1"
+								class="text-sm text-violet-950 dark:text-violet-50 rounded focus:outline-none focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 focus:ring-offset-2 focus:ring-offset-violet-50 dark:focus:ring-offset-violet-950"
+							>
+								{accessText}
+							</p>
+						{/if}
+					</div>
+				{/if}
 				<p class="mt-3 text-sm text-violet-800 dark:text-violet-200 max-w-xl mx-auto">{$t('ask.rest_available')}</p>
 				<div class="mt-6 flex flex-wrap justify-center gap-3">
-					<a
-						href="/projects"
-						class="inline-block bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
-					>{$t('ask.go_projects')}</a>
-					<a
-						href="/upload"
-						class="inline-block border border-violet-300 dark:border-violet-700 text-violet-900 dark:text-violet-100 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-violet-100 dark:hover:bg-violet-900 transition-colors"
-					>{$t('ask.go_upload')}</a>
+					<!-- With the request form showing, its button is the only primary action. -->
+					<a href="/projects" class={access === 'none' ? outlineLinkClass : primaryLinkClass}>{$t('ask.go_projects')}</a>
+					<a href="/upload" class={outlineLinkClass}>{$t('ask.go_upload')}</a>
 				</div>
 			</div>
 		{:else if view.mode === 'exhausted'}

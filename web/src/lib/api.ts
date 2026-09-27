@@ -1701,6 +1701,26 @@ export interface AiStatus {
 	remaining_today: number | null;
 	/** When today's question count renews (ISO-8601, UTC). */
 	resets_at: string | null;
+	/**
+	 * The account's access request, filled only when `reason` is `ai_disabled`
+	 * or `ai_not_entitled`. Null otherwise and when the lookup failed; absent
+	 * from an API that predates it. Read through `accessView()` in aiAccess.ts.
+	 */
+	access?: AiAccess | null;
+	/** When the pending request was made (ISO-8601), else null. */
+	access_requested_at?: string | null;
+	/** From when a dismissed request may be sent again (ISO-8601), else null. */
+	access_retry_after?: string | null;
+}
+
+/** An account's AI access request as `GET /ai/status` reports it. */
+export type AiAccess = 'entitled' | 'pending' | 'dismissed' | 'none';
+
+/** `POST /api/v1/ai/access-request`. `created` means this call recorded a new pending request. */
+export interface AiAccessRequestResult {
+	state: 'created' | 'pending' | 'entitled' | 'dismissed';
+	requested_at: string | null;
+	retry_after: string | null;
 }
 
 export interface AskResponse {
@@ -1779,6 +1799,31 @@ export async function askSchedule(projectId: string, question: string): Promise<
 	);
 }
 
+// Recording a request is one database call (the notification is sent after the
+// answer). The page loads the status through `request()` first, which absorbs
+// a cold start, so this only has to cover the write itself.
+const AI_ACCESS_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Ask the administrators for access to Ask Your Schedule (session only).
+ * `note` is optional (null when empty); the API trims it and caps it at 500
+ * characters.
+ *
+ * Single attempt (`requestOnce`): the outcome of a failed or timed-out request
+ * is unknown, so the page reloads the status instead of repeating the write.
+ */
+export async function requestAiAccess(note: string | null): Promise<AiAccessRequestResult> {
+	return requestOnce<AiAccessRequestResult>(
+		'/api/v1/ai/access-request',
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ note })
+		},
+		AI_ACCESS_REQUEST_TIMEOUT_MS
+	);
+}
+
 export interface AiAdminConfig {
 	enabled: boolean;
 	api_key_set: boolean;
@@ -1837,6 +1882,24 @@ export interface AiAdminSummary {
 	/** Worst case reserved for a typical question at the configured prices; null when prices are not set. */
 	reserve_per_question_usd: string | null;
 	entitlements: AiEntitlement[];
+	/**
+	 * Pending access requests, oldest first (the API caps the list). Null means
+	 * they could not be read, not that there are none; absent from an API that
+	 * predates it, which the page treats the same way.
+	 */
+	requests?: AiAccessRequestItem[] | null;
+	/** How many requests are pending in all; null when unknown. */
+	requests_total?: number | null;
+}
+
+/** One pending access request. */
+export interface AiAccessRequestItem {
+	user_id: string;
+	/** The account's confirmed address, or null when it has none. */
+	email: string | null;
+	/** The requester's own text. Plain text: never rendered as HTML. */
+	note: string | null;
+	requested_at: string | null;
 }
 
 export interface AiGrantRequest {
@@ -1886,6 +1949,36 @@ export async function grantAiAccess(body: AiGrantRequest): Promise<AiEntitlement
 export async function revokeAiAccess(userId: string): Promise<{ revoked: boolean }> {
 	return requestOnce<{ revoked: boolean }>(
 		`/api/v1/superadmin/ai/entitlements/${encodeURIComponent(userId)}`,
+		{ method: 'DELETE' },
+		AI_ADMIN_WRITE_TIMEOUT_MS
+	);
+}
+
+/**
+ * Approve a pending access request with the default limits. 404
+ * `ai_request_not_found` when the request is no longer pending.
+ *
+ * Single attempt (`requestOnce`): an approve repeated after the first one took
+ * effect answers 404, and the outcome of a timed-out one is unknown, so the
+ * page reloads the lists instead of repeating the write.
+ */
+export async function approveAiRequest(userId: string): Promise<AiEntitlement> {
+	return requestOnce<AiEntitlement>(
+		`/api/v1/superadmin/ai/requests/${encodeURIComponent(userId)}/approve`,
+		{ method: 'POST' },
+		AI_ADMIN_WRITE_TIMEOUT_MS
+	);
+}
+
+/**
+ * Dismiss a pending access request; the account may ask again after the
+ * cooldown. 404 `ai_request_not_found` when the request is no longer pending.
+ *
+ * Single attempt (`requestOnce`), for the same reason as `approveAiRequest`.
+ */
+export async function dismissAiRequest(userId: string): Promise<{ dismissed: boolean }> {
+	return requestOnce<{ dismissed: boolean }>(
+		`/api/v1/superadmin/ai/requests/${encodeURIComponent(userId)}`,
 		{ method: 'DELETE' },
 		AI_ADMIN_WRITE_TIMEOUT_MS
 	);

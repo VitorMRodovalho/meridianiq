@@ -17,7 +17,16 @@ vi.mock('./supabase', () => ({
 	}
 }));
 
-import { ApiError, askSchedule, getAiStatus, grantAiAccess, revokeAiAccess } from './api';
+import {
+	ApiError,
+	approveAiRequest,
+	askSchedule,
+	dismissAiRequest,
+	getAiStatus,
+	grantAiAccess,
+	requestAiAccess,
+	revokeAiAccess
+} from './api';
 
 function jsonResponse(status: number, body: unknown): Response {
 	return new Response(JSON.stringify(body), {
@@ -229,5 +238,135 @@ describe('grantAiAccess / revokeAiAccess', () => {
 		const err = await revokeAiAccess('u-1').catch((e: unknown) => e);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect((err as ApiError).errorCode).toBe('ai_entitlement_not_found');
+	});
+});
+
+// Requesting access, approving and dismissing a request are writes whose first
+// attempt may already have taken effect: a repeated approve or dismiss answers
+// 404 for a request that was handled a moment ago, and the page reloads the
+// state instead. None of the three may inherit the retry loop either.
+describe('requestAiAccess / approveAiRequest / dismissAiRequest', () => {
+	let fetchMock: ReturnType<typeof vi.fn>;
+
+	beforeEach(() => {
+		fetchMock = vi.fn();
+		vi.stubGlobal('fetch', fetchMock);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	const calls: [string, () => Promise<unknown>][] = [
+		['requestAiAccess', () => requestAiAccess(null)],
+		['approveAiRequest', () => approveAiRequest('u-1')],
+		['dismissAiRequest', () => dismissAiRequest('u-1')]
+	];
+
+	const failures: [string, () => void][] = [
+		['502', () => fetchMock.mockResolvedValue(new Response('', { status: 502 }))],
+		['503', () => fetchMock.mockResolvedValue(new Response('', { status: 503 }))],
+		['network error', () => fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))],
+		[
+			'timeout',
+			() => fetchMock.mockRejectedValue(new DOMException('signal timed out', 'TimeoutError'))
+		]
+	];
+
+	for (const [name, call] of calls) {
+		for (const [failure, arrange] of failures) {
+			it(`${name}: exactly one fetch on a ${failure}`, async () => {
+				arrange();
+				const err = await call().catch((e: unknown) => e);
+				expect(fetchMock).toHaveBeenCalledTimes(1);
+				expect(err).toBeInstanceOf(Error);
+				if (failure === 'timeout') {
+					expect((err as Error).name).toBe('TimeoutError');
+					expect(err).toBeInstanceOf(ApiError);
+				}
+			});
+		}
+	}
+
+	it('requestAiAccess posts {note} as JSON with the session token, and waits 30 s', async () => {
+		const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+		try {
+			fetchMock.mockImplementation(async () =>
+				jsonResponse(200, { state: 'created', requested_at: '2026-09-27T12:00:00Z', retry_after: null })
+			);
+			const res = await requestAiAccess(null);
+			expect(res.state).toBe('created');
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+			expect(url).toBe('/api/v1/ai/access-request');
+			expect(init.method).toBe('POST');
+			expect(JSON.parse(init.body as string)).toEqual({ note: null });
+			const headers = init.headers as Record<string, string>;
+			expect(headers.Authorization).toBe('Bearer test-token');
+			expect(headers['Content-Type']).toBe('application/json');
+			expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+
+			await requestAiAccess('weekly look-ahead');
+			const [, second] = fetchMock.mock.calls[1] as [string, RequestInit];
+			expect(JSON.parse(second.body as string)).toEqual({ note: 'weekly look-ahead' });
+		} finally {
+			timeoutSpy.mockRestore();
+		}
+	});
+
+	it('approve POSTs and dismiss DELETEs, each to the encoded user id, with the session token', async () => {
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, {
+				user_id: 'u/1',
+				email: 'a@example.com',
+				active: true,
+				granted_at: '2026-09-27T12:00:00Z',
+				revoked_at: null,
+				daily_questions: null,
+				monthly_budget_usd: null,
+				note: null,
+				used_today: 0,
+				spent_month_usd: '0.00'
+			})
+		);
+		const granted = await approveAiRequest('u/1');
+		expect(granted.active).toBe(true);
+		const [approveUrl, approveInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+		expect(approveUrl).toBe('/api/v1/superadmin/ai/requests/u%2F1/approve');
+		expect(approveInit.method).toBe('POST');
+		expect((approveInit.headers as Record<string, string>).Authorization).toBe('Bearer test-token');
+		expect(approveInit.signal).toBeInstanceOf(AbortSignal);
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(200, { dismissed: true }));
+		await expect(dismissAiRequest('u/1')).resolves.toEqual({ dismissed: true });
+		const [dismissUrl, dismissInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+		expect(dismissUrl).toBe('/api/v1/superadmin/ai/requests/u%2F1');
+		expect(dismissInit.method).toBe('DELETE');
+		expect((dismissInit.headers as Record<string, string>).Authorization).toBe('Bearer test-token');
+	});
+
+	it('error codes surface: ai_request_not_found, ai_session_required, ai_request_unavailable', async () => {
+		const notFound = { detail: { error_code: 'ai_request_not_found', message: 'x' } };
+		for (const call of [() => approveAiRequest('u-1'), () => dismissAiRequest('u-1')]) {
+			fetchMock.mockReset();
+			fetchMock.mockImplementation(async () => jsonResponse(404, notFound));
+			const err = await call().catch((e: unknown) => e);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect((err as ApiError).status).toBe(404);
+			expect((err as ApiError).errorCode).toBe('ai_request_not_found');
+		}
+		for (const [status, code] of [
+			[403, 'ai_session_required'],
+			[500, 'ai_request_unavailable']
+		] as const) {
+			fetchMock.mockReset();
+			fetchMock.mockImplementation(async () =>
+				jsonResponse(status, { detail: { error_code: code, message: 'x' } })
+			);
+			const err = await requestAiAccess(null).catch((e: unknown) => e);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect((err as ApiError).status).toBe(status);
+			expect((err as ApiError).errorCode).toBe(code);
+		}
 	});
 });
