@@ -160,13 +160,16 @@ export function parseErrorBody(
 	return { message, errorCode };
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+/** The bearer header for the current session, or none when signed out. */
+async function authHeader(): Promise<Record<string, string>> {
 	// Get session directly from Supabase (reads localStorage, no store timing dependency)
 	const { data: { session: currentSession } } = await supabase.auth.getSession();
 	const token = currentSession?.access_token;
-	const authHeaders: Record<string, string> = token
-		? { Authorization: `Bearer ${token}` }
-		: {};
+	return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+	const authHeaders = await authHeader();
 
 	const mergedInit: RequestInit = {
 		...init,
@@ -1680,5 +1683,141 @@ export async function getRevisionTrends(
 ): Promise<import('./types').RevisionTrendsResponse> {
 	return request<import('./types').RevisionTrendsResponse>(
 		`/api/v1/projects/${projectId}/revision-trends`
+	);
+}
+
+// ── AI access gate (Ask Your Schedule) ─────────────────
+
+/**
+ * `GET /api/v1/ai/status`: whether the signed-in account may ask now. Gate
+ * states answer 200 with `available: false` and a `reason`; only a signed-out
+ * caller gets an error (401).
+ */
+export interface AiStatus {
+	available: boolean;
+	reason: string | null;
+	daily_limit: number | null;
+	used_today: number | null;
+	remaining_today: number | null;
+	/** When today's question count renews (ISO-8601, UTC). */
+	resets_at: string | null;
+}
+
+export interface AskResponse {
+	question: string;
+	answer: string;
+	model: string;
+	tokens_used: number;
+	remaining_today: number | null;
+}
+
+/** Status is a plain GET, so the cold-start retry in `request()` is safe here. */
+export async function getAiStatus(): Promise<AiStatus> {
+	return request<AiStatus>('/api/v1/ai/status');
+}
+
+// One question can take a while to answer. The budget covers a slow model
+// reply, not a cold start: the page loads the status first, which wakes the
+// machine through the retry path in `request()`.
+const ASK_TIMEOUT_MS = 60_000;
+
+/**
+ * Ask one question about a schedule.
+ *
+ * Deliberately NOT routed through `request()`: that helper retries 502/503,
+ * network errors and per-attempt timeouts up to MAX_RETRIES times, and every
+ * retry of this POST could be another billed model call. This makes exactly
+ * one fetch. A timeout throws `TimeoutError`; the call may still have been
+ * counted on the server, so callers reload the status afterwards.
+ */
+export async function askSchedule(projectId: string, question: string): Promise<AskResponse> {
+	const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
+	let res: Response;
+	try {
+		res = await fetch(`${BASE}/api/v1/projects/${encodeURIComponent(projectId)}/ask`, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify({ question }),
+			signal: AbortSignal.timeout(ASK_TIMEOUT_MS)
+		});
+	} catch (err) {
+		if (err instanceof DOMException && err.name === 'TimeoutError') {
+			throw new TimeoutError('Request timed out', { cause: err });
+		}
+		throw err;
+	}
+	if (!res.ok) {
+		const { message, errorCode } = parseErrorBody(res.status, await res.text());
+		throw new ApiError(message, res.status, errorCode);
+	}
+	return res.json();
+}
+
+export interface AiAdminConfig {
+	enabled: boolean;
+	api_key_set: boolean;
+	model_set: boolean;
+	prices_set: boolean;
+	global_budget_set: boolean;
+	sdk_available: boolean;
+	durable_ledger: boolean;
+}
+
+/** One approved account. Money fields are decimal strings (e.g. "5.00"). */
+export interface AiEntitlement {
+	user_id: string;
+	email: string;
+	active: boolean;
+	granted_at: string;
+	revoked_at: string | null;
+	/** Null means the account uses the default. */
+	daily_questions: number | null;
+	/** Null means the account uses the default. */
+	monthly_budget_usd: string | null;
+	note: string | null;
+	used_today: number;
+	spent_month_usd: string;
+}
+
+export interface AiAdminSummary {
+	available: boolean;
+	reason: string | null;
+	config: AiAdminConfig;
+	model: string | null;
+	global_budget_usd: string | null;
+	global_spent_month_usd: string;
+	defaults: { daily_questions: number; account_monthly_budget_usd: string };
+	stale_reservations: number;
+	entitlements: AiEntitlement[];
+}
+
+export interface AiGrantRequest {
+	email: string;
+	/** Null puts the account on the default. */
+	daily_questions: number | null;
+	/** Null puts the account on the default. */
+	monthly_budget_usd: number | string | null;
+	note: string | null;
+}
+
+/** Superadmin only: 401 signed out, 403 for everyone else. */
+export async function getAiAdmin(): Promise<AiAdminSummary> {
+	return request<AiAdminSummary>('/api/v1/superadmin/ai');
+}
+
+/** Grant or re-grant (upsert). 404 `ai_account_not_found` when no account uses the address. */
+export async function grantAiAccess(body: AiGrantRequest): Promise<AiEntitlement> {
+	return request<AiEntitlement>('/api/v1/superadmin/ai/entitlements', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+}
+
+/** Soft revoke. 404 `ai_entitlement_not_found` when there is nothing to revoke. */
+export async function revokeAiAccess(userId: string): Promise<{ revoked: boolean }> {
+	return request<{ revoked: boolean }>(
+		`/api/v1/superadmin/ai/entitlements/${encodeURIComponent(userId)}`,
+		{ method: 'DELETE' }
 	);
 }

@@ -70,6 +70,27 @@ test.describe('Upload page', () => {
   });
 });
 
+test.describe('Ask Your Schedule page', () => {
+  test('shows the sign-in gate and no question input when logged out', async ({ page }) => {
+    await page.goto('/ask');
+    const main = page.locator('main');
+    // Positive first, so an empty or broken page cannot pass the negatives below.
+    await expect(main.getByText('Sign in to use Ask Your Schedule')).toBeVisible();
+    // The composer only renders once the AI status allows it.
+    await expect(main.getByRole('textbox')).toHaveCount(0);
+    await expect(main.locator('select#project')).toHaveCount(0);
+  });
+});
+
+test.describe('AI admin page', () => {
+  test('renders no grant form when logged out', async ({ page }) => {
+    await page.goto('/admin/ai');
+    const main = page.locator('main');
+    await expect(main.getByText('Sign in required')).toBeVisible();
+    await expect(main.locator('input[type="email"]')).toHaveCount(0);
+  });
+});
+
 test.describe('Intelligence pages have interactive controls', () => {
   test('Scorecard has project selector and button', async ({ page }) => {
     await page.goto('/scorecard');

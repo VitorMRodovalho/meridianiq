@@ -39,20 +39,25 @@
 		'demo': 'Demo',
 		'programs': 'Programs',
 		'login': 'Sign In',
+		'admin': 'Admin',
+		'ai': 'AI',
 	};
+
+	// Path prefixes that have no page of their own: shown as text, not linked.
+	const unlinkedPaths = new Set(['/admin']);
 
 	const crumbs = $derived.by(() => {
 		const pathname = $page.url.pathname;
 		if (pathname === '/') return [];
 
 		const segments = pathname.split('/').filter(Boolean);
-		const result: { label: string; href: string }[] = [{ label: 'Dashboard', href: '/' }];
+		const result: { label: string; href: string | null }[] = [{ label: 'Dashboard', href: '/' }];
 
 		let path = '';
 		for (const seg of segments) {
 			path += `/${seg}`;
 			const label = routeLabels[seg] || seg.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-			result.push({ label, href: path });
+			result.push({ label, href: unlinkedPaths.has(path) ? null : path });
 		}
 
 		return result;
@@ -69,6 +74,8 @@
 			{/if}
 			{#if i === crumbs.length - 1}
 				<span class="text-gray-900 dark:text-gray-100 font-medium truncate">{crumb.label}</span>
+			{:else if crumb.href === null}
+				<span class="truncate">{crumb.label}</span>
 			{:else}
 				<a href={crumb.href} class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate">{crumb.label}</a>
 			{/if}
