@@ -1716,29 +1716,27 @@ export async function getAiStatus(): Promise<AiStatus> {
 	return request<AiStatus>('/api/v1/ai/status');
 }
 
-// One question can take a while to answer. The budget covers a slow model
-// reply, not a cold start: the page loads the status first, which wakes the
-// machine through the retry path in `request()`.
-const ASK_TIMEOUT_MS = 60_000;
-
 /**
- * Ask one question about a schedule.
+ * Exactly one fetch, for calls that must not be repeated automatically.
  *
- * Deliberately NOT routed through `request()`: that helper retries 502/503,
- * network errors and per-attempt timeouts up to MAX_RETRIES times, and every
- * retry of this POST could be another billed model call. This makes exactly
- * one fetch. A timeout throws `TimeoutError`; the call may still have been
- * counted on the server, so callers reload the status afterwards.
+ * `request()` retries 502/503, network errors and per-attempt timeouts up to
+ * MAX_RETRIES times. That is right for reads and wrong for a call whose first
+ * attempt may already have taken effect on the server: a billed model call, a
+ * grant, a revoke. Here a 502/503 or a network error is thrown as is, and the
+ * timeout throws `TimeoutError`. In every one of those cases the server may
+ * still have done the work, so callers reload the state they show afterwards.
  */
-export async function askSchedule(projectId: string, question: string): Promise<AskResponse> {
-	const headers = { 'Content-Type': 'application/json', ...(await authHeader()) };
+async function requestOnce<T>(url: string, init: RequestInit, timeoutMs: number): Promise<T> {
+	const headers = {
+		...(await authHeader()),
+		...(init.headers as Record<string, string> | undefined)
+	};
 	let res: Response;
 	try {
-		res = await fetch(`${BASE}/api/v1/projects/${encodeURIComponent(projectId)}/ask`, {
-			method: 'POST',
+		res = await fetch(`${BASE}${url}`, {
+			...init,
 			headers,
-			body: JSON.stringify({ question }),
-			signal: AbortSignal.timeout(ASK_TIMEOUT_MS)
+			signal: AbortSignal.timeout(timeoutMs)
 		});
 	} catch (err) {
 		if (err instanceof DOMException && err.name === 'TimeoutError') {
@@ -1751,6 +1749,34 @@ export async function askSchedule(projectId: string, question: string): Promise<
 		throw new ApiError(message, res.status, errorCode);
 	}
 	return res.json();
+}
+
+// How long the browser waits for one answer. It must outlast the server's own
+// budget for the call: the provider request may take up to 45 s plus 5 s to
+// connect, and the API also loads the schedule and makes ledger round trips
+// before and after it. A call the browser stops waiting for may still be billed,
+// so giving up first only hides an answer that was paid for. Not a cold-start
+// allowance: the page loads the status first, which wakes the machine through
+// the retry path in `request()`.
+const ASK_TIMEOUT_MS = 90_000;
+
+/**
+ * Ask one question about a schedule.
+ *
+ * Single attempt (`requestOnce`): every retry of this POST could be another
+ * billed model call. A timeout throws `TimeoutError`; the call may still have
+ * been counted on the server, so callers reload the status afterwards.
+ */
+export async function askSchedule(projectId: string, question: string): Promise<AskResponse> {
+	return requestOnce<AskResponse>(
+		`/api/v1/projects/${encodeURIComponent(projectId)}/ask`,
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ question })
+		},
+		ASK_TIMEOUT_MS
+	);
 }
 
 export interface AiAdminConfig {
@@ -1766,9 +1792,10 @@ export interface AiAdminConfig {
 /** One approved account. Money fields are decimal strings (e.g. "5.00"). */
 export interface AiEntitlement {
 	user_id: string;
-	email: string;
+	/** The address given at grant time; null when none was stored. */
+	email: string | null;
 	active: boolean;
-	granted_at: string;
+	granted_at: string | null;
 	revoked_at: string | null;
 	/** Null means the account uses the default. */
 	daily_questions: number | null;
@@ -1779,6 +1806,22 @@ export interface AiEntitlement {
 	spent_month_usd: string;
 }
 
+/** Calls this UTC month by ledger status. */
+export interface AiMonthCalls {
+	/** Reserved and not settled yet (in flight, or stale). */
+	reserved: number;
+	completed: number;
+	/** Failed before generation (cost 0). */
+	failed: number;
+	/** Timed out, lost the connection or was cancelled: counted at the reserved amount. */
+	unknown: number;
+}
+
+/**
+ * `GET /api/v1/superadmin/ai`. When the usage ledger cannot be read the route
+ * still answers 200, with `available: false`, `reason: "ai_ledger_unavailable"`,
+ * the config flags, and zeros or empty values in every ledger field.
+ */
 export interface AiAdminSummary {
 	available: boolean;
 	reason: string | null;
@@ -1788,6 +1831,11 @@ export interface AiAdminSummary {
 	global_spent_month_usd: string;
 	defaults: { daily_questions: number; account_monthly_budget_usd: string };
 	stale_reservations: number;
+	month_calls: AiMonthCalls;
+	/** Last failed or unknown-outcome call, any time (ISO-8601), or null. */
+	last_failure_at: string | null;
+	/** Worst case reserved for a typical question at the configured prices; null when prices are not set. */
+	reserve_per_question_usd: string | null;
 	entitlements: AiEntitlement[];
 }
 
@@ -1805,19 +1853,40 @@ export async function getAiAdmin(): Promise<AiAdminSummary> {
 	return request<AiAdminSummary>('/api/v1/superadmin/ai');
 }
 
-/** Grant or re-grant (upsert). 404 `ai_account_not_found` when no account uses the address. */
+// A grant or a revoke is a few database writes. The page loads the summary
+// through `request()` first, which absorbs a cold start, so this only has to
+// cover the write itself.
+const AI_ADMIN_WRITE_TIMEOUT_MS = 30_000;
+
+/**
+ * Grant or re-grant (upsert). 404 `ai_account_not_found` when no account uses the address.
+ *
+ * Single attempt (`requestOnce`): the outcome of a failed or timed-out grant
+ * is unknown, so the page reloads the list instead of repeating the write.
+ */
 export async function grantAiAccess(body: AiGrantRequest): Promise<AiEntitlement> {
-	return request<AiEntitlement>('/api/v1/superadmin/ai/entitlements', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
-	});
+	return requestOnce<AiEntitlement>(
+		'/api/v1/superadmin/ai/entitlements',
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body)
+		},
+		AI_ADMIN_WRITE_TIMEOUT_MS
+	);
 }
 
-/** Soft revoke. 404 `ai_entitlement_not_found` when there is nothing to revoke. */
+/**
+ * Soft revoke. 404 `ai_entitlement_not_found` when there is nothing to revoke.
+ *
+ * Single attempt (`requestOnce`): a revoke repeated after the first one took
+ * effect on the server answers 404, which would read as "this account had no
+ * active AI access" for an account that had it until a moment ago.
+ */
 export async function revokeAiAccess(userId: string): Promise<{ revoked: boolean }> {
-	return request<{ revoked: boolean }>(
+	return requestOnce<{ revoked: boolean }>(
 		`/api/v1/superadmin/ai/entitlements/${encodeURIComponent(userId)}`,
-		{ method: 'DELETE' }
+		{ method: 'DELETE' },
+		AI_ADMIN_WRITE_TIMEOUT_MS
 	);
 }

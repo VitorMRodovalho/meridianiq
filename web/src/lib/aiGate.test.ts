@@ -154,10 +154,14 @@ describe('classifyAskError', () => {
 		});
 	});
 
-	it('TimeoutError (api.ts class and the AbortSignal DOMException) → request timeout', () => {
-		expect(classifyAskError(new TimeoutError())).toEqual({ kind: 'error', key: 'error.request_timeout' });
+	it('TimeoutError (api.ts class and the AbortSignal DOMException) → ask timeout, not the generic retry', () => {
+		expect(classifyAskError(new TimeoutError())).toEqual({ kind: 'error', key: 'ask.error_timeout' });
 		const dom = new DOMException('signal timed out', 'TimeoutError');
-		expect(classifyAskError(dom)).toEqual({ kind: 'error', key: 'error.request_timeout' });
+		expect(classifyAskError(dom)).toEqual({ kind: 'error', key: 'ask.error_timeout' });
+		// The generic message says "Please retry", which a call that may still be
+		// billed must not say.
+		expect(AI_GATE_MESSAGE_KEYS).toContain('ask.error_timeout');
+		expect(AI_GATE_MESSAGE_KEYS).not.toContain('error.request_timeout');
 	});
 
 	it('fails closed on an unknown code, an unknown status, a network error and non-errors', () => {

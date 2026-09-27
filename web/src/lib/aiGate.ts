@@ -54,7 +54,9 @@ const ERROR_KEYS = {
 	projectUnavailable: 'ask.error_project_unavailable',
 	invalidQuestion: 'ask.error_invalid_question',
 	rateLimited: 'error.rate_limited',
-	timeout: 'error.request_timeout'
+	// Not the generic 'error.request_timeout' ("please retry"): the server may
+	// still be answering, and the call may count toward today's limit.
+	timeout: 'ask.error_timeout'
 } as const;
 
 /** Every i18n key this module can hand to a page (tested against the locales). */

@@ -7,12 +7,24 @@
 		ApiError,
 		type AiAdminConfig,
 		type AiAdminSummary,
-		type AiEntitlement
+		type AiEntitlement,
+		type AiMonthCalls
 	} from '$lib/api';
 	import { supabase } from '$lib/supabase';
 	import { t, locale, dateLocale } from '$lib/i18n';
 	import { formatNumber } from '$lib/i18n/format';
 	import { interpolate } from '$lib/aiGate';
+	import {
+		AI_GRANT_MAX_DAILY_QUESTIONS,
+		AI_GRANT_MAX_MONTHLY_USD,
+		AI_GRANT_MONTHLY_MAX_DECIMALS,
+		BUDGET_FORMAT,
+		SPEND_FORMAT,
+		accountLabel,
+		formatUsd,
+		grantLimitsValid,
+		ledgerUnavailable
+	} from '$lib/aiAdmin';
 
 	// The first GET is the guard: nothing below the heading renders until it
 	// answers 200, so a signed-out or non-superadmin visitor never sees the form.
@@ -44,6 +56,18 @@
 		{ field: 'global_budget_set', labelKey: 'admin_ai.config_global_budget_set' },
 		{ field: 'sdk_available', labelKey: 'admin_ai.config_sdk_available' },
 		{ field: 'durable_ledger', labelKey: 'admin_ai.config_durable_ledger' }
+	];
+
+	// The route still answers 200 when the usage ledger cannot be read, with the
+	// config flags and zeros or empty values in every ledger field. Those zeros
+	// were not measured, so they are shown as '—', never as $0 or 0 calls.
+	const ledgerDown = $derived(ledgerUnavailable(summary));
+
+	const callRows: { field: keyof AiMonthCalls; labelKey: string }[] = [
+		{ field: 'completed', labelKey: 'admin_ai.calls_completed' },
+		{ field: 'failed', labelKey: 'admin_ai.calls_failed' },
+		{ field: 'unknown', labelKey: 'admin_ai.calls_unknown' },
+		{ field: 'reserved', labelKey: 'admin_ai.calls_reserved' }
 	];
 
 	onMount(async () => {
@@ -85,20 +109,29 @@
 		}
 	}
 
+	/**
+	 * True when a grant or revoke may have taken effect although no success came
+	 * back: a timeout, a network error or a 5xx. Grant and revoke are single
+	 * attempts, so the page reloads the list instead of guessing.
+	 */
+	function outcomeUnknown(e: unknown): boolean {
+		return !(e instanceof ApiError) || e.status === 0 || e.status >= 500;
+	}
+
+	/** Reload the list, then say whether what is shown is current. */
+	async function unknownOutcomeMessage(): Promise<string> {
+		return (await refresh()) ? $t('admin_ai.outcome_unknown') : $t('admin_ai.outcome_unknown_stale');
+	}
+
 	function grantFailure(e: unknown): string {
 		if (e instanceof ApiError) {
 			if (e.errorCode === 'ai_account_not_found') return $t('admin_ai.account_not_found');
-			// Limits are checked before sending, so a 422 is about the address.
+			// Limits are checked before sending (grantLimitsValid mirrors the API's
+			// bounds), so a 422 is about the address.
 			if (e.status === 422) return $t('org_detail.invite_invalid_email');
 			if (e.status === 429) return $t('error.rate_limited');
 		}
 		return $t('admin_ai.grant_failed');
-	}
-
-	function limitsValid(daily: number | null, monthly: number | null): boolean {
-		if (daily !== null && (!Number.isInteger(daily) || daily < 0)) return false;
-		if (monthly !== null && (!Number.isFinite(monthly) || monthly < 0)) return false;
-		return true;
 	}
 
 	async function handleGrant(event: SubmitEvent) {
@@ -111,8 +144,12 @@
 		// An empty field means "use the default", sent as null.
 		const daily = typeof grantDaily === 'number' ? grantDaily : null;
 		const monthly = typeof grantMonthly === 'number' ? grantMonthly : null;
-		if (!limitsValid(daily, monthly)) {
-			grantError = $t('admin_ai.invalid_limits');
+		if (!grantLimitsValid(daily, monthly)) {
+			grantError = interpolate($t('admin_ai.invalid_limits'), {
+				daily_max: whole(AI_GRANT_MAX_DAILY_QUESTIONS),
+				monthly_max: whole(AI_GRANT_MAX_MONTHLY_USD),
+				decimals: String(AI_GRANT_MONTHLY_MAX_DECIMALS)
+			});
 			return;
 		}
 
@@ -131,7 +168,11 @@
 				phase = state;
 				return;
 			}
-			grantError = grantFailure(e);
+			if (outcomeUnknown(e)) {
+				grantError = await unknownOutcomeMessage();
+			} else {
+				grantError = grantFailure(e);
+			}
 		} finally {
 			granting = false;
 		}
@@ -179,6 +220,8 @@
 			if (e instanceof ApiError && e.errorCode === 'ai_entitlement_not_found') {
 				revokeError = $t('admin_ai.revoke_not_found');
 				await refresh();
+			} else if (outcomeUnknown(e)) {
+				revokeError = await unknownOutcomeMessage();
 			} else if (e instanceof ApiError && e.status === 429) {
 				revokeError = $t('error.rate_limited');
 			} else {
@@ -198,16 +241,21 @@
 					)
 				};
 			}
-			changeStatus = interpolate($t('admin_ai.revoked_done'), { email: ent.email });
+			changeStatus = interpolate($t('admin_ai.revoked_done'), { email: accountLabel(ent) });
 		}
 		// The row's button changed or went away: keep keyboard users in the list.
 		await tick();
 		listHeading?.focus();
 	}
 
+	/** A budget (2 fraction digits). */
 	function usd(value: string | null | undefined): string {
-		if (value === null || value === undefined || value === '') return '—';
-		return formatNumber(Number(value), $locale, { style: 'currency', currency: 'USD' });
+		return formatUsd(value, $locale, BUDGET_FORMAT);
+	}
+
+	/** Money spent or reserved (up to 4 fraction digits, so $0.004 is not $0.00). */
+	function spent(value: string | null | undefined): string {
+		return formatUsd(value, $locale, SPEND_FORMAT);
 	}
 
 	function whole(value: number | null | undefined): string {
@@ -270,12 +318,17 @@
 			{$t('admin_ai.load_failed')}
 		</div>
 	{:else}
+		{#if ledgerDown}
+			<div role="alert" class="p-4 mb-6 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+				{$t('admin_ai.ledger_unavailable')}
+			</div>
+		{/if}
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
 			<section class={cardClass} aria-labelledby="ai-status-title">
 				<h2 id="ai-status-title" class="text-base font-semibold text-gray-900 dark:text-gray-100">{$t('admin_ai.status_heading')}</h2>
 				<dl class="mt-3 space-y-2 text-sm">
 					<div class="flex justify-between gap-4">
-						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.status_heading')}</dt>
+						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.availability_label')}</dt>
 						<dd class="font-medium {summary.available ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}">
 							{summary.available ? $t('admin_ai.state_available') : $t('admin_ai.state_unavailable')}
 						</dd>
@@ -292,7 +345,13 @@
 					</div>
 					<div class="flex justify-between gap-4">
 						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.stale_reservations')}</dt>
-						<dd class="font-medium text-gray-900 dark:text-gray-100">{whole(summary.stale_reservations)}</dd>
+						<dd class="font-medium text-gray-900 dark:text-gray-100">{ledgerDown ? '—' : whole(summary.stale_reservations)}</dd>
+					</div>
+					<div class="flex justify-between gap-4">
+						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.last_failure')}</dt>
+						<dd class="font-medium text-gray-900 dark:text-gray-100 text-right">
+							{ledgerDown ? '—' : summary.last_failure_at ? when(summary.last_failure_at) : $t('admin_ai.last_failure_none')}
+						</dd>
 					</div>
 				</dl>
 				<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{$t('admin_ai.stale_hint')}</p>
@@ -317,7 +376,7 @@
 				<dl class="mt-3 space-y-2 text-sm">
 					<div class="flex justify-between gap-4">
 						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.global_spent')}</dt>
-						<dd class="font-medium text-gray-900 dark:text-gray-100">{usd(summary.global_spent_month_usd)}</dd>
+						<dd class="font-medium text-gray-900 dark:text-gray-100">{ledgerDown ? '—' : spent(summary.global_spent_month_usd)}</dd>
 					</div>
 					<div class="flex justify-between gap-4">
 						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.global_budget')}</dt>
@@ -325,6 +384,21 @@
 							{summary.global_budget_usd === null ? $t('admin_ai.value_missing') : usd(summary.global_budget_usd)}
 						</dd>
 					</div>
+					<div class="flex justify-between gap-4">
+						<dt class="text-gray-500 dark:text-gray-400">{$t('admin_ai.reserve_per_question')}</dt>
+						<dd class="font-medium text-gray-900 dark:text-gray-100">
+							{summary.reserve_per_question_usd === null ? $t('admin_ai.value_missing') : spent(summary.reserve_per_question_usd)}
+						</dd>
+					</div>
+				</dl>
+				<h3 class="mt-4 text-sm font-semibold text-gray-900 dark:text-gray-100">{$t('admin_ai.calls_heading')}</h3>
+				<dl class="mt-2 space-y-1 text-sm">
+					{#each callRows as row (row.field)}
+						<div class="flex justify-between gap-4">
+							<dt class="text-gray-500 dark:text-gray-400">{$t(row.labelKey)}</dt>
+							<dd class="font-medium text-gray-900 dark:text-gray-100">{ledgerDown ? '—' : whole(summary.month_calls?.[row.field])}</dd>
+						</div>
+					{/each}
 				</dl>
 			</section>
 
@@ -368,6 +442,7 @@
 						<input
 							type="number"
 							min="0"
+							max={AI_GRANT_MAX_DAILY_QUESTIONS}
 							step="1"
 							inputmode="numeric"
 							bind:value={grantDaily}
@@ -380,6 +455,7 @@
 						<input
 							type="number"
 							min="0"
+							max={AI_GRANT_MAX_MONTHLY_USD}
 							step="0.01"
 							inputmode="decimal"
 							bind:value={grantMonthly}
@@ -422,7 +498,11 @@
 			{/if}
 
 			{#if summary.entitlements.length === 0}
-				<div class="{cardClass} text-center text-sm text-gray-500 dark:text-gray-400">{$t('admin_ai.entitlements_empty')}</div>
+				<!-- With the ledger down the list is empty because it could not be read,
+					 not because nobody was approved. -->
+				<div class="{cardClass} text-center text-sm text-gray-500 dark:text-gray-400">
+					{ledgerDown ? $t('admin_ai.ledger_unavailable_list') : $t('admin_ai.entitlements_empty')}
+				</div>
 			{:else}
 				<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto">
 					<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -442,7 +522,9 @@
 						<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
 							{#each summary.entitlements as ent (ent.user_id)}
 								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
-									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{ent.email}</td>
+									<td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
+										{#if ent.email}{ent.email}{:else}<span class="font-mono text-xs">{ent.user_id}</span>{/if}
+									</td>
 									<td class="px-4 py-3 text-sm whitespace-nowrap">
 										<span class="px-2 py-0.5 text-xs font-medium rounded-full {ent.active
 											? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
@@ -462,7 +544,7 @@
 											: usd(ent.monthly_budget_usd)}
 									</td>
 									<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{whole(ent.used_today)}</td>
-									<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{usd(ent.spent_month_usd)}</td>
+									<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{spent(ent.spent_month_usd)}</td>
 									<td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-xs break-words">{ent.note ?? '—'}</td>
 									<td class="px-4 py-3 text-sm text-right whitespace-nowrap">
 										{#if ent.active}
@@ -470,7 +552,7 @@
 												type="button"
 												onclick={() => handleRevoke(ent)}
 												disabled={revokingId !== ''}
-												aria-label={interpolate($t('admin_ai.revoke_aria'), { email: ent.email })}
+												aria-label={interpolate($t('admin_ai.revoke_aria'), { email: accountLabel(ent) })}
 												class="text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
 											>
 												{revokingId === ent.user_id ? $t('admin_ai.btn_revoking') : $t('admin_ai.btn_revoke')}
