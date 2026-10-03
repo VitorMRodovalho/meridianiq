@@ -21,6 +21,7 @@ FUNCTIONS = {
     "ai_access_state": "uuid",
     "ai_request_access": "uuid, text",
     "ai_pending_requests": "uuid, integer",
+    "ai_forget_user": "uuid",
     "ai_approve_request": "uuid, uuid, text, text",
     "ai_dismiss_request": "uuid, uuid, text, text",
     "ai_grant": "uuid, text, uuid, integer, numeric, text, text, text",
@@ -46,11 +47,13 @@ def test_single_transaction_guard_and_reload() -> None:
     sql = _normalised(M036)
     assert sql.startswith("begin; set local lock_timeout = '5s';")
     assert sql.endswith("notify pgrst, 'reload schema'; commit;")
-    guard = sql[sql.index("do $$") :]
+    guard = sql[sql.index("do $$ declare v_bad text;") :]
     assert "has_function_privilege('anon', p.oid, 'execute')" in guard
     assert "has_function_privilege('authenticated', p.oid, 'execute')" in guard
-    assert "p.prosecdef and p.proname <> 'ai_pending_requests'" in guard
-    assert "raise exception" in guard
+    assert "or p.prosecdef);" in guard  # no definer at all in public
+    assert "has_schema_privilege('anon', 'private', 'usage')" in guard
+    assert "has_schema_privilege('authenticated', 'private', 'usage')" in guard
+    assert guard.count("raise exception") == 2
 
 
 def test_table_is_api_only() -> None:
@@ -59,7 +62,7 @@ def test_table_is_api_only() -> None:
     assert "revoke all on table public.ai_access_requests from public, anon, authenticated;" in sql
     assert "revoke all on table public.ai_access_requests from service_role;" in sql
     assert re.findall(r"grant ([^;]*?) on table public\.ai_access_requests to ([^;]+);", sql) == [
-        ("select, insert, update", "service_role")
+        ("select, insert, update, delete", "service_role")  # delete: erasure only
     ]
     assert "create policy" not in sql
 
@@ -75,15 +78,32 @@ def test_functions_are_callable_by_service_role_only() -> None:
         assert grants == ["service_role"], (name, grants)
 
 
-def test_exactly_one_definer_and_it_is_narrow() -> None:
+def _private_function(sql: str) -> str:
+    start = sql.index("create or replace function private.ai_pending_requests(")
+    return sql[start : sql.index("$$;", sql.index("as $$", start)) + 3]
+
+
+def test_the_one_definer_is_private_narrow_and_confined() -> None:
     sql = _normalised(M036)
-    definers = [n for n in FUNCTIONS if "security definer" in _function(sql, n)]
-    assert definers == ["ai_pending_requests"]
-    fn = _function(sql, "ai_pending_requests")
+    assert [n for n in FUNCTIONS if "security definer" in _function(sql, n)] == []
+    fn = _private_function(sql)
     assert "language sql stable security definer set search_path = ''" in fn
     assert "where r.status = 'pending'" in fn  # addresses of pending requesters only
     assert "u.email_confirmed_at is not null" in fn and "u.deleted_at is null" in fn
-    assert "alter function public.ai_pending_requests(uuid, integer) owner to postgres;" in sql
+    assert "alter function private.ai_pending_requests(uuid, integer) owner to postgres;" in sql
+    assert (
+        "revoke all on function private.ai_pending_requests(uuid, integer) "
+        "from public, anon, authenticated, service_role;" in sql
+    )
+    grants = re.findall(
+        r"grant execute on function private\.ai_pending_requests\([^)]*\) to ([^;]+);", sql
+    )
+    assert grants == ["service_role"]
+    assert re.findall(r"grant usage on schema private to ([^;]+);", sql) == ["service_role"]
+    # The public entry point is a plain wrapper around it.
+    assert "select private.ai_pending_requests(p_user_id, p_limit);" in _body(
+        sql, "ai_pending_requests"
+    )
 
 
 def test_every_other_function_is_invoker_with_an_empty_search_path() -> None:
@@ -91,14 +111,19 @@ def test_every_other_function_is_invoker_with_an_empty_search_path() -> None:
     for name in FUNCTIONS:
         fn = _function(sql, name)
         assert "set search_path = ''" in fn, name
-        if name != "ai_pending_requests":
-            assert "security invoker" in fn, name
+        assert "security invoker" in fn, name
 
 
 def test_request_creation_is_one_conditional_statement() -> None:
     body = _body(_normalised(M036), "ai_request_access")
-    assert "on conflict (user_id) do update" in body
-    assert "where r.status <> 'pending' returning r.requested_at into v_at;" in body
+    insert = body[body.index("insert into public.ai_access_requests") :]
+    insert = insert[: insert.index("returning r.requested_at into v_at;")]
+    # One statement: the account-level checks, then the locked-row check.
+    assert "select p_user_id, 'pending', p_note, now() where not exists" in insert
+    assert "public.ai_request_cooldown_until(p_user_id) is null" in insert
+    assert insert.rstrip().endswith(
+        "where r.status <> 'pending' and r.decided_at <= now() - interval '30 days'"
+    )
 
 
 def test_decisions_clear_the_note() -> None:

@@ -12,22 +12,31 @@
 --    The note (the user's optional reason) is cleared when the request is
 --    decided: the operator reads it while it is pending, and nothing keeps it
 --    afterwards.
--- 2. A decided request blocks a new one for 30 days, counted from the
---    dismissal, or from the revocation of an access that was approved
---    (ai_request_cooldown_until). An account with active access cannot ask.
+-- 2. A new request is blocked for 30 days after a dismissal, and for 30
+--    days after any revocation of access (whether or not it came from a
+--    request): ai_request_cooldown_until. An account with active access
+--    cannot ask.
 -- 3. ai_request_access decides "created" in one statement
---    (INSERT ... ON CONFLICT ... WHERE), so concurrent requests from the same
---    account create one request and one notification.
--- 4. ai_pending_requests is the ONLY function here that runs with its
+--    (INSERT ... SELECT ... WHERE ... ON CONFLICT ... DO UPDATE ... WHERE),
+--    and the conflict condition reads the locked row's own columns, so
+--    concurrent requests create one request and one notification, and a
+--    dismissal or approval committed meanwhile is not undone.
+-- 4. private.ai_pending_requests is the ONLY function that runs with its
 --    owner's rights (SECURITY DEFINER): it reads the confirmed address of
 --    pending requesters from auth.users, which service_role cannot read. It
---    is read-only (sql, STABLE), returns addresses of PENDING requesters only
---    (never a general id-to-address lookup), and is owned by postgres. The
---    guard at the end aborts the migration if any ai_* function is callable
---    by anon or authenticated, or if another definer exists.
+--    is read-only (sql, STABLE), owned by postgres, returns PENDING
+--    requesters only, and lives in schema private (not exposed by PostgREST;
+--    only service_role has USAGE). public.ai_pending_requests is a plain
+--    wrapper around it: a client role that somehow got EXECUTE on the wrapper
+--    would still be stopped at schema private. The guard at the end aborts
+--    the migration if any of this does not hold.
 -- 5. ai_grant (migration 035) is replaced with the identical signature and
 --    body plus one statement that closes a pending request. Re-applying 035
---    after 036 would silently drop that statement: apply 036 again after it.
+--    after 036 would silently drop that statement: apply 036 again after it
+--    (scripts/rls_replica/036/postcheck.sql detects it).
+-- 6. ai_forget_user supports the user's own data erasure: it deletes the
+--    account's request (and its note) and clears the address copied onto
+--    the entitlement. The spend ledger (035) keeps its pseudonymous rows.
 --
 -- Access: RLS on, nothing for client roles, service_role SELECT/INSERT/UPDATE
 -- only; every function executable by service_role only.
@@ -65,16 +74,16 @@ ALTER TABLE public.ai_access_requests ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.ai_access_requests FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.ai_access_requests FROM service_role;
-GRANT SELECT, INSERT, UPDATE ON TABLE public.ai_access_requests TO service_role;
+-- DELETE is for ai_forget_user (erasure); the queue is not a ledger.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ai_access_requests TO service_role;
 
 -- ================================================================
 -- 2. Functions
 -- ================================================================
 
--- When a decided request stops blocking a new one, or NULL if it does not
--- block. Dismissed: 30 days after the dismissal. Approved: 30 days after the
--- access was revoked (no block while the access is active; that case is
--- "entitled").
+-- Until when a new request is blocked, or NULL if it is not: 30 days after
+-- a dismissal, and 30 days after any revocation of access, whichever ends
+-- later. Access that is active is not a block here; that case is "entitled".
 CREATE OR REPLACE FUNCTION public.ai_request_cooldown_until(p_user_id uuid)
 RETURNS timestamptz
 LANGUAGE sql
@@ -84,15 +93,14 @@ SET search_path = ''
 AS $$
     SELECT blocked_until
       FROM (
-            SELECT CASE r.status
-                       WHEN 'dismissed' THEN r.decided_at
-                       WHEN 'approved' THEN (SELECT e.revoked_at
-                                               FROM public.ai_entitlements AS e
-                                              WHERE e.user_id = r.user_id
-                                                AND e.revoked_at IS NOT NULL)
-                   END + interval '30 days' AS blocked_until
-              FROM public.ai_access_requests AS r
-             WHERE r.user_id = p_user_id
+            SELECT greatest(
+                       (SELECT r.decided_at
+                          FROM public.ai_access_requests AS r
+                         WHERE r.user_id = p_user_id AND r.status = 'dismissed'),
+                       (SELECT e.revoked_at
+                          FROM public.ai_entitlements AS e
+                         WHERE e.user_id = p_user_id AND e.revoked_at IS NOT NULL)
+                   ) + interval '30 days' AS blocked_until
            ) AS c
      WHERE c.blocked_until > now();
 $$;
@@ -139,33 +147,35 @@ AS $$
 DECLARE
     v_at timestamptz;
     v_status text;
-    v_until timestamptz;
 BEGIN
+    -- One statement decides. The SELECT's conditions cover an account with no
+    -- row yet; on a conflict the DO UPDATE condition is re-checked against the
+    -- locked row's latest version, so a dismissal or approval committed while
+    -- this runs is not undone, and of concurrent callers exactly one wins.
+    INSERT INTO public.ai_access_requests AS r (user_id, status, note, requested_at)
+    SELECT p_user_id, 'pending', p_note, now()
+     WHERE NOT EXISTS (SELECT 1 FROM public.ai_entitlements AS e
+                        WHERE e.user_id = p_user_id AND e.revoked_at IS NULL)
+       AND public.ai_request_cooldown_until(p_user_id) IS NULL
+    ON CONFLICT (user_id) DO UPDATE
+       SET status = 'pending',
+           note = EXCLUDED.note,
+           requested_at = EXCLUDED.requested_at,
+           decided_at = NULL,
+           decided_by = NULL
+     WHERE r.status <> 'pending'
+       AND r.decided_at <= now() - interval '30 days'
+    RETURNING r.requested_at INTO v_at;
+    IF FOUND THEN
+        RETURN QUERY SELECT 'created'::text, v_at, NULL::timestamptz;
+        RETURN;
+    END IF;
+
     IF EXISTS (SELECT 1 FROM public.ai_entitlements AS e
                 WHERE e.user_id = p_user_id AND e.revoked_at IS NULL) THEN
         RETURN QUERY SELECT 'entitled'::text, NULL::timestamptz, NULL::timestamptz;
         RETURN;
     END IF;
-
-    v_until := public.ai_request_cooldown_until(p_user_id);
-    IF v_until IS NULL THEN
-        -- One statement: of concurrent callers, exactly one gets a row back.
-        INSERT INTO public.ai_access_requests AS r (user_id, status, note, requested_at)
-        VALUES (p_user_id, 'pending', p_note, now())
-        ON CONFLICT (user_id) DO UPDATE
-           SET status = 'pending',
-               note = EXCLUDED.note,
-               requested_at = EXCLUDED.requested_at,
-               decided_at = NULL,
-               decided_by = NULL
-         WHERE r.status <> 'pending'
-        RETURNING r.requested_at INTO v_at;
-        IF FOUND THEN
-            RETURN QUERY SELECT 'created'::text, v_at, NULL::timestamptz;
-            RETURN;
-        END IF;
-    END IF;
-
     SELECT r.status, r.requested_at INTO v_status, v_at
       FROM public.ai_access_requests AS r
      WHERE r.user_id = p_user_id;
@@ -186,7 +196,7 @@ $$;
 -- Pending requests with each requester's confirmed address, oldest first.
 -- The one SECURITY DEFINER function: see the header. p_user_id narrows it to
 -- one pending requester (the approve path).
-CREATE OR REPLACE FUNCTION public.ai_pending_requests(
+CREATE OR REPLACE FUNCTION private.ai_pending_requests(
     p_user_id uuid DEFAULT NULL,
     p_limit integer DEFAULT 200
 )
@@ -225,7 +235,21 @@ AS $$
     );
 $$;
 
-ALTER FUNCTION public.ai_pending_requests(uuid, integer) OWNER TO postgres;
+ALTER FUNCTION private.ai_pending_requests(uuid, integer) OWNER TO postgres;
+
+-- The API's entry point (PostgREST exposes public only): a plain wrapper.
+CREATE OR REPLACE FUNCTION public.ai_pending_requests(
+    p_user_id uuid DEFAULT NULL,
+    p_limit integer DEFAULT 200
+)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+    SELECT private.ai_pending_requests(p_user_id, p_limit);
+$$;
 
 -- Approve a pending request: grant the default limits (ai_grant, which also
 -- writes the audit row) in the same transaction. False when it is not pending.
@@ -244,12 +268,18 @@ AS $$
 DECLARE
     v_email text;
 BEGIN
-    v_email := public.ai_pending_requests(p_user_id, 1) -> 'items' -> 0 ->> 'email';
+    v_email := private.ai_pending_requests(p_user_id, 1) -> 'items' -> 0 ->> 'email';
     UPDATE public.ai_access_requests AS r
        SET status = 'approved', decided_at = now(), decided_by = p_approved_by, note = NULL
      WHERE r.user_id = p_user_id AND r.status = 'pending';
     IF NOT FOUND THEN
         RETURN false;
+    END IF;
+    -- Access already active (granted from the form meanwhile): keep its
+    -- limits and note; the request is closed and nothing else changes.
+    IF EXISTS (SELECT 1 FROM public.ai_entitlements AS e
+                WHERE e.user_id = p_user_id AND e.revoked_at IS NULL) THEN
+        RETURN true;
     END IF;
     PERFORM public.ai_grant(p_user_id, v_email, p_approved_by, NULL, NULL, NULL,
                             p_ip_address, p_user_agent);
@@ -282,6 +312,22 @@ BEGIN
     VALUES (p_dismissed_by, 'ai_access_request_dismissed', 'ai_access_request', p_user_id,
             '{}'::jsonb, p_ip_address, p_user_agent);
     RETURN true;
+END
+$$;
+
+-- The user's own data erasure: delete the account's request (with its note)
+-- and clear the address copied onto its entitlement. Access itself and the
+-- pseudonymous spend ledger stay.
+CREATE OR REPLACE FUNCTION public.ai_forget_user(p_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+    DELETE FROM public.ai_access_requests AS r WHERE r.user_id = p_user_id;
+    UPDATE public.ai_entitlements AS e SET email = NULL WHERE e.user_id = p_user_id;
 END
 $$;
 
@@ -339,7 +385,9 @@ $$;
 REVOKE ALL ON FUNCTION public.ai_request_cooldown_until(uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_access_state(uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_request_access(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION private.ai_pending_requests(uuid, integer) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_pending_requests(uuid, integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.ai_forget_user(uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_approve_request(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_dismiss_request(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.ai_grant(uuid, text, uuid, integer, numeric, text, text, text)
@@ -348,21 +396,26 @@ REVOKE ALL ON FUNCTION public.ai_grant(uuid, text, uuid, integer, numeric, text,
 GRANT EXECUTE ON FUNCTION public.ai_request_cooldown_until(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_access_state(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_request_access(uuid, text) TO service_role;
+GRANT USAGE ON SCHEMA private TO service_role;
+GRANT EXECUTE ON FUNCTION private.ai_pending_requests(uuid, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_pending_requests(uuid, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.ai_forget_user(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_approve_request(uuid, uuid, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_dismiss_request(uuid, uuid, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ai_grant(uuid, text, uuid, integer, numeric, text, text, text)
     TO service_role;
 
 -- ================================================================
--- 4. Guard: abort if any ai_* function is reachable by a client role, is
---    not owned by postgres, or runs with its owner's rights other than
---    ai_pending_requests.
+-- 4. Guard: abort unless every ai_* function in public is owned by postgres,
+--    runs with its caller's rights and is not callable by a client role, and
+--    private.ai_pending_requests is the one definer, owned by postgres, not
+--    callable by a client role, in a schema client roles cannot use.
 -- ================================================================
 
 DO $$
 DECLARE
     v_bad text;
+    v_definer regprocedure := 'private.ai_pending_requests(uuid, integer)'::regprocedure;
 BEGIN
     SELECT string_agg(format('%s(%s)', p.proname, pg_get_function_identity_arguments(p.oid)), ', ')
       INTO v_bad
@@ -372,9 +425,18 @@ BEGIN
        AND (has_function_privilege('anon', p.oid, 'EXECUTE')
             OR has_function_privilege('authenticated', p.oid, 'EXECUTE')
             OR pg_get_userbyid(p.proowner) <> 'postgres'
-            OR (p.prosecdef AND p.proname <> 'ai_pending_requests'));
+            OR p.prosecdef);
     IF v_bad IS NOT NULL THEN
-        RAISE EXCEPTION 'migration 036: unsafe ai_* functions: %', v_bad;
+        RAISE EXCEPTION 'migration 036: unsafe ai_* functions in public: %', v_bad;
+    END IF;
+
+    IF (SELECT pg_get_userbyid(p.proowner) FROM pg_proc AS p WHERE p.oid = v_definer) <> 'postgres'
+       OR NOT (SELECT p.prosecdef FROM pg_proc AS p WHERE p.oid = v_definer)
+       OR has_function_privilege('anon', v_definer, 'EXECUTE')
+       OR has_function_privilege('authenticated', v_definer, 'EXECUTE')
+       OR has_schema_privilege('anon', 'private', 'USAGE')
+       OR has_schema_privilege('authenticated', 'private', 'USAGE') THEN
+        RAISE EXCEPTION 'migration 036: private.ai_pending_requests is not safely owned and confined';
     END IF;
 END
 $$;

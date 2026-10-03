@@ -732,12 +732,16 @@ def _entitlement_row(store: Any, user_id: str) -> dict[str, Any]:
 
 def revoke(store: Any, *, operator: Principal, user_id: str, request: Request | None) -> None:
     """Revoke an active entitlement, or 404 when there is none."""
-    revoked = store.ai_revoke(
-        user_id=user_id,
-        revoked_by=operator.user_id,
-        ip_address=trusted_client_ip(request),
-        user_agent=request.headers.get("user-agent") if request is not None else None,
-    )
+    try:
+        revoked = store.ai_revoke(
+            user_id=user_id,
+            revoked_by=operator.user_id,
+            ip_address=trusted_client_ip(request),
+            user_agent=request.headers.get("user-agent") if request is not None else None,
+        )
+    except Exception as exc:
+        logger.warning("ai_revoke failed: %s", type(exc).__name__)
+        raise error(500, "ai_ledger_unavailable") from exc
     if not revoked:
         raise error(404, "ai_entitlement_not_found")
 
@@ -764,14 +768,20 @@ def access_for(principal: Principal, store: Any, reason: str | None) -> Any | No
 
 
 def request_access(
-    principal: Principal, store: Any, note: str | None, background: BackgroundTasks
+    principal: Principal,
+    store: Any,
+    note: str | None,
+    background: BackgroundTasks,
+    *,
+    anonymous: bool = False,
 ) -> Any:
     """Record the caller's request for AI access; email the operator when it is new.
 
     Idempotent for the caller: a second request while one is pending
     returns ``pending`` (updating the note when given) and sends nothing.
+    Anonymous sign-ins cannot ask: each would be a new account and email.
     """
-    if principal.kind != "user":
+    if principal.kind != "user" or anonymous:
         raise refusal("ai_session_required")
     if not ledger_is_durable(store):
         # The operator would be emailed about a row that disappears on restart.
@@ -790,12 +800,16 @@ def approve_request(
     store: Any, *, operator: Principal, user_id: str, request: Request | None
 ) -> dict[str, Any]:
     """Approve a pending request with the default limits; 404 when it is not pending."""
-    approved = store.ai_approve_request(
-        user_id=user_id,
-        approved_by=operator.user_id,
-        ip_address=trusted_client_ip(request),
-        user_agent=request.headers.get("user-agent") if request is not None else None,
-    )
+    try:
+        approved = store.ai_approve_request(
+            user_id=user_id,
+            approved_by=operator.user_id,
+            ip_address=trusted_client_ip(request),
+            user_agent=request.headers.get("user-agent") if request is not None else None,
+        )
+    except Exception as exc:
+        logger.warning("ai_approve_request failed: %s", type(exc).__name__)
+        raise error(500, "ai_request_unavailable") from exc
     if not approved:
         raise error(404, "ai_request_not_found")
     return _entitlement_row(store, user_id)
@@ -805,11 +819,30 @@ def dismiss_request(
     store: Any, *, operator: Principal, user_id: str, request: Request | None
 ) -> None:
     """Dismiss a pending request; 404 when it is not pending."""
-    dismissed = store.ai_dismiss_request(
-        user_id=user_id,
-        dismissed_by=operator.user_id,
-        ip_address=trusted_client_ip(request),
-        user_agent=request.headers.get("user-agent") if request is not None else None,
-    )
+    try:
+        dismissed = store.ai_dismiss_request(
+            user_id=user_id,
+            dismissed_by=operator.user_id,
+            ip_address=trusted_client_ip(request),
+            user_agent=request.headers.get("user-agent") if request is not None else None,
+        )
+    except Exception as exc:
+        logger.warning("ai_dismiss_request failed: %s", type(exc).__name__)
+        raise error(500, "ai_request_unavailable") from exc
     if not dismissed:
         raise error(404, "ai_request_not_found")
+
+
+def forget_user(store: Any, user_id: str) -> None:
+    """The user's data erasure, AI part: drop the request and the address copy.
+
+    Best effort, like the rest of the erasure route: a failure is logged
+    (class only) and the erasure goes on.
+    """
+    forget = getattr(store, "ai_forget_user", None)
+    if forget is None:
+        return
+    try:
+        forget(user_id)
+    except Exception as exc:
+        logger.warning("ai_forget_user failed: %s", type(exc).__name__)

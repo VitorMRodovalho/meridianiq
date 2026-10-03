@@ -415,6 +415,10 @@ if [[ $n_lock == 5 ]]; then pass "locked copy with a pause granted exactly 5"; e
 if [[ $n_nolock =~ ^[0-9]+$ && $n_nolock -gt 5 ]]; then pass "no-lock control overran ($n_nolock): the probe can say no"; else fail "no-lock control granted $n_nolock: the probe cannot tell"; fi
 psql_as supabase_admin -q -c "DROP SCHEMA probe035 CASCADE; DELETE FROM public.ai_usage; DELETE FROM public.ai_entitlements;" > /dev/null 2>&1
 
+stage "preflight before 036 (read-only, as postgres)"
+psql_as postgres -At < "$here/036/preflight.sql" > "$work/preflight036.log" 2>&1
+tally "$work/preflight036.log"
+
 stage "apply 036 as postgres (1st)"
 rc=0
 psql_as postgres -v ON_ERROR_STOP=1 < "$m036" > "$work/apply036_1.log" 2>&1 || rc=$?
@@ -432,6 +436,10 @@ if [[ -n $fp6 && $fp6 == "$fp7" ]]; then pass "catalog fingerprint unchanged by 
 stage "postcheck after 036 (read-only)"
 psql_as supabase_admin -At < "$here/034/postcheck.sql" > "$work/postcheck036.log" 2>&1
 tally "$work/postcheck036.log"
+
+stage "036 postcheck (read-only)"
+psql_as postgres -At < "$here/036/postcheck.sql" > "$work/postcheck036b.log" 2>&1
+tally "$work/postcheck036b.log"
 
 stage "036 access request scenarios as service_role (mirror tests/test_ai_requests.py)"
 cat "$here/probe_lib.sql" "$here/036/scenarios.sql" | psql_as supabase_admin > "$work/scenarios036.log" 2>&1
@@ -484,6 +492,47 @@ echo "'created' answers of 12 concurrent requests from one account: real=$c_real
 if [[ $c_real == 1 ]]; then pass "real ai_request_access created exactly once"; else fail "real ai_request_access created $c_real times"; fi
 if [[ $c_naive =~ ^[0-9]+$ && $c_naive -gt 1 ]]; then pass "naive control created $c_naive times: the probe can say no"; else fail "naive control created $c_naive times: the probe cannot tell"; fi
 psql_as supabase_admin -q -c "DROP SCHEMA probe036 CASCADE; DELETE FROM public.ai_access_requests;" > /dev/null 2>&1
+
+# Race: the operator dismisses a pending request while the same account asks
+# again. The dismissal must hold ('dismissed', not 'created'). Control: the
+# same function without the locked-row condition on decided_at re-opens it.
+race_dismiss() {  # <function>
+    local fn=$1
+    psql_as supabase_admin -q -c "DELETE FROM public.ai_access_requests; DELETE FROM public.ai_entitlements;
+        SET ROLE service_role; SELECT * FROM public.ai_request_access('b0000000-0000-4000-8000-000000000002', NULL);" > /dev/null
+    psql_as supabase_admin -q -c "BEGIN; SET LOCAL ROLE service_role;
+        SELECT public.ai_dismiss_request('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001', NULL, NULL);
+        SELECT pg_sleep(1.5); COMMIT;" > /dev/null 2>&1 &
+    sleep 0.5
+    psql_as supabase_admin -At -c "SET ROLE service_role; SELECT outcome FROM $fn('b0000000-0000-4000-8000-000000000002', NULL);" 2>&1 | tail -1
+    wait
+}
+stage "036 race: a dismissal committed while the account asks again holds"
+psql_as supabase_admin -v ON_ERROR_STOP=1 -q > "$work/race036.log" 2>&1 <<'SQL'
+CREATE SCHEMA probe036r;
+GRANT USAGE ON SCHEMA probe036r TO service_role;
+DO $$
+DECLARE
+    v_def text := pg_get_functiondef('public.ai_request_access(uuid, text)'::regprocedure);
+    -- plpgsql bodies are stored as written, so this is the source text.
+    v_clause text := 'AND r.decided_at <= now() - interval ''30 days''';
+BEGIN
+    IF position(v_clause IN v_def) = 0 THEN
+        RAISE EXCEPTION 'ai_request_access body changed: update the race probe (clause not found)';
+    END IF;
+    v_def := replace(v_def, 'public.ai_request_access(', 'probe036r.request_unguarded(');
+    EXECUTE replace(v_def, v_clause, '');
+END
+$$;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA probe036r TO service_role;
+SQL
+if grep -q 'ERROR' "$work/race036.log"; then fail "036 race probe setup"; cat "$work/race036.log"; fi
+race_real=$(race_dismiss public.ai_request_access)
+race_ctrl=$(race_dismiss probe036r.request_unguarded)
+echo "ask during a dismissal: real=$race_real unguarded=$race_ctrl"
+if [[ $race_real == dismissed ]]; then pass "the dismissal held"; else fail "real function answered '$race_real' during a dismissal"; fi
+if [[ $race_ctrl == created ]]; then pass "unguarded control re-opened the request: the probe can say no"; else fail "unguarded control answered '$race_ctrl': the probe cannot tell"; fi
+psql_as supabase_admin -q -c "DROP SCHEMA probe036r CASCADE; DELETE FROM public.ai_access_requests;" > /dev/null 2>&1
 
 stage "summary ($image)"
 echo "failures=$failures"

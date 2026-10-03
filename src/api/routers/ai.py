@@ -18,6 +18,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 
 from .. import ai_gate
 from ..access import Principal, get_principal
+from ..auth import optional_auth
 from ..deps import RATE_LIMIT_LIGHT, RATE_LIMIT_READ, RATE_LIMIT_WRITE, get_store, limiter
 from ..schemas import (
     AIAccessRequestBody,
@@ -106,6 +107,7 @@ def ai_request_access(
     body: AIAccessRequestBody,
     background: BackgroundTasks,
     principal: Principal = Depends(get_principal),
+    claims: Any = Depends(optional_auth),
     store: Any = Depends(get_store),
 ) -> AIAccessRequestResponse:
     """Ask for access to the AI assistant (signed-in session only).
@@ -115,7 +117,8 @@ def ai_request_access(
     updated when given). ``entitled``: access is active. ``dismissed``: a
     new request is allowed from ``retry_after``.
     """
-    state = ai_gate.request_access(principal, store, body.note, background)
+    anonymous = isinstance(claims, dict) and claims.get("is_anonymous") is True
+    state = ai_gate.request_access(principal, store, body.note, background, anonymous=anonymous)
     return AIAccessRequestResponse(
         state=state.state,
         requested_at=_when(state.requested_at),

@@ -36,9 +36,11 @@ if dsn := os.environ.get("SENTRY_DSN"):
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
         release=_RELEASE,
-        # AI frames and requests carry the user's question, the prompt and,
-        # on the operator routes, email addresses (src/api/sentry_scrub.py).
+        # AI frames and requests carry the user's question, the prompt, an
+        # access request's note and, on the operator routes, email addresses
+        # (src/api/sentry_scrub.py). Transactions carry the body too.
         before_send=scrub_ai_event,
+        before_send_transaction=scrub_ai_event,
     )
 
 from fastapi import FastAPI, Request

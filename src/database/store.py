@@ -1602,7 +1602,7 @@ class InMemoryStore:
         self,
         *,
         user_id: str,
-        email: str,
+        email: str | None,
         granted_by: str,
         daily_questions: int | None,
         monthly_budget_usd: Decimal | None,
@@ -1678,18 +1678,17 @@ class InMemoryStore:
         return True
 
     def _ai_cooldown_until_locked(self, user_id: str, now: datetime) -> datetime | None:
+        """30 days after a dismissal or after any revocation, whichever ends later."""
+        marks: list[datetime] = []
         req = self._ai_requests.get(user_id)
-        if req is None:
+        if req is not None and req["status"] == "dismissed":
+            marks.append(req["decided_at"])
+        ent = self._ai_entitlements.get(user_id)
+        if ent is not None and ent["revoked_at"] is not None:
+            marks.append(ent["revoked_at"])
+        if not marks:
             return None
-        since = None
-        if req["status"] == "dismissed":
-            since = req["decided_at"]
-        elif req["status"] == "approved":
-            ent = self._ai_entitlements.get(user_id)
-            since = ent["revoked_at"] if ent is not None else None
-        if since is None:
-            return None
-        until: datetime = since + AI_REQUEST_COOLDOWN
+        until: datetime = max(marks) + AI_REQUEST_COOLDOWN
         return until if until > now else None
 
     def _ai_entitled_locked(self, user_id: str) -> bool:
@@ -1724,6 +1723,8 @@ class InMemoryStore:
             until = self._ai_cooldown_until_locked(user_id, now)
             if until is not None:
                 return AIRequestState("dismissed", retry_after=until)
+            # Same as the SQL conflict condition: a decision under 30 days old
+            # is not re-opened (it covers a decision that lands mid-request).
             self._ai_requests[user_id] = {
                 "user_id": user_id,
                 "status": "pending",
@@ -1780,9 +1781,12 @@ class InMemoryStore:
                 decided_by=approved_by,
                 note=None,
             )
+            if self._ai_entitled_locked(user_id):
+                # Access already active: keep its limits and note.
+                return True
         self.ai_grant(
             user_id=user_id,
-            email=emails.get(user_id) or "",
+            email=emails.get(user_id),
             granted_by=approved_by,
             daily_questions=None,
             monthly_budget_usd=None,
@@ -1791,6 +1795,14 @@ class InMemoryStore:
             user_agent=user_agent,
         )
         return True
+
+    def ai_forget_user(self, user_id: str) -> None:
+        """Erasure: drop the account's request and the address on its entitlement."""
+        with self._ai_lock:
+            self._ai_requests.pop(user_id, None)
+            ent = self._ai_entitlements.get(user_id)
+            if ent is not None:
+                ent["email"] = None
 
     def ai_dismiss_request(
         self,
@@ -4670,6 +4682,9 @@ class SupabaseStore:
         if not isinstance(data, dict):
             raise RuntimeError("ai_pending_requests returned an unexpected shape")
         return {"total": int(data.get("total") or 0), "items": list(data.get("items") or [])}
+
+    def ai_forget_user(self, user_id: str) -> None:
+        self._client.rpc("ai_forget_user", {"p_user_id": user_id}).execute()
 
     def _rpc_bool(self, name: str, params: dict[str, Any]) -> bool:
         data = self._client.rpc(name, params).execute().data

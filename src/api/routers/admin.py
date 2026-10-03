@@ -135,6 +135,12 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 
     store = get_store()
 
+    # The AI access request (with its note) and the address copied onto an
+    # AI entitlement (migration 036) are outside delete_user_data's cascade.
+    from .. import ai_gate
+
+    ai_gate.forget_user(store, str(user_id))
+
     # Count before deletion for response
     deleted = {
         "deleted_uploads": 0,

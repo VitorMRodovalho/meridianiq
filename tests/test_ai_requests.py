@@ -12,9 +12,12 @@ against the SQL functions.
 from __future__ import annotations
 
 import threading
+import time
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
+import jwt
 import pytest
 from fastapi import BackgroundTasks
 
@@ -257,9 +260,21 @@ def test_a_revoked_account_waits_30_days_to_ask_again(gate: Gate) -> None:
     gate.client.post(f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN))
     gate.store.ai_revoke(user_id=USER_B, revoked_by=ADMIN)
     assert _request(gate).json()["state"] == "dismissed"
+    # Both moments in the past, in their real order: approved, then revoked.
+    gate.store._ai_requests[USER_B]["decided_at"] = datetime.now(UTC) - timedelta(days=40)
     ent = gate.store._ai_entitlements[USER_B]
     ent["revoked_at"] = datetime.now(UTC) - AI_REQUEST_COOLDOWN - timedelta(minutes=1)
     assert _request(gate).json()["state"] == "created"
+
+
+def test_a_recent_decision_is_not_reopened_even_without_a_cooldown_mark(gate: Gate) -> None:
+    """Mirror of the SQL conflict condition (the race case, in the fake)."""
+    _request(gate)
+    gate.client.post(f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN))
+    # Remove the entitlement entirely: no active access and no revocation mark,
+    # only a decision made just now.
+    del gate.store._ai_entitlements[USER_B]
+    assert _request(gate).json()["state"] == "dismissed"
 
 
 def test_unreadable_requests_are_null_not_empty(
@@ -284,27 +299,142 @@ def test_operator_routes_are_guarded(gate: Gate) -> None:
     assert (malformed.status_code, _code(malformed)) == (404, "ai_request_not_found")
 
 
-def test_error_reports_drop_request_notes() -> None:
-    event = {
-        "exception": {
-            "values": [
-                {
-                    "stacktrace": {
-                        "frames": [
-                            {
-                                "module": "src.database.store",
-                                "function": "ai_request_access",
-                                "vars": {"note": "secret"},
-                            },
-                            {"module": "src.database.store", "function": "get", "vars": {"x": 1}},
-                        ]
-                    }
-                }
-            ]
-        },
-        "request": {"url": "https://api.example/api/v1/ai/access-request", "data": {"note": "s"}},
+def test_anonymous_sign_ins_cannot_ask(gate: Gate, alerts: list[dict[str, Any]]) -> None:
+    now = int(time.time())
+    claims = {"sub": USER_B, "aud": "authenticated", "role": "authenticated", "iat": now}
+    claims.update(exp=now + 3600, is_anonymous=True)
+    token = jwt.encode(claims, "test-secret", algorithm="HS256")
+    resp = gate.client.post(URL, json={}, headers={"Authorization": f"Bearer {token}"})
+    assert (resp.status_code, _code(resp)) == (403, "ai_session_required")
+    assert alerts == [] and USER_B not in gate.store._ai_requests
+
+
+def test_invisible_reordering_characters_are_removed_from_the_note(gate: Gate) -> None:
+    assert _request(gate, note="x\u202egnp.exe\u200b").status_code == 200
+    assert gate.store._ai_requests[USER_B]["note"] == "xgnp.exe"
+
+
+def test_dismiss_route_is_guarded(gate: Gate) -> None:
+    url = f"/api/v1/superadmin/ai/requests/{USER_B}"
+    assert gate.client.delete(url).status_code == 401
+    refused = gate.client.delete(url, headers=_auth(USER_A))
+    assert (refused.status_code, _code(refused)) == (403, "superadmin_required")
+    malformed = gate.client.delete(
+        "/api/v1/superadmin/ai/requests/not-a-uuid", headers=_auth(ADMIN)
+    )
+    assert (malformed.status_code, _code(malformed)) == (404, "ai_request_not_found")
+
+
+def test_approving_an_account_with_active_access_keeps_its_limits(gate: Gate) -> None:
+    _request(gate)
+    # A grant from the form that raced the request: the request stays pending.
+    gate.store._ai_entitlements[USER_B] = {
+        "user_id": USER_B,
+        "email": "b@example.test",
+        "granted_by": ADMIN,
+        "granted_at": datetime.now(UTC),
+        "revoked_at": None,
+        "revoked_by": None,
+        "daily_questions": 200,
+        "monthly_budget_usd": Decimal("40"),
+        "note": "custom",
     }
-    out = scrub_ai_event(event, {})
-    frames = out["exception"]["values"][0]["stacktrace"]["frames"]
-    assert [("vars" in f) for f in frames] == [False, True]
-    assert "data" not in out["request"]
+    resp = gate.client.post(
+        f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN)
+    )
+    assert resp.status_code == 200
+    ent = gate.store._ai_entitlements[USER_B]
+    assert (ent["daily_questions"], ent["monthly_budget_usd"], ent["note"]) == (
+        200,
+        Decimal("40"),
+        "custom",
+    )
+    assert gate.store._ai_requests[USER_B]["status"] == "approved"
+
+
+def test_approval_without_a_confirmed_address_stores_none(gate: Gate) -> None:
+    stranger = "00000000-0000-4000-8000-0000000c0c03"  # no registered address
+    gate.store.ai_request_access(stranger, None)
+    assert gate.store.ai_approve_request(user_id=stranger, approved_by=ADMIN) is True
+    assert gate.store._ai_entitlements[stranger]["email"] is None
+
+
+def test_any_revocation_blocks_a_new_request_for_30_days(gate: Gate) -> None:
+    # Access granted from the form (no request), then revoked.
+    gate.grant(USER_B)
+    gate.store.ai_revoke(user_id=USER_B, revoked_by=ADMIN)
+    blocked = _request(gate)
+    assert blocked.json()["state"] == "dismissed" and blocked.json()["retry_after"]
+
+
+def test_store_failures_on_operator_actions_keep_the_error_contract(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _request(gate)
+
+    def broken(**kwargs: Any) -> Any:
+        raise RuntimeError("connection reset")
+
+    for name, method, url, code in (
+        (
+            "ai_approve_request",
+            "post",
+            f"/api/v1/superadmin/ai/requests/{USER_B}/approve",
+            "ai_request_unavailable",
+        ),
+        (
+            "ai_dismiss_request",
+            "delete",
+            f"/api/v1/superadmin/ai/requests/{USER_B}",
+            "ai_request_unavailable",
+        ),
+        (
+            "ai_revoke",
+            "delete",
+            f"/api/v1/superadmin/ai/entitlements/{USER_A}",
+            "ai_ledger_unavailable",
+        ),
+    ):
+        monkeypatch.setattr(gate.store, name, broken)
+        resp = getattr(gate.client, method)(url, headers=_auth(ADMIN))
+        assert (resp.status_code, _code(resp)) == (500, code), name
+        assert "connection reset" not in resp.text
+
+
+def test_data_erasure_removes_the_request_and_the_address_copy(gate: Gate) -> None:
+    _request(gate, note="a private note")
+    gate.client.post(f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN))
+    _request(gate, user=USER_A)  # entitled: no row, nothing to remove
+    assert gate.store._ai_entitlements[USER_B]["email"] == "b@example.test"
+    resp = gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
+    assert resp.status_code == 200, resp.text
+    assert USER_B not in gate.store._ai_requests
+    assert gate.store._ai_entitlements[USER_B]["email"] is None
+    assert gate.store._ai_entitlements[USER_B]["revoked_at"] is None  # access itself stays
+
+
+def test_error_reports_drop_request_notes() -> None:
+    """Unit view; tests/test_sentry_ai_scrub.py runs a real request end to end."""
+
+    def event(url: str | None) -> dict[str, Any]:
+        frames = [
+            {
+                "module": "src.database.store",
+                "function": "ai_request_access",
+                "vars": {"note": "s"},
+            },
+            {"module": "src.database.store", "function": "_rpc_bool", "vars": {"params": "s"}},
+            {"module": "src.database.store", "function": "get", "vars": {"x": 1}},
+        ]
+        out: dict[str, Any] = {"exception": {"values": [{"stacktrace": {"frames": frames}}]}}
+        if url:
+            out["request"] = {"url": url, "data": {"note": "s"}}
+        return out
+
+    def kept(e: dict[str, Any]) -> list[bool]:
+        return [("vars" in f) for f in e["exception"]["values"][0]["stacktrace"]["frames"]]
+
+    on_route = scrub_ai_event(event("https://api.example/api/v1/ai/access-request"), {})
+    assert kept(on_route) == [False, False, False] and "data" not in on_route["request"]
+    # No request (a background task): the store's AI frames still lose their locals.
+    assert kept(scrub_ai_event(event(None), {})) == [False, False, True]

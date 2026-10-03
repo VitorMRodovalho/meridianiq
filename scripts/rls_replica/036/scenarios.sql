@@ -102,6 +102,8 @@ SELECT public.ai_approve_request(:B, :A, NULL, NULL) AS a \gset
 SELECT public.ai_revoke(:B, :A, NULL, NULL) AS rv \gset
 :ask (:B, NULL) \gset r1_
 RESET ROLE;
+-- Both moments in the past, in their real order: approved, then revoked.
+UPDATE public.ai_access_requests SET decided_at = now() - interval '40 days' WHERE user_id = :B;
 UPDATE public.ai_entitlements SET revoked_at = now() - interval '31 days' WHERE user_id = :B;
 SET LOCAL ROLE service_role;
 :ask (:B, NULL) \gset r2_
@@ -172,9 +174,18 @@ SELECT pg_temp.expect('q10 authenticated cannot read ai_access_requests',
 SELECT pg_temp.expect('q10 authenticated cannot write a request itself',
        'ERR 42501 permission denied for table ai_access_requests',
        pg_temp.run_as('authenticated', :A, format('INSERT INTO public.ai_access_requests (user_id) VALUES (%L)', :A)));
-SELECT pg_temp.expect('q10 service_role cannot DELETE from ai_access_requests',
-       'ERR 42501 permission denied for table ai_access_requests',
-       pg_temp.run_as('service_role', NULL, 'DELETE FROM public.ai_access_requests'));
+SELECT pg_temp.expect('q10 authenticated cannot call ai_forget_user',
+       'ERR 42501 permission denied for function ai_forget_user',
+       pg_temp.run_as('authenticated', :A, format('SELECT public.ai_forget_user(%L)::text', :A)));
+SELECT pg_temp.expect('q10 authenticated cannot call the private definer',
+       'ERR 42501 permission denied for schema private',
+       pg_temp.run_as('authenticated', :A, 'SELECT private.ai_pending_requests()::text'));
+-- Second barrier: even with EXECUTE on the public wrapper, a client role is
+-- stopped at schema private.
+SELECT pg_temp.expect('q10 a client granted the wrapper is still stopped at schema private',
+       'ERR 42501 permission denied for schema private',
+       pg_temp.run_as('authenticated', :A, 'SELECT public.ai_pending_requests()::text',
+                      'GRANT EXECUTE ON FUNCTION public.ai_pending_requests(uuid, integer) TO authenticated'));
 -- Control: service_role cannot read auth.users itself, so the definer is
 -- what reaches the addresses, and the probe above can tell denied from allowed.
 SELECT pg_temp.expect('q10 control: service_role cannot read auth.users directly',
@@ -182,3 +193,48 @@ SELECT pg_temp.expect('q10 control: service_role cannot read auth.users directly
        pg_temp.run_as('service_role', NULL, 'SELECT count(*)::text FROM auth.users'));
 SELECT pg_temp.expect('q10 control: service_role reaches addresses through the definer', 'OK 0',
        pg_temp.run_as('service_role', NULL, 'SELECT public.ai_pending_requests() ->> ''total'''));
+
+-- ---------------------------------------------------------------- q11 erasure
+BEGIN;
+SET LOCAL ROLE service_role;
+:ask (:B, 'a private note') \gset
+SELECT public.ai_grant(:C, 'carol@example.test', :A, 7, NULL, NULL, NULL, NULL) AS g \gset
+SELECT public.ai_forget_user(:B) AS f1 \gset
+SELECT public.ai_forget_user(:C) AS f2 \gset
+RESET ROLE;
+SELECT pg_temp.expect('q11 erasure deletes the request and the address copy; access stays', '0 NULL 7 active',
+       (SELECT count(*) FROM public.ai_access_requests WHERE user_id = :B) || ' '
+       || (SELECT coalesce(email, 'NULL') || ' ' || daily_questions || ' '
+                  || CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END
+             FROM public.ai_entitlements WHERE user_id = :C));
+ROLLBACK;
+
+-- ---------------------------------------------------------------- q12 any revocation blocks for 30 days
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.ai_grant(:C, 'carol@example.test', :A, NULL, NULL, NULL, NULL, NULL) AS g \gset
+SELECT public.ai_revoke(:C, :A, NULL, NULL) AS rv \gset
+:ask (:C, NULL) \gset r1_
+RESET ROLE;
+SELECT pg_temp.expect('q12 access granted from the form, then revoked: blocked, with a retry date',
+       'dismissed yes 0', :'r1_outcome' || ' ' || CASE WHEN :'r1_retry' <> '' THEN 'yes' ELSE 'no' END || ' '
+       || (SELECT count(*) FROM public.ai_access_requests WHERE user_id = :C));
+ROLLBACK;
+
+-- ---------------------------------------------------------------- q13 approving keeps custom limits
+BEGIN;
+SET LOCAL ROLE service_role;
+:ask (:B, 'why') \gset
+RESET ROLE;
+-- An entitlement written directly, as a grant racing the request would leave it.
+INSERT INTO public.ai_entitlements (user_id, email, daily_questions, note)
+VALUES (:B, 'bob@example.test', 200, 'custom');
+SET LOCAL ROLE service_role;
+SELECT public.ai_approve_request(:B, :A, NULL, NULL) AS a \gset
+RESET ROLE;
+SELECT pg_temp.expect('q13 approving a request of an account with active access keeps its limits',
+       't approved 200 custom',
+       :'a' || ' ' || (SELECT status FROM public.ai_access_requests WHERE user_id = :B) || ' '
+       || (SELECT daily_questions || ' ' || note FROM public.ai_entitlements WHERE user_id = :B));
+ROLLBACK;
+

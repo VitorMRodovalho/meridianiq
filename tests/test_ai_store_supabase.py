@@ -301,3 +301,10 @@ def test_signature_reader_takes_the_last_definition() -> None:
         "p_ip_address",
         "p_user_agent",
     }
+
+
+def test_forget_user_calls_its_rpc(wire: tuple[SupabaseStore, Recorder]) -> None:
+    store, rec = wire
+    rec.answers["ai_forget_user"] = (200, "null")
+    store.ai_forget_user(U)
+    assert set(rec.body("ai_forget_user")) == _signature("ai_forget_user")

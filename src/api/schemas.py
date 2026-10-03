@@ -1290,10 +1290,10 @@ class AIStatusResponse(BaseModel):
     used_today: Optional[int] = None
     remaining_today: Optional[int] = None
     resets_at: Optional[str] = Field(None, description="Next UTC midnight, ISO-8601")
-    access: Optional[str] = Field(
+    access: Optional[Literal["entitled", "pending", "dismissed", "none"]] = Field(
         None,
-        description="The caller's access request: entitled | pending | dismissed | none "
-        "(only when reason is ai_disabled or ai_not_entitled)",
+        description="The caller's access request (only when reason is ai_disabled or "
+        "ai_not_entitled)",
     )
     access_requested_at: Optional[str] = None
     access_retry_after: Optional[str] = Field(None, description="When a new request is allowed")
@@ -1384,6 +1384,15 @@ class AIEntitlementGrantRequest(BaseModel):
 
 
 _CONTROL_CHARS = {chr(c) for c in range(32)} - {"\n", "\t"} | {"\x7f"}
+# Invisible characters that reorder or hide text (bidi overrides, isolates,
+# zero-width marks): removed, so a note reads on /admin/ai as it was typed.
+_INVISIBLE_CHARS = {
+    *(chr(c) for c in range(0x200B, 0x2010)),
+    *(chr(c) for c in range(0x202A, 0x202F)),
+    *(chr(c) for c in range(0x2066, 0x206A)),
+    "\u2060",
+    "\ufeff",
+}
 
 
 class AIAccessRequestBody(BaseModel):
@@ -1397,7 +1406,7 @@ class AIAccessRequestBody(BaseModel):
         """Trim; empty is no note; no control characters other than newline and tab."""
         if value is None:
             return None
-        value = value.strip()
+        value = "".join(ch for ch in value if ch not in _INVISIBLE_CHARS).strip()
         if not value:
             return None
         if any(ch in _CONTROL_CHARS for ch in value):
@@ -1408,7 +1417,7 @@ class AIAccessRequestBody(BaseModel):
 class AIAccessRequestResponse(BaseModel):
     """Response for POST /api/v1/ai/access-request."""
 
-    state: str = Field(..., description="created | pending | entitled | dismissed")
+    state: Literal["created", "pending", "entitled", "dismissed"]
     requested_at: Optional[str] = None
     retry_after: Optional[str] = None
 

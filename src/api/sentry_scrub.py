@@ -3,11 +3,14 @@
 """Keep AI prompts, questions and operator request bodies out of error reports.
 
 Sentry captures the local variables of every frame and the request body by
-default. In the AI path those hold the user's question, the schedule
-summary sent to the model, an access request's note, and, on the operator
-routes, email addresses.
-``scrub_ai_event`` is the ``before_send`` hook: it drops the locals of AI
-frames and the body of AI requests, and leaves every other event as it is.
+default, and attaches the body to sampled performance transactions too. In
+the AI path those hold the user's question, the schedule summary sent to the
+model, an access request's note, and, on the operator routes, email
+addresses, and they sit in the framework's frames as well as ours.
+``scrub_ai_event`` is both the ``before_send`` and the
+``before_send_transaction`` hook: for a request to an AI route it drops the
+locals of EVERY frame and the request body; for any other event it drops the
+locals of the AI modules' frames only; everything else stays as it is.
 
 No imports from the application: ``src/api/app.py`` uses this before the
 rest of the app is imported.
@@ -32,6 +35,9 @@ AI_FUNCTIONS = frozenset(
             "ai_grant",
             "ai_revoke",
             "user_id_for_email",
+            "ai_access_state",
+            "ai_forget_user",
+            "_rpc_bool",
         )
     }
 )
@@ -49,12 +55,27 @@ def _scrub_frames(frames: Any) -> None:
             frame.pop("vars", None)
 
 
+def _drop_all_locals(frames: Any) -> None:
+    for frame in frames or []:
+        frame.pop("vars", None)
+
+
 def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
-    """Sentry ``before_send``: strip AI frame locals and AI request bodies."""
+    """Sentry ``before_send`` / ``before_send_transaction``: strip AI data.
+
+    On an AI route the request's own data is also in framework frames
+    (FastAPI's body parsing, the threadpool, the rate limiter), so every
+    frame loses its locals, not only ours.
+    """
+    request = event.get("request")
+    ai_request = isinstance(request, dict) and _is_ai_path(str(request.get("url") or ""))
     for key in ("exception", "threads"):
         for value in (event.get(key) or {}).get("values") or []:
-            _scrub_frames((value.get("stacktrace") or {}).get("frames"))
-    request = event.get("request")
-    if isinstance(request, dict) and _is_ai_path(str(request.get("url") or "")):
+            frames = (value.get("stacktrace") or {}).get("frames")
+            if ai_request:
+                _drop_all_locals(frames)
+            else:
+                _scrub_frames(frames)
+    if ai_request and isinstance(request, dict):
         request.pop("data", None)
     return event
