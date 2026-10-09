@@ -1066,7 +1066,7 @@ export default {
 	'anomalies.detect_button': 'Detectar anomalías',
 	'anomalies.kpi_activities_scanned': 'Actividades analizadas',
 	'anomalies.kpi_anomalies_found': 'Anomalías encontradas',
-	'anomalies.kpi_high_severity': 'Severidad alta',
+	'anomalies.kpi_high_severity': 'Críticas',
 	'anomalies.kpi_anomaly_types': 'Tipos de anomalía',
 	'anomalies.scatter_chart_title': 'Valor de anomalía vs Z-Score',
 	'anomalies.scatter_x_label': 'Valor',

@@ -1,0 +1,38 @@
+{
+  "activities_analyzed": 9,
+  "anomalies": [
+    {
+      "anomaly_type": "float",
+      "description": "Excessive float (5d) \u2014 over 3x IQR above Q3. May indicate disconnected logic per DCMA check #3.",
+      "expected_range": [
+        0.0,
+        0.0
+      ],
+      "severity": "warning",
+      "task_code": "A5030",
+      "task_id": "T-025",
+      "task_name": "Fixtures & Fittings",
+      "value": 5.0,
+      "z_score": 1.87
+    },
+    {
+      "anomaly_type": "float",
+      "description": "Excessive float (5d) \u2014 over 3x IQR above Q3. May indicate disconnected logic per DCMA check #3.",
+      "expected_range": [
+        0.0,
+        0.0
+      ],
+      "severity": "warning",
+      "task_code": "A5040",
+      "task_id": "T-026",
+      "task_name": "Landscaping",
+      "value": 5.0,
+      "z_score": 1.87
+    }
+  ],
+  "critical_count": 0,
+  "info_count": 0,
+  "methodology": "Statistical outlier detection using IQR method (Tukey, 1977) and z-score analysis. Duration and float anomalies flagged at 1.5x IQR (warning) and 3x IQR (critical). Progress anomalies use elapsed time ratio. Relationship density anomalies use z-score > 2 standard deviations.",
+  "total": 2,
+  "warning_count": 2
+}
