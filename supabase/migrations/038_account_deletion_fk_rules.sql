@@ -12,8 +12,9 @@
 --   CASCADE   the row belongs to the user and goes with them
 --             (programs.user_id, reports.user_id; the erasure already
 --             deletes programs)
---   SET NULL  the row records an act that outlives the actor, and keeps
---             its record without the link to the person
+--   SET NULL  the row records an act that outlives the actor; the actor
+--             column becomes NULL (other columns, such as audit_log's
+--             entity_id and details, may still carry the user's id)
 --             (audit_log.user_id, forensic_access_log.user_id,
 --             organizations.created_by, memberships.invited_by,
 --             project_shares.shared_by, program_shares.shared_by,
@@ -27,6 +28,12 @@
 -- REFERENCES on projects, schedule_uploads and the analysis tables are
 -- out of scope: production has no such constraints (the columns predated
 -- 002), and the erasure deletes those rows first.
+--
+-- Each new key takes a SHARE ROW EXCLUSIVE lock on auth.users until COMMIT
+-- (sign-ins wait); the tables are small and lock_timeout bounds the wait.
+-- Before COMMIT the migration checks that no key to auth.users is left
+-- without a rule (a constraint under another name would survive the
+-- DROP ... IF EXISTS), apart from migration 002's, and rolls back if one is.
 --
 -- Apply by hand (psql -f), never `supabase db push` in production.
 
@@ -79,9 +86,26 @@ ALTER TABLE public.value_milestones
   ADD CONSTRAINT value_milestones_created_by_fkey
     FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
 
-COMMIT;
+DO $$
+DECLARE
+  blocking text;
+BEGIN
+  SELECT string_agg(conrelid::regclass || '.' || conname, ', ')
+    INTO blocking
+    FROM pg_constraint
+   WHERE contype = 'f'
+     AND confrelid = 'auth.users'::regclass
+     AND confdeltype IN ('a', 'r')
+     -- Migration 002's keys exist only in a fresh install (see above).
+     AND conname NOT IN (
+       'schedule_uploads_user_id_fkey', 'projects_user_id_fkey',
+       'analysis_results_user_id_fkey', 'comparison_results_user_id_fkey',
+       'forensic_timelines_user_id_fkey', 'tia_analyses_user_id_fkey',
+       'evm_analyses_user_id_fkey', 'risk_simulations_user_id_fkey'
+     );
+  IF blocking IS NOT NULL THEN
+    RAISE EXCEPTION 'foreign keys to auth.users still without a delete rule: %', blocking;
+  END IF;
+END $$;
 
--- Postcheck: expect 0 rows (no foreign key to auth.users without a rule).
---   select conrelid::regclass, conname from pg_constraint
---   where contype = 'f' and confrelid = 'auth.users'::regclass
---     and confdeltype = 'a';
+COMMIT;

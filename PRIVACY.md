@@ -217,9 +217,13 @@ When the account itself is deleted (§4.2), `audit_log.user_id` and
 `forensic_access_log.user_id` become NULL and the rows stay, as do the
 organizations the account created and the shares, invitations and
 milestones it recorded (their actor column becomes NULL); the account's
-programs and reports are deleted with it (migration 038). Before
-migration 038 these references made Postgres refuse to delete the
-account at all.
+programs and reports are deleted with it (migration 038). Only the actor
+column is cleared: an audit row about the account (`entity_id`) or its
+`details` can still hold the account's id. An organization whose only
+owner was the deleted account stays, with no one able to manage it.
+Deleting an account whose projects still exist is refused (they point at
+its programs), so the erasure in §4.1 comes first. Before migration 038
+these references made Postgres refuse to delete any account at all.
 
 ### 4.1 User-initiated erasure
 

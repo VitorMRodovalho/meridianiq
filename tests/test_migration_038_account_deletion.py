@@ -44,20 +44,23 @@ MEASURED_NO_RULE = {
 }
 
 _TABLE = re.compile(
-    r"(?:create\s+table\s+(?:if\s+not\s+exists\s+)?|alter\s+table\s+(?:only\s+)?)"
-    r"(?:public\.)?([a-z_][a-z0-9_]*)",
+    r"(?:create\s+table\s+(?:if\s+not\s+exists\s+)?|alter\s+table\s+(?:if\s+exists\s+)?"
+    r"(?:only\s+)?)(?:public\.)?([a-z_][a-z0-9_]*)",
     re.IGNORECASE,
 )
+_USERS = r"references\s+auth\.users\b(?:\s*\(\s*id\s*\))?"
 _REF = re.compile(
-    r"(?:add\s+column\s+(?:if\s+not\s+exists\s+)?)?([a-z_][a-z0-9_]*)\s+uuid\b[^,;]*?"
-    r"references\s+auth\.users\s*\(\s*id\s*\)([^,;]*)",
+    r"(?:[(,]|\bcolumn\s+(?:if\s+not\s+exists\s+)?)\s*([a-z_][a-z0-9_]*)\s+[a-z]+\b[^,;(]*?"
+    + _USERS
+    + r"([^,;]*)",
     re.IGNORECASE,
 )
 _FK = re.compile(
-    r"foreign\s+key\s*\(\s*([a-z_][a-z0-9_]*)\s*\)\s*references\s+auth\.users\s*\(\s*id\s*\)"
-    r"([^,;]*)",
+    r"foreign\s+key\s*\(\s*([a-z_][a-z0-9_]*)\s*\)\s*" + _USERS + r"([^,;]*)",
     re.IGNORECASE,
 )
+#: Only these let the account go; NO ACTION and RESTRICT still block it.
+_RULE = re.compile(r"on\s+delete\s+(?:cascade|set\s+null|set\s+default)", re.IGNORECASE)
 
 
 def _strip_comments(sql: str) -> str:
@@ -79,7 +82,7 @@ def _rules(files: list[Path]) -> dict[tuple[str, str], bool]:
             name = table.group(1).lower()
             for pattern in (_REF, _FK):
                 for column, tail in pattern.findall(stmt):
-                    state[(name, column.lower())] = bool(re.search(r"on\s+delete", tail, re.I))
+                    state[(name, column.lower())] = bool(_RULE.search(tail))
     return state
 
 
@@ -103,3 +106,15 @@ def test_forensic_access_log_user_id_can_be_set_null() -> None:
         sql,
         re.IGNORECASE,
     )
+
+
+def test_the_replay_is_not_fooled_by_a_rule_that_still_blocks(tmp_path: Path) -> None:
+    """NO ACTION / RESTRICT spelled out, no ``(id)``, ALTER TABLE IF EXISTS."""
+    probe = tmp_path / "999_probe.sql"
+    probe.write_text(
+        "CREATE TABLE public.t1 (a UUID REFERENCES auth.users(id) ON DELETE NO ACTION);\n"
+        "CREATE TABLE public.t2 (b UUID REFERENCES auth.users ON DELETE RESTRICT);\n"
+        "ALTER TABLE IF EXISTS public.t3 ADD COLUMN c UUID REFERENCES auth.users(id);\n"
+        "CREATE TABLE public.t4 (d UUID REFERENCES auth.users(id) ON DELETE SET NULL);\n"
+    )
+    assert _without_rule([probe]) == {("t1", "a"), ("t2", "b"), ("t3", "c")}
