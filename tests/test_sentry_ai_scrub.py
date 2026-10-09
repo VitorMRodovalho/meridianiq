@@ -42,6 +42,10 @@ def init(*args, **kwargs):
     kwargs["transport"] = Capture
     if os.environ.get("PROBE_NO_SCRUB") == "1":
         kwargs.pop("before_send", None)
+        # The control removes both layers: the hooks and the app's
+        # minimal-data options, so it must find what they keep out.
+        for option in ("send_default_pii", "include_local_variables", "max_request_body_size"):
+            kwargs.pop(option, None)
     return _init(*args, **kwargs)
 
 sentry_sdk.init = init
@@ -171,10 +175,25 @@ def test_ai_request_events_lose_every_frame_local_and_the_body() -> None:
         assert "data" not in out["request"]  # type: ignore[operator]
 
 
-def test_other_events_lose_only_ai_module_locals_and_keep_the_body() -> None:
-    out = scrub_ai_event(_frames_event("https://api.example/api/v1/projects/p/tasks"), {})
+def test_other_events_lose_ai_module_locals_and_keep_only_method_and_path() -> None:
+    event = _frames_event("https://api.example/api/v1/projects/p/tasks?email=a@example.com")
+    event["request"].update(  # type: ignore[union-attr]
+        {
+            "method": "GET",
+            "headers": {"Fly-Client-IP": "203.0.113.9", "User-Agent": "probe"},
+            "cookies": {"sb": "x"},
+            "env": {"REMOTE_ADDR": "203.0.113.9"},
+            "query_string": "email=a@example.com",
+        }
+    )
+
+    out = scrub_ai_event(event, {})
+
     assert _has_vars(out) == [False, True, True]
-    assert out["request"]["data"] == {"payload": 1}  # type: ignore[index]
+    assert out["request"] == {  # Fly-Client-IP is not on the SDK's own sensitive list
+        "method": "GET",
+        "url": "https://api.example/api/v1/projects/p/tasks",
+    }
 
 
 # ------------------------------------------------------------------ #
@@ -206,6 +225,10 @@ def init(*args, **kwargs):
     if os.environ.get("PROBE_NO_SCRUB") == "1":
         kwargs.pop("before_send", None)
         kwargs.pop("before_send_transaction", None)
+        # The control removes both layers: the hooks and the app's
+        # minimal-data options, so it must find what they keep out.
+        for option in ("send_default_pii", "include_local_variables", "max_request_body_size"):
+            kwargs.pop(option, None)
     return _init(*args, **kwargs)
 
 sentry_sdk.init = init

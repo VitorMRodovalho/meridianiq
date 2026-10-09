@@ -136,6 +136,18 @@ it, and then only for accounts the operator approves.
   Anthropic's Claude API. See `src/analytics/nlp_query.py`. If this is a
   compliance concern for a deployment, the feature can be disabled at
   the environment-variable level.
+- **Error monitoring (opt-in):** When `SENTRY_DSN` is set, unhandled
+  errors and a 10% sample of request timings are sent to Sentry. The
+  reference deployment uses Sentry's EU data region (Frankfurt,
+  Germany). A report holds the stack trace without local variables,
+  the request's method and path (paths can contain project or
+  organization IDs), the release and environment, and recent log lines.
+  It holds no query string, request headers, cookies or request body,
+  so no credentials and no client IP address (`send_default_pii=False`,
+  and `src/api/sentry_scrub.py` removes every header, including
+  `Fly-Client-IP`, which the SDK's own filter does not cover). On the AI
+  routes the log lines are dropped and IDs in the path are masked. See
+  `src/api/app.py`.
 
 ---
 
@@ -272,6 +284,7 @@ presenting it to any data subject.
 | Frontend CDN | Cloudflare Pages | global edge |
 | Optional NLP | Anthropic | US (Claude API) |
 | Operator email alerts (new account, AI access request) | Resend | per the operator's Resend account |
+| Error monitoring (opt-in, `SENTRY_DSN`) | Sentry | EU (Frankfurt) |
 
 Each of these providers has their own privacy policy; operators who
 adopt MeridianIQ should review them against their jurisdiction's

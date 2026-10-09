@@ -44,6 +44,12 @@ AI_FUNCTIONS = frozenset(
 )
 
 
+#: What an error report keeps of the request, on every route: the method and
+#: the path. Headers go too, not only the SDK's sensitive ones: Fly-Client-IP
+#: carries the client's address and is not on that list. So do cookies, the
+#: environment, the query string and the body. PRIVACY.md §2 states this.
+_KEPT_REQUEST_FIELDS = frozenset({"method", "url"})
+
 _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
@@ -65,13 +71,21 @@ def _drop_all_locals(frames: Any) -> None:
 
 
 def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
-    """Sentry ``before_send`` / ``before_send_transaction``: strip AI data.
+    """Sentry ``before_send`` / ``before_send_transaction``: minimal request, no AI data.
+
+    Every event keeps only the request's method and path (see
+    ``_KEPT_REQUEST_FIELDS``).
 
     On an AI route the request's own data is also in framework frames
     (FastAPI's body parsing, the threadpool, the rate limiter), so every
     frame loses its locals, not only ours.
     """
     request = event.get("request")
+    if isinstance(request, dict):
+        for field in [k for k in request if k not in _KEPT_REQUEST_FIELDS]:
+            request.pop(field)
+        if "url" in request:
+            request["url"] = str(request["url"] or "").split("?", 1)[0]
     ai_request = isinstance(request, dict) and _is_ai_path(str(request.get("url") or ""))
     for key in ("exception", "threads"):
         for value in (event.get(key) or {}).get("values") or []:

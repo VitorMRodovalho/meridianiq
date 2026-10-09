@@ -36,6 +36,14 @@ if dsn := os.environ.get("SENTRY_DSN"):
         traces_sample_rate=0.1,
         environment=os.environ.get("ENVIRONMENT", "development"),
         release=_RELEASE,
+        # Minimal data, so PRIVACY.md can say exactly what an error report
+        # holds: the stack trace, the request's method and URL, release and
+        # environment. No frame locals (they can hold emails and schedule
+        # data on any route), no request bodies, no cookies, headers with
+        # credentials or client IP.
+        send_default_pii=False,
+        include_local_variables=False,
+        max_request_body_size="never",
         # AI frames and requests carry the user's question, the prompt, an
         # access request's note and, on the operator routes, email addresses
         # (src/api/sentry_scrub.py). Transactions carry the body too.
