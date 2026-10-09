@@ -1647,7 +1647,7 @@ export default {
 	'admin_ai.requests_unread': 'No se pudieron leer las solicitudes. Eso no significa que no haya ninguna.',
 	'admin_ai.requests_empty': 'No hay solicitudes pendientes.',
 	'admin_ai.requests_partial': 'Se muestran {shown} de {total} solicitudes pendientes, de la más antigua a la más reciente.',
-	'admin_ai.requests_defaults': 'Aprobar concede los límites predeterminados ({daily} preguntas por día, {monthly} al mes); para otros límites, use el formulario de abajo.',
+	'admin_ai.requests_defaults': 'Aprobar concede los límites predeterminados ({daily} preguntas por día, {monthly} al mes); para otros límites, use el formulario de abajo. Los predeterminados no quedan guardados con la aprobación: la cuenta sigue los vigentes cuando pregunta, también el día en que se active el asistente.',
 	'admin_ai.request_requested': 'Solicitada el {when}',
 	'admin_ai.request_no_note': 'Sin nota',
 	'admin_ai.btn_approve': 'Aprobar',

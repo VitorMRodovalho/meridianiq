@@ -228,6 +228,10 @@ describe('classifyAccessRequestError', () => {
 		expect(classifyAccessRequestError(apiError(401, 'ai_session_required'))).toEqual({ kind: 'signin' });
 	});
 
+	it('403 ai_session_required (anonymous session, API key) is the sign-in gate: retrying cannot help', () => {
+		expect(classifyAccessRequestError(apiError(403, 'ai_session_required'))).toEqual({ kind: 'signin' });
+	});
+
 	it('429 keeps the form with the rate-limit message', () => {
 		expect(classifyAccessRequestError(apiError(429, null))).toEqual({
 			kind: 'refused',
@@ -239,7 +243,7 @@ describe('classifyAccessRequestError', () => {
 	it('any other 4xx keeps the form with "could not be sent"', () => {
 		for (const [status, code] of [
 			[400, null],
-			[403, 'ai_session_required'],
+			[403, null],
 			[404, null],
 			[409, null],
 			[422, null]

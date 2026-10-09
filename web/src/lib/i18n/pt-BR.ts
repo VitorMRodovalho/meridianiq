@@ -1647,7 +1647,7 @@ export default {
 	'admin_ai.requests_unread': 'Não foi possível ler os pedidos. Isso não significa que não haja nenhum.',
 	'admin_ai.requests_empty': 'Nenhum pedido pendente.',
 	'admin_ai.requests_partial': 'Mostrando {shown} de {total} pedidos pendentes, dos mais antigos para os mais recentes.',
-	'admin_ai.requests_defaults': 'Aprovar concede os limites padrão ({daily} perguntas por dia, {monthly} por mês); para outros limites, use o formulário abaixo.',
+	'admin_ai.requests_defaults': 'Aprovar concede os limites padrão ({daily} perguntas por dia, {monthly} por mês); para outros limites, use o formulário abaixo. Os padrões não ficam gravados na aprovação: a conta segue os vigentes quando pergunta, inclusive no dia em que o assistente for ligado.',
 	'admin_ai.request_requested': 'Solicitado em {when}',
 	'admin_ai.request_no_note': 'Sem nota',
 	'admin_ai.btn_approve': 'Aprovar',

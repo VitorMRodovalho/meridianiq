@@ -1656,7 +1656,7 @@ export default {
 	'admin_ai.requests_unread': 'The requests could not be read. This does not mean there are none.',
 	'admin_ai.requests_empty': 'No pending requests.',
 	'admin_ai.requests_partial': 'Showing {shown} of {total} pending requests, oldest first.',
-	'admin_ai.requests_defaults': 'Approving grants the default limits ({daily} questions a day, {monthly} a month); use the form below for other limits.',
+	'admin_ai.requests_defaults': 'Approving grants the default limits ({daily} questions a day, {monthly} a month); use the form below for other limits. The defaults are not stored with the approval: the account follows the defaults in force when it asks, including on the day the assistant is turned on.',
 	'admin_ai.request_requested': 'Requested {when}',
 	'admin_ai.request_no_note': 'No note',
 	'admin_ai.btn_approve': 'Approve',

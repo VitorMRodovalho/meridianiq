@@ -90,12 +90,13 @@
 
 	/**
 	 * The note as the API accepts it: control characters it would refuse (C0
-	 * except newline and tab, and DEL) removed, trimmed, and empty as null, so a
-	 * pasted note never fails in a way that retrying cannot fix.
+	 * except newline and tab, DEL, C1, and the line/paragraph separators)
+	 * removed, trimmed, and empty as null, so a pasted note never fails in a way
+	 * that retrying cannot fix.
 	 */
 	function cleanNote(note: string): string | null {
 		// eslint-disable-next-line no-control-regex
-		const cleaned = note.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim();
+		const cleaned = note.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u2028\u2029]/g, '').trim();
 		return cleaned || null;
 	}
 	let requesting = $state(false);
@@ -247,7 +248,9 @@
 					access_requested_at: res.requested_at ?? null,
 					access_retry_after: res.retry_after ?? null
 				};
-				accessJustSent = next === 'pending';
+				// "Request sent" only for a new request, not for one that already
+				// existed (sent from another tab, say).
+				accessJustSent = res.state === 'created';
 				accessNote = '';
 				settled = true;
 				// Already approved: the feature may be open for this account by now.

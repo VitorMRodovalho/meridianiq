@@ -197,11 +197,12 @@ export type AccessRequestFailure =
 interface ErrorLike {
 	name?: unknown;
 	status?: unknown;
+	errorCode?: unknown;
 }
 
 /**
- * Classify an error thrown by `requestAiAccess()`. Reads only the status and
- * the error name, never the message.
+ * Classify an error thrown by `requestAiAccess()`. Reads only the status, the
+ * error code and the error name, never the message.
  */
 export function classifyAccessRequestError(err: unknown): AccessRequestFailure {
 	const e: ErrorLike = err !== null && typeof err === 'object' ? (err as ErrorLike) : {};
@@ -210,6 +211,9 @@ export function classifyAccessRequestError(err: unknown): AccessRequestFailure {
 	if (e.name === 'TimeoutError') return { kind: 'unknown' };
 	const status = typeof e.status === 'number' ? e.status : null;
 	if (status === 401) return { kind: 'signin' };
+	// An anonymous session or an API key: only a signed-in account can ask, so
+	// retrying cannot help.
+	if (status === 403 && e.errorCode === 'ai_session_required') return { kind: 'signin' };
 	// The per-address rate limiter answers before the route runs.
 	if (status === 429) return { kind: 'refused', key: ACCESS_ALERT_KEYS.rateLimited };
 	if (status !== null && status >= 400 && status < 500) {

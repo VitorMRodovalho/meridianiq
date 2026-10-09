@@ -62,6 +62,8 @@
 	let requestNotice = $state('');
 	let requestNoticeIsSuccess = $state(false);
 	let requestsHeading: HTMLHeadingElement | undefined = $state();
+	// One change at a time on the whole page: grant, revoke, approve, dismiss.
+	const busy = $derived(granting || revokingId !== '' || requestActionId !== '');
 
 	// Null means the requests could not be read, never "none".
 	const requests = $derived(pendingRequests<AiAccessRequestItem>(summary));
@@ -118,13 +120,20 @@
 		return null;
 	}
 
+	// Reloads can overlap (two actions finishing close together): only the
+	// latest one may replace the summary, so an older snapshot never wins.
+	let refreshSeq = 0;
+
 	/** Reload the summary; on failure keep the current one and report false. */
 	async function refresh(): Promise<boolean> {
+		const seq = ++refreshSeq;
 		try {
-			summary = await getAiAdmin();
+			const next = await getAiAdmin();
+			if (seq === refreshSeq) summary = next;
 			return true;
 		} catch {
-			return false;
+			// A newer reload is in flight: let it decide what is shown.
+			return seq !== refreshSeq;
 		}
 	}
 
@@ -156,10 +165,12 @@
 	async function handleGrant(event: SubmitEvent) {
 		event.preventDefault();
 		const email = grantEmail.trim();
-		if (!email || granting) return;
+		if (!email || busy) return;
 		grantError = '';
 		changeStatus = '';
 		revokeError = '';
+		requestError = '';
+		requestNotice = '';
 		// An empty field means "use the default", sent as null.
 		const daily = typeof grantDaily === 'number' ? grantDaily : null;
 		const monthly = typeof grantMonthly === 'number' ? grantMonthly : null;
@@ -221,11 +232,13 @@
 	}
 
 	async function handleRevoke(ent: AiEntitlement) {
-		if (revokingId) return;
+		if (busy) return;
 		revokingId = ent.user_id;
 		revokeError = '';
 		grantError = '';
 		changeStatus = '';
+		requestError = '';
+		requestNotice = '';
 		let revoked = false;
 		try {
 			await revokeAiAccess(ent.user_id);
@@ -273,7 +286,7 @@
 	 * focus then goes to the section heading, never to the next row.
 	 */
 	async function handleRequestAction(req: AiAccessRequestItem, kind: 'approve' | 'dismiss') {
-		if (requestActionId) return;
+		if (busy) return;
 		requestActionId = req.user_id;
 		requestActionKind = kind;
 		requestError = '';
@@ -496,18 +509,18 @@
 								<button
 									type="button"
 									onclick={() => handleRequestAction(req, 'approve')}
-									disabled={requestActionId !== ''}
+									disabled={busy}
 									aria-label={approving ? undefined : interpolate($t('admin_ai.approve_aria'), { account })}
-									class="min-h-11 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 dark:bg-blue-600 text-white dark:text-white hover:bg-blue-700 dark:hover:bg-blue-500 disabled:opacity-50 transition-colors"
+									class="min-h-11 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 dark:bg-blue-600 text-white dark:text-white hover:bg-blue-700 dark:hover:bg-blue-500 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
 								>
 									{approving ? $t('admin_ai.btn_approving') : $t('admin_ai.btn_approve')}
 								</button>
 								<button
 									type="button"
 									onclick={() => handleRequestAction(req, 'dismiss')}
-									disabled={requestActionId !== ''}
+									disabled={busy}
 									aria-label={dismissing ? undefined : interpolate($t('admin_ai.dismiss_aria'), { account })}
-									class="min-h-11 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+									class="min-h-11 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
 								>
 									{dismissing ? $t('admin_ai.btn_dismissing') : $t('admin_ai.btn_dismiss')}
 								</button>
@@ -665,7 +678,7 @@
 				</div>
 				<button
 					type="submit"
-					disabled={granting || !grantEmail.trim()}
+					disabled={busy || !grantEmail.trim()}
 					class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 				>
 					{granting ? $t('admin_ai.btn_granting') : $t('admin_ai.btn_grant')}
@@ -746,7 +759,7 @@
 											<button
 												type="button"
 												onclick={() => handleRevoke(ent)}
-												disabled={revokingId !== ''}
+												disabled={busy}
 												aria-label={interpolate($t('admin_ai.revoke_aria'), { email: accountLabel(ent) })}
 												class="text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
 											>
