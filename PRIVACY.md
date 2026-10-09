@@ -213,6 +213,14 @@ deleted, referencing it by `entity_id` string. This is intentional for
 forensic integrity. Operators who need the audit trail to disappear
 alongside the entity must remove the rows explicitly.
 
+When the account itself is deleted (§4.2), `audit_log.user_id` and
+`forensic_access_log.user_id` become NULL and the rows stay, as do the
+organizations the account created and the shares, invitations and
+milestones it recorded (their actor column becomes NULL); the account's
+programs and reports are deleted with it (migration 038). Before
+migration 038 these references made Postgres refuse to delete the
+account at all.
+
 ### 4.1 User-initiated erasure
 
 There is no endpoint to delete a single project. `DELETE
@@ -286,7 +294,8 @@ responsibility and should be documented by the operator independently.
   resolves to a natural person inside the same database qualifies as
   personal data (GDPR Recital 26 on pseudonymisation). The column uses
   `ON DELETE SET NULL` so user erasure propagates cleanly; the paired
-  `audit_log.user_id` retains the original UUID until a separate
+  `audit_log.user_id` retains the original UUID until the account is
+  deleted, which sets it to NULL (migration 038), or a separate
   retention rule clears it.
 
 ---
