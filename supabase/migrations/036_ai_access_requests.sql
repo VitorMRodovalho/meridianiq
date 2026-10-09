@@ -8,7 +8,8 @@
 --      pending   -> waiting for the operator
 --      approved  -> the operator granted access (any grant closes a pending
 --                   request, see ai_grant below)
---      dismissed -> the operator declined it
+--      dismissed -> the operator declined it, or the user's data erasure
+--                   withdrew a pending request (decided_by NULL)
 --    The note (the user's optional reason) is cleared when the request is
 --    decided: the operator reads it while it is pending, and nothing keeps it
 --    afterwards.
@@ -34,12 +35,17 @@
 --    body plus one statement that closes a pending request. Re-applying 035
 --    after 036 would silently drop that statement: apply 036 again after it
 --    (scripts/rls_replica/036/postcheck.sql detects it).
--- 6. ai_forget_user supports the user's own data erasure: it deletes the
---    account's request (and its note) and clears the address copied onto
---    the entitlement. The spend ledger (035) keeps its pseudonymous rows.
+-- 6. ai_forget_user supports the user's own data erasure: it clears the
+--    request's note, withdraws a pending request (it becomes dismissed, so
+--    the operator no longer sees it) and clears the address copied onto the
+--    entitlement. The row's status and dates stay, as the record that keeps
+--    the 30-day block: deleting it would let an account re-open requests
+--    (and email the operator) at will. Deleting the account removes the row
+--    (ON DELETE CASCADE). The spend ledger (035) keeps its pseudonymous rows.
 --
 -- Access: RLS on, nothing for client roles, service_role SELECT/INSERT/UPDATE
--- only; every function executable by service_role only.
+-- only (no DELETE: nothing in the API deletes a request); every function
+-- executable by service_role only.
 --
 -- Apply BEFORE deploying the API that calls these functions; without them
 -- the request routes answer ai_request_unavailable and /ai/status leaves the
@@ -74,8 +80,7 @@ ALTER TABLE public.ai_access_requests ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.ai_access_requests FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.ai_access_requests FROM service_role;
--- DELETE is for ai_forget_user (erasure); the queue is not a ledger.
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ai_access_requests TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.ai_access_requests TO service_role;
 
 -- ================================================================
 -- 2. Functions
@@ -276,9 +281,14 @@ BEGIN
         RETURN false;
     END IF;
     -- Access already active (granted from the form meanwhile): keep its
-    -- limits and note; the request is closed and nothing else changes.
+    -- limits and note; the request is closed, audited, and nothing else
+    -- changes.
     IF EXISTS (SELECT 1 FROM public.ai_entitlements AS e
                 WHERE e.user_id = p_user_id AND e.revoked_at IS NULL) THEN
+        INSERT INTO public.audit_log (user_id, action, entity_type, entity_id, details,
+                                      ip_address, user_agent)
+        VALUES (p_approved_by, 'ai_access_request_approved', 'ai_access_request', p_user_id,
+                '{}'::jsonb, p_ip_address, p_user_agent);
         RETURN true;
     END IF;
     PERFORM public.ai_grant(p_user_id, v_email, p_approved_by, NULL, NULL, NULL,
@@ -315,9 +325,10 @@ BEGIN
 END
 $$;
 
--- The user's own data erasure: delete the account's request (with its note)
--- and clear the address copied onto its entitlement. Access itself and the
--- pseudonymous spend ledger stay.
+-- The user's own data erasure: clear the request's note, withdraw a pending
+-- request (dismissed, decided_by NULL, which starts the 30-day block) and
+-- clear the address copied onto the entitlement. The row's status and dates,
+-- access itself and the pseudonymous spend ledger stay (see the header).
 CREATE OR REPLACE FUNCTION public.ai_forget_user(p_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -326,7 +337,11 @@ SECURITY INVOKER
 SET search_path = ''
 AS $$
 BEGIN
-    DELETE FROM public.ai_access_requests AS r WHERE r.user_id = p_user_id;
+    UPDATE public.ai_access_requests AS r
+       SET status = CASE WHEN r.status = 'pending' THEN 'dismissed' ELSE r.status END,
+           decided_at = coalesce(r.decided_at, now()),
+           note = NULL
+     WHERE r.user_id = p_user_id;
     UPDATE public.ai_entitlements AS e SET email = NULL WHERE e.user_id = p_user_id;
 END
 $$;

@@ -139,7 +139,7 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
     # AI entitlement (migration 036) are outside delete_user_data's cascade.
     from .. import ai_gate
 
-    ai_gate.forget_user(store, str(user_id))
+    ai_forgotten = ai_gate.forget_user(store, str(user_id))
 
     # Count before deletion for response
     deleted = {
@@ -155,7 +155,10 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
         try:
             result = store._client.rpc("delete_user_data", {"target_user_id": user_id}).execute()
             if result.data:
-                return GDPRDeleteResponse(**result.data)
+                response = GDPRDeleteResponse(**result.data)
+                if not ai_forgotten:
+                    response.status = "partial"
+                return response
         except Exception:
             pass  # Fall through to direct deletes
 
@@ -186,6 +189,8 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 
     invalidate_namespace("schedule:kpis")
 
+    if not ai_forgotten:
+        deleted["status"] = "partial"
     return GDPRDeleteResponse(**deleted)
 
 

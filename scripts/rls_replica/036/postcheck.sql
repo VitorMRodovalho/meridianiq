@@ -40,19 +40,22 @@ checks(id, status, label, value) AS (
            CASE WHEN c.relrowsecurity
                  AND NOT has_table_privilege('anon', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
                  AND NOT has_table_privilege('authenticated', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
-                 AND has_table_privilege('service_role', c.oid, 'SELECT, INSERT, UPDATE, DELETE')
-                 AND NOT has_table_privilege('service_role', c.oid, 'TRUNCATE')
+                 AND has_table_privilege('service_role', c.oid, 'SELECT')
+                 AND has_table_privilege('service_role', c.oid, 'INSERT')
+                 AND has_table_privilege('service_role', c.oid, 'UPDATE')
+                 AND NOT has_table_privilege('service_role', c.oid, 'DELETE, TRUNCATE')
                 THEN 'PASS' ELSE 'FAIL' END,
-           'ai_access_requests: RLS on, nothing for clients, service_role S/I/U/D and no TRUNCATE',
+           'ai_access_requests: RLS on, nothing for clients, service_role S/I/U only (no DELETE, no TRUNCATE)',
            'rls=' || c.relrowsecurity
       FROM pg_class AS c
      WHERE c.oid = 'public.ai_access_requests'::regclass
     UNION ALL
     SELECT 'qc05',
-           CASE WHEN position('ai_access_requests' IN p.prosrc) > 0 THEN 'PASS' ELSE 'FAIL' END,
-           'ai_grant closes pending requests (FAIL: 035 was re-applied after 036; apply 036 again)',
-           'md5 ' || md5(p.prosrc)
-      FROM pg_proc AS p
-     WHERE p.oid = 'public.ai_grant(uuid,text,uuid,integer,numeric,text,text,text)'::regprocedure
+           CASE WHEN md5(p.prosrc) = '5c186fbedb6de58add81ea8a50ff1e86' THEN 'PASS' ELSE 'FAIL' END,
+           'ai_grant is exactly 036''s (FAIL with 035''s md5 38c0bb1f: 035 was re-applied, run the preflight and apply 036 again; any other md5: a later change, update this check)',
+           'md5 ' || coalesce(md5(p.prosrc), 'ai_grant absent')
+      FROM (SELECT 1) AS one
+      LEFT JOIN pg_proc AS p
+        ON p.oid = to_regprocedure('public.ai_grant(uuid,text,uuid,integer,numeric,text,text,text)')
 )
 SELECT format('%-5s %s %s  =>  %s', status, id, label, value) FROM checks ORDER BY id;

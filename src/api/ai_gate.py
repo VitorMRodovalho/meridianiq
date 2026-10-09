@@ -95,6 +95,11 @@ REQUESTS_PAGE = 200
 ACCESS_STATES = frozenset({"entitled", "pending", "dismissed", "none"})
 #: Reasons for which the /ask panel offers or shows an access request.
 REQUESTABLE_REASONS = frozenset({"ai_disabled", "ai_not_entitled"})
+#: At most this many operator emails per rolling hour for new requests, over
+#: all accounts and machines (counted in the table). Requests above it are
+#: still recorded and listed on /admin/ai. ``AI_REQUEST_ALERTS_PER_HOUR``
+#: overrides it; 0 sends none.
+REQUEST_ALERTS_PER_HOUR = 10
 
 # The operator's alert carries nothing about the requester (no address, id or
 # note): they are on /admin/ai. See src/api/notify.py.
@@ -792,8 +797,37 @@ def request_access(
         logger.warning("ai_request_access failed: %s", type(exc).__name__)
         raise error(500, "ai_request_unavailable") from exc
     if state.state == "created":
-        background.add_task(notify_operator, dict(_REQUEST_ALERT), label="ai access request alert")
+        background.add_task(_alert_operator, store)
     return state
+
+
+def _request_alerts_per_hour() -> int:
+    raw = os.environ.get("AI_REQUEST_ALERTS_PER_HOUR", "").strip()
+    if not raw:
+        return REQUEST_ALERTS_PER_HOUR
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        logger.warning("AI_REQUEST_ALERTS_PER_HOUR is not an integer; using the default")
+        return REQUEST_ALERTS_PER_HOUR
+
+
+def _alert_operator(store: Any) -> None:
+    """Email the operator about a new request, unless the hourly cap is reached.
+
+    The count includes the request just created. A count that cannot be read
+    sends nothing: the request is on /admin/ai either way.
+    """
+    cap = _request_alerts_per_hour()
+    try:
+        recent = store.ai_requests_since(datetime.now(UTC) - timedelta(hours=1))
+    except Exception as exc:
+        logger.warning("ai access request alert not sent: count failed: %s", type(exc).__name__)
+        return
+    if recent > cap:
+        logger.info("ai access request alert not sent: %d requests in the last hour", recent)
+        return
+    notify_operator(dict(_REQUEST_ALERT), label="ai access request alert")
 
 
 def approve_request(
@@ -833,16 +867,18 @@ def dismiss_request(
         raise error(404, "ai_request_not_found")
 
 
-def forget_user(store: Any, user_id: str) -> None:
-    """The user's data erasure, AI part: drop the request and the address copy.
+def forget_user(store: Any, user_id: str) -> bool:
+    """The user's data erasure, AI part: the request's note and the address copy.
 
-    Best effort, like the rest of the erasure route: a failure is logged
-    (class only) and the erasure goes on.
+    False when it failed: the failure is logged (class only), the erasure
+    goes on, and the route reports ``partial`` instead of ``complete``.
     """
     forget = getattr(store, "ai_forget_user", None)
     if forget is None:
-        return
+        return True
     try:
         forget(user_id)
     except Exception as exc:
         logger.warning("ai_forget_user failed: %s", type(exc).__name__)
+        return False
+    return True

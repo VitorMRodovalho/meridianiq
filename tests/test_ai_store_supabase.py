@@ -13,6 +13,7 @@ JSON string to ``numeric`` is not exercised.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -308,3 +309,26 @@ def test_forget_user_calls_its_rpc(wire: tuple[SupabaseStore, Recorder]) -> None
     rec.answers["ai_forget_user"] = (200, "null")
     store.ai_forget_user(U)
     assert set(rec.body("ai_forget_user")) == _signature("ai_forget_user")
+
+
+def test_requests_since_counts_through_the_table() -> None:
+    seen: list[httpx.Request] = []
+
+    def counted(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200,
+            content=b"[]",
+            headers={"content-type": "application/json", "content-range": "*/7"},
+        )
+
+    http = httpx.Client(
+        base_url="http://pgrst.test/rest/v1", transport=httpx.MockTransport(counted)
+    )
+    store = object.__new__(SupabaseStore)
+    store._client = SyncPostgrestClient("http://pgrst.test/rest/v1", http_client=http)
+    assert store.ai_requests_since(datetime(2026, 10, 8, 12, 0, tzinfo=UTC)) == 7
+    (req,) = seen
+    assert req.url.path.endswith("/ai_access_requests")
+    assert "count=exact" in req.headers.get("prefer", "")
+    assert "requested_at=gte." in str(req.url.query, "ascii")

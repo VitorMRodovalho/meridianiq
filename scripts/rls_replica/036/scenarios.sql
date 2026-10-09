@@ -201,13 +201,37 @@ SET LOCAL ROLE service_role;
 SELECT public.ai_grant(:C, 'carol@example.test', :A, 7, NULL, NULL, NULL, NULL) AS g \gset
 SELECT public.ai_forget_user(:B) AS f1 \gset
 SELECT public.ai_forget_user(:C) AS f2 \gset
+:ask (:B, 'again') \gset r_
 RESET ROLE;
-SELECT pg_temp.expect('q11 erasure deletes the request and the address copy; access stays', '0 NULL 7 active',
-       (SELECT count(*) FROM public.ai_access_requests WHERE user_id = :B) || ' '
+SELECT pg_temp.expect('q11 erasure withdraws the pending request and clears its note and the address copy; access stays',
+       'dismissed NULL NULL dismissed yes 0 NULL 7 active',
+       (SELECT status || ' ' || coalesce(note, 'NULL') || ' ' || coalesce(decided_by::text, 'NULL')
+          FROM public.ai_access_requests WHERE user_id = :B) || ' '
+       || :'r_outcome' || ' ' || CASE WHEN :'r_retry' <> '' THEN 'yes' ELSE 'no' END || ' '
+       || (SELECT count(*) FROM public.ai_access_requests WHERE user_id = :B AND status = 'pending') || ' '
        || (SELECT coalesce(email, 'NULL') || ' ' || daily_questions || ' '
                   || CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END
              FROM public.ai_entitlements WHERE user_id = :C));
 ROLLBACK;
+
+-- ---------------------------------------------------------------- q11b erasure does not lift a dismissal
+BEGIN;
+SET LOCAL ROLE service_role;
+:ask (:B, NULL) \gset
+SELECT public.ai_dismiss_request(:B, :A, NULL, NULL) AS d \gset
+SELECT public.ai_forget_user(:B) AS f \gset
+:ask (:B, NULL) \gset r_
+RESET ROLE;
+SELECT pg_temp.expect('q11b request, dismissal, erasure, request: still dismissed, the operator''s decision kept',
+       'dismissed dismissed a0000000-0000-4000-8000-000000000001',
+       :'r_outcome' || ' '
+       || (SELECT status || ' ' || decided_by FROM public.ai_access_requests WHERE user_id = :B));
+ROLLBACK;
+
+-- ---------------------------------------------------------------- q11c the API role cannot delete a request
+SELECT pg_temp.expect('q11c service_role cannot DELETE from ai_access_requests',
+       'ERR 42501 permission denied for table ai_access_requests',
+       pg_temp.run_as('service_role', NULL, 'DELETE FROM public.ai_access_requests RETURNING 1'));
 
 -- ---------------------------------------------------------------- q12 any revocation blocks for 30 days
 BEGIN;
@@ -236,5 +260,8 @@ SELECT pg_temp.expect('q13 approving a request of an account with active access 
        't approved 200 custom',
        :'a' || ' ' || (SELECT status FROM public.ai_access_requests WHERE user_id = :B) || ' '
        || (SELECT daily_questions || ' ' || note FROM public.ai_entitlements WHERE user_id = :B));
+SELECT pg_temp.expect('q13 closing it is audited', '1',
+       (SELECT count(*)::text FROM public.audit_log
+         WHERE action = 'ai_access_request_approved' AND entity_id = :B));
 ROLLBACK;
 

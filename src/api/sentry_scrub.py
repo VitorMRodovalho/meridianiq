@@ -18,6 +18,7 @@ rest of the app is imported.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 #: Modules whose frames never keep their locals.
@@ -41,6 +42,9 @@ AI_FUNCTIONS = frozenset(
         )
     }
 )
+
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
 def _is_ai_path(url: str) -> bool:
@@ -78,4 +82,8 @@ def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any
                 _scrub_frames(frames)
     if ai_request and isinstance(request, dict):
         request.pop("data", None)
+        # The operator routes carry the requester's id in the path.
+        request["url"] = _UUID.sub("{id}", str(request.get("url") or ""))
+        # Log lines recorded during the request are not scrubbed: drop them.
+        event.pop("breadcrumbs", None)
     return event

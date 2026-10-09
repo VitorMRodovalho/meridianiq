@@ -1383,7 +1383,12 @@ class AIEntitlementGrantRequest(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
 
 
-_CONTROL_CHARS = {chr(c) for c in range(32)} - {"\n", "\t"} | {"\x7f"}
+# C0 except newline and tab, DEL, C1, and the line/paragraph separators.
+_CONTROL_CHARS = (
+    {chr(c) for c in range(32)} - {"\n", "\t"}
+    | {chr(c) for c in range(0x7F, 0xA0)}
+    | {"\u2028", "\u2029"}
+)
 # Invisible characters that reorder or hide text (bidi overrides, isolates,
 # zero-width marks): removed, so a note reads on /admin/ai as it was typed.
 _INVISIBLE_CHARS = {

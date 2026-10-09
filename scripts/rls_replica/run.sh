@@ -419,6 +419,39 @@ stage "preflight before 036 (read-only, as postgres)"
 psql_as postgres -At < "$here/036/preflight.sql" > "$work/preflight036.log" 2>&1
 tally "$work/preflight036.log"
 
+# Every 036 preflight check must be able to say FAIL: plant each drift in a
+# rolled-back transaction (run as supabase_admin, so pf06 fails too).
+stage "036 preflight must report drift (planted in a rolled-back transaction)"
+rc=0
+{
+    cat <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN;
+ALTER FUNCTION public.ai_quota OWNER TO supabase_admin;
+CREATE TABLE public.ai_access_requests (user_id uuid PRIMARY KEY, status text);
+DO $$
+BEGIN
+    EXECUTE replace(pg_get_functiondef('public.ai_grant(uuid,text,uuid,integer,numeric,text,text,text)'::regprocedure),
+                    'BEGIN', 'BEGIN' || chr(10) || '    -- local hot-fix');
+END
+$$;
+DROP SCHEMA private CASCADE;
+SQL
+    cat "$here/036/preflight.sql"
+    printf 'ROLLBACK;\n'
+} | psql_as supabase_admin -At > "$work/preflight036_planted.log" 2>&1 || rc=$?
+cat "$work/preflight036_planted.log"
+if [[ $rc -ne 0 ]]; then fail "planted 036 preflight run rc=$rc"; fi
+expect_lines "$work/preflight036_planted.log" "036 preflight reports" \
+    '^FAIL +pf01 .*ai_quota:supabase_admin' \
+    '^FAIL +pf02 .*=>  user_id,status$' \
+    '^FAIL +pf03 .*=>  md5 [0-9a-f]{32}$' \
+    '^FAIL +pf05 .*schema private absent' \
+    '^FAIL +pf06 .*supabase_admin'
+n_rows=$(grep -cE '^(PASS|FAIL) +pf0[1-6] ' "$work/preflight036_planted.log" || true)
+if [[ $n_rows == 6 ]]; then pass "036 preflight printed 6 rows with drift planted"; else fail "036 preflight printed $n_rows rows with drift planted, expected 6"; fi
+if grep -q 'ERROR:' "$work/preflight036_planted.log"; then fail "planted 036 preflight had a statement error"; fi
+
 stage "apply 036 as postgres (1st)"
 rc=0
 psql_as postgres -v ON_ERROR_STOP=1 < "$m036" > "$work/apply036_1.log" 2>&1 || rc=$?
@@ -444,6 +477,45 @@ tally "$work/postcheck036b.log"
 stage "036 access request scenarios as service_role (mirror tests/test_ai_requests.py)"
 cat "$here/probe_lib.sql" "$here/036/scenarios.sql" | psql_as supabase_admin > "$work/scenarios036.log" 2>&1
 tally "$work/scenarios036.log"
+
+stage "negative controls: 036 must abort (each in a rolled-back transaction)"
+[[ $(grep -c '^BEGIN;$' "$m036") -eq 1 && $(grep -c '^COMMIT;$' "$m036") -eq 1 ]] \
+    || { fail "036 does not have exactly one BEGIN; and one COMMIT; line"; exit 1; }
+sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' "$m036" > "$work/036_body.sql"
+fp036a=$(psql_as supabase_admin < "$here/fingerprint.sql")
+
+# negative036 <label> <expected rc: 0|nonzero> <regex expected in the output> <setup SQL>
+negative036() {
+    local label=$1 want=$2 regex=$3 setup=$4 rc=0 hit
+    {
+        printf '\\set ON_ERROR_STOP on\nBEGIN;\n%s\nSET ROLE postgres;\n' "$setup"
+        cat "$work/036_body.sql"
+        printf 'ROLLBACK;\n'
+    } | psql_as supabase_admin > "$work/neg036.log" 2>&1 || rc=$?
+    hit=$(grep -Eo "$regex" "$work/neg036.log" | head -1 || true)
+    if [[ $want == 0 && $rc -eq 0 ]] || [[ $want == nonzero && $rc -ne 0 && -n $hit ]]; then
+        pass "$label  =>  rc=$rc ${hit:+| $hit}"
+    else
+        fail "$label  =>  rc=$rc, expected rc $want and /$regex/"
+        tail -5 "$work/neg036.log"
+    fi
+}
+
+negative036 "m0 unmodified body inside BEGIN/ROLLBACK applies (harness control)" 0 '' ''
+negative036 "m1 a 035 function callable by authenticated" nonzero \
+    'unsafe ai_\* functions in public: ai_revoke\(' \
+    "DO \$\$ BEGIN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated', 'public.ai_revoke'::regproc::regprocedure); END \$\$;"
+negative036 "m2 another ai_* definer in public" nonzero \
+    'unsafe ai_\* functions in public: ai_probe\(\)' \
+    "CREATE FUNCTION public.ai_probe() RETURNS int LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'; ALTER FUNCTION public.ai_probe() OWNER TO postgres; REVOKE ALL ON FUNCTION public.ai_probe() FROM PUBLIC;"
+negative036 "m3 an ai_* function owned by another role" nonzero \
+    'unsafe ai_\* functions in public: ai_quota\(' \
+    'ALTER FUNCTION public.ai_quota OWNER TO supabase_admin;'
+negative036 "m4 client USAGE on schema private" nonzero \
+    'private\.ai_pending_requests is not safely owned and confined' \
+    'GRANT USAGE ON SCHEMA private TO authenticated;'
+fp036b=$(psql_as supabase_admin < "$here/fingerprint.sql")
+if [[ $fp036a == "$fp036b" ]]; then pass "catalog unchanged by the 036 negative controls"; else fail "036 negative controls changed the catalog"; fi
 
 stage "035 ledger scenarios again, after 036 replaced ai_grant"
 cat "$here/probe_lib.sql" "$here/035/scenarios.sql" | psql_as supabase_admin > "$work/scenarios035b.log" 2>&1
@@ -533,6 +605,27 @@ echo "ask during a dismissal: real=$race_real unguarded=$race_ctrl"
 if [[ $race_real == dismissed ]]; then pass "the dismissal held"; else fail "real function answered '$race_real' during a dismissal"; fi
 if [[ $race_ctrl == created ]]; then pass "unguarded control re-opened the request: the probe can say no"; else fail "unguarded control answered '$race_ctrl': the probe cannot tell"; fi
 psql_as supabase_admin -q -c "DROP SCHEMA probe036r CASCADE; DELETE FROM public.ai_access_requests;" > /dev/null 2>&1
+
+# Recovery path documented in 036 and postcheck qc05: 035 re-applied after
+# 036 drops ai_grant's closing statement; qc05 must FAIL, the preflight must
+# still pass (table present with 036's columns, ai_grant at 035's md5), and
+# applying 036 again must restore qc05.
+stage "036 recovery: 035 re-applied after 036, then 036 again"
+rc=0
+psql_as postgres -v ON_ERROR_STOP=1 < "$m035" > "$work/apply035_again.log" 2>&1 || rc=$?
+if [[ $rc -eq 0 ]]; then pass "035 re-applied after 036 rc=0"; else fail "035 re-apply rc=$rc"; cat "$work/apply035_again.log"; fi
+psql_as postgres -At < "$here/036/postcheck.sql" > "$work/postcheck036_after035.log" 2>&1
+cat "$work/postcheck036_after035.log"
+expect_lines "$work/postcheck036_after035.log" "postcheck reports the re-applied 035" '^FAIL +qc05 .*md5 [0-9a-f]{32}$'
+psql_as postgres -At < "$here/036/preflight.sql" > "$work/preflight036_recovery.log" 2>&1
+tally "$work/preflight036_recovery.log"
+rc=0
+psql_as postgres -v ON_ERROR_STOP=1 < "$m036" > "$work/apply036_3.log" 2>&1 || rc=$?
+if [[ $rc -eq 0 ]]; then pass "036 re-applied rc=0"; else fail "036 re-apply rc=$rc"; cat "$work/apply036_3.log"; fi
+psql_as postgres -At < "$here/036/postcheck.sql" > "$work/postcheck036_recovered.log" 2>&1
+tally "$work/postcheck036_recovered.log"
+fp036c=$(psql_as supabase_admin < "$here/fingerprint.sql")
+if [[ -n $fp7 && $fp036c == "$fp7" ]]; then pass "catalog after recovery equals the catalog after the first 036 apply"; else fail "catalog after recovery differs from the first 036 apply"; fi
 
 stage "summary ($image)"
 echo "failures=$failures"

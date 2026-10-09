@@ -1737,6 +1737,11 @@ class InMemoryStore:
             }
             return AIRequestState("created", requested_at=now)
 
+    def ai_requests_since(self, since: datetime) -> int:
+        """How many requests were created (or re-opened) at or after ``since``."""
+        with self._ai_lock:
+            return sum(1 for r in self._ai_requests.values() if r["requested_at"] >= since)
+
     def ai_pending_requests(self, user_id: str | None = None, limit: int = 200) -> dict[str, Any]:
         """Pending requests with each requester's address (``public.ai_pending_requests``)."""
         emails = {uid: email for email, uid in self._accounts_by_email.items()}
@@ -1777,14 +1782,23 @@ class InMemoryStore:
             req = self._ai_requests.get(user_id)
             if req is None or req["status"] != "pending":
                 return False
-            req.update(
-                status="approved",
-                decided_at=datetime.now(UTC),
-                decided_by=approved_by,
-                note=None,
-            )
+            now = datetime.now(UTC)
+            req.update(status="approved", decided_at=now, decided_by=approved_by, note=None)
             if self._ai_entitled_locked(user_id):
-                # Access already active: keep its limits and note.
+                # Access already active: keep its limits and note; audit the close.
+                self._audit_log.append(
+                    {
+                        "id": f"audit-{len(self._audit_log) + 1:04d}",
+                        "user_id": approved_by,
+                        "action": "ai_access_request_approved",
+                        "entity_type": "ai_access_request",
+                        "entity_id": user_id,
+                        "details": {},
+                        "ip_address": ip_address,
+                        "user_agent": user_agent,
+                        "created_at": now.isoformat(),
+                    }
+                )
                 return True
         self.ai_grant(
             user_id=user_id,
@@ -1799,9 +1813,14 @@ class InMemoryStore:
         return True
 
     def ai_forget_user(self, user_id: str) -> None:
-        """Erasure: drop the account's request and the address on its entitlement."""
+        """Erasure (``public.ai_forget_user``): clear the note, withdraw a pending
+        request, and clear the address on the entitlement. Status and dates stay."""
         with self._ai_lock:
-            self._ai_requests.pop(user_id, None)
+            req = self._ai_requests.get(user_id)
+            if req is not None:
+                if req["status"] == "pending":
+                    req.update(status="dismissed", decided_at=datetime.now(UTC))
+                req["note"] = None
             ent = self._ai_entitlements.get(user_id)
             if ent is not None:
                 ent["email"] = None
@@ -4684,6 +4703,17 @@ class SupabaseStore:
         if not isinstance(data, dict):
             raise RuntimeError("ai_pending_requests returned an unexpected shape")
         return {"total": int(data.get("total") or 0), "items": list(data.get("items") or [])}
+
+    def ai_requests_since(self, since: datetime) -> int:
+        res = (
+            self._client.table("ai_access_requests")
+            .select("user_id", count="exact")
+            .gte("requested_at", since.isoformat())
+            .execute()
+        )
+        if res.count is None:
+            raise RuntimeError("ai_access_requests count missing")
+        return int(res.count)
 
     def ai_forget_user(self, user_id: str) -> None:
         self._client.rpc("ai_forget_user", {"p_user_id": user_id}).execute()

@@ -28,6 +28,7 @@ from src.database.store import AI_REQUEST_COOLDOWN, InMemoryStore
 from tests.test_ai_gate import ADMIN, USER_A, USER_B, Gate, _auth
 
 URL = "/api/v1/ai/access-request"
+USER_C = "00000000-0000-4000-8000-0000000c0c03"  # not entitled, no address
 
 
 @pytest.fixture
@@ -159,7 +160,15 @@ def test_store_failures_fail_safe(
 
 @pytest.mark.parametrize(
     ("note", "expected"),
-    [("x" * 501, 422), ("line\x00break", 422), ("bell\x07", 422), ("  ", 200), ("a\nb\tc", 200)],
+    [
+        ("x" * 501, 422),
+        ("line\x00break", 422),
+        ("bell\x07", 422),
+        ("c1\x85x", 422),
+        ("sep\u2028x", 422),
+        ("  ", 200),
+        ("a\nb\tc", 200),
+    ],
 )
 def test_note_validation(gate: Gate, note: str, expected: int) -> None:
     assert _request(gate, note=note).status_code == expected
@@ -401,16 +410,106 @@ def test_store_failures_on_operator_actions_keep_the_error_contract(
         assert "connection reset" not in resp.text
 
 
-def test_data_erasure_removes_the_request_and_the_address_copy(gate: Gate) -> None:
+def test_data_erasure_clears_the_note_and_the_address_copy(gate: Gate) -> None:
     _request(gate, note="a private note")
     gate.client.post(f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN))
     _request(gate, user=USER_A)  # entitled: no row, nothing to remove
     assert gate.store._ai_entitlements[USER_B]["email"] == "b@example.test"
     resp = gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
     assert resp.status_code == 200, resp.text
-    assert USER_B not in gate.store._ai_requests
+    row = gate.store._ai_requests[USER_B]
+    assert (row["status"], row["note"]) == ("approved", None)  # the record stays
     assert gate.store._ai_entitlements[USER_B]["email"] is None
     assert gate.store._ai_entitlements[USER_B]["revoked_at"] is None  # access itself stays
+
+
+def test_data_erasure_withdraws_a_pending_request_and_its_note(gate: Gate) -> None:
+    _request(gate, note="a private note")
+    resp = gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
+    assert resp.status_code == 200, resp.text
+    row = gate.store._ai_requests[USER_B]
+    assert (row["status"], row["note"], row["decided_by"]) == ("dismissed", None, None)
+    listing = gate.client.get("/api/v1/superadmin/ai", headers=_auth(ADMIN)).json()
+    assert listing["requests"] == []  # the operator no longer sees it
+
+
+def test_erasure_does_not_reopen_requests_or_alerts(
+    gate: Gate, alerts: list[dict[str, Any]]
+) -> None:
+    """request -> erase -> request used to create a new request and a new email each time."""
+    assert _request(gate).json()["state"] == "created"
+    gate.client.post(f"/api/v1/superadmin/ai/requests/{USER_B}/dismiss", headers=_auth(ADMIN))
+    for _ in range(3):
+        assert gate.client.delete("/api/v1/user/data", headers=_auth(USER_B)).status_code == 200
+        assert _request(gate).json()["state"] == "dismissed"
+    assert len(alerts) == 1
+
+
+def test_erasing_a_pending_request_blocks_a_new_one(
+    gate: Gate, alerts: list[dict[str, Any]]
+) -> None:
+    assert _request(gate).json()["state"] == "created"
+    gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
+    body = _request(gate).json()
+    assert body["state"] == "dismissed" and body["retry_after"] is not None
+    assert len(alerts) == 1
+
+
+def test_operator_alerts_stop_at_the_hourly_cap(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch, alerts: list[dict[str, Any]]
+) -> None:
+    monkeypatch.setenv("AI_REQUEST_ALERTS_PER_HOUR", "1")
+    assert _request(gate, user=USER_B).json()["state"] == "created"
+    assert _request(gate, user=USER_C).json()["state"] == "created"
+    assert len(alerts) == 1  # the second request is recorded but not emailed
+    listing = gate.client.get("/api/v1/superadmin/ai", headers=_auth(ADMIN)).json()
+    assert {r["user_id"] for r in listing["requests"]} == {USER_C, USER_B}
+
+
+def test_old_requests_do_not_count_toward_the_cap(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch, alerts: list[dict[str, Any]]
+) -> None:
+    monkeypatch.setenv("AI_REQUEST_ALERTS_PER_HOUR", "1")
+    _request(gate, user=USER_C)
+    gate.store._ai_requests[USER_C]["requested_at"] -= timedelta(hours=2)
+    _request(gate, user=USER_B)
+    assert len(alerts) == 2
+
+
+@pytest.mark.parametrize(("value", "sent"), [("0", 0), ("junk", 1), ("", 1)])
+def test_alert_cap_setting(
+    gate: Gate,
+    monkeypatch: pytest.MonkeyPatch,
+    alerts: list[dict[str, Any]],
+    value: str,
+    sent: int,
+) -> None:
+    monkeypatch.setenv("AI_REQUEST_ALERTS_PER_HOUR", value)
+    _request(gate)
+    assert len(alerts) == sent
+
+
+def test_no_alert_when_the_count_cannot_be_read(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch, alerts: list[dict[str, Any]]
+) -> None:
+    def broken(since: datetime) -> int:
+        raise RuntimeError("connection reset")
+
+    monkeypatch.setattr(gate.store, "ai_requests_since", broken)
+    assert _request(gate).json()["state"] == "created"
+    assert alerts == []
+
+
+def test_approving_an_already_entitled_account_is_audited(gate: Gate) -> None:
+    _request(gate)
+    gate.grant(USER_B)  # the form grant closes the request ...
+    gate.store._ai_requests[USER_B].update(status="pending", decided_at=None, decided_by=None)
+    resp = gate.client.post(
+        f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN)
+    )
+    assert resp.status_code == 200, resp.text
+    actions = [r["action"] for r in gate.store._audit_log if r["entity_id"] == USER_B]
+    assert actions[-1] == "ai_access_request_approved"
 
 
 def test_error_reports_drop_request_notes() -> None:
@@ -438,3 +537,36 @@ def test_error_reports_drop_request_notes() -> None:
     assert kept(on_route) == [False, False, False] and "data" not in on_route["request"]
     # No request (a background task): the store's AI frames still lose their locals.
     assert kept(scrub_ai_event(event(None), {})) == [False, False, True]
+
+
+def test_error_reports_hide_the_requester_id_and_breadcrumbs() -> None:
+    uid = "00000000-0000-4000-8000-0000000b1b02"
+    event: dict[str, Any] = {
+        "request": {"url": f"https://api.example/api/v1/superadmin/ai/requests/{uid}/approve"},
+        "breadcrumbs": {"values": [{"message": "anything logged meanwhile"}]},
+    }
+    out = scrub_ai_event(event, {})
+    assert uid not in str(out)
+    assert out["request"]["url"].endswith("/requests/{id}/approve")
+    assert "breadcrumbs" not in out
+
+
+def test_other_routes_keep_ids_and_breadcrumbs() -> None:
+    uid = "00000000-0000-4000-8000-0000000b1b02"
+    event: dict[str, Any] = {
+        "request": {"url": f"https://api.example/api/v1/projects/{uid}"},
+        "breadcrumbs": {"values": [{"message": "m"}]},
+    }
+    out = scrub_ai_event(event, {})
+    assert uid in out["request"]["url"] and "breadcrumbs" in out
+
+
+def test_a_failed_ai_erasure_is_reported_as_partial(
+    gate: Gate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(user_id: str) -> None:
+        raise RuntimeError("connection reset")
+
+    monkeypatch.setattr(gate.store, "ai_forget_user", broken)
+    resp = gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
+    assert (resp.status_code, resp.json()["status"]) == (200, "partial")

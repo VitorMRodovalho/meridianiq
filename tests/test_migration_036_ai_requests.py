@@ -62,7 +62,7 @@ def test_table_is_api_only() -> None:
     assert "revoke all on table public.ai_access_requests from public, anon, authenticated;" in sql
     assert "revoke all on table public.ai_access_requests from service_role;" in sql
     assert re.findall(r"grant ([^;]*?) on table public\.ai_access_requests to ([^;]+);", sql) == [
-        ("select, insert, update, delete", "service_role")  # delete: erasure only
+        ("select, insert, update", "service_role")  # no delete: erasure keeps the row
     ]
     assert "create policy" not in sql
 
@@ -149,3 +149,18 @@ def test_ai_grant_keeps_035_and_only_adds_the_request_close() -> None:
         "decided_by = p_granted_by, note = null where r.user_id = p_user_id "
         "and r.status = 'pending';"
     )
+
+
+def test_erasure_keeps_the_row_that_holds_the_block() -> None:
+    """Deleting the row would let request -> erase -> request email the operator at will."""
+    fn = _normalised(M036).split("create or replace function public.ai_forget_user", 1)[1]
+    fn = fn.split("$$;", 1)[0]
+    assert "delete from" not in fn
+    assert "when r.status = 'pending' then 'dismissed'" in fn
+    assert "note = null" in fn
+
+
+def test_approving_an_already_entitled_account_is_audited() -> None:
+    fn = _normalised(M036).split("create or replace function public.ai_approve_request", 1)[1]
+    fn = fn.split("$$;", 1)[0]
+    assert "'ai_access_request_approved'" in fn
