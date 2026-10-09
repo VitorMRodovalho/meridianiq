@@ -1,6 +1,6 @@
 # 0031. Test the API contract from the data first; type it from the producer second
 
-* Status: **proposed**. This is the second draft; the entry council's findings are folded in (see §"Council record"). Placement decided 2026-10-09 (§Sequencing); one question remains open (§"Out of scope", `/openapi.json`).
+* Status: **proposed**. This is the second draft; the entry council's findings are folded in (see §"Council record"). Placement and the public-document question decided 2026-10-09 (§Sequencing, §"Out of scope").
 * Deciders: @VitorMRodovalho
 * Date: 2026-10-09
 * Cites:
@@ -200,7 +200,8 @@ The first draft's "interfaces outside the generated file" ratchet is dropped. Wh
 
 ## Out of scope
 
-* API versioning and a deprecation policy. Open question for the owner: should `/openapi.json` and `/docs` stay public in production once the document is the contract?
+* API versioning and a deprecation policy.
+* **Public document, decided by the owner on 2026-10-09 (option B):** `/openapi.json` stays public, since the repository already carries its content. `/docs` and `/redoc` are off in production: they ran `swagger-ui-dist@5` (a floating major) from a CDN on the API's origin, with no Content-Security-Policy. This is implemented in PR #297.
 * WebSocket payloads (`useWebSocketProgress.ts:370` parses them with `as WSProgressEvent`). This is a later item, with the same approach.
 * The MCP server's tool outputs.
 * Request bodies and parameters are *in* scope at no extra cost: the path-keyed wrapper types them from the same `paths` map.
