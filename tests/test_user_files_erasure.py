@@ -32,19 +32,26 @@ class _FakeBucket:
         return self
 
     def list(self, path: str | None = None, options: dict[str, Any] | None = None) -> list[dict]:
+        """One level, sorted by name, paged by limit/offset (storage3 defaults: 100, 0)."""
+        options = options or {}
+        limit, offset = int(options.get("limit", 100)), int(options.get("offset", 0))
         prefix = f"{path}/" if path else ""
         level: dict[str, bool] = {}
         for name in self.names:
             if name.startswith(prefix):
                 head, _, rest = name[len(prefix) :].partition("/")
                 level[head] = level.get(head, False) or bool(rest)
-        return [{"name": n, "id": None if folder else f"id-{n}"} for n, folder in level.items()]
+        entries = [{"name": n, "id": None if level[n] else f"id-{n}"} for n in sorted(level)]
+        return entries[offset : offset + limit]
 
     def remove(self, paths: list[str]) -> list[dict]:
+        """Returns the objects it deleted, as the Storage API does."""
         self.remove_calls.append(list(paths))
-        if self.removes:
-            self.names -= set(paths)
-        return []
+        if not self.removes:
+            return []
+        gone = [p for p in paths if p in self.names]
+        self.names -= set(gone)
+        return [{"name": p} for p in gone]
 
 
 class _Client(_MockClient):
@@ -76,6 +83,33 @@ def test_removes_every_file_in_the_users_folder_and_nothing_else() -> None:
 
     assert removed == 3  # the orphan without a row too
     assert bucket.names == {B_FILE, "anonymous/up0/schedule.xer"}
+
+
+def test_a_slash_in_the_schedule_name_nests_deeper_and_is_still_removed() -> None:
+    """The file name is the schedule's short name, unsanitised: ``A/B`` nests."""
+    deep = f"{USER_A}/up1/Block A/Level 2/Tower.xer"
+    bucket = _FakeBucket({deep, B_FILE})
+
+    assert _store(bucket, []).delete_user_files(USER_A) == 1
+    assert bucket.names == {B_FILE}
+
+
+def test_more_than_a_page_of_uploads_is_removed() -> None:
+    names = {f"{USER_A}/up{i:04d}/s.xer" for i in range(1001)}
+    bucket = _FakeBucket(names | {B_FILE})
+
+    assert _store(bucket, []).delete_user_files(USER_A) == 1001
+    assert bucket.names == {B_FILE}
+
+
+def test_a_row_whose_file_is_already_gone_is_not_counted() -> None:
+    bucket = _FakeBucket({f"{USER_A}/up1/Tower.xer"})
+    projects = [
+        {"user_id": USER_A, "storage_path": f"{USER_A}/up1/Tower.xer"},
+        {"user_id": USER_A, "storage_path": f"{USER_A}/up2/gone.xer"},
+    ]
+
+    assert _store(bucket, projects).delete_user_files(USER_A) == 1
 
 
 def test_a_row_pointing_outside_the_users_folder_is_not_followed() -> None:
@@ -119,14 +153,41 @@ def test_route_reports_the_files_and_complete(monkeypatch: pytest.MonkeyPatch) -
     assert (response.deleted_files, response.status) == (3, "complete")
 
 
-def test_route_reports_partial_when_storage_fails(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = InMemoryStore()
+class _RowsStore(InMemoryStore):
+    """Records whether the route went on to delete the rows."""
 
-    def fail(user_id: str) -> int:
-        raise RuntimeError("storage down")
+    def __init__(self, files_fail: bool) -> None:
+        super().__init__()
+        self.files_fail = files_fail
+        self.rpc_calls: list[str] = []
+        store = self
 
-    store.delete_user_files = fail  # type: ignore[attr-defined]
+        class _Client:
+            def rpc(self, name: str, params: dict[str, Any]) -> Any:
+                store.rpc_calls.append(name)
+                raise RuntimeError("stop here")
+
+            def table(self, name: str) -> Any:
+                raise RuntimeError("stop here")
+
+        self._client = _Client()
+
+    def delete_user_files(self, user_id: str) -> int:
+        if self.files_fail:
+            raise RuntimeError("storage down")
+        return 2
+
+
+def test_route_keeps_the_rows_and_reports_partial_when_storage_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _RowsStore(files_fail=True)
 
     response = _erase(monkeypatch, store)
 
     assert (response.deleted_files, response.status) == (0, "partial")
+    assert store.rpc_calls == []  # the rows still point at the files for the retry
+    # Control: when Storage finishes, the route does go on to the rows.
+    ok = _RowsStore(files_fail=False)
+    _erase(monkeypatch, ok)
+    assert ok.rpc_calls == ["delete_user_data"]

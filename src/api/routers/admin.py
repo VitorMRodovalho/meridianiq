@@ -162,10 +162,12 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
     ai_forgotten = ai_gate.forget_user(store, str(user_id))
 
     # The uploaded files are outside the database cascade too. They go
-    # before the rows: a failure leaves the rows to retry against, and the
-    # retry finds the files by the user's folder either way.
+    # before the rows, and if any is left the rows stay: they point at the
+    # files, and the user's retry resumes from both.
     deleted_files, files_gone = _delete_user_files(store, str(user_id))
-    complete = ai_forgotten and files_gone
+    if not files_gone:
+        return GDPRDeleteResponse(deleted_files=deleted_files, status="partial")
+    complete = ai_forgotten
 
     # Count before deletion for response
     deleted = {

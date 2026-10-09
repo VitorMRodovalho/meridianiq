@@ -222,10 +222,11 @@ simulations, contributed benchmarks, programs, API keys and the
 profile; see the `delete_user_data` function in migration 014), and
 clears the user-linked actor identity from derivative rows (via `ON
 DELETE SET NULL` on `schedule_derived_artifacts.computed_by`, migration
-023). It also removes the user's uploaded files from Storage: every
-object in the user's folder, including one whose row is already gone,
-and it reports how many (`deleted_files`). It reports `partial` when a
-file is still listed afterwards; calling it again resumes.
+023). It first removes the user's uploaded files from Storage: every
+object in the user's folder at any depth, including one whose row is
+already gone, and it reports how many were removed (`deleted_files`). If
+a file is still listed afterwards it stops there, reports `partial` and
+leaves the rows, so calling it again resumes.
 
 `DELETE /api/v1/user/data` also erases the AI access request's note,
 withdraws a pending request (it becomes dismissed, so the operator no

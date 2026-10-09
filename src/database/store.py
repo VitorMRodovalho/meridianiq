@@ -2937,17 +2937,29 @@ class SupabaseStore:
             return None
 
     def _user_storage_paths(self, prefix: str) -> set[str]:
-        """Every object under ``{user_id}/``: uploads sit at ``{user_id}/{upload_id}/<file>``."""
+        """Every object under ``prefix``, at any depth, every page.
+
+        An upload sits at ``{user_id}/{upload_id}/<file>``, but the file name
+        is the schedule's own short name and can hold a ``/``, so folders are
+        followed all the way down.
+        """
         bucket = self._client.storage.from_(self.BUCKET)
         found: set[str] = set()
-        for entry in bucket.list(prefix.rstrip("/"), {"limit": 1000}):
-            name = f"{prefix}{entry['name']}"
-            if entry.get("id") is not None:
-                found.add(name)
-                continue
-            for item in bucket.list(name, {"limit": 1000}):
-                if item.get("id") is not None:
-                    found.add(f"{name}/{item['name']}")
+        folders = [prefix.rstrip("/")]
+        while folders:
+            folder = folders.pop()
+            offset = 0
+            while True:
+                page = bucket.list(folder, {"limit": 1000, "offset": offset})
+                for entry in page:
+                    name = f"{folder}/{entry['name']}"
+                    if entry.get("id") is None:
+                        folders.append(name)
+                    else:
+                        found.add(name)
+                if len(page) < 1000:
+                    break
+                offset += len(page)
         return found
 
     def delete_user_files(self, user_id: str) -> int:
@@ -2957,23 +2969,26 @@ class SupabaseStore:
         ``projects.storage_path``, so one whose row is already gone is
         removed too. Only paths under ``{user_id}/`` are touched. Raises
         when an object is still listed afterwards, so the caller can report
-        a partial erasure; a retry finds what is left.
+        a partial erasure and keep the rows; a retry finds what is left.
         """
         uuid.UUID(user_id)  # never list or remove from a prefix the caller did not own
         prefix = f"{user_id}/"
         paths = self._user_storage_paths(prefix)
         rows = self._select("projects", {"user_id": user_id}, columns="storage_path")
-        paths |= {
-            r["storage_path"] for r in rows if str(r.get("storage_path") or "").startswith(prefix)
-        }
+        for row in rows:
+            path = str(row.get("storage_path") or "")
+            if path.startswith(prefix) and ".." not in path.split("/"):
+                paths.add(path)
         ordered = sorted(paths)
         bucket = self._client.storage.from_(self.BUCKET)
+        removed = 0
         for start in range(0, len(ordered), 100):
-            bucket.remove(ordered[start : start + 100])
+            result = bucket.remove(ordered[start : start + 100])
+            removed += len(result) if isinstance(result, list) else 0
         left = self._user_storage_paths(prefix)
         if left:
             raise RuntimeError(f"{len(left)} Storage object(s) still listed after removal")
-        return len(ordered)
+        return removed
 
     # -- programs --------------------------------------------------------
 
