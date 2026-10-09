@@ -41,6 +41,7 @@ Access rules (ADR-0030):
 from __future__ import annotations
 
 import re
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -380,6 +381,11 @@ def list_organizations(caller: Principal = Depends(_caller)) -> dict[str, Any]:
     return {"organizations": orgs}
 
 
+# Postgres SQLSTATE for a UNIQUE violation, as PostgREST reports it.
+_UNIQUE_VIOLATION = "23505"
+_SLUG_ATTEMPTS = 3
+
+
 @router.post("/organizations")
 @limiter.limit(RATE_LIMIT_WRITE)
 def create_organization(
@@ -390,23 +396,35 @@ def create_organization(
     """Create a new organization and add the creator as owner."""
     client = _get_supabase()
 
-    slug = re.sub(r"[^a-zA-Z0-9]", "-", req.name.lower()).strip("-")
-    slug = f"{slug}-{caller.user_id[:8]}"
+    base = re.sub(r"[^a-zA-Z0-9]", "-", req.name.lower()).strip("-")
+    base = f"{base}-{caller.user_id[:8]}"
 
-    # Create org
-    org_result = (
-        client.table("organizations")
-        .insert(
-            {
-                "name": req.name,
-                "slug": slug,
-                "org_type": req.org_type,
-                "description": req.description,
-                "created_by": caller.user_id,
-            }
-        )
-        .execute()
-    )
+    # The slug is unique, and the base repeats whenever the same user reuses a
+    # name (or the name of the workspace the signup trigger made for them), so
+    # a clash gets a random suffix instead of surfacing as a 500.
+    org_result = None
+    for attempt in range(_SLUG_ATTEMPTS):
+        slug = base if attempt == 0 else f"{base}-{secrets.token_hex(3)}"
+        try:
+            org_result = (
+                client.table("organizations")
+                .insert(
+                    {
+                        "name": req.name,
+                        "slug": slug,
+                        "org_type": req.org_type,
+                        "description": req.description,
+                        "created_by": caller.user_id,
+                    }
+                )
+                .execute()
+            )
+            break
+        except Exception as exc:
+            if getattr(exc, "code", None) != _UNIQUE_VIOLATION:
+                raise
+    if org_result is None:
+        raise HTTPException(status_code=409, detail="Could not create the organization, try again")
 
     if not org_result.data:
         raise HTTPException(status_code=500, detail="Failed to create organization")

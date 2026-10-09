@@ -120,6 +120,7 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
     "memberships": {"accepted_at": None, "invited_by": None},
 }
 _UNIQUE: dict[str, tuple[str, ...]] = {
+    "organizations": ("slug",),
     "memberships": ("org_id", "user_id"),
     "project_shares": ("project_id", "shared_with_org"),
 }
@@ -254,6 +255,12 @@ def _instant(value: str) -> datetime:
     return datetime.fromisoformat(value)
 
 
+class UniqueViolation(RuntimeError):
+    """A clash on a unique key, carrying the SQLSTATE PostgREST reports."""
+
+    code = "23505"
+
+
 class FakeSupabase:
     """Tables as lists of rows; every executed query is appended to ``log``."""
 
@@ -366,7 +373,7 @@ class FakeSupabase:
                 if clash and q.op == "upsert" and q.ignore_duplicates and merges:
                     continue  # ON CONFLICT DO NOTHING
                 if clash and not merges:
-                    raise RuntimeError(f"duplicate key value violates unique constraint {key}")
+                    raise UniqueViolation(f"duplicate key value violates unique constraint {key}")
                 if clash:
                     clash[0].update(payload)
                     out.append(copy.deepcopy(clash[0]))
@@ -1251,6 +1258,33 @@ class TestOrganizationInput:
         body = {"name": "x" * 120, "description": "d" * 2000, "org_type": "t" * 40}
         resp = world.client.post("/api/v1/organizations", json=body, headers=world.h(NEWBIE))
         _ok(resp, "create at the caps")
+
+    def test_reusing_a_name_creates_a_second_organization(self, world: World) -> None:
+        body = {"name": "Same Name"}
+        first = world.client.post("/api/v1/organizations", json=body, headers=world.h(NEWBIE))
+        second = world.client.post("/api/v1/organizations", json=body, headers=world.h(NEWBIE))
+        _ok(first, "first create")
+        _ok(second, "second create")
+        a, b = first.json()["organization"], second.json()["organization"]
+        assert a["id"] != b["id"]
+        assert a["slug"] == f"same-name-{NEWBIE[:8]}"
+        assert b["slug"].startswith(f"same-name-{NEWBIE[:8]}-")
+        mine = world.db.rows("memberships", user_id=NEWBIE, role="owner")
+        assert {m["org_id"] for m in mine} >= {a["id"], b["id"]}
+
+    def test_a_slug_that_keeps_clashing_is_a_409_not_a_500(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(organizations.secrets, "token_hex", lambda _n: "abcdef")
+        base = f"taken-{NEWBIE[:8]}"
+        world.db.seed("organizations", name="Taken", slug=base, org_type="general")
+        world.db.seed("organizations", name="Taken", slug=f"{base}-abcdef", org_type="general")
+        before = world.db.snapshot()
+        resp = world.client.post(
+            "/api/v1/organizations", json={"name": "Taken"}, headers=world.h(NEWBIE)
+        )
+        assert resp.status_code == 409, resp.text
+        assert world.db.snapshot() == before
 
 
 class TestListingCost:
