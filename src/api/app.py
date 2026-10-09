@@ -53,10 +53,17 @@ from .deps import limiter
 
 logger = logging.getLogger(__name__)
 
+# Swagger UI and ReDoc load scripts from a CDN (swagger-ui-dist@5, a floating
+# major) and run them on the API's origin. Production serves only the OpenAPI
+# document, whose content the public repository already carries (ADR-0031).
+_INTERACTIVE_DOCS = os.getenv("ENVIRONMENT", "development") != "production"
+
 app = FastAPI(
     title="MeridianIQ",
     description="The intelligence standard for project schedules",
     version=_RELEASE.split("@", 1)[1] if "@" in _RELEASE else "unknown",
+    docs_url="/docs" if _INTERACTIVE_DOCS else None,
+    redoc_url="/redoc" if _INTERACTIVE_DOCS else None,
 )
 
 try:
