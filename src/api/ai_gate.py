@@ -305,12 +305,12 @@ def make_client(config: AIConfig) -> Any:
     bill a call the provider already answered, so retries are off.
     """
     import anthropic
-    import httpx
 
+    # The SDK's own Timeout: 1.x moved to httpx2 and rejects an httpx.Timeout.
     return anthropic.Anthropic(
         api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
         max_retries=0,
-        timeout=httpx.Timeout(REQUEST_TIMEOUT_S, connect=CONNECT_TIMEOUT_S),
+        timeout=anthropic.Timeout(REQUEST_TIMEOUT_S, connect=CONNECT_TIMEOUT_S),
     )
 
 
