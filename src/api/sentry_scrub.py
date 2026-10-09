@@ -55,6 +55,12 @@ _KEPT_REQUEST_FIELDS = frozenset({"method", "url"})
 #: and an address on the lookups by email), on spans and on breadcrumbs.
 _QUERY_KEYS = ("http.query", "http.fragment")
 
+#: An object path in a Supabase Storage URL: ``{user_id}/{upload_id}/{project
+#: name}.xer``. It is on outgoing-call spans (description and url), on their
+#: breadcrumbs, and in an HTTP error's message, so it is replaced wherever a
+#: string in the event carries it. A project name is client data.
+_STORAGE_OBJECT = re.compile(r"(/storage/v1/object/)[^'\"?#\r\n]+")
+
 _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
@@ -96,12 +102,25 @@ def _drop_queries(event: dict[str, Any]) -> None:
             _drop_query(crumb.get("data"))
 
 
+def _redact_storage_paths(value: Any) -> Any:
+    if isinstance(value, str):
+        return _STORAGE_OBJECT.sub(r"\1{path}", value)
+    if isinstance(value, dict):
+        for key, item in value.items():
+            value[key] = _redact_storage_paths(item)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            value[index] = _redact_storage_paths(item)
+    return value
+
+
 def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
     """Sentry ``before_send`` / ``before_send_transaction``: minimal request, no AI data.
 
     Every event keeps only the request's method and path (see
     ``_KEPT_REQUEST_FIELDS``), and loses the query strings of the outgoing
-    calls recorded on its spans, trace context and breadcrumbs.
+    calls recorded on its spans, trace context and breadcrumbs, and the
+    object path of every Storage URL anywhere in it.
 
     On an AI route the request's own data is also in framework frames
     (FastAPI's body parsing, the threadpool, the rate limiter), so every
@@ -128,4 +147,5 @@ def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any
         request["url"] = _UUID.sub("{id}", str(request.get("url") or ""))
         # Log lines recorded during the request are not scrubbed: drop them.
         event.pop("breadcrumbs", None)
+    _redact_storage_paths(event)
     return event

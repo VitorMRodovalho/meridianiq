@@ -85,7 +85,13 @@ hand; it is not a substitute for the source file.
   `user_agent`, and action-specific `details` JSON. Added to support
   forensic traceability per the SCL Protocol 2nd ed §4 expectations of
   construction-claims-grade recordkeeping.
-- `organizations` / `organization_members` — multi-tenant scaffolding.
+- `user_profiles` — one row per account, created at sign-up from the
+  identity provider: email address, full name, company, role, avatar URL.
+  Supabase Auth keeps its own record of the account (`auth.users`: email
+  address, provider identities, sign-in times).
+- `organizations` / `memberships` — multi-tenant scaffolding.
+- `forensic_access_log` — who viewed, exported, modified or shared a
+  forensic timeline (`user_id`, organization, action, details, time).
 - `programs` / `schedule_uploads` — grouping and revision history.
 - `benchmarks`, `risk_register`, `erp_cost_tables`, etc. — feature-
   specific derivatives.
@@ -110,8 +116,10 @@ it, and then only for accounts the operator approves.
   hour over all accounts (`AI_REQUEST_ALERTS_PER_HOUR`); requests above
   that are recorded and listed without an email.
 - What is sent to the model provider on a call: a compact statistical
-  summary of the schedule (counts, rounded metrics, a truncated project
-  short name) and the user's question. No activity names, no raw schedule.
+  summary of the schedule (counts, rounded metrics, the project's short
+  name up to 120 characters) and the user's question as typed, which is
+  free text and can hold anything the user writes. No activity names, no
+  raw schedule.
 
 ---
 
@@ -127,10 +135,14 @@ it, and then only for accounts the operator approves.
   Chapter V transfer mechanisms (SCCs, adequacy decisions, etc.).
   MeridianIQ provides no transfer mechanism on any operator's behalf.
 - **Backend compute:** Fly.io region of the operator's choosing. The
-  reference deployment runs on `gru` (São Paulo). Stateless; no
-  persistent data on Fly.io.
-- **Frontend:** Cloudflare Pages CDN. Static assets only; no data at
-  rest.
+  reference deployment runs in `iad` (Ashburn, Virginia, United States;
+  measured with `fly status` on 2026-10-09). It holds no database and no
+  files, but some analysis results (timelines, TIA, EVM, risk) live in
+  the API process's memory until the machine restarts or the user erases
+  their data, and the API's log lines pass through Fly.io's logging.
+- **Frontend:** Cloudflare Pages CDN serves the static frontend. It
+  stores no user data, and like any CDN it processes visitors' request
+  metadata (such as the IP address) under its own terms.
 - **Third-party inference (opt-in):** When the `NLP Query` feature is
   invoked, the analysis **summary** (never the raw schedule) is sent to
   Anthropic's Claude API. See `src/analytics/nlp_query.py`. If this is a
@@ -142,6 +154,10 @@ it, and then only for accounts the operator approves.
   Germany). A report holds the stack trace without local variables,
   the request's method and path (paths can contain project or
   organization IDs), the release and environment, and recent log lines.
+  The exception's message and any log record at ERROR level are sent as
+  written, so they can contain an identifier or a value the code put in
+  them. The path of a file in Storage (`{user_id}/{upload_id}/{project
+  name}.xer`) is replaced by `{path}` anywhere in a report.
   It holds no query string (neither the request's nor those of the
   API's own calls to its database), request headers, cookies or request
   body, so no credentials and no client IP address (`send_default_pii=False`,
@@ -149,6 +165,14 @@ it, and then only for accounts the operator approves.
   `Fly-Client-IP`, which the SDK's own filter does not cover). On the AI
   routes the log lines are dropped and IDs in the path are masked. See
   `src/api/app.py`.
+- **Product analytics (off in the reference deployment):** the frontend
+  loads PostHog only when it is built with `VITE_POSTHOG_KEY`
+  (`web/src/lib/analytics.ts`). The reference deployment is built
+  without it (measured 2026-10-09: no PostHog script, request or browser
+  storage). When it is set, PostHog receives page views, page leaves and
+  a client error event, keeps an identifier in the browser's
+  `localStorage`, and sends to `VITE_POSTHOG_HOST` (default
+  `us.i.posthog.com`, United States).
 
 ---
 
@@ -178,10 +202,11 @@ it removes the entire graph of dependent rows via `ON DELETE CASCADE`:
 - `schedule_derived_artifacts` cascades per migration 023 and ADR-0014,
   enforced by the `test_post_persist_tables_declare_on_delete_cascade`
   CI guard in `tests/test_schema_fk_cascade.py`.
-- The uploaded XER binary in the `xer-files` Storage bucket is removed
-  by `SupabaseStore._persist_schedule_data`'s compensating cleanup (see
-  ADR-0012 amendment #1). A best-effort attempt is also made on user-
-  initiated delete (see `src/database/store.py`).
+- **The uploaded XER binary in the `xer-files` Storage bucket is not
+  removed.** No code path deletes a Storage object today: not the
+  compensating cleanup of a failed persist, and not the erasure in §4.1.
+  Deleting the rows leaves the file in the bucket, where only an operator
+  with `service_role` can remove it (§4.2). This is a known defect.
 
 `audit_log` rows **do not** cascade — they persist after the entity is
 deleted, referencing it by `entity_id` string. This is intentional for
@@ -190,11 +215,15 @@ alongside the entity must remove the rows explicitly.
 
 ### 4.1 User-initiated erasure
 
-A MeridianIQ user can delete their own projects through the API; this
-triggers the cascade above. The project-level delete removes the
-schedule graph and (via `ON DELETE SET NULL` on
-`schedule_derived_artifacts.computed_by` added in migration 023) clears
-the user-linked actor identity from derivative rows.
+There is no endpoint to delete a single project. `DELETE
+/api/v1/user/data` deletes the user's rows (uploads, projects and the
+cascade above, analyses, comparisons, timelines, TIA, EVM, risk
+simulations, contributed benchmarks, programs, API keys and the
+profile; see the `delete_user_data` function in migration 014), and
+clears the user-linked actor identity from derivative rows (via `ON
+DELETE SET NULL` on `schedule_derived_artifacts.computed_by`, migration
+023). It does **not** remove the uploaded files from Storage (§4), and
+its `complete` status does not cover them.
 
 `DELETE /api/v1/user/data` also erases the AI access request's note,
 withdraws a pending request (it becomes dismissed, so the operator no
@@ -234,8 +263,11 @@ responsibility and should be documented by the operator independently.
 ## 5. Access controls
 
 - **Row Level Security (RLS)** is enabled on every schedule-related
-  table. Policies check `projects.user_id = auth.uid()`. No
-  `WITH CHECK (TRUE)` escapes exist; the `schedule_derived_artifacts`
+  table. Policies check `projects.user_id = auth.uid()`. Migration 011
+  created two INSERT policies with `WITH CHECK (TRUE)`, on `alerts` and
+  `health_scores`; client roles held no INSERT privilege on either table
+  (measured 2026-10-09), and migration 037 drops both. The
+  `schedule_derived_artifacts`
   RLS quadruple (SELECT / INSERT / UPDATE / DELETE) mirrors the
   migration-018 pattern, extended by migration 023 with an UPDATE policy
   to eliminate a silent-no-op class under the `authenticated` role (see
@@ -281,11 +313,12 @@ presenting it to any data subject.
 | Role | Provider (reference) | Region (reference) |
 |---|---|---|
 | Auth, DB, Storage | Supabase | us-west-2 |
-| Backend compute | Fly.io | gru (São Paulo, configurable) |
+| Backend compute | Fly.io | iad (Ashburn, Virginia, US; configurable) |
 | Frontend CDN | Cloudflare Pages | global edge |
 | Optional NLP | Anthropic | US (Claude API) |
 | Operator email alerts (new account, AI access request) | Resend | per the operator's Resend account |
 | Error monitoring (opt-in, `SENTRY_DSN`) | Sentry | EU (Frankfurt) |
+| Product analytics (opt-in, `VITE_POSTHOG_KEY`; not enabled) | PostHog | US by default |
 
 Each of these providers has their own privacy policy; operators who
 adopt MeridianIQ should review them against their jurisdiction's
@@ -325,5 +358,7 @@ jurisdiction.**
 
 ---
 
-*Last reviewed: 2026-04-18 — MeridianIQ v4.0 Cycle 1 Wave 1, alongside
-migration 023 (see ADR-0009, ADR-0014).*
+*Last reviewed: 2026-10-09, for the backend region, Storage erasure,
+error monitoring, RLS, product analytics and the data classes in §1.4.
+The rest was last reviewed 2026-04-18 (MeridianIQ v4.0 Cycle 1 Wave 1,
+alongside migration 023; see ADR-0009, ADR-0014).*

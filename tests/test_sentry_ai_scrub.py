@@ -340,3 +340,28 @@ def test_outgoing_call_queries_are_dropped_from_spans_trace_and_breadcrumbs() ->
     assert "person" not in out and "eq." not in out and "a=1" not in out
     assert "https://ref.supabase.co/rest/v1/users" in out  # the path stays
     assert '"db.system": "postgresql"' in out
+
+
+def test_storage_object_paths_are_replaced_wherever_they_appear() -> None:
+    """A Storage path is ``{user_id}/{upload_id}/{project name}.xer``.
+
+    Measured with the SDK on 2026-10-09: a failed call to a Storage-shaped
+    URL put the path in 5 places across the error and the transaction (the
+    span's description and url, the breadcrumb, the logged message).
+    """
+    path = "/storage/v1/object/xer-files/u1/up1/PROBEPROJ%20Tower%20B.xer"
+    url = f"https://ref.supabase.co{path}"
+    event: dict[str, object] = {
+        "spans": [{"op": "http.client", "description": f"PUT {url}", "data": {"url": url}}],
+        "breadcrumbs": {"values": [{"type": "http", "data": {"url": url}}]},
+        "logentry": {"message": "Failed: %s", "params": [f"404 for url '{url}'"]},
+        "exception": {"values": [{"type": "HTTPStatusError", "value": f"for url '{url}'"}]},
+    }
+
+    out = json.dumps(scrub_ai_event(event, {}))
+
+    assert "PROBEPROJ" not in out and "up1" not in out
+    assert out.count("/storage/v1/object/{path}") == 5
+    # Other URLs keep their path.
+    rest = {"spans": [{"data": {"url": "https://ref.supabase.co/rest/v1/projects"}}]}
+    assert "/rest/v1/projects" in json.dumps(scrub_ai_event(rest, {}))
