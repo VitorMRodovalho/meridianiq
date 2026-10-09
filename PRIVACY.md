@@ -142,8 +142,9 @@ it, and then only for accounts the operator approves.
   Germany). A report holds the stack trace without local variables,
   the request's method and path (paths can contain project or
   organization IDs), the release and environment, and recent log lines.
-  It holds no query string, request headers, cookies or request body,
-  so no credentials and no client IP address (`send_default_pii=False`,
+  It holds no query string (neither the request's nor those of the
+  API's own calls to its database), request headers, cookies or request
+  body, so no credentials and no client IP address (`send_default_pii=False`,
   and `src/api/sentry_scrub.py` removes every header, including
   `Fly-Client-IP`, which the SDK's own filter does not cover). On the AI
   routes the log lines are dropped and IDs in the path are masked. See

@@ -50,6 +50,11 @@ AI_FUNCTIONS = frozenset(
 #: environment, the query string and the body. PRIVACY.md §2 states this.
 _KEPT_REQUEST_FIELDS = frozenset({"method", "url"})
 
+#: Query data the SDK's HTTP integrations record on outgoing calls. The calls
+#: to Supabase's REST API carry PostgREST filters there (``user_id=eq.<id>``,
+#: and an address on the lookups by email), on spans and on breadcrumbs.
+_QUERY_KEYS = ("http.query", "http.fragment")
+
 _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
@@ -70,11 +75,33 @@ def _drop_all_locals(frames: Any) -> None:
         frame.pop("vars", None)
 
 
+def _drop_query(data: Any) -> None:
+    if not isinstance(data, dict):
+        return
+    for key in _QUERY_KEYS:
+        data.pop(key, None)
+    if isinstance(data.get("url"), str):
+        data["url"] = data["url"].split("?", 1)[0]
+
+
+def _drop_queries(event: dict[str, Any]) -> None:
+    for span in event.get("spans") or []:
+        if isinstance(span, dict):
+            _drop_query(span.get("data"))
+    _drop_query(((event.get("contexts") or {}).get("trace") or {}).get("data"))
+    crumbs = event.get("breadcrumbs")
+    values = crumbs.get("values") if isinstance(crumbs, dict) else crumbs
+    for crumb in values or []:
+        if isinstance(crumb, dict):
+            _drop_query(crumb.get("data"))
+
+
 def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
     """Sentry ``before_send`` / ``before_send_transaction``: minimal request, no AI data.
 
     Every event keeps only the request's method and path (see
-    ``_KEPT_REQUEST_FIELDS``).
+    ``_KEPT_REQUEST_FIELDS``), and loses the query strings of the outgoing
+    calls recorded on its spans, trace context and breadcrumbs.
 
     On an AI route the request's own data is also in framework frames
     (FastAPI's body parsing, the threadpool, the rate limiter), so every
@@ -86,6 +113,7 @@ def scrub_ai_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any
             request.pop(field)
         if "url" in request:
             request["url"] = str(request["url"] or "").split("?", 1)[0]
+    _drop_queries(event)
     ai_request = isinstance(request, dict) and _is_ai_path(str(request.get("url") or ""))
     for key in ("exception", "threads"):
         for value in (event.get(key) or {}).get("values") or []:

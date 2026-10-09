@@ -301,3 +301,42 @@ def test_control_without_the_hooks_the_note_is_in_the_events() -> None:
     result = _run_route(no_scrub=True)
     assert result["errors"] >= 1 and result["transactions"] >= 1
     assert result["note"] is True
+
+
+def test_outgoing_call_queries_are_dropped_from_spans_trace_and_breadcrumbs() -> None:
+    """PostgREST filters ride on the SDK's http.client spans and breadcrumbs.
+
+    Measured in production on 2026-10-09: 6 http.client spans to Supabase
+    carried ``http.query`` with ``=eq.`` filters; a lookup by email puts the
+    address there.
+    """
+    query = "email=eq.person%40example.com&select=id"
+    event: dict[str, object] = {
+        "type": "transaction",
+        "request": {"method": "GET", "url": "https://api.example/api/v1/orgs/x/invites"},
+        "contexts": {"trace": {"data": {"http.query": "a=1", "url": "https://api.example/p?a=1"}}},
+        "spans": [
+            {
+                "op": "http.client",
+                "data": {"url": "https://ref.supabase.co/rest/v1/users", "http.query": query},
+            },
+            {"op": "db", "data": {"db.system": "postgresql"}},
+        ],
+        "breadcrumbs": {
+            "values": [
+                {
+                    "type": "http",
+                    "data": {
+                        "url": f"https://ref.supabase.co/rest/v1/users?{query}",
+                        "http.query": query,
+                    },
+                }
+            ]
+        },
+    }
+
+    out = json.dumps(scrub_ai_event(event, {}))
+
+    assert "person" not in out and "eq." not in out and "a=1" not in out
+    assert "https://ref.supabase.co/rest/v1/users" in out  # the path stays
+    assert '"db.system": "postgresql"' in out
