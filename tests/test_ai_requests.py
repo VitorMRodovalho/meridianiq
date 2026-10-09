@@ -570,3 +570,14 @@ def test_a_failed_ai_erasure_is_reported_as_partial(
     monkeypatch.setattr(gate.store, "ai_forget_user", broken)
     resp = gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
     assert (resp.status_code, resp.json()["status"]) == (200, "partial")
+
+
+@pytest.mark.parametrize(
+    "url", ["https://api.resend.com/emails", "https://RESEND.COM/x", "http://resend.com"]
+)
+def test_the_email_guard_blocks_resend(url: str) -> None:
+    """tests/conftest.py stands behind every test: a real send must fail."""
+    import urllib.request
+
+    with pytest.raises(AssertionError, match="real email through Resend"):
+        urllib.request.urlopen(url)

@@ -102,13 +102,15 @@ def _no_real_email(monkeypatch: pytest.MonkeyPatch) -> None:
     Tests of the senders replace ``urllib.request.urlopen`` themselves; this
     guard only stands behind them.
     """
+    import urllib.parse
     import urllib.request
 
     original = urllib.request.urlopen
 
     def _guard(url: object, *args: object, **kwargs: object) -> object:
         target = getattr(url, "full_url", url)
-        if "resend.com" in str(target):
+        host = (urllib.parse.urlsplit(str(target)).hostname or "").lower()
+        if host == "resend.com" or host.endswith(".resend.com"):
             raise AssertionError("a test tried to send a real email through Resend")
         return original(url, *args, **kwargs)  # type: ignore[arg-type]
 
