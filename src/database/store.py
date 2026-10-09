@@ -1725,6 +1725,8 @@ class InMemoryStore:
                 return AIRequestState("dismissed", retry_after=until)
             # Same as the SQL conflict condition: a decision under 30 days old
             # is not re-opened (it covers a decision that lands mid-request).
+            if req is not None and req["decided_at"] > now - AI_REQUEST_COOLDOWN:
+                return AIRequestState("dismissed", retry_after=until)
             self._ai_requests[user_id] = {
                 "user_id": user_id,
                 "status": "pending",
