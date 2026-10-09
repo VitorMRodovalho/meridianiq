@@ -8,21 +8,28 @@
 	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 
+	// Mirrors asdict(AnomalyDetectionResult) in src/analytics/anomaly_detection.py.
+	// tests/test_anomalies_contract.py keeps the fixture used by
+	// src/lib/anomaliesPage.test.ts equal to what that code returns.
 	interface Anomaly {
-		activity_id: string;
-		activity_name: string;
+		task_id: string;
+		task_code: string;
+		task_name: string;
 		anomaly_type: string;
-		severity: string;
-		value: number;
-		expected_range: { low: number; high: number };
-		z_score: number;
+		severity: 'critical' | 'warning' | 'info';
 		description: string;
+		value: number;
+		expected_range: [number, number];
+		z_score: number;
 	}
 
 	interface AnomalyResult {
-		total_activities: number;
 		anomalies: Anomaly[];
-		summary: Record<string, number>;
+		total: number;
+		critical_count: number;
+		warning_count: number;
+		info_count: number;
+		activities_analyzed: number;
 		methodology: string;
 	}
 
@@ -57,7 +64,7 @@
 			const res = await fetch(`${BASE}/api/v1/projects/${encodeURIComponent(selectedProject)}/anomalies`, { headers });
 			if (!res.ok) throw new Error(await res.text());
 			result = await res.json();
-			toastSuccess(`Found ${result!.anomalies.length} anomalies in ${result!.total_activities} activities`);
+			toastSuccess(`Found ${result!.total} anomalies in ${result!.activities_analyzed} activities`);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed';
 			toastError(error);
@@ -87,22 +94,28 @@
 	});
 
 	const severityColor = (s: string) => {
-		if (s === 'high') return 'bg-red-100 text-red-800';
-		if (s === 'medium') return 'bg-amber-100 text-amber-800';
-		return 'bg-green-100 text-green-800';
+		if (s === 'critical') return 'bg-red-100 text-red-800';
+		if (s === 'warning') return 'bg-amber-100 text-amber-800';
+		return 'bg-blue-100 text-blue-800';
 	};
+
+	const activityLabel = (a: Anomaly) => a.task_name || a.task_code || a.task_id;
 
 	const scatterData = $derived(
 		result ? result.anomalies.map(a => ({
 			x: a.value,
 			y: Math.abs(a.z_score),
-			label: a.activity_name || a.activity_id,
+			label: activityLabel(a),
 		})) : []
 	);
 
-	const typeCounts = $derived(
-		result ? Object.entries(result.summary).map(([label, value]) => ({ label, value })) : []
-	);
+	const typeCounts = $derived.by(() => {
+		const counts = new Map<string, number>();
+		for (const a of result?.anomalies ?? []) {
+			counts.set(a.anomaly_type, (counts.get(a.anomaly_type) ?? 0) + 1);
+		}
+		return [...counts].map(([label, value]) => ({ label, value }));
+	});
 </script>
 
 <svelte:head>
@@ -147,19 +160,19 @@
 	{#if result}
 		<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.total_activities}</p>
+				<p class="text-lg font-bold text-gray-900 dark:text-gray-100">{result.activities_analyzed}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_activities_scanned')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-red-600">{result.anomalies.length}</p>
+				<p class="text-lg font-bold text-red-600">{result.total}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_anomalies_found')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-amber-600">{result.anomalies.filter(a => a.severity === 'high').length}</p>
+				<p class="text-lg font-bold text-amber-600">{result.critical_count}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_high_severity')}</p>
 			</div>
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
-				<p class="text-lg font-bold text-blue-600">{Object.keys(result.summary).length}</p>
+				<p class="text-lg font-bold text-blue-600">{typeCounts.length}</p>
 				<p class="text-xs text-gray-500 dark:text-gray-400 uppercase">{$t('anomalies.kpi_anomaly_types')}</p>
 			</div>
 		</div>
@@ -195,7 +208,7 @@
 						<tbody>
 							{#each result.anomalies as a}
 								<tr class="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-									<td class="py-2 px-3 font-mono text-xs">{a.activity_name || a.activity_id}</td>
+									<td class="py-2 px-3 font-mono text-xs">{activityLabel(a)}</td>
 									<td class="py-2 px-3 capitalize">{a.anomaly_type}</td>
 									<td class="py-2 px-3">
 										<span class="px-2 py-0.5 rounded text-xs font-medium {severityColor(a.severity)}">{a.severity}</span>
