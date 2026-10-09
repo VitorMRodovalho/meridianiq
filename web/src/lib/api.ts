@@ -453,14 +453,6 @@ export async function getBenchmarkSummary(): Promise<BenchmarkSummaryResponse> {
 	return request<BenchmarkSummaryResponse>('/api/v1/benchmarks/summary');
 }
 
-export async function contributeBenchmark(projectId: string): Promise<unknown> {
-	return request('/api/v1/benchmarks/contribute', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(projectId)
-	});
-}
-
 // ── TIA (Time Impact Analysis) ─────────────────────────
 
 export async function createTIAAnalysis(
