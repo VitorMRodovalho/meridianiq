@@ -27,22 +27,20 @@ Configuration (the endpoint answers 404 until the first three are set):
 from __future__ import annotations
 
 import hmac
-import json
 import logging
 import os
-import urllib.error
-import urllib.request
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
+from ..notify import DEFAULT_FROM, send_resend_email
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["internal"])
 
-_RESEND_URL = "https://api.resend.com/emails"
-_DEFAULT_FROM = "MeridianIQ <onboarding@resend.dev>"
+_DEFAULT_FROM = DEFAULT_FROM
 # Resend sits behind Cloudflare, which rejects urllib's default agent (403, 1010).
 _USER_AGENT = "meridianiq-signup-alert/1.0"
 
@@ -91,33 +89,9 @@ def _as_utc(value: Any) -> str:
 
 
 def _send_via_resend(api_key: str, sender: str, recipient: str, alert: dict[str, str]) -> None:
-    payload = json.dumps(
-        {"from": sender, "to": [recipient], "subject": alert["subject"], "text": alert["text"]}
-    ).encode()
-    request = urllib.request.Request(
-        _RESEND_URL,
-        data=payload,
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": _USER_AGENT,
-        },
+    send_resend_email(
+        api_key, sender, recipient, alert, label="signup alert", user_agent=_USER_AGENT, log=logger
     )
-    # Failures log only a status code or an error class: never the message,
-    # which could echo the request, and never at error level, which an error
-    # tracker would capture together with the request scope.
-    try:
-        with urllib.request.urlopen(request, timeout=5) as response:  # noqa: S310 - fixed https URL
-            try:
-                message_id = json.loads(response.read() or b"{}").get("id", "?")
-            except ValueError:
-                message_id = "?"
-            logger.info("signup alert sent (status %s, id %s)", response.status, message_id)
-    except urllib.error.HTTPError as exc:
-        logger.warning("signup alert failed: HTTP %s", exc.code)
-    except Exception as exc:  # noqa: BLE001 - an alert failure must never surface to the webhook
-        logger.warning("signup alert failed: %s", type(exc).__name__)
 
 
 @router.post("/api/v1/internal/hooks/auth-user-created", status_code=202, include_in_schema=False)

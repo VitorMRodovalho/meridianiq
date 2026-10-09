@@ -90,6 +90,29 @@ hand; it is not a substitute for the source file.
 - `benchmarks`, `risk_register`, `erp_cost_tables`, etc. — feature-
   specific derivatives.
 
+### 1.5 AI assistant (migrations 035 and 036)
+
+The AI assistant ("Ask Your Schedule") is off unless the operator enables
+it, and then only for accounts the operator approves.
+
+- `ai_entitlements` — which accounts may use it, their limits, who granted
+  or revoked access, and the account's email address as known at grant
+  time (for the operator's display).
+- `ai_usage` — one row per call: `user_id`, `project_id`, the model, the
+  prices used, token counts and cost. It never stores the question or the
+  answer. It has no foreign key, so it outlives the account's other data
+  (spend accounting); the rows are pseudonymous.
+- `ai_access_requests` — an account's request for access: status, the
+  times, who decided, and an optional free-text **note** written by the
+  user. The note is cleared when the request is approved or dismissed.
+- When a request is made, the operator is emailed that "an account asked
+  for access", with no address, id or note (see §7), at most 10 emails per
+  hour over all accounts (`AI_REQUEST_ALERTS_PER_HOUR`); requests above
+  that are recorded and listed without an email.
+- What is sent to the model provider on a call: a compact statistical
+  summary of the schedule (counts, rounded metrics, a truncated project
+  short name) and the user's question. No activity names, no raw schedule.
+
 ---
 
 ## 2. Where the data lives
@@ -159,6 +182,19 @@ triggers the cascade above. The project-level delete removes the
 schedule graph and (via `ON DELETE SET NULL` on
 `schedule_derived_artifacts.computed_by` added in migration 023) clears
 the user-linked actor identity from derivative rows.
+
+`DELETE /api/v1/user/data` also erases the AI access request's note,
+withdraws a pending request (it becomes dismissed, so the operator no
+longer sees it) and clears the address copied onto the AI entitlement.
+The request row itself is kept, with its status, times and who decided
+(no free text): it is what blocks a new request for 30 days after a
+dismissal or a withdrawal, and without it an account could erase and ask
+again at will, emailing the operator each time (legitimate interest in
+preventing abuse, LGPD Art. 7 IX / GDPR Art. 6(1)(f)). Deleting the
+account removes the row. Access itself and the pseudonymous `ai_usage`
+rows remain (§1.5). If the AI part of the erasure fails, the response
+says `partial` instead of `complete`. Copies in database backups expire
+with the provider's backup retention.
 
 ### 4.2 Operator-initiated erasure
 
@@ -235,6 +271,7 @@ presenting it to any data subject.
 | Backend compute | Fly.io | gru (São Paulo, configurable) |
 | Frontend CDN | Cloudflare Pages | global edge |
 | Optional NLP | Anthropic | US (Claude API) |
+| Operator email alerts (new account, AI access request) | Resend | per the operator's Resend account |
 
 Each of these providers has their own privacy policy; operators who
 adopt MeridianIQ should review them against their jurisdiction's

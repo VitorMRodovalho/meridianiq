@@ -45,13 +45,14 @@ from datetime import UTC, datetime, timedelta
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from typing import Any, Literal
 
-from fastapi import HTTPException, Request
+from fastapi import BackgroundTasks, HTTPException, Request
 
 from src.analytics import nlp_query
 from src.database.config import settings
 
 from .access import Principal
 from .deps import trusted_client_ip
+from .notify import notify_operator
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,28 @@ PRICE_MAX_USD_PER_MTOK = Decimal("1000")
 #: Prompt size used to show the operator what one question reserves.
 TYPICAL_PROMPT_BYTES = 4_000
 
+#: Pending access requests listed on the operator page (the total is reported too).
+REQUESTS_PAGE = 200
+#: Request states the closed /ask panel knows how to show (migration 036).
+ACCESS_STATES = frozenset({"entitled", "pending", "dismissed", "none"})
+#: Reasons for which the /ask panel offers or shows an access request.
+REQUESTABLE_REASONS = frozenset({"ai_disabled", "ai_not_entitled"})
+#: At most this many operator emails per rolling hour for new requests, over
+#: all accounts and machines (counted in the table). Requests above it are
+#: still recorded and listed on /admin/ai. ``AI_REQUEST_ALERTS_PER_HOUR``
+#: overrides it; 0 sends none.
+REQUEST_ALERTS_PER_HOUR = 10
+
+# The operator's alert carries nothing about the requester (no address, id or
+# note): they are on /admin/ai. See src/api/notify.py.
+_REQUEST_ALERT = {
+    "subject": "MeridianIQ: new AI access request",
+    "text": (
+        "An account asked for access to the AI assistant (Ask Your Schedule).\n\n"
+        "Review it on the AI admin page of MeridianIQ: /admin/ai"
+    ),
+}
+
 _MTOK = Decimal(1_000_000)
 _MICRO_USD = Decimal("0.000001")
 
@@ -103,6 +126,8 @@ _MESSAGES: dict[str, str] = {
     "ai_ledger_unavailable": "The AI assistant is unavailable.",
     "ai_account_not_found": "No account uses this address.",
     "ai_entitlement_not_found": "This account has no active AI access.",
+    "ai_request_unavailable": "Access requests are unavailable right now.",
+    "ai_request_not_found": "This request is no longer pending.",
     "superadmin_required": "SuperAdmin access required",
 }
 
@@ -617,12 +642,14 @@ def is_ai_admin(principal: Principal) -> bool:
     return principal.user_id in ids
 
 
-def admin_report(store: Any) -> dict[str, Any]:
-    """Configuration state, spend and entitlements for the operator page.
+def admin_report(store: Any, *, include_requests: bool = True) -> dict[str, Any]:
+    """Configuration state, spend, entitlements and pending requests for the operator page.
 
     The configuration flags are reported even when the ledger cannot be
     read (migration 035 not applied, schema cache stale), so the operator
-    can see which requirement is unmet.
+    can see which requirement is unmet. Pending requests are read
+    separately: when they cannot be read, ``requests`` is ``None`` (never an
+    empty list, which would read as "no requests") and the rest stands.
     """
     config = load_config(store)
     status: str | None = None if config.ready else "ai_disabled"
@@ -644,6 +671,14 @@ def admin_report(store: Any) -> dict[str, Any]:
     typical = None
     if config.price_input is not None and config.price_output is not None:
         typical = worst_case_cost(TYPICAL_PROMPT_BYTES, config)
+    requests: list[dict[str, Any]] | None = None
+    requests_total: int | None = None
+    if include_requests:
+        try:
+            pending = store.ai_pending_requests(None, REQUESTS_PAGE)
+            requests, requests_total = list(pending["items"]), int(pending["total"])
+        except Exception as exc:
+            logger.warning("ai_pending_requests failed: %s", type(exc).__name__)
     return {
         "available": status is None,
         "reason": status,
@@ -660,6 +695,8 @@ def admin_report(store: Any) -> dict[str, Any]:
         },
         "stale_reservations": report["stale_reservations"],
         "entitlements": report["entitlements"],
+        "requests": requests,
+        "requests_total": requests_total,
     }
 
 
@@ -688,7 +725,11 @@ def grant(
         ip_address=trusted_client_ip(request),
         user_agent=request.headers.get("user-agent") if request is not None else None,
     )
-    for row in admin_report(store)["entitlements"]:
+    return _entitlement_row(store, user_id)
+
+
+def _entitlement_row(store: Any, user_id: str) -> dict[str, Any]:
+    for row in admin_report(store, include_requests=False)["entitlements"]:
         if str(row["user_id"]) == user_id:
             return dict(row)
     raise error(500, "ai_ledger_unavailable")
@@ -696,11 +737,148 @@ def grant(
 
 def revoke(store: Any, *, operator: Principal, user_id: str, request: Request | None) -> None:
     """Revoke an active entitlement, or 404 when there is none."""
-    revoked = store.ai_revoke(
-        user_id=user_id,
-        revoked_by=operator.user_id,
-        ip_address=trusted_client_ip(request),
-        user_agent=request.headers.get("user-agent") if request is not None else None,
-    )
+    try:
+        revoked = store.ai_revoke(
+            user_id=user_id,
+            revoked_by=operator.user_id,
+            ip_address=trusted_client_ip(request),
+            user_agent=request.headers.get("user-agent") if request is not None else None,
+        )
+    except Exception as exc:
+        logger.warning("ai_revoke failed: %s", type(exc).__name__)
+        raise error(500, "ai_ledger_unavailable") from exc
     if not revoked:
         raise error(404, "ai_entitlement_not_found")
+
+
+# ── Access requests (migration 036) ─────────────────────
+
+
+def access_for(principal: Principal, store: Any, reason: str | None) -> Any | None:
+    """The caller's own request state for the closed /ask panel, or ``None``.
+
+    Only for a signed-in user whose status is ``ai_disabled`` or
+    ``ai_not_entitled``. A failed lookup (migration 036 not applied yet) is
+    ``None``: the page then shows the plain panel. Logged without a stack,
+    so every /ask visit does not become an error event.
+    """
+    if principal.kind != "user" or reason not in REQUESTABLE_REASONS:
+        return None
+    try:
+        state = store.ai_access_state(principal.user_id)
+    except Exception as exc:
+        logger.warning("ai_access_state failed: %s", type(exc).__name__)
+        return None
+    return state if state.state in ACCESS_STATES else None
+
+
+def request_access(
+    principal: Principal,
+    store: Any,
+    note: str | None,
+    background: BackgroundTasks,
+    *,
+    anonymous: bool = False,
+) -> Any:
+    """Record the caller's request for AI access; email the operator when it is new.
+
+    Idempotent for the caller: a second request while one is pending
+    returns ``pending`` (updating the note when given) and sends nothing.
+    Anonymous sign-ins cannot ask: each would be a new account and email.
+    """
+    if principal.kind != "user" or anonymous:
+        raise refusal("ai_session_required")
+    if not ledger_is_durable(store):
+        # The operator would be emailed about a row that disappears on restart.
+        raise error(500, "ai_request_unavailable")
+    try:
+        state = store.ai_request_access(principal.user_id, note)
+    except Exception as exc:
+        logger.warning("ai_request_access failed: %s", type(exc).__name__)
+        raise error(500, "ai_request_unavailable") from exc
+    if state.state == "created":
+        background.add_task(_alert_operator, store)
+    return state
+
+
+def _request_alerts_per_hour() -> int:
+    raw = os.environ.get("AI_REQUEST_ALERTS_PER_HOUR", "").strip()
+    if not raw:
+        return REQUEST_ALERTS_PER_HOUR
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        logger.warning("AI_REQUEST_ALERTS_PER_HOUR is not an integer; using the default")
+        return REQUEST_ALERTS_PER_HOUR
+
+
+def _alert_operator(store: Any) -> None:
+    """Email the operator about a new request, unless the hourly cap is reached.
+
+    The count includes the request just created. A count that cannot be read
+    sends nothing: the request is on /admin/ai either way.
+    """
+    cap = _request_alerts_per_hour()
+    try:
+        recent = store.ai_requests_since(datetime.now(UTC) - timedelta(hours=1))
+    except Exception as exc:
+        logger.warning("ai access request alert not sent: count failed: %s", type(exc).__name__)
+        return
+    if recent > cap:
+        logger.info("ai access request alert not sent: %d requests in the last hour", recent)
+        return
+    notify_operator(dict(_REQUEST_ALERT), label="ai access request alert")
+
+
+def approve_request(
+    store: Any, *, operator: Principal, user_id: str, request: Request | None
+) -> dict[str, Any]:
+    """Approve a pending request with the default limits; 404 when it is not pending."""
+    try:
+        approved = store.ai_approve_request(
+            user_id=user_id,
+            approved_by=operator.user_id,
+            ip_address=trusted_client_ip(request),
+            user_agent=request.headers.get("user-agent") if request is not None else None,
+        )
+    except Exception as exc:
+        logger.warning("ai_approve_request failed: %s", type(exc).__name__)
+        raise error(500, "ai_request_unavailable") from exc
+    if not approved:
+        raise error(404, "ai_request_not_found")
+    return _entitlement_row(store, user_id)
+
+
+def dismiss_request(
+    store: Any, *, operator: Principal, user_id: str, request: Request | None
+) -> None:
+    """Dismiss a pending request; 404 when it is not pending."""
+    try:
+        dismissed = store.ai_dismiss_request(
+            user_id=user_id,
+            dismissed_by=operator.user_id,
+            ip_address=trusted_client_ip(request),
+            user_agent=request.headers.get("user-agent") if request is not None else None,
+        )
+    except Exception as exc:
+        logger.warning("ai_dismiss_request failed: %s", type(exc).__name__)
+        raise error(500, "ai_request_unavailable") from exc
+    if not dismissed:
+        raise error(404, "ai_request_not_found")
+
+
+def forget_user(store: Any, user_id: str) -> bool:
+    """The user's data erasure, AI part: the request's note and the address copy.
+
+    False when it failed: the failure is logged (class only), the erasure
+    goes on, and the route reports ``partial`` instead of ``complete``.
+    """
+    forget = getattr(store, "ai_forget_user", None)
+    if forget is None:
+        return True
+    try:
+        forget(user_id)
+    except Exception as exc:
+        logger.warning("ai_forget_user failed: %s", type(exc).__name__)
+        return False
+    return True

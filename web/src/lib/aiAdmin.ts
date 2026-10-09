@@ -77,7 +77,34 @@ export function ledgerUnavailable(summary: { reason: string | null } | null | un
 	return summary?.reason === 'ai_ledger_unavailable';
 }
 
-/** How an approved account is named on the page: its address, else its user id. */
+/** How an account is named on the page: its address, else its user id. */
 export function accountLabel(ent: { email: string | null; user_id: string }): string {
 	return ent.email || ent.user_id;
+}
+
+/**
+ * The pending access requests, or null when they could not be read. The API
+ * sends null for a failed read, and an API that predates the field sends
+ * nothing; neither may read as "no requests".
+ */
+export function pendingRequests<T>(
+	summary: { requests?: T[] | null } | null | undefined
+): T[] | null {
+	return summary && Array.isArray(summary.requests) ? summary.requests : null;
+}
+
+/**
+ * How many requests are pending in all: `requests_total` when it is a usable
+ * count (the list is capped), else the length of the list; null when the
+ * list could not be read.
+ */
+export function pendingRequestsTotal(
+	summary: { requests?: unknown[] | null; requests_total?: number | null } | null | undefined
+): number | null {
+	const items = pendingRequests(summary);
+	if (items === null) return null;
+	const total = summary?.requests_total;
+	return typeof total === 'number' && Number.isInteger(total) && total >= items.length
+		? total
+		: items.length;
 }

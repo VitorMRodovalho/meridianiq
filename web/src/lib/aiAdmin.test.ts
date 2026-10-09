@@ -16,7 +16,9 @@ import {
 	accountLabel,
 	formatUsd,
 	grantLimitsValid,
-	ledgerUnavailable
+	ledgerUnavailable,
+	pendingRequests,
+	pendingRequestsTotal
 } from './aiAdmin';
 import en from './i18n/en';
 import ptBR from './i18n/pt-BR';
@@ -114,6 +116,33 @@ describe('accountLabel', () => {
 	});
 });
 
+describe('pendingRequests / pendingRequestsTotal', () => {
+	const item = { user_id: 'u-1', email: null, note: null, requested_at: null };
+
+	it('null and a missing field mean "not read", never an empty list', () => {
+		expect(pendingRequests({ requests: null })).toBeNull();
+		expect(pendingRequests({})).toBeNull();
+		expect(pendingRequests(null)).toBeNull();
+		expect(pendingRequestsTotal({ requests: null, requests_total: 3 })).toBeNull();
+		expect(pendingRequestsTotal({})).toBeNull();
+	});
+
+	it('an empty list is zero requests', () => {
+		expect(pendingRequests({ requests: [] })).toEqual([]);
+		expect(pendingRequestsTotal({ requests: [], requests_total: 0 })).toBe(0);
+	});
+
+	it('the total is the reported count when usable, else the length of the list', () => {
+		expect(pendingRequestsTotal({ requests: [item], requests_total: 250 })).toBe(250);
+		expect(pendingRequestsTotal({ requests: [item], requests_total: null })).toBe(1);
+		expect(pendingRequestsTotal({ requests: [item] })).toBe(1);
+		// A total below what is listed, or not a whole number, is not believed.
+		expect(pendingRequestsTotal({ requests: [item, item], requests_total: 1 })).toBe(2);
+		expect(pendingRequestsTotal({ requests: [item], requests_total: 1.5 })).toBe(1);
+		expect(pendingRequestsTotal({ requests: [item], requests_total: Number.NaN })).toBe(1);
+	});
+});
+
 describe('/admin/ai i18n keys', () => {
 	// Every quoted string that looks like a key in the namespaces the page uses,
 	// whether passed to $t() directly or through a labelKey table.
@@ -136,7 +165,27 @@ describe('/admin/ai i18n keys', () => {
 		'admin_ai.calls_unknown',
 		'admin_ai.calls_reserved',
 		'admin_ai.outcome_unknown',
-		'admin_ai.outcome_unknown_stale'
+		'admin_ai.outcome_unknown_stale',
+		// Access requests.
+		'admin_ai.requests_heading',
+		'admin_ai.requests_heading_count',
+		'admin_ai.requests_unread',
+		'admin_ai.requests_empty',
+		'admin_ai.requests_partial',
+		'admin_ai.requests_defaults',
+		'admin_ai.request_requested',
+		'admin_ai.request_no_note',
+		'admin_ai.btn_approve',
+		'admin_ai.btn_approving',
+		'admin_ai.btn_dismiss',
+		'admin_ai.btn_dismissing',
+		'admin_ai.approve_aria',
+		'admin_ai.dismiss_aria',
+		'admin_ai.approved_done',
+		'admin_ai.dismissed_done',
+		'admin_ai.request_not_found',
+		'admin_ai.approve_failed',
+		'admin_ai.dismiss_failed'
 	];
 
 	it('the scan sees the page, including the keys added for the report fields', () => {
@@ -150,6 +199,19 @@ describe('/admin/ai i18n keys', () => {
 			expect({ locale: name, missing }).toEqual({ locale: name, missing: [] });
 		});
 	}
+
+	it('every locale fills the same placeholders as English', () => {
+		const slots = (s: string | undefined) => [...(s ?? '').matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+		for (const key of referenced) {
+			for (const [name, dict] of Object.entries({ 'pt-BR': ptBR, es })) {
+				expect({ key, locale: name, slots: slots(dict[key]) }).toEqual({
+					key,
+					locale: name,
+					slots: slots(en[key])
+				});
+			}
+		}
+	});
 
 	it('the limits message names every bound it is given', () => {
 		for (const dict of [en, ptBR, es]) {

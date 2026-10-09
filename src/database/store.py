@@ -88,6 +88,24 @@ class AIQuota:
 #: A reservation still unsettled after this long is reported as stale.
 AI_STALE_RESERVATION = timedelta(minutes=10)
 
+#: A decided access request blocks a new one for this long (migration 036).
+AI_REQUEST_COOLDOWN = timedelta(days=30)
+
+
+@dataclass(frozen=True)
+class AIRequestState:
+    """An account's AI access request as it concerns that account (migration 036).
+
+    ``state`` is ``entitled`` | ``pending`` | ``dismissed`` | ``none`` for
+    ``ai_access_state``, and ``created`` | ``pending`` | ``entitled`` |
+    ``dismissed`` for ``ai_request_access``. ``requested_at`` is set when
+    pending (or just created), ``retry_after`` when dismissed.
+    """
+
+    state: str
+    requested_at: Any = None
+    retry_after: Any = None
+
 
 def ai_usage_spend(row: dict[str, Any]) -> Decimal:
     """What one ``ai_usage`` row counts against a budget (migration 035 rule).
@@ -170,6 +188,8 @@ class InMemoryStore:
         self._ai_lock = threading.Lock()
         # Accounts by address, standing in for auth.users (dev and tests).
         self._accounts_by_email: dict[str, str] = {}
+        # AI access requests (migration 036), one per account.
+        self._ai_requests: dict[str, dict[str, Any]] = {}
         # Cycle 1 Wave 2 — projects.status state machine (ADR-0015).
         # Default 'ready' on save_project here because the InMemoryStore
         # represents the ADR-0015 sync-fast-path (under-threshold schedules
@@ -840,6 +860,7 @@ class InMemoryStore:
         self._ai_entitlements.clear()
         self._ai_usage.clear()
         self._accounts_by_email.clear()
+        self._ai_requests.clear()
 
     # -- analysis results ------------------------------------------------
 
@@ -1581,7 +1602,7 @@ class InMemoryStore:
         self,
         *,
         user_id: str,
-        email: str,
+        email: str | None,
         granted_by: str,
         daily_questions: int | None,
         monthly_budget_usd: Decimal | None,
@@ -1603,6 +1624,9 @@ class InMemoryStore:
                 "monthly_budget_usd": monthly_budget_usd,
                 "note": note,
             }
+            req = self._ai_requests.get(user_id)
+            if req is not None and req["status"] == "pending":
+                req.update(status="approved", decided_at=now, decided_by=granted_by, note=None)
         self._audit_log.append(
             {
                 "id": f"audit-{len(self._audit_log) + 1:04d}",
@@ -1644,6 +1668,184 @@ class InMemoryStore:
                 "user_id": revoked_by,
                 "action": "ai_access_revoked",
                 "entity_type": "ai_entitlement",
+                "entity_id": user_id,
+                "details": {},
+                "ip_address": ip_address,
+                "user_agent": user_agent,
+                "created_at": now.isoformat(),
+            }
+        )
+        return True
+
+    def _ai_cooldown_until_locked(self, user_id: str, now: datetime) -> datetime | None:
+        """30 days after a dismissal or after any revocation, whichever ends later."""
+        marks: list[datetime] = []
+        req = self._ai_requests.get(user_id)
+        if req is not None and req["status"] == "dismissed":
+            marks.append(req["decided_at"])
+        ent = self._ai_entitlements.get(user_id)
+        if ent is not None and ent["revoked_at"] is not None:
+            marks.append(ent["revoked_at"])
+        if not marks:
+            return None
+        until: datetime = max(marks) + AI_REQUEST_COOLDOWN
+        return until if until > now else None
+
+    def _ai_entitled_locked(self, user_id: str) -> bool:
+        ent = self._ai_entitlements.get(user_id)
+        return ent is not None and ent["revoked_at"] is None
+
+    def ai_access_state(self, user_id: str) -> AIRequestState:
+        """The account's own request state (``public.ai_access_state``)."""
+        with self._ai_lock:
+            now = datetime.now(UTC)
+            if self._ai_entitled_locked(user_id):
+                return AIRequestState("entitled")
+            req = self._ai_requests.get(user_id)
+            if req is not None and req["status"] == "pending":
+                return AIRequestState("pending", requested_at=req["requested_at"])
+            until = self._ai_cooldown_until_locked(user_id, now)
+            if until is not None:
+                return AIRequestState("dismissed", retry_after=until)
+            return AIRequestState("none")
+
+    def ai_request_access(self, user_id: str, note: str | None) -> AIRequestState:
+        """Ask for AI access (``public.ai_request_access``)."""
+        with self._ai_lock:
+            now = datetime.now(UTC)
+            if self._ai_entitled_locked(user_id):
+                return AIRequestState("entitled")
+            req = self._ai_requests.get(user_id)
+            if req is not None and req["status"] == "pending":
+                if note is not None:
+                    req["note"] = note
+                return AIRequestState("pending", requested_at=req["requested_at"])
+            until = self._ai_cooldown_until_locked(user_id, now)
+            if until is not None:
+                return AIRequestState("dismissed", retry_after=until)
+            # Same as the SQL conflict condition: a decision under 30 days old
+            # is not re-opened (it covers a decision that lands mid-request).
+            if req is not None and req["decided_at"] > now - AI_REQUEST_COOLDOWN:
+                return AIRequestState("dismissed", retry_after=until)
+            self._ai_requests[user_id] = {
+                "user_id": user_id,
+                "status": "pending",
+                "note": note,
+                "requested_at": now,
+                "decided_at": None,
+                "decided_by": None,
+            }
+            return AIRequestState("created", requested_at=now)
+
+    def ai_requests_since(self, since: datetime) -> int:
+        """How many requests were created (or re-opened) at or after ``since``."""
+        with self._ai_lock:
+            return sum(1 for r in self._ai_requests.values() if r["requested_at"] >= since)
+
+    def ai_pending_requests(self, user_id: str | None = None, limit: int = 200) -> dict[str, Any]:
+        """Pending requests with each requester's address (``public.ai_pending_requests``)."""
+        emails = {uid: email for email, uid in self._accounts_by_email.items()}
+        with self._ai_lock:
+            pending = sorted(
+                (
+                    r
+                    for r in self._ai_requests.values()
+                    if r["status"] == "pending" and (user_id is None or r["user_id"] == user_id)
+                ),
+                key=lambda r: (r["requested_at"], r["user_id"]),
+            )
+            page = pending[: max(min(limit, 500), 0)]
+            return {
+                "total": len(pending),
+                "items": [
+                    {
+                        "user_id": r["user_id"],
+                        "email": emails.get(r["user_id"]),
+                        "note": r["note"],
+                        "requested_at": r["requested_at"],
+                    }
+                    for r in page
+                ],
+            }
+
+    def ai_approve_request(
+        self,
+        *,
+        user_id: str,
+        approved_by: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        """Approve a pending request with the default limits (``public.ai_approve_request``)."""
+        emails = {uid: email for email, uid in self._accounts_by_email.items()}
+        with self._ai_lock:
+            req = self._ai_requests.get(user_id)
+            if req is None or req["status"] != "pending":
+                return False
+            now = datetime.now(UTC)
+            req.update(status="approved", decided_at=now, decided_by=approved_by, note=None)
+            if self._ai_entitled_locked(user_id):
+                # Access already active: keep its limits and note; audit the close.
+                self._audit_log.append(
+                    {
+                        "id": f"audit-{len(self._audit_log) + 1:04d}",
+                        "user_id": approved_by,
+                        "action": "ai_access_request_approved",
+                        "entity_type": "ai_access_request",
+                        "entity_id": user_id,
+                        "details": {},
+                        "ip_address": ip_address,
+                        "user_agent": user_agent,
+                        "created_at": now.isoformat(),
+                    }
+                )
+                return True
+        self.ai_grant(
+            user_id=user_id,
+            email=emails.get(user_id),
+            granted_by=approved_by,
+            daily_questions=None,
+            monthly_budget_usd=None,
+            note=None,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        return True
+
+    def ai_forget_user(self, user_id: str) -> None:
+        """Erasure (``public.ai_forget_user``): clear the note, withdraw a pending
+        request, and clear the address on the entitlement. Status and dates stay."""
+        with self._ai_lock:
+            req = self._ai_requests.get(user_id)
+            if req is not None:
+                if req["status"] == "pending":
+                    req.update(status="dismissed", decided_at=datetime.now(UTC))
+                req["note"] = None
+            ent = self._ai_entitlements.get(user_id)
+            if ent is not None:
+                ent["email"] = None
+
+    def ai_dismiss_request(
+        self,
+        *,
+        user_id: str,
+        dismissed_by: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        """Dismiss a pending request, with an audit row (``public.ai_dismiss_request``)."""
+        now = datetime.now(UTC)
+        with self._ai_lock:
+            req = self._ai_requests.get(user_id)
+            if req is None or req["status"] != "pending":
+                return False
+            req.update(status="dismissed", decided_at=now, decided_by=dismissed_by, note=None)
+        self._audit_log.append(
+            {
+                "id": f"audit-{len(self._audit_log) + 1:04d}",
+                "user_id": dismissed_by,
+                "action": "ai_access_request_dismissed",
+                "entity_type": "ai_access_request",
                 "entity_id": user_id,
                 "details": {},
                 "ip_address": ip_address,
@@ -4469,6 +4671,94 @@ class SupabaseStore:
             "stale_reservations": int(data.get("stale_reservations") or 0),
             "entitlements": entitlements,
         }
+
+    def ai_access_state(self, user_id: str) -> AIRequestState:
+        rows = _rpc_rows(self._client.rpc("ai_access_state", {"p_user_id": user_id}).execute().data)
+        if len(rows) != 1:
+            raise RuntimeError(f"ai_access_state returned {len(rows)} rows")
+        r = rows[0]
+        return AIRequestState(str(r["state"]), r.get("requested_at"), r.get("retry_after"))
+
+    def ai_request_access(self, user_id: str, note: str | None) -> AIRequestState:
+        rows = _rpc_rows(
+            self._client.rpc("ai_request_access", {"p_user_id": user_id, "p_note": note})
+            .execute()
+            .data
+        )
+        if len(rows) != 1:
+            raise RuntimeError(f"ai_request_access returned {len(rows)} rows")
+        r = rows[0]
+        return AIRequestState(str(r["outcome"]), r.get("requested_at"), r.get("retry_after"))
+
+    def ai_pending_requests(self, user_id: str | None = None, limit: int = 200) -> dict[str, Any]:
+        data = (
+            self._client.rpc("ai_pending_requests", {"p_user_id": user_id, "p_limit": limit})
+            .execute()
+            .data
+        )
+        if isinstance(data, list):
+            data = data[0] if len(data) == 1 else None
+        if isinstance(data, dict) and "ai_pending_requests" in data:
+            data = data["ai_pending_requests"]
+        if not isinstance(data, dict):
+            raise RuntimeError("ai_pending_requests returned an unexpected shape")
+        return {"total": int(data.get("total") or 0), "items": list(data.get("items") or [])}
+
+    def ai_requests_since(self, since: datetime) -> int:
+        res = (
+            self._client.table("ai_access_requests")
+            .select("user_id", count="exact")
+            .gte("requested_at", since.isoformat())
+            .execute()
+        )
+        if res.count is None:
+            raise RuntimeError("ai_access_requests count missing")
+        return int(res.count)
+
+    def ai_forget_user(self, user_id: str) -> None:
+        self._client.rpc("ai_forget_user", {"p_user_id": user_id}).execute()
+
+    def _rpc_bool(self, name: str, params: dict[str, Any]) -> bool:
+        data = self._client.rpc(name, params).execute().data
+        if isinstance(data, list):
+            data = data[0] if data else None
+        return data is True
+
+    def ai_approve_request(
+        self,
+        *,
+        user_id: str,
+        approved_by: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        return self._rpc_bool(
+            "ai_approve_request",
+            {
+                "p_user_id": user_id,
+                "p_approved_by": approved_by,
+                "p_ip_address": ip_address,
+                "p_user_agent": user_agent,
+            },
+        )
+
+    def ai_dismiss_request(
+        self,
+        *,
+        user_id: str,
+        dismissed_by: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        return self._rpc_bool(
+            "ai_dismiss_request",
+            {
+                "p_user_id": user_id,
+                "p_dismissed_by": dismissed_by,
+                "p_ip_address": ip_address,
+                "p_user_agent": user_agent,
+            },
+        )
 
 
 # ------------------------------------------------------------------ #

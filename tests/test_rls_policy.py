@@ -63,6 +63,7 @@ SERVICE_ROLE_ONLY: dict[str, str] = {
     # design, checked in the replica (scripts/rls_replica/035/scenarios.sql, s16).
     "ai_entitlements": "AI grants; API-only (migration 035)",
     "ai_usage": "AI spend ledger; API-only (migration 035)",
+    "ai_access_requests": "AI access requests; API-only (migration 036)",
 }
 
 _CREATE_TABLE_RE = re.compile(

@@ -132,19 +132,15 @@ def test_control_without_the_hook_the_question_is_captured() -> None:
     assert unscrubbed["key"] is False
 
 
-def test_hook_keeps_other_frames_and_other_bodies() -> None:
-    event = {
+def _frames_event(url: str) -> dict[str, object]:
+    return {
         "exception": {
             "values": [
                 {
                     "stacktrace": {
                         "frames": [
                             {"module": "src.api.ai_gate", "function": "f", "vars": {"q": 1}},
-                            {
-                                "module": "src.api.routers.intelligence",
-                                "function": "ask_schedule",
-                                "vars": {"body": 1},
-                            },
+                            {"module": "fastapi.routing", "function": "app", "vars": {"body": 1}},
                             {
                                 "module": "src.api.routers.intelligence",
                                 "function": "get_project_health",
@@ -155,11 +151,130 @@ def test_hook_keeps_other_frames_and_other_bodies() -> None:
                 }
             ]
         },
-        "request": {"url": "https://api.example/api/v1/projects/p/ask", "data": {"question": 1}},
+        "request": {"url": url, "data": {"payload": 1}},
     }
-    out = scrub_ai_event(event, {})
-    frames = out["exception"]["values"][0]["stacktrace"]["frames"]
-    assert [("vars" in f) for f in frames] == [False, False, True]
-    assert "data" not in out["request"]
-    other = {"request": {"url": "https://api.example/api/v1/projects/p/tasks", "data": {"a": 1}}}
-    assert scrub_ai_event(other, {})["request"]["data"] == {"a": 1}
+
+
+def _has_vars(event: dict[str, object]) -> list[bool]:
+    frames = event["exception"]["values"][0]["stacktrace"]["frames"]  # type: ignore[index]
+    return [("vars" in f) for f in frames]
+
+
+def test_ai_request_events_lose_every_frame_local_and_the_body() -> None:
+    for url in (
+        "https://api.example/api/v1/projects/p/ask",
+        "https://api.example/api/v1/ai/access-request",
+        "https://api.example/api/v1/superadmin/ai/entitlements",
+    ):
+        out = scrub_ai_event(_frames_event(url), {})
+        assert _has_vars(out) == [False, False, False], url
+        assert "data" not in out["request"]  # type: ignore[operator]
+
+
+def test_other_events_lose_only_ai_module_locals_and_keep_the_body() -> None:
+    out = scrub_ai_event(_frames_event("https://api.example/api/v1/projects/p/tasks"), {})
+    assert _has_vars(out) == [False, True, True]
+    assert out["request"]["data"] == {"payload": 1}  # type: ignore[index]
+
+
+# ------------------------------------------------------------------ #
+# A real request through the app: error events and transactions      #
+# ------------------------------------------------------------------ #
+
+NOTE = "PROBE-NOTE-private reason for access"
+
+_ROUTE_SCRIPT = r"""
+import json, os, time
+import jwt
+import sentry_sdk
+from sentry_sdk.transport import Transport
+
+events = []
+
+class Capture(Transport):
+    def capture_envelope(self, envelope):
+        for item in envelope.items:
+            kind = item.headers.get("type")
+            if kind in ("event", "transaction"):
+                events.append((kind, item.payload.get_bytes().decode()))
+
+_init = sentry_sdk.init
+
+def init(*args, **kwargs):
+    kwargs["transport"] = Capture
+    kwargs["traces_sample_rate"] = 1.0
+    if os.environ.get("PROBE_NO_SCRUB") == "1":
+        kwargs.pop("before_send", None)
+        kwargs.pop("before_send_transaction", None)
+    return _init(*args, **kwargs)
+
+sentry_sdk.init = init
+from fastapi.testclient import TestClient
+from src.api.app import app
+from src.api import deps
+from src.database.store import InMemoryStore
+
+store = InMemoryStore()
+def broken(*a, **k):
+    raise RuntimeError("function ai_request_access does not exist")
+store.ai_request_access = broken
+deps._store = store
+now = int(time.time())
+token = jwt.encode({"sub": "00000000-0000-4000-8000-0000000b1b02", "aud": "authenticated",
+                    "role": "authenticated", "iat": now, "exp": now + 3600},
+                   "test-secret", algorithm="HS256")
+client = TestClient(app, raise_server_exceptions=False)
+resp = client.post("/api/v1/ai/access-request", json={"note": os.environ["PROBE_NOTE"]},
+                   headers={"Authorization": f"Bearer {token}"})
+sentry_sdk.flush()
+kinds = [k for k, _ in events]
+print(json.dumps({"status": resp.status_code,
+                  "errors": kinds.count("event"),
+                  "transactions": kinds.count("transaction"),
+                  "note": any(os.environ["PROBE_NOTE"] in e for _, e in events)}))
+"""
+
+
+def _run_route(no_scrub: bool) -> dict[str, object]:
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "HOME": os.environ.get("HOME", ""),
+        "PYTHONPATH": str(ROOT),
+        "SENTRY_DSN": "https://public@example.invalid/1",
+        "ENVIRONMENT": "development",
+        "SUPABASE_JWT_SECRET": "test-secret",
+        "RATE_LIMIT_ENABLED": "false",
+        "SUPABASE_URL": "",
+        "SUPABASE_SERVICE_ROLE_KEY": "",
+        "SUPABASE_ANON_KEY": "",
+        "DATABASE_URL": "",
+        "ALLOW_REMOTE_SUPABASE": "",
+        "ANTHROPIC_API_KEY": "",
+        "RESEND_API_KEY": "",
+        "SIGNUP_ALERT_TO": "",
+        "PROBE_NOTE": NOTE,
+        "PROBE_NO_SCRUB": "1" if no_scrub else "",
+    }
+    out = subprocess.run(
+        [sys.executable, "-c", _ROUTE_SCRIPT],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert out.returncode == 0, out.stderr[-2000:]
+    return dict(json.loads(out.stdout.strip().splitlines()[-1]))
+
+
+def test_a_failed_access_request_reaches_sentry_without_its_note() -> None:
+    result = _run_route(no_scrub=False)
+    assert result["status"] == 500
+    assert result["errors"] >= 1 and result["transactions"] >= 1  # both kinds are sent
+    assert result["note"] is False
+
+
+def test_control_without_the_hooks_the_note_is_in_the_events() -> None:
+    result = _run_route(no_scrub=True)
+    assert result["errors"] >= 1 and result["transactions"] >= 1
+    assert result["note"] is True

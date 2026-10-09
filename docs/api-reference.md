@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **138 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **141 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -26,7 +26,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Reports](#reports) — 3 endpoints
 - [Admin](#admin) — 6 endpoints
 - [Health](#health) — 2 endpoints
-- [Ai](#ai) — 4 endpoints
+- [Ai](#ai) — 7 endpoints
 - [Bi](#bi) — 3 endpoints
 - [Hooks](#hooks) — 1 endpoints
 - [Lifecycle](#lifecycle) — 4 endpoints
@@ -267,10 +267,13 @@ _Readiness and liveness_
 
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
+| `POST` | `/api/v1/ai/access-request` | Ask for access to the AI assistant (signed-in session only). | `AIAccessRequestResponse` | optional |
 | `GET` | `/api/v1/ai/status` | Whether the caller may use the AI assistant now, and why not. | `AIStatusResponse` | optional |
 | `GET` | `/api/v1/superadmin/ai` | Configuration state (never secret values), spend and entitlements. | `AIAdminResponse` | optional |
 | `POST` | `/api/v1/superadmin/ai/entitlements` | Grant AI access to the account that owns ``email``. | `AIEntitlementSchema` | optional |
 | `DELETE` | `/api/v1/superadmin/ai/entitlements/{user_id}` | Revoke an account's AI access (soft: the row and its history stay). Audited. | `AIRevokeResponse` | optional |
+| `DELETE` | `/api/v1/superadmin/ai/requests/{user_id}` | Dismiss a pending access request (it may be sent again in 30 days). Audited. | `AIRequestDismissResponse` | optional |
+| `POST` | `/api/v1/superadmin/ai/requests/{user_id}/approve` | Approve a pending access request with the default limits. Audited. | `AIEntitlementSchema` | optional |
 
 ## Bi
 

@@ -4,7 +4,10 @@
 		getAiAdmin,
 		grantAiAccess,
 		revokeAiAccess,
+		approveAiRequest,
+		dismissAiRequest,
 		ApiError,
+		type AiAccessRequestItem,
 		type AiAdminConfig,
 		type AiAdminSummary,
 		type AiEntitlement,
@@ -23,7 +26,9 @@
 		accountLabel,
 		formatUsd,
 		grantLimitsValid,
-		ledgerUnavailable
+		ledgerUnavailable,
+		pendingRequests,
+		pendingRequestsTotal
 	} from '$lib/aiAdmin';
 
 	// The first GET is the guard: nothing below the heading renders until it
@@ -47,6 +52,22 @@
 	// The last grant or revoke that succeeded, announced by an always-mounted status region.
 	let changeStatus = $state('');
 	let listHeading: HTMLHeadingElement | undefined = $state();
+
+	// Access requests: one approve or dismiss at a time, for every row.
+	let requestActionId = $state('');
+	let requestActionKind: 'approve' | 'dismiss' | '' = $state('');
+	let requestError = $state('');
+	// Announced by the section's always-mounted status region: a success, or
+	// the informational "no longer pending".
+	let requestNotice = $state('');
+	let requestNoticeIsSuccess = $state(false);
+	let requestsHeading: HTMLHeadingElement | undefined = $state();
+	// One change at a time on the whole page: grant, revoke, approve, dismiss.
+	const busy = $derived(granting || revokingId !== '' || requestActionId !== '');
+
+	// Null means the requests could not be read, never "none".
+	const requests = $derived(pendingRequests<AiAccessRequestItem>(summary));
+	const requestsTotal = $derived(pendingRequestsTotal(summary));
 
 	const configRows: { field: keyof AiAdminConfig; labelKey: string }[] = [
 		{ field: 'enabled', labelKey: 'admin_ai.config_enabled' },
@@ -99,13 +120,20 @@
 		return null;
 	}
 
+	// Reloads can overlap (two actions finishing close together): only the
+	// latest one may replace the summary, so an older snapshot never wins.
+	let refreshSeq = 0;
+
 	/** Reload the summary; on failure keep the current one and report false. */
 	async function refresh(): Promise<boolean> {
+		const seq = ++refreshSeq;
 		try {
-			summary = await getAiAdmin();
+			const next = await getAiAdmin();
+			if (seq === refreshSeq) summary = next;
 			return true;
 		} catch {
-			return false;
+			// A newer reload is in flight: let it decide what is shown.
+			return seq !== refreshSeq;
 		}
 	}
 
@@ -137,10 +165,12 @@
 	async function handleGrant(event: SubmitEvent) {
 		event.preventDefault();
 		const email = grantEmail.trim();
-		if (!email || granting) return;
+		if (!email || busy) return;
 		grantError = '';
 		changeStatus = '';
 		revokeError = '';
+		requestError = '';
+		requestNotice = '';
 		// An empty field means "use the default", sent as null.
 		const daily = typeof grantDaily === 'number' ? grantDaily : null;
 		const monthly = typeof grantMonthly === 'number' ? grantMonthly : null;
@@ -202,11 +232,13 @@
 	}
 
 	async function handleRevoke(ent: AiEntitlement) {
-		if (revokingId) return;
+		if (busy) return;
 		revokingId = ent.user_id;
 		revokeError = '';
 		grantError = '';
 		changeStatus = '';
+		requestError = '';
+		requestNotice = '';
 		let revoked = false;
 		try {
 			await revokeAiAccess(ent.user_id);
@@ -246,6 +278,91 @@
 		// The row's button changed or went away: keep keyboard users in the list.
 		await tick();
 		listHeading?.focus();
+	}
+
+	/**
+	 * Approve (default limits) or dismiss a pending request. Single attempt;
+	 * every button in the list stays disabled until the list is reloaded, and
+	 * focus then goes to the section heading, never to the next row.
+	 */
+	async function handleRequestAction(req: AiAccessRequestItem, kind: 'approve' | 'dismiss') {
+		if (busy) return;
+		requestActionId = req.user_id;
+		requestActionKind = kind;
+		requestError = '';
+		requestNotice = '';
+		changeStatus = '';
+		grantError = '';
+		revokeError = '';
+		const account = accountLabel(req);
+		try {
+			let done = false;
+			let granted: AiEntitlement | null = null;
+			try {
+				if (kind === 'approve') granted = await approveAiRequest(req.user_id);
+				else await dismissAiRequest(req.user_id);
+				done = true;
+			} catch (e: unknown) {
+				const state = pageStateFor(e);
+				if (state) {
+					phase = state;
+					return;
+				}
+				if (e instanceof ApiError && e.errorCode === 'ai_request_not_found') {
+					// Approved, dismissed or withdrawn elsewhere: not an error. The 404
+					// proves it is no longer pending, so drop it even if the reload fails.
+					if (!(await refresh()) && summary) {
+						const listed = summary.requests ?? null;
+						const rest = listed ? listed.filter((r) => r.user_id !== req.user_id) : null;
+						const removed = listed && rest ? listed.length - rest.length : 0;
+						const total = summary.requests_total;
+						summary = {
+							...summary,
+							requests: rest,
+							requests_total: typeof total === 'number' ? Math.max(0, total - removed) : total
+						};
+					}
+					requestNoticeIsSuccess = false;
+					requestNotice = $t('admin_ai.request_not_found');
+				} else if (outcomeUnknown(e)) {
+					requestError = await unknownOutcomeMessage();
+				} else if (e instanceof ApiError && e.status === 429) {
+					requestError = $t('error.rate_limited');
+				} else {
+					requestError = $t(kind === 'approve' ? 'admin_ai.approve_failed' : 'admin_ai.dismiss_failed');
+				}
+			}
+
+			if (done) {
+				if (!(await refresh()) && summary) {
+					// The change succeeded; show it even if the reload failed.
+					const listed = summary.requests ?? null;
+					const rest = listed ? listed.filter((r) => r.user_id !== req.user_id) : null;
+					const removed = listed && rest ? listed.length - rest.length : 0;
+					const total = summary.requests_total;
+					const entitlement = granted;
+					summary = {
+						...summary,
+						requests: rest,
+						requests_total: typeof total === 'number' ? Math.max(0, total - removed) : total,
+						entitlements: entitlement
+							? [entitlement, ...summary.entitlements.filter((x) => x.user_id !== entitlement.user_id)]
+							: summary.entitlements
+					};
+				}
+				requestNoticeIsSuccess = true;
+				requestNotice = interpolate(
+					$t(kind === 'approve' ? 'admin_ai.approved_done' : 'admin_ai.dismissed_done'),
+					{ account }
+				);
+			}
+		} finally {
+			requestActionId = '';
+			requestActionKind = '';
+		}
+		// The row went away or changed: keep keyboard users at the top of the list.
+		await tick();
+		requestsHeading?.focus();
 	}
 
 	/** A budget (2 fraction digits). */
@@ -323,6 +440,97 @@
 				{$t('admin_ai.ledger_unavailable')}
 			</div>
 		{/if}
+
+		<section class="{cardClass} mb-6" aria-labelledby="ai-requests-title">
+			<h2
+				id="ai-requests-title"
+				tabindex="-1"
+				bind:this={requestsHeading}
+				class="text-lg font-semibold text-gray-900 dark:text-gray-100 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+			>
+				{requestsTotal === null
+					? $t('admin_ai.requests_heading')
+					: interpolate($t('admin_ai.requests_heading_count'), { count: whole(requestsTotal) })}
+			</h2>
+			<!-- The status region stays mounted so its updates are announced. -->
+			<div role="status">
+				{#if requestNotice}
+					<div
+						class="mt-3 p-3 rounded-lg border text-sm {requestNoticeIsSuccess
+							? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-200'
+							: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'}"
+					>
+						{requestNotice}
+					</div>
+				{/if}
+			</div>
+			{#if requestError}
+				<div role="alert" class="mt-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 text-sm">{requestError}</div>
+			{/if}
+
+			{#if requests === null}
+				<p class="mt-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-sm">
+					{$t('admin_ai.requests_unread')}
+				</p>
+			{:else if requests.length === 0}
+				<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{$t('admin_ai.requests_empty')}</p>
+			{:else}
+				<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+					{interpolate($t('admin_ai.requests_defaults'), {
+						daily: whole(summary.defaults.daily_questions),
+						monthly: usd(summary.defaults.account_monthly_budget_usd)
+					})}
+				</p>
+				{#if requestsTotal !== null && requestsTotal > requests.length}
+					<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+						{interpolate($t('admin_ai.requests_partial'), {
+							shown: whole(requests.length),
+							total: whole(requestsTotal)
+						})}
+					</p>
+				{/if}
+				<ul class="mt-4 space-y-3">
+					{#each requests as req (req.user_id)}
+						{@const account = accountLabel(req)}
+						{@const approving = requestActionId === req.user_id && requestActionKind === 'approve'}
+						{@const dismissing = requestActionId === req.user_id && requestActionKind === 'dismiss'}
+						<li class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+							<p class="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">{account}</p>
+							<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+								{interpolate($t('admin_ai.request_requested'), { when: when(req.requested_at) })}
+							</p>
+							{#if req.note}
+								<!-- The requester's own text: rendered as text, never as HTML. -->
+								<p class="mt-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">{req.note}</p>
+							{:else}
+								<p class="mt-2 text-sm italic text-gray-500 dark:text-gray-400">{$t('admin_ai.request_no_note')}</p>
+							{/if}
+							<div class="mt-3 flex flex-col sm:flex-row gap-3">
+								<button
+									type="button"
+									onclick={() => handleRequestAction(req, 'approve')}
+									disabled={busy}
+									aria-label={approving ? undefined : interpolate($t('admin_ai.approve_aria'), { account })}
+									class="min-h-11 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 dark:bg-blue-600 text-white dark:text-white hover:bg-blue-700 dark:hover:bg-blue-500 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+								>
+									{approving ? $t('admin_ai.btn_approving') : $t('admin_ai.btn_approve')}
+								</button>
+								<button
+									type="button"
+									onclick={() => handleRequestAction(req, 'dismiss')}
+									disabled={busy}
+									aria-label={dismissing ? undefined : interpolate($t('admin_ai.dismiss_aria'), { account })}
+									class="min-h-11 px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+								>
+									{dismissing ? $t('admin_ai.btn_dismissing') : $t('admin_ai.btn_dismiss')}
+								</button>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
 			<section class={cardClass} aria-labelledby="ai-status-title">
 				<h2 id="ai-status-title" class="text-base font-semibold text-gray-900 dark:text-gray-100">{$t('admin_ai.status_heading')}</h2>
@@ -470,7 +678,7 @@
 				</div>
 				<button
 					type="submit"
-					disabled={granting || !grantEmail.trim()}
+					disabled={busy || !grantEmail.trim()}
 					class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
 				>
 					{granting ? $t('admin_ai.btn_granting') : $t('admin_ai.btn_grant')}
@@ -483,7 +691,7 @@
 				id="ai-list-title"
 				tabindex="-1"
 				bind:this={listHeading}
-				class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 focus:outline-none"
+				class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
 			>
 				{$t('admin_ai.entitlements_heading')}
 			</h2>
@@ -551,7 +759,7 @@
 											<button
 												type="button"
 												onclick={() => handleRevoke(ent)}
-												disabled={revokingId !== ''}
+												disabled={busy}
 												aria-label={interpolate($t('admin_ai.revoke_aria'), { email: accountLabel(ent) })}
 												class="text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 disabled:opacity-50"
 											>

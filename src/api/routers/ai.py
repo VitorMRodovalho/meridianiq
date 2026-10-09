@@ -14,18 +14,23 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 
 from .. import ai_gate
 from ..access import Principal, get_principal
+from ..auth import optional_auth
 from ..deps import RATE_LIMIT_LIGHT, RATE_LIMIT_READ, RATE_LIMIT_WRITE, get_store, limiter
 from ..schemas import (
+    AIAccessRequestBody,
+    AIAccessRequestItem,
+    AIAccessRequestResponse,
     AIAdminResponse,
     AIConfigFlags,
     AIDefaults,
     AIEntitlementGrantRequest,
     AIEntitlementSchema,
     AIMonthCalls,
+    AIRequestDismissResponse,
     AIRevokeResponse,
     AIStatusResponse,
 )
@@ -81,6 +86,7 @@ def ai_status(
     signed-out caller gets 401.
     """
     status = ai_gate.status_for(principal, store)
+    access = ai_gate.access_for(principal, store, status.reason)
     return AIStatusResponse(
         available=status.available,
         reason=status.reason,
@@ -88,6 +94,35 @@ def ai_status(
         used_today=status.used_today,
         remaining_today=status.remaining_today,
         resets_at=status.resets_at,
+        access=access.state if access else None,
+        access_requested_at=_when(access.requested_at) if access else None,
+        access_retry_after=_when(access.retry_after) if access else None,
+    )
+
+
+@router.post("/api/v1/ai/access-request", response_model=AIAccessRequestResponse)
+@limiter.limit(RATE_LIMIT_WRITE)
+def ai_request_access(
+    request: Request,
+    body: AIAccessRequestBody,
+    background: BackgroundTasks,
+    principal: Principal = Depends(get_principal),
+    claims: Any = Depends(optional_auth),
+    store: Any = Depends(get_store),
+) -> AIAccessRequestResponse:
+    """Ask for access to the AI assistant (signed-in session only).
+
+    ``created``: a new pending request; the operator is emailed (without the
+    requester's details). ``pending``: one is already waiting (the note is
+    updated when given). ``entitled``: access is active. ``dismissed``: a
+    new request is allowed from ``retry_after``.
+    """
+    anonymous = isinstance(claims, dict) and claims.get("is_anonymous") is True
+    state = ai_gate.request_access(principal, store, body.note, background, anonymous=anonymous)
+    return AIAccessRequestResponse(
+        state=state.state,
+        requested_at=_when(state.requested_at),
+        retry_after=_when(state.retry_after),
     )
 
 
@@ -121,6 +156,20 @@ def ai_admin_overview(
         ),
         stale_reservations=report["stale_reservations"],
         entitlements=[_entitlement(r) for r in report["entitlements"]],
+        requests=(
+            None
+            if report["requests"] is None
+            else [
+                AIAccessRequestItem(
+                    user_id=str(r["user_id"]),
+                    email=r.get("email"),
+                    note=r.get("note"),
+                    requested_at=_when(r.get("requested_at")),
+                )
+                for r in report["requests"]
+            ]
+        ),
+        requests_total=report["requests_total"],
     )
 
 
@@ -167,3 +216,44 @@ def ai_revoke_entitlement(
         raise ai_gate.error(404, "ai_entitlement_not_found") from exc
     ai_gate.revoke(store, operator=operator, user_id=canonical, request=request)
     return AIRevokeResponse(revoked=True)
+
+
+def _canonical_user_id(user_id: str, not_found: str) -> str:
+    try:
+        return str(uuid.UUID(user_id))
+    except ValueError as exc:
+        raise ai_gate.error(404, not_found) from exc
+
+
+@router.post(
+    "/api/v1/superadmin/ai/requests/{user_id}/approve",
+    response_model=AIEntitlementSchema,
+)
+@limiter.limit(RATE_LIMIT_WRITE)
+def ai_approve_request(
+    request: Request,
+    user_id: str,
+    operator: Principal = Depends(_ai_admin),
+    store: Any = Depends(get_store),
+) -> AIEntitlementSchema:
+    """Approve a pending access request with the default limits. Audited."""
+    canonical = _canonical_user_id(user_id, "ai_request_not_found")
+    row = ai_gate.approve_request(store, operator=operator, user_id=canonical, request=request)
+    return _entitlement(row)
+
+
+@router.delete(
+    "/api/v1/superadmin/ai/requests/{user_id}",
+    response_model=AIRequestDismissResponse,
+)
+@limiter.limit(RATE_LIMIT_WRITE)
+def ai_dismiss_request(
+    request: Request,
+    user_id: str,
+    operator: Principal = Depends(_ai_admin),
+    store: Any = Depends(get_store),
+) -> AIRequestDismissResponse:
+    """Dismiss a pending access request (it may be sent again in 30 days). Audited."""
+    canonical = _canonical_user_id(user_id, "ai_request_not_found")
+    ai_gate.dismiss_request(store, operator=operator, user_id=canonical, request=request)
+    return AIRequestDismissResponse(dismissed=True)

@@ -128,6 +128,7 @@ def get_current_user(
             "id": user_id,
             "email": payload.get("email", ""),
             "role": payload.get("role", "authenticated"),
+            "is_anonymous": payload.get("is_anonymous") is True,
         }
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
