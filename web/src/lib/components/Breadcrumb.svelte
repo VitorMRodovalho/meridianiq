@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	const routeLabels: Record<string, string> = {
 		'': 'Dashboard',
@@ -47,7 +47,7 @@
 	const unlinkedPaths = new Set(['/admin']);
 
 	const crumbs = $derived.by(() => {
-		const pathname = $page.url.pathname;
+		const pathname = page.url.pathname;
 		if (pathname === '/') return [];
 
 		const segments = pathname.split('/').filter(Boolean);

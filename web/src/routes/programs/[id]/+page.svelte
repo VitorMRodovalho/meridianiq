@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import {
 		getProgramDetail,
 		getProgramTrends,
@@ -14,7 +14,7 @@
 	import type { ProgramTrends } from '$lib/types';
 	import type { ProgramRollup } from '$lib/api';
 
-	const programId = $derived($page.params.id!);
+	const programId = $derived(page.params.id!);
 
 	let program: ProgramListItem | null = $state(null);
 	let revisions: ProgramRevision[] = $state([]);
@@ -25,7 +25,7 @@
 
 	onMount(async () => {
 		try {
-			const id = $page.params.id!;
+			const id = page.params.id!;
 			const [detailRes, trendsRes, rollupRes] = await Promise.allSettled([
 				getProgramDetail(id),
 				getProgramTrends(id),

@@ -5,7 +5,7 @@
 	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
 	import { success as toastSuccess, error as toastError } from '$lib/toast';
 	import { t } from '$lib/i18n';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -54,7 +54,7 @@
 	let autoLoadedFor = $state<string | null>(null);
 
 	$effect(() => {
-		const projectParam = $page.url.searchParams.get('project');
+		const projectParam = page.url.searchParams.get('project');
 		if (!projectParam || projects.length === 0 || loading) return;
 		if (autoLoadedFor === projectParam) return;
 		// Ignore an id the caller cannot actually see: auto-firing on it would

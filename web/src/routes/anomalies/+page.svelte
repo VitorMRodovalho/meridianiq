@@ -4,7 +4,7 @@
 	import { t } from '$lib/i18n';
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import { supabase } from '$lib/supabase';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 
@@ -77,7 +77,7 @@
 	let autoLoadedFor = $state<string | null>(null);
 
 	$effect(() => {
-		const projectParam = $page.url.searchParams.get('project');
+		const projectParam = page.url.searchParams.get('project');
 		if (!projectParam || projects.length === 0 || loading) return;
 		if (autoLoadedFor === projectParam) return;
 		if (!projects.some((p) => p.project_id === projectParam)) return;

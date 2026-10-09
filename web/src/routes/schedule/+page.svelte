@@ -5,7 +5,7 @@
 	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import { supabase } from '$lib/supabase';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
 	import ResourceHistogramPanel from '$lib/components/ScheduleViewer/ResourceHistogramPanel.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
@@ -127,7 +127,7 @@
 	let autoLoadedFor = $state<string | null>(null);
 
 	$effect(() => {
-		const params = $page.url.searchParams;
+		const params = page.url.searchParams;
 		const projectParam = params.get('project');
 		const baselineParam = params.get('baseline');
 		if (!projectParam || projects.length === 0 || loading) return;
