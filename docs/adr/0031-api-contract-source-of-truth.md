@@ -1,6 +1,6 @@
 # 0031. Test the API contract from the data first; type it from the producer second
 
-* Status: **proposed**. This is the second draft; the entry council's findings are folded in (see §"Council record").
+* Status: **proposed**. This is the second draft; the entry council's findings are folded in (see §"Council record"). Placement decided 2026-10-09 (§Sequencing); one question remains open (§"Out of scope", `/openapi.json`).
 * Deciders: @VitorMRodovalho
 * Date: 2026-10-09
 * Cites:
@@ -176,9 +176,9 @@ The first draft's "interfaces outside the generated file" ratchet is dropped. Wh
 
 ### Sequencing
 
-* **Placement in ADR-0027 §"Order of work": owner decision, recorded here once made.**
-  * Phase 1 is detection of silent breakage in forensic output, the nearest category being forensic correctness. Its cost is small: the helper plus one fixture test per page.
-  * Phases 2 to 4 are hygiene, sized at several cycles.
+* **Placement in ADR-0027 §"Order of work", decided by the owner on 2026-10-09:**
+  * **Phase 1 belongs to forensic correctness.** It detects silent breakage in forensic output, and its cost is small: the helper plus one fixture test per page.
+  * **Phases 2 to 4 are hygiene.** They come after the forensic-correctness work in that order and are sized at several cycles.
 * The SvelteKit 3 migration (`sv migrate sveltekit-3`, planned as its own mechanical pull request) lands **before** the shared render helper, the generated-types wrapper, and any Phase 4 conversion. Those touch the same files and the same `$lib` → `#lib` imports.
 * Backend fixture capture for Phase 1 and the Phase 2 export pytest can start at once.
 
