@@ -2936,6 +2936,45 @@ class SupabaseStore:
             logger.error("Failed to download XER bytes: %s", exc)
             return None
 
+    def _user_storage_paths(self, prefix: str) -> set[str]:
+        """Every object under ``{user_id}/``: uploads sit at ``{user_id}/{upload_id}/<file>``."""
+        bucket = self._client.storage.from_(self.BUCKET)
+        found: set[str] = set()
+        for entry in bucket.list(prefix.rstrip("/"), {"limit": 1000}):
+            name = f"{prefix}{entry['name']}"
+            if entry.get("id") is not None:
+                found.add(name)
+                continue
+            for item in bucket.list(name, {"limit": 1000}):
+                if item.get("id") is not None:
+                    found.add(f"{name}/{item['name']}")
+        return found
+
+    def delete_user_files(self, user_id: str) -> int:
+        """Erasure: remove the user's uploaded files from Storage; return how many.
+
+        The files are found under the user's folder, and also through
+        ``projects.storage_path``, so one whose row is already gone is
+        removed too. Only paths under ``{user_id}/`` are touched. Raises
+        when an object is still listed afterwards, so the caller can report
+        a partial erasure; a retry finds what is left.
+        """
+        uuid.UUID(user_id)  # never list or remove from a prefix the caller did not own
+        prefix = f"{user_id}/"
+        paths = self._user_storage_paths(prefix)
+        rows = self._select("projects", {"user_id": user_id}, columns="storage_path")
+        paths |= {
+            r["storage_path"] for r in rows if str(r.get("storage_path") or "").startswith(prefix)
+        }
+        ordered = sorted(paths)
+        bucket = self._client.storage.from_(self.BUCKET)
+        for start in range(0, len(ordered), 100):
+            bucket.remove(ordered[start : start + 100])
+        left = self._user_storage_paths(prefix)
+        if left:
+            raise RuntimeError(f"{len(left)} Storage object(s) still listed after removal")
+        return len(ordered)
+
     # -- programs --------------------------------------------------------
 
     def get_or_create_program(self, user_id: str, project_name: str) -> str:

@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -25,6 +27,7 @@ from ..deps import (
 from ..schemas import MAX_SERIES_PROJECT_IDS, GDPRDeleteResponse
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _purge_owned_results(user_id: str) -> int:
@@ -37,6 +40,22 @@ def _purge_owned_results(user_id: str) -> int:
         get_report_store(),
     )
     return sum(store.purge_owner(user_id) for store in stores)
+
+
+def _delete_user_files(store: Any, user_id: str) -> tuple[int, bool]:
+    """The erasure's Storage part: (files removed, whether it finished).
+
+    A store without Storage (in-memory) has nothing to remove. A failure is
+    logged by class only and makes the erasure ``partial``.
+    """
+    delete = getattr(store, "delete_user_files", None)
+    if delete is None:
+        return 0, True
+    try:
+        return int(delete(user_id)), True
+    except Exception as exc:
+        logger.warning("delete_user_files failed: %s", type(exc).__name__)
+        return 0, False
 
 
 # ------------------------------------------------------------------
@@ -120,7 +139,8 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
     """Delete all data owned by the authenticated user (GDPR compliance).
 
     Cascade deletes: uploads, projects, analyses, comparisons, timelines,
-    TIA, EVM, risk simulations, benchmarks, programs, API keys, and profile.
+    TIA, EVM, risk simulations, benchmarks, programs, API keys, and profile;
+    and the uploaded files in Storage.
 
     This action is irreversible.
     """
@@ -141,12 +161,19 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 
     ai_forgotten = ai_gate.forget_user(store, str(user_id))
 
+    # The uploaded files are outside the database cascade too. They go
+    # before the rows: a failure leaves the rows to retry against, and the
+    # retry finds the files by the user's folder either way.
+    deleted_files, files_gone = _delete_user_files(store, str(user_id))
+    complete = ai_forgotten and files_gone
+
     # Count before deletion for response
     deleted = {
         "deleted_uploads": 0,
         "deleted_projects": 0,
         "deleted_analyses": 0,
         "deleted_benchmarks": 0,
+        "deleted_files": deleted_files,
         "status": "complete",
     }
 
@@ -156,7 +183,8 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
             result = store._client.rpc("delete_user_data", {"target_user_id": user_id}).execute()
             if result.data:
                 response = GDPRDeleteResponse(**result.data)
-                if not ai_forgotten:
+                response.deleted_files = deleted_files
+                if not complete:
                     response.status = "partial"
                 return response
         except Exception:
@@ -189,7 +217,7 @@ def delete_user_data(_user: object = Depends(require_auth)) -> GDPRDeleteRespons
 
     invalidate_namespace("schedule:kpis")
 
-    if not ai_forgotten:
+    if not complete:
         deleted["status"] = "partial"
     return GDPRDeleteResponse(**deleted)
 
