@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **141 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **142 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -25,7 +25,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 - [Benchmarks](#benchmarks) — 3 endpoints
 - [Reports](#reports) — 3 endpoints
 - [Admin](#admin) — 6 endpoints
-- [Health](#health) — 2 endpoints
+- [Health](#health) — 3 endpoints
 - [Ai](#ai) — 7 endpoints
 - [Bi](#bi) — 3 endpoints
 - [Hooks](#hooks) — 1 endpoints
@@ -261,6 +261,7 @@ _Readiness and liveness_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `GET` | `/api/v1/health` | Health check endpoint. | `HealthResponse` | none |
+| `GET` | `/api/v1/health/db` | Whether the API can reach its database. | `DatabaseHealthResponse` | none |
 | `GET` | `/health` | — | `dict` | none |
 
 ## Ai

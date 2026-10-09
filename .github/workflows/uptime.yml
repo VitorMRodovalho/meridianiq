@@ -1,0 +1,90 @@
+name: Uptime (API and database)
+
+# Polls production and opens one issue per outage, closed when it recovers.
+#
+# Why: on 2026-10-09 the Supabase project was paused for inactivity and its
+# hostnames stopped resolving, while the Fly health check (/health, which
+# never touches the database) stayed green. /api/v1/health/db reads one row
+# and answers 503 when the database is unreachable.
+#
+# Side effect, by design: these reads count as database activity, which on
+# Supabase's free plan is what keeps a project from being paused (docs:
+# https://supabase.com/docs/guides/platform/free-project-pausing).
+#
+# GitHub disables scheduled workflows in a public repository after 60 days
+# without repository activity. If that happens, re-enable this workflow in
+# the Actions tab; until then nothing polls.
+#
+# The job itself succeeds when production is down: the outage is reported by
+# the issue (one notification per incident), and a red run means the monitor
+# broke, not the site.
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API: https://api.getmeridianiq.com
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Probe (3 attempts, 30 s apart)
+        id: probe
+        run: |
+          code() { curl -s -o /dev/null -m 30 -w '%{http_code}' "$1" || true; }
+          for attempt in 1 2 3; do
+            api=$(code "$API/health"); db=$(code "$API/api/v1/health/db")
+            echo "attempt $attempt: /health=$api /api/v1/health/db=$db"
+            if [ "$api" = "200" ] && [ "$db" = "200" ]; then break; fi
+            [ "$attempt" -lt 3 ] && sleep 30
+          done
+          if [ "$api" != "200" ]; then
+            echo "state=down" >> "$GITHUB_OUTPUT"
+            echo "reason=API unreachable (/health answered ${api:-000})" >> "$GITHUB_OUTPUT"
+          elif [ "$db" != "200" ]; then
+            echo "state=down" >> "$GITHUB_OUTPUT"
+            echo "reason=database unavailable (/api/v1/health/db answered ${db:-000})" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=up" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or close the outage issue
+        env:
+          STATE: ${{ steps.probe.outputs.state }}
+          REASON: ${{ steps.probe.outputs.reason }}
+        run: |
+          open=$(gh issue list --label uptime --state open --json number --jq '.[0].number // empty')
+          now=$(date -u +%Y-%m-%dT%H:%MZ)
+          if [ "$STATE" = "down" ] && [ -z "$open" ]; then
+            gh label create uptime --color B60205 \
+              --description "Production outage reported by the uptime workflow" --force
+            gh issue create --label uptime \
+              --title "Production down: $REASON" \
+              --body "$(printf '%s\n' \
+                "Detected $now by the uptime workflow: $REASON." \
+                "" \
+                "Run: $RUN_URL" \
+                "" \
+                "Checks: the Supabase dashboard (a paused project shows a Restore button), then the Fly app status." \
+                "This issue closes itself when both probes answer 200 again.")"
+          elif [ "$STATE" = "down" ]; then
+            echo "Outage already reported in #$open."
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Recovered $now: /health and /api/v1/health/db answer 200. Run: $RUN_URL"
+          else
+            echo "Up."
+          fi

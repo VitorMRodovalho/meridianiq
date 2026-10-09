@@ -21,6 +21,15 @@ class HealthResponse(BaseModel):
     version: str = "0.8.0-dev"
 
 
+class DatabaseHealthResponse(BaseModel):
+    """Response for GET /api/v1/health/db (200 when reachable, 503 when not).
+
+    ``in_memory``: the API runs without a remote database (local and tests).
+    """
+
+    database: Literal["ok", "unavailable", "in_memory"]
+
+
 # ── Upload ───────────────────────────────────────────────
 
 
