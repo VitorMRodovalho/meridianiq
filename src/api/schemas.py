@@ -2412,3 +2412,18 @@ class RevisionTrendsResponse(BaseModel):
             "DA P3-3 from PR #88."
         ),
     )
+
+
+class UpdateProgramRequest(BaseModel):
+    """Body for PUT /api/v1/programs/{program_id}: rename or redescribe."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "UpdateProgramRequest":
+        if self.name is None and self.description is None:
+            raise ValueError("Send a name or a description")
+        return self

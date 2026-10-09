@@ -41,7 +41,7 @@
 	{:else}
 		<div class="grid gap-4">
 			{#each programs as prog}
-				<a href="/programs/{prog.proj_short_name || prog.id}" class="block bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
+				<a href="/programs/{prog.id}" class="block bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
 					<div class="flex items-center justify-between">
 						<div>
 							<h3 class="font-semibold text-gray-900 dark:text-gray-100">{prog.name || prog.proj_short_name || $t('programs.unnamed')}</h3>

@@ -166,7 +166,7 @@
 			<p class="mt-4 text-gray-600">{$t('upload.drag')}</p>
 			<label class="mt-3 inline-block cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors">
 				{$t('upload.browse')}
-				<input type="file" accept=".xer,.xml" class="hidden" onchange={handleFileInput} />
+				<input id="xer-file" type="file" accept=".xer,.xml" class="hidden" onchange={handleFileInput} />
 			</label>
 			<p class="mt-2 text-xs text-gray-400">Primavera P6 (.xer) or Microsoft Project (.xml)</p>
 		{/if}

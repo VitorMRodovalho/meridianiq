@@ -132,6 +132,28 @@ def utc_month_start(now: datetime) -> datetime:
     return utc_day_start(now).replace(day=1)
 
 
+def newest_first(revisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Order a program's revisions newest first by data date.
+
+    The data date is when the schedule was statused, which is what makes one
+    revision later than another; ``revision_number`` only records upload
+    order, so it breaks ties and places revisions without a data date last.
+    """
+    dated = [r for r in revisions if r.get("data_date")]
+    undated = [r for r in revisions if not r.get("data_date")]
+    dated.sort(key=lambda r: (str(r["data_date"]), r.get("revision_number") or 0), reverse=True)
+    undated.sort(key=lambda r: r.get("revision_number") or 0, reverse=True)
+    return dated + undated
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return True
+
+
 def _money_text(value: Any) -> str:
     """A money amount as text, for a Postgres ``numeric`` parameter."""
     return format(Decimal(str(value)), "f")
@@ -256,29 +278,10 @@ class InMemoryStore:
         for prog_id, prog in self._programs.items():
             if user_id and prog["user_id"] != user_id:
                 continue
-            # Find all uploads for this program
             upload_pids = [pid for pid, p_id in self._upload_program.items() if p_id == prog_id]
-            # Find latest revision
-            latest = None
-            max_rev = 0
-            for pid in upload_pids:
-                rev = self._upload_revision.get(pid, 0)
-                if rev >= max_rev:
-                    max_rev = rev
-                    schedule = self._projects.get(pid)
-                    if schedule:
-                        name = ""
-                        if schedule.projects:
-                            name = schedule.projects[0].proj_short_name
-                        latest = {
-                            "id": pid,
-                            "filename": f"{name}.xer",
-                            "data_date": None,
-                            "uploaded_at": None,
-                            "revision_number": rev,
-                            "activity_count": len(schedule.activities),
-                            "status": self._project_statuses.get(pid, "ready"),
-                        }
+            # The latest revision is the newest by data date, as in the rollup.
+            revisions = self.get_program_revisions(prog_id, user_id=user_id)
+            latest = revisions[0] if revisions else None
             enriched = {**prog, "latest_revision": latest, "revision_count": len(upload_pids)}
             results.append(enriched)
         return results
@@ -311,15 +314,14 @@ class InMemoryStore:
                 {
                     "id": pid,
                     "filename": f"{name}.xer",
-                    "data_date": None,
+                    "data_date": (self._project_meta.get(pid) or {}).get("data_date"),
                     "uploaded_at": None,
                     "revision_number": self._upload_revision.get(pid, 0),
                     "activity_count": len(schedule.activities),
                     "status": self._project_statuses.get(pid, "ready"),
                 }
             )
-        revisions.sort(key=lambda r: r["revision_number"], reverse=True)
-        return revisions
+        return newest_first(revisions)
 
     def update_program(
         self, program_id: str, updates: dict[str, Any], user_id: str | None = None
@@ -854,6 +856,7 @@ class InMemoryStore:
         self._comparisons.clear()
         self._upload_program.clear()
         self._upload_revision.clear()
+        self._project_meta.clear()
         self._cost_uploads.clear()
         self._cost_upload_counter = 0
         self._risk_entries.clear()
@@ -3028,9 +3031,14 @@ class SupabaseStore:
         return str(data)
 
     def get_next_revision_number(self, program_id: str) -> int:
-        """Return the next revision number for a program."""
+        """Return the next revision number for a program.
+
+        Read from ``projects``, the only table that carries ``program_id``;
+        ``schedule_uploads.program_id`` is never written, so reading it made
+        every upload revision 1.
+        """
         result = (
-            self._client.table("schedule_uploads")
+            self._client.table("projects")
             .select("revision_number")
             .eq("program_id", program_id)
             .order("revision_number", desc=True)
@@ -3063,6 +3071,7 @@ class SupabaseStore:
                         "revision_number, activity_count, status"
                     )
                     .eq("program_id", prog["id"])
+                    .order("data_date", desc=True, nullsfirst=False)
                     .order("revision_number", desc=True)
                     .limit(1)
                     .execute()
@@ -3090,6 +3099,8 @@ class SupabaseStore:
         or marker per revision. Failed revisions are retained intentionally
         (ADR-0015 §2) — they are part of the forensic trail, not dead data.
         """
+        if not _is_uuid(program_id):
+            return []
         query = self._client.table("programs").select("id").eq("id", program_id)
         if user_id:
             query = query.eq("user_id", user_id)
@@ -3102,6 +3113,7 @@ class SupabaseStore:
                 "id, project_name, data_date, created_at, revision_number, activity_count, status"
             )
             .eq("program_id", program_id)
+            .order("data_date", desc=True, nullsfirst=False)
             .order("revision_number", desc=True)
             .execute()
             .data
@@ -3111,6 +3123,8 @@ class SupabaseStore:
         self, program_id: str, updates: dict[str, Any], user_id: str | None = None
     ) -> dict[str, Any] | None:
         """Update program metadata (e.g. rename). Returns updated program or None."""
+        if not _is_uuid(program_id):
+            return None
         query = self._client.table("programs").select("id").eq("id", program_id)
         if user_id:
             query = query.eq("user_id", user_id)

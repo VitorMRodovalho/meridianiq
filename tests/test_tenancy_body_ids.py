@@ -620,7 +620,6 @@ NOT_MIGRATED: dict[tuple[str, str], tuple[str, str]] = {
 #: Loose (dict) bodies read by their handler, which takes no project id from them.
 NO_PROJECT_ID: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/api-keys"): "a key name",
-    ("PUT", "/api/v1/programs/{program_id}"): "program name and description",
     ("POST", "/api/v1/schedule/generate"): "generation parameters",
     ("POST", "/api/v1/schedule/build"): "a free-text description",
     ("POST", "/api/v1/projects/{project_id}/risk-register"): "a risk entry; project is the path id",
