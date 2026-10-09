@@ -92,7 +92,7 @@ web/
       stores/        auth (lazy init), theme, i18n
       api.ts         API client
 supabase/
-  migrations/        36 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome"; Cycle 4 W1 added `revision_history` per ADR-0022 + Amendment 1; Cycle 5 W3-E added `revision_skip_log` per issue #84)
+  migrations/        37 .sql files (RLS enforced on user-owned tables — see ADR-0017 for the deduplication of the 012/017 api_keys migrations; Cycle 3 W4 added the `_ENGINE_VERSION` sourcing chain via `src/__about__.py` per ADR-0014 §"Decision Outcome"; Cycle 4 W1 added `revision_history` per ADR-0022 + Amendment 1; Cycle 5 W3-E added `revision_skip_log` per issue #84)
 scripts/
   generate_api_reference.py       → docs/api-reference.md
   generate_mcp_catalog.py         → docs/mcp-tools.md
