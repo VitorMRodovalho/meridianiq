@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { getTimeline, getDelayTrend } from '$lib/api';
 	import type { TimelineDetailSchema, DelayTrendResponse, WindowSchema } from '$lib/types';
 
@@ -10,7 +10,7 @@
 	let error = $state('');
 	let expandedWindow: number | null = $state(null);
 
-	const timelineId = $derived($page.params.id!);
+	const timelineId = $derived(page.params.id!);
 
 	onMount(async () => {
 		try {

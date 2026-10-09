@@ -11,7 +11,7 @@
 	import { t, locale, detectLocale, availableLocales } from '$lib/i18n';
 
 	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let { children } = $props();
 	let sidebarOpen = $state(false);
@@ -277,7 +277,7 @@
 				{#if !section.titleKey || !collapsed[section.titleKey]}
 				<div class="space-y-0.5">
 					{#each section.items as link}
-						{@const isActive = $page.url.pathname === link.href || ($page.url.pathname.startsWith(link.href + '/') && link.href !== '/')}
+						{@const isActive = page.url.pathname === link.href || (page.url.pathname.startsWith(link.href + '/') && link.href !== '/')}
 						<a
 							href={link.href}
 							onclick={closeSidebar}
