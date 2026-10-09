@@ -6,9 +6,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from src.database.store import newest_first
+
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 from ..kpi_helpers import schedule_kpi_bundle
+from ..schemas import UpdateProgramRequest
+
+# Postgres SQLSTATE for a UNIQUE violation, as PostgREST reports it.
+_UNIQUE_VIOLATION = "23505"
 
 router = APIRouter()
 
@@ -45,13 +51,23 @@ def get_program_detail(program_id: str, _user: object = Depends(optional_auth)):
 def update_program(
     request: Request,
     program_id: str,
-    body: dict,
+    body: UpdateProgramRequest,
     _user: object = Depends(optional_auth),
 ):
     """Rename or update a program."""
     store = get_store()
     user_id = _user["id"] if _user else None
-    updated = store.update_program(program_id, body, user_id=user_id)
+    try:
+        updated = store.update_program(
+            program_id, body.model_dump(exclude_none=True), user_id=user_id
+        )
+    except Exception as exc:
+        # Program names are unique per user, case-insensitively.
+        if getattr(exc, "code", None) == _UNIQUE_VIOLATION:
+            raise HTTPException(
+                status_code=409, detail="You already have a program with that name"
+            ) from exc
+        raise
     if updated is None:
         raise HTTPException(status_code=404, detail="Program not found")
     return {"program": updated}
@@ -65,7 +81,7 @@ def _build_rollup(program_id: str, revisions: list[dict], user_id: str | None = 
     Health work is delegated to ``schedule_kpi_bundle`` which caches by
     (project_id, user_id).
     """
-    revisions.sort(key=lambda r: r.get("revision_number", 0), reverse=True)
+    revisions[:] = newest_first(revisions)
     latest = revisions[0]
     prev = revisions[1] if len(revisions) > 1 else None
 
@@ -161,8 +177,8 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
     if not revisions:
         raise HTTPException(status_code=404, detail="Program not found or no revisions")
 
-    # Sort ascending by revision_number
-    revisions.sort(key=lambda r: r.get("revision_number", 0))
+    # Oldest first, by data date, for the chart's time axis.
+    revisions = list(reversed(newest_first(revisions)))
 
     trends: dict = {
         "revision_count": len(revisions),

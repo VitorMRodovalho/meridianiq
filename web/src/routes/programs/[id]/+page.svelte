@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		getProgramDetail,
@@ -23,14 +22,21 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	onMount(async () => {
+	async function load(id: string) {
+		loading = true;
+		error = '';
+		program = null;
+		revisions = [];
+		trends = null;
+		rollup = null;
 		try {
-			const id = page.params.id!;
 			const [detailRes, trendsRes, rollupRes] = await Promise.allSettled([
 				getProgramDetail(id),
 				getProgramTrends(id),
 				getProgramRollup(id)
 			]);
+			// A newer navigation owns the page; drop this one's result.
+			if (id !== programId) return;
 
 			if (detailRes.status === 'fulfilled') {
 				program = detailRes.value.program;
@@ -49,8 +55,13 @@
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to load program';
 		} finally {
-			loading = false;
+			if (id === programId) loading = false;
 		}
+	}
+
+	// Reload whenever the route moves to another program.
+	$effect(() => {
+		load(programId);
 	});
 
 	function healthScoreColor(score: number | null | undefined): string {
