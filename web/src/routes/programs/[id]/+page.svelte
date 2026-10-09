@@ -53,6 +53,7 @@
 				rollup = rollupRes.value;
 			}
 		} catch (e: unknown) {
+			if (id !== programId) return;
 			error = e instanceof Error ? e.message : 'Failed to load program';
 		} finally {
 			if (id === programId) loading = false;

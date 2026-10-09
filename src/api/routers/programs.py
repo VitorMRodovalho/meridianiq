@@ -81,7 +81,7 @@ def _build_rollup(program_id: str, revisions: list[dict], user_id: str | None = 
     Health work is delegated to ``schedule_kpi_bundle`` which caches by
     (project_id, user_id).
     """
-    revisions[:] = newest_first(revisions)
+    revisions = newest_first(revisions)
     latest = revisions[0]
     prev = revisions[1] if len(revisions) > 1 else None
 
@@ -177,7 +177,8 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
     if not revisions:
         raise HTTPException(status_code=404, detail="Program not found or no revisions")
 
-    # Oldest first, by data date, for the chart's time axis.
+    # Oldest first, by data date, for the chart's time axis. Revisions with
+    # no data date cannot be placed in time; they come first, labelled "Rev N".
     revisions = list(reversed(newest_first(revisions)))
 
     trends: dict = {

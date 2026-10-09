@@ -132,6 +132,12 @@ class TestRollupAndTrendsFollowDataDate:
         assert [label[:10] for label in data["labels"]] == ["2026-03-01", "2026-05-01"]
         assert data["activity_counts"] == [3, 7]
 
+    def test_program_list_latest_is_the_latest_data_date(self, store: InMemoryStore) -> None:
+        self._program(store)
+        progs = TestClient(app).get("/api/v1/programs").json()
+        progs = progs["programs"] if isinstance(progs, dict) else progs
+        assert progs[0]["latest_revision"]["activity_count"] == 7
+
     def test_detail_lists_newest_first(self, store: InMemoryStore) -> None:
         prog = self._program(store)
         revs = TestClient(app).get(f"/api/v1/programs/{prog}").json()["revisions"]
@@ -144,7 +150,8 @@ class TestRename:
         return str(store.get_programs(user_id="user-1")[0]["id"])
 
     @pytest.mark.parametrize(
-        "body", [{"name": ""}, {"name": "x" * 201}, {"owner": "someone"}, {"user_id": "u"}]
+        "body",
+        [{"name": ""}, {"name": "x" * 201}, {"owner": "someone"}, {"user_id": "u"}, {}],
     )
     def test_body_is_validated(self, store: InMemoryStore, body: dict[str, str]) -> None:
         prog = self._prog(store)

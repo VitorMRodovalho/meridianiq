@@ -2421,3 +2421,9 @@ class UpdateProgramRequest(BaseModel):
 
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "UpdateProgramRequest":
+        if self.name is None and self.description is None:
+            raise ValueError("Send a name or a description")
+        return self

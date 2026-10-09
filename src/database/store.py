@@ -278,29 +278,10 @@ class InMemoryStore:
         for prog_id, prog in self._programs.items():
             if user_id and prog["user_id"] != user_id:
                 continue
-            # Find all uploads for this program
             upload_pids = [pid for pid, p_id in self._upload_program.items() if p_id == prog_id]
-            # Find latest revision
-            latest = None
-            max_rev = 0
-            for pid in upload_pids:
-                rev = self._upload_revision.get(pid, 0)
-                if rev >= max_rev:
-                    max_rev = rev
-                    schedule = self._projects.get(pid)
-                    if schedule:
-                        name = ""
-                        if schedule.projects:
-                            name = schedule.projects[0].proj_short_name
-                        latest = {
-                            "id": pid,
-                            "filename": f"{name}.xer",
-                            "data_date": None,
-                            "uploaded_at": None,
-                            "revision_number": rev,
-                            "activity_count": len(schedule.activities),
-                            "status": self._project_statuses.get(pid, "ready"),
-                        }
+            # The latest revision is the newest by data date, as in the rollup.
+            revisions = self.get_program_revisions(prog_id, user_id=user_id)
+            latest = revisions[0] if revisions else None
             enriched = {**prog, "latest_revision": latest, "revision_count": len(upload_pids)}
             results.append(enriched)
         return results
@@ -3090,6 +3071,7 @@ class SupabaseStore:
                         "revision_number, activity_count, status"
                     )
                     .eq("program_id", prog["id"])
+                    .order("data_date", desc=True, nullsfirst=False)
                     .order("revision_number", desc=True)
                     .limit(1)
                     .execute()
