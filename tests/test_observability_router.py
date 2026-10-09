@@ -101,30 +101,18 @@ def test_runtime_endpoint_superadmin_via_user_id_returns_200(
     assert resp.status_code == 200
 
 
-def test_runtime_endpoint_superadmin_via_email_returns_200(
+def test_runtime_endpoint_listed_email_alone_returns_403(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """SUPERADMIN_EMAILS is not read: a token claiming a listed address is refused."""
     monkeypatch.setenv("SUPERADMIN_EMAILS", "admin@example.com,test@example.com")
     token = _make_token(email="test@example.com")
     resp = client.get(
         "/api/v1/superadmin/runtime",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 200
-
-
-def test_runtime_endpoint_email_match_is_case_insensitive(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("SUPERADMIN_EMAILS", "TEST@EXAMPLE.COM")
-    token = _make_token(email="test@example.com")
-    resp = client.get(
-        "/api/v1/superadmin/runtime",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert resp.status_code == 200
+    assert resp.status_code == 403
 
 
 def test_runtime_endpoint_id_match_with_extra_emails_envset(

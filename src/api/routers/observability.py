@@ -31,8 +31,8 @@ SuperAdmin                 (single — maintainer)
 
 Today the codebase is single-tenant Project-scoped with flat
 ``project_owners``; the Tier-model migration is a Cycle 4+ deliverable.
-SuperAdmin is currently env-gated (``SUPERADMIN_USER_IDS`` /
-``SUPERADMIN_EMAILS``) — the smallest committable surface that gates
+SuperAdmin is currently env-gated (``SUPERADMIN_USER_IDS``; the email
+claim is not trusted, see ``auth._is_superadmin``) — the smallest committable surface that gates
 this endpoint TODAY without prejudging the destination contract.
 """
 

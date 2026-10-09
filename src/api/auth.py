@@ -173,11 +173,16 @@ def _is_superadmin(user: dict[str, Any]) -> bool:
     SuperAdmin is the top of the 5-tier role hierarchy
     (SuperAdmin → Enterprise → Program → Project → Contract).  Today
     it is env-gated via ``SUPERADMIN_USER_IDS`` (comma-separated
-    Supabase user UUIDs) and/or ``SUPERADMIN_EMAILS`` (comma-separated
-    case-insensitive emails).  A future Tier-model migration will
-    replace this primitive with a DB-backed ``users.tier`` column.
+    Supabase user UUIDs).  A future Tier-model migration will replace
+    this primitive with a DB-backed ``users.tier`` column.
 
-    Fail-closed: if neither env var is set, no user is SuperAdmin.
+    Fail-closed: if the variable is unset, no user is SuperAdmin.
+
+    The email claim is not consulted (``SUPERADMIN_EMAILS`` is ignored):
+    it carries whatever address the identity provider asserted, verified
+    or not, so matching on it would let an account that merely claims the
+    operator's address act as SuperAdmin.  The user id is issued by
+    Supabase and cannot be chosen.
 
     API-key callers are NEVER SuperAdmin in this primitive — even if
     their ``user_id`` matches.  SuperAdmin actions must originate from
@@ -190,23 +195,9 @@ def _is_superadmin(user: dict[str, Any]) -> bool:
     if user.get("role") == "api_key":
         return False
 
-    ids_env = os.environ.get("SUPERADMIN_USER_IDS", "").strip()
-    emails_env = os.environ.get("SUPERADMIN_EMAILS", "").strip()
-    if not ids_env and not emails_env:
-        return False
-
-    if ids_env:
-        allowed_ids = {s.strip() for s in ids_env.split(",") if s.strip()}
-        if user.get("id") in allowed_ids:
-            return True
-
-    if emails_env:
-        allowed_emails = {s.strip().lower() for s in emails_env.split(",") if s.strip()}
-        user_email = (user.get("email") or "").strip().lower()
-        if user_email and user_email in allowed_emails:
-            return True
-
-    return False
+    ids_env = os.environ.get("SUPERADMIN_USER_IDS", "")
+    allowed_ids = {s.strip() for s in ids_env.split(",") if s.strip()}
+    return bool(user.get("id")) and user.get("id") in allowed_ids
 
 
 def require_superadmin(user: dict[str, Any] = Depends(require_auth)) -> dict[str, Any]:
