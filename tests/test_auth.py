@@ -120,7 +120,7 @@ def test_invalid_token_raises_401():
 
 # ---------------------------------------------------------------------------
 # SuperAdmin tier (env-gated allowlist) — the 5-tier role model primitive.
-# Today: SUPERADMIN_USER_IDS / SUPERADMIN_EMAILS env vars.
+# Today: the SUPERADMIN_USER_IDS env var (SUPERADMIN_EMAILS is ignored).
 # Future: replaced by a DB-backed users.tier column once the Tier-model
 # migration ships.  See project_role_hierarchy.md (memory).
 # ---------------------------------------------------------------------------
@@ -146,20 +146,17 @@ def test_is_superadmin_id_match(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _is_superadmin({"id": "carol-id", "email": "x@y.com", "role": "authenticated"}) is False
 
 
-def test_is_superadmin_email_match_case_insensitive(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("SUPERADMIN_EMAILS", "Alice@Example.com")
-    monkeypatch.delenv("SUPERADMIN_USER_IDS", raising=False)
+def test_is_superadmin_ignores_the_email_claim(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An email claim is whatever the identity provider asserted, verified or
+    not: listing an address must not promote whoever presents it."""
+    monkeypatch.setenv("SUPERADMIN_EMAILS", "alice@example.com")
+    monkeypatch.setenv("SUPERADMIN_USER_IDS", "alice-id")
     from src.api.auth import _is_superadmin
 
-    assert (
-        _is_superadmin({"id": "x", "email": "alice@example.com", "role": "authenticated"}) is True
-    )
-    assert (
-        _is_superadmin({"id": "x", "email": "ALICE@EXAMPLE.COM", "role": "authenticated"}) is True
-    )
-    assert _is_superadmin({"id": "x", "email": "bob@example.com", "role": "authenticated"}) is False
+    claimant = {"id": "mallory-id", "email": "alice@example.com", "role": "authenticated"}
+    assert _is_superadmin(claimant) is False
+    # Control: the same check promotes the listed id, so it can say yes.
+    assert _is_superadmin({**claimant, "id": "alice-id"}) is True
 
 
 def test_is_superadmin_api_key_role_denied_even_if_id_matches(
