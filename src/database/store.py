@@ -1737,6 +1737,10 @@ class InMemoryStore:
             }
             return AIRequestState("created", requested_at=now)
 
+    def database_reachable(self) -> bool | None:
+        """``None``: this store has no database to reach (see SupabaseStore)."""
+        return None
+
     def ai_requests_since(self, since: datetime) -> int:
         """How many requests were created (or re-opened) at or after ``since``."""
         with self._ai_lock:
@@ -4703,6 +4707,15 @@ class SupabaseStore:
         if not isinstance(data, dict):
             raise RuntimeError("ai_pending_requests returned an unexpected shape")
         return {"total": int(data.get("total") or 0), "items": list(data.get("items") or [])}
+
+    def database_reachable(self) -> bool | None:
+        """Read one row of ``projects``; raises when the database is unreachable.
+
+        Used by ``GET /api/v1/health/db``. The query also counts as database
+        activity for Supabase's free-plan inactivity pause.
+        """
+        self._client.table("projects").select("id").limit(1).execute()
+        return True
 
     def ai_requests_since(self, since: datetime) -> int:
         res = (
