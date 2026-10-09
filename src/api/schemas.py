@@ -1773,6 +1773,9 @@ class GDPRDeleteResponse(BaseModel):
     deleted_projects: int = 0
     deleted_analyses: int = 0
     deleted_benchmarks: int = 0
+    #: Uploaded files removed from Storage.
+    deleted_files: int = 0
+    #: "partial" when the Storage or AI part did not finish; a retry resumes.
     status: str = "complete"
 
 

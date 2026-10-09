@@ -202,11 +202,11 @@ it removes the entire graph of dependent rows via `ON DELETE CASCADE`:
 - `schedule_derived_artifacts` cascades per migration 023 and ADR-0014,
   enforced by the `test_post_persist_tables_declare_on_delete_cascade`
   CI guard in `tests/test_schema_fk_cascade.py`.
-- **The uploaded XER binary in the `xer-files` Storage bucket is not
-  removed.** No code path deletes a Storage object today: not the
-  compensating cleanup of a failed persist, and not the erasure in §4.1.
-  Deleting the rows leaves the file in the bucket, where only an operator
-  with `service_role` can remove it (§4.2). This is a known defect.
+- **The uploaded XER binary in the `xer-files` Storage bucket is removed
+  only by the erasure in §4.1.** Rows deleted any other way leave the file
+  in the bucket, where only an operator with `service_role` can remove it
+  (§4.2); a failed persist keeps it on purpose, as the source for a retry
+  (ADR-0015).
 
 `audit_log` rows **do not** cascade — they persist after the entity is
 deleted, referencing it by `entity_id` string. This is intentional for
@@ -222,8 +222,11 @@ simulations, contributed benchmarks, programs, API keys and the
 profile; see the `delete_user_data` function in migration 014), and
 clears the user-linked actor identity from derivative rows (via `ON
 DELETE SET NULL` on `schedule_derived_artifacts.computed_by`, migration
-023). It does **not** remove the uploaded files from Storage (§4), and
-its `complete` status does not cover them.
+023). It first removes the user's uploaded files from Storage: every
+object in the user's folder at any depth, including one whose row is
+already gone, and it reports how many were removed (`deleted_files`). If
+a file is still listed afterwards it stops there, reports `partial` and
+leaves the rows, so calling it again resumes.
 
 `DELETE /api/v1/user/data` also erases the AI access request's note,
 withdraws a pending request (it becomes dismissed, so the operator no
@@ -358,7 +361,8 @@ jurisdiction.**
 
 ---
 
-*Last reviewed: 2026-10-09, for the backend region, Storage erasure,
+*Last reviewed: 2026-10-09, for the backend region, Storage erasure
+(files removed by the user's erasure since this date),
 error monitoring, RLS, product analytics and the data classes in §1.4.
 The rest was last reviewed 2026-04-18 (MeridianIQ v4.0 Cycle 1 Wave 1,
 alongside migration 023; see ADR-0009, ADR-0014).*
