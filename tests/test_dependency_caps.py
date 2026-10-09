@@ -2,13 +2,15 @@
 # Copyright (c) 2026 Vitor Maia Rodovalho
 """Dependency-cap contract tests (issue #245).
 
-Three dependencies carry an *upper* bound that exists for a reason written
+Four dependencies carry an *upper* bound that exists for a reason written
 beside it in ``pyproject.toml`` rather than for one a resolver can infer:
 
 - ``mcp<2`` — the v2 SDK replaces the ``FastMCP`` API imported at
   ``src/mcp_server.py:61`` with ``McpServer``.
 - ``pydantic<2.14`` — serialization drift moves the ADR-0014 canonical
   ``input_hash``, which is a forensic contract.
+- ``anthropic<2`` — the AI gate builds the client and classifies provider
+  errors against the SDK's types, and its tests use a fake client.
 - ``ruff<0.17`` — the default rule set widens across minors, and CI gates on
   ``ruff format --check``.
 
@@ -56,6 +58,14 @@ CAPPED_DEPENDENCIES: tuple[tuple[str, str, str], ...] = (
         "serialization drift across pydantic minors moves the ADR-0014 canonical "
         "`input_hash`, which is a forensic contract with rows already persisted "
         "against it. See tests/test_canonical_hash.py::TestByteExactPin.",
+    ),
+    (
+        "anthropic",
+        "anthropic>=0.100,<2",
+        "src/api/ai_gate.py builds the client and classifies provider errors "
+        "against the SDK's types. 1.x passed CI with a client that could not be "
+        "built (httpx -> httpx2), because the gate tests use a fake client; "
+        "tests/test_ai_gate.py now builds the real one. Re-audit each major.",
     ),
     (
         "ruff",

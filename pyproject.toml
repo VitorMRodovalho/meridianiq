@@ -58,8 +58,10 @@ export = ["pandas>=2.2", "openpyxl>=3.1"]
 reports = ["weasyprint>=70.0"]
 # Upper bound: the AI gate classifies provider errors by their status code and
 # response (src/api/ai_gate.py _outcome_of) and builds the client with
-# max_retries/timeout; a major SDK release is a conscious bump.
-ai = ["anthropic>=0.100,<1"]
+# max_retries/timeout; a major SDK release is a conscious bump. 1.x was
+# audited: it moved to httpx2, so the client takes anthropic.Timeout, and
+# tests/test_ai_gate.py builds the real client to catch that class of break.
+ai = ["anthropic>=0.100,<2"]
 ml = ["scikit-learn>=1.8"]
 # Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
 # replaces the ``FastMCP`` API used at ``src/mcp_server.py:61`` with

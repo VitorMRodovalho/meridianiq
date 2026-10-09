@@ -38,6 +38,14 @@ from src.database import config
 from src.database.store import InMemoryStore, SupabaseStore
 from src.parser.models import ParsedSchedule
 from src.parser.xer_reader import XERReader
+
+try:
+    import anthropic as _anthropic_sdk
+
+    # Captured at import, before conftest's autouse fixture replaces it.
+    _REAL_ANTHROPIC: Any = _anthropic_sdk.Anthropic
+except ImportError:
+    _REAL_ANTHROPIC = None
 from tests import ai_fakes
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -290,6 +298,29 @@ def test_the_real_client_is_built_with_no_retries_and_a_bounded_timeout(
     assert seen["max_retries"] == 0
     assert seen["timeout"].read == ai_gate.REQUEST_TIMEOUT_S
     assert seen["timeout"].connect == ai_gate.CONNECT_TIMEOUT_S
+
+
+def test_the_installed_sdk_accepts_the_client_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Build the real client, which the recording fake above cannot do.
+
+    anthropic 1.x moved to httpx2 and raises TypeError on an httpx.Timeout;
+    every gate test passed with that client unbuildable. Building sends no
+    request, so the conftest guard is lifted for this one call only.
+    """
+    if _REAL_ANTHROPIC is None:
+        pytest.skip("the `ai` extra is not installed")
+    import anthropic
+
+    monkeypatch.setattr(anthropic, "Anthropic", _REAL_ANTHROPIC)
+    for key, value in ai_fakes.AI_ENV.items():
+        monkeypatch.setenv(key, value)
+
+    client = ai_gate.make_client(ai_gate.load_config(InMemoryStore()))
+
+    assert isinstance(client, _REAL_ANTHROPIC)
+    assert client.max_retries == 0
+    assert client.timeout.read == ai_gate.REQUEST_TIMEOUT_S
+    assert client.timeout.connect == ai_gate.CONNECT_TIMEOUT_S
 
 
 # ------------------------------------------------------------------ #
