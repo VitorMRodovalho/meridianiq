@@ -188,6 +188,8 @@ class ProjectDetailResponse(BaseModel):
     wbs_stats: Optional[WBSStats] = None
     activity_summary: Optional[ActivityStatusSummary] = None
     relationship_summary: Optional[RelationshipTypeSummary] = None
+    #: The caller's program this schedule is in; None when it is in none.
+    program_id: Optional[str] = None
 
 
 # ── Validation (DCMA) ───────────────────────────────────

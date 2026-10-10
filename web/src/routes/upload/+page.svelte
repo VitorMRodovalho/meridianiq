@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { uploadXER, ApiError } from '$lib/api';
+	import { uploadXER, getPrograms, ApiError, type ProgramListItem } from '$lib/api';
+	import { readShortName, type ProgramChoice } from '$lib/programPick';
+	import ProgramPicker from '$lib/components/ProgramPicker.svelte';
 	import { supabase } from '$lib/supabase';
 	import { trackEvent } from '$lib/analytics';
 	import { success, error as toastError } from '$lib/toast';
@@ -22,6 +24,7 @@
 				data: { session }
 			} = await supabase.auth.getSession();
 			authenticated = !!session;
+			if (authenticated) void loadPrograms();
 		} catch {
 			authenticated = false;
 		} finally {
@@ -39,6 +42,27 @@
 	// uploads bypass entirely (testing data shouldn't enter revision lineage).
 	let showRevisionCard = $state(true);
 
+	// The file waits here while the user chooses its program.
+	let staged: File | null = $state(null);
+	let stagedName: string | null = $state(null);
+	let programs: ProgramListItem[] = $state([]);
+	let programChoice: ProgramChoice | null = $state(null);
+	// The choice sent with the last upload, to tell whether it was honoured.
+	let sentChoice: ProgramChoice | null = $state(null);
+
+	async function loadPrograms(): Promise<void> {
+		try {
+			programs = (await getPrograms()).programs ?? [];
+		} catch {
+			// Without the list the picker still offers a new program.
+			programs = [];
+		}
+	}
+
+	function programName(id: string | null | undefined): string | null {
+		return id ? (programs.find((p) => p.id === id)?.name ?? null) : null;
+	}
+
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
 		dragging = true;
@@ -52,27 +76,46 @@
 		e.preventDefault();
 		dragging = false;
 		const file = e.dataTransfer?.files[0];
-		if (file) await doUpload(file);
+		if (file) await stage(file);
 	}
 
 	async function handleFileInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
-		if (file) await doUpload(file);
+		input.value = '';
+		if (file) await stage(file);
 	}
 
-	async function doUpload(file: File) {
+	async function stage(file: File) {
 		const name = file.name.toLowerCase();
 		if (!name.endsWith('.xer') && !name.endsWith('.xml')) {
-			error = 'Please select a .xer (Primavera P6) or .xml (Microsoft Project) file';
+			error = $t('upload.bad_type');
 			return;
 		}
+		error = '';
+		result = null;
+		stagedName = await readShortName(file);
+		staged = file;
+	}
+
+	function unstage() {
+		staged = null;
+		stagedName = null;
+	}
+
+	async function doUpload() {
+		const file = staged;
+		if (!file) return;
 		loading = true;
 		error = '';
 		result = null;
 		showRevisionCard = true;
+		sentChoice = isSandbox ? null : programChoice;
 		try {
-			result = await uploadXER(file, isSandbox);
+			result = await uploadXER(file, isSandbox, sentChoice ?? undefined);
+			staged = null;
+			stagedName = null;
+			if (!isSandbox) void loadPrograms();
 			// ADR-0015: pending means the async materializer is still running;
 			// ready means the sync fast-path completed (InMemoryStore / tests).
 			const toastMsg =
@@ -168,7 +211,7 @@
 				{$t('upload.browse')}
 				<input id="xer-file" type="file" accept=".xer,.xml" class="hidden" onchange={handleFileInput} />
 			</label>
-			<p class="mt-2 text-xs text-gray-400">Primavera P6 (.xer) or Microsoft Project (.xml)</p>
+			<p class="mt-2 text-xs text-gray-400">{$t('upload.file_types')}</p>
 		{/if}
 	</div>
 
@@ -180,6 +223,56 @@
 			<p class="text-xs text-gray-400">Hidden from other users and org views. For testing and development only.</p>
 		</div>
 	</label>
+
+	{#if staged && !loading}
+		<section
+			aria-labelledby="staged-title"
+			class="mt-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5"
+		>
+			<h2 id="staged-title" class="text-base font-semibold text-gray-900 dark:text-gray-100">
+				{$t('upload.staged_title')}
+			</h2>
+			<p class="mt-1 text-sm text-gray-700 dark:text-gray-300 break-all">
+				{staged.name} · {(staged.size / 1024 / 1024).toFixed(1)} MB
+			</p>
+			{#if stagedName}
+				<p class="text-xs text-gray-500 dark:text-gray-400">
+					{$t('upload.staged_project').replace('{name}', stagedName)}
+				</p>
+			{/if}
+
+			<div class="mt-4">
+				{#if isSandbox}
+					<p class="text-sm text-gray-600 dark:text-gray-400">{$t('upload.sandbox_no_program')}</p>
+				{:else}
+					<ProgramPicker
+						{programs}
+						shortName={stagedName}
+						idPrefix="upload-program"
+						bind:choice={programChoice}
+					/>
+				{/if}
+			</div>
+
+			<div class="mt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+				<button
+					type="button"
+					onclick={unstage}
+					class="px-4 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+				>
+					{$t('upload.change_file')}
+				</button>
+				<button
+					type="button"
+					onclick={doUpload}
+					disabled={!isSandbox && !programChoice}
+					class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+				>
+					{$t('upload.submit')}
+				</button>
+			</div>
+		</section>
+	{/if}
 	{/if}
 
 	<!-- Error -->
@@ -202,6 +295,18 @@
 			{#if result.status === 'pending'}
 				<p class="mb-4 text-sm text-sky-700 dark:text-sky-300">
 					{$t('upload.computing_toast')}
+				</p>
+			{/if}
+			{#if result.program_id}
+				<p class="mb-4 text-sm text-gray-700 dark:text-gray-300">
+					{$t('program_pick.legend')}:
+					<a href="/programs/{result.program_id}" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+						{programName(result.program_id) ?? $t('move.view_program')}
+					</a>
+				</p>
+			{:else if sentChoice}
+				<p class="mb-4 text-sm text-amber-700 dark:text-amber-300" role="status">
+					{$t('upload.program_failed')}
 				</p>
 			{/if}
 

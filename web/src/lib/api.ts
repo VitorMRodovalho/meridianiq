@@ -266,10 +266,23 @@ export async function warmUp(): Promise<boolean> {
 	}
 }
 
-export async function uploadXER(file: File, isSandbox: boolean = false): Promise<ProjectSummary> {
+/**
+ * Upload a schedule. ``program`` puts it in one of the user's programs or a
+ * new one; without it the server groups by the schedule's short name. A
+ * sandbox upload joins no program, so ``program`` is ignored for it.
+ */
+export async function uploadXER(
+	file: File,
+	isSandbox: boolean = false,
+	program?: ProgramChoice
+): Promise<ProjectSummary> {
 	const form = new FormData();
 	form.append('file', file);
 	form.append('is_sandbox', isSandbox ? 'true' : 'false');
+	if (program && !isSandbox) {
+		if ('programId' in program) form.append('program_id', program.programId);
+		else form.append('new_program_name', program.newProgramName);
+	}
 	return request<ProjectSummary>('/api/v1/upload', { method: 'POST', body: form });
 }
 
@@ -297,6 +310,9 @@ export type { ProjectSummary };
 // ── Programs (revision-grouped uploads) ─────────────────
 
 import type { ProgramListItem, ProgramListResponse, ProgramRevision } from '$lib/types';
+import type { ProgramChoice } from '$lib/programPick';
+
+export type { ProgramChoice };
 
 export type { ProgramListItem, ProgramListResponse, ProgramRevision };
 
@@ -322,6 +338,51 @@ export async function updateProgram(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
+}
+
+/** A schedule's place in a program after a move. */
+export interface ProgramPlacement {
+	project_id: string;
+	program_id: string;
+	revision_number: number;
+	/** The program it left was deleted because it became empty. */
+	source_program_deleted: boolean;
+}
+
+function placementBody(program: ProgramChoice): Record<string, string> {
+	return 'programId' in program
+		? { program_id: program.programId }
+		: { new_program_name: program.newProgramName };
+}
+
+/** Move one schedule into one of the user's programs, or a new one. */
+export async function placeProject(
+	projectId: string,
+	program: ProgramChoice
+): Promise<ProgramPlacement> {
+	return request<ProgramPlacement>(`/api/v1/projects/${projectId}/program`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(placementBody(program))
+	});
+}
+
+/** Most schedules one request may move (the API's limit). */
+export const MAX_PLACEMENT_PROJECT_IDS = 50;
+
+/** Move several schedules into one program. */
+export async function placeProjects(
+	projectIds: string[],
+	program: ProgramChoice
+): Promise<{ program_id: string; placements: ProgramPlacement[] }> {
+	return request<{ program_id: string; placements: ProgramPlacement[] }>(
+		'/api/v1/programs/placements',
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ project_ids: projectIds, ...placementBody(program) })
+		}
+	);
 }
 
 export async function getProgramTrends(programId: string): Promise<ProgramTrends> {

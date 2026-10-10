@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from src.parser.models import ParsedSchedule
@@ -231,7 +233,16 @@ def get_project(project_id: str, _user: object = Depends(optional_auth)) -> Proj
         wbs_stats=wbs_stats,
         activity_summary=activity_summary,
         relationship_summary=relationship_summary,
+        program_id=_program_of(store, project_id, user_id),
     )
+
+
+def _program_of(store: Any, project_id: str, user_id: str | None) -> str | None:
+    """The caller's program holding this schedule, from its metadata row."""
+    if not user_id:
+        return None
+    meta = store.get_project_meta(project_id, user_id=user_id)
+    return str(meta["program_id"]) if meta and meta.get("program_id") else None
 
 
 def _compute_wbs_stats(schedule: ParsedSchedule) -> WBSStats:
