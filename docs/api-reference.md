@@ -1,6 +1,6 @@
 # API Reference
 
-Generated from `src/api/app.py` — **142 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
+Generated from `src/api/app.py` — **144 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
 All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
@@ -10,7 +10,7 @@ Regenerate with: `python3 scripts/generate_api_reference.py`
 
 - [Upload](#upload) — 2 endpoints
 - [Projects](#projects) — 4 endpoints
-- [Programs](#programs) — 5 endpoints
+- [Programs](#programs) — 7 endpoints
 - [Comparison](#comparison) — 1 endpoints
 - [Forensics](#forensics) — 10 endpoints
 - [TIA](#tia) — 4 endpoints
@@ -63,10 +63,12 @@ _Multi-revision program rollup_
 | Method | Path | Summary | Response | Auth |
 |---|---|---|---|---|
 | `GET` | `/api/v1/programs` | Return all programs with latest revision info. | `—` | optional |
+| `POST` | `/api/v1/programs/placements` | Move several schedules into one program. | `ProgramPlacementBatchResponse` | optional |
 | `GET` | `/api/v1/programs/{program_id}` | Return a program with all its revisions. | `—` | optional |
 | `PUT` | `/api/v1/programs/{program_id}` | Rename or update a program. | `—` | optional |
 | `GET` | `/api/v1/programs/{program_id}/rollup` | Aggregated KPIs across a program's revisions. | `—` | optional |
 | `GET` | `/api/v1/programs/{program_id}/trends` | Trend data across all revisions for charting. | `—` | optional |
+| `PUT` | `/api/v1/projects/{project_id}/program` | Move a schedule into one of the caller's programs, or into a new one. | `ProgramPlacement` | optional |
 
 ## Comparison
 

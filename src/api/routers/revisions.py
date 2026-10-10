@@ -424,9 +424,10 @@ def revision_trends_endpoint(
     Cycle 4 W3 PR-A per ADR-0022. Visualization-only: NO forecast curve
     in W3 (path-A pre-commitment per ADR-0022 W4 calibration gate).
 
-    CPM × N revisions runs at request time — bounded by W1 cap=12 active
-    revisions per project (migration 028 ``enforce_revision_cap``
-    trigger). RATE_LIMIT_ANALYSIS (20/min) is sufficient at the cap;
+    CPM × N revisions runs at request time, bounded by
+    ``MAX_TREND_REVISIONS`` (the latest by data date; migration 028's cap
+    counts revision links per project and does not bound a program).
+    RATE_LIMIT_ANALYSIS (20/min) is sufficient at the cap;
     EXPENSIVE bucket is reserved for Monte Carlo / PDF / forensic loops.
 
     Caching deferred per backend-reviewer entry-council #8 — would
@@ -461,8 +462,13 @@ def revision_trends_endpoint(
         )
         return _to_response(analysis)
 
-    # 2. Load all sibling projects in the program (RLS-scoped).
+    # 2. Load the sibling projects in the program (RLS-scoped). Each one is
+    #    parsed and run through CPM below, so only the latest
+    #    MAX_TREND_REVISIONS by data date are used, the current one always
+    #    among them; a program can hold any number of schedules now that
+    #    users choose it at upload.
     siblings = store.list_projects_in_program(program_id, user_id=user_id)
+    siblings, left_out = _latest_siblings(siblings, project_id)
     # Map project_id → revision_history row (active only) for revision_number.
     rh_rows = store.list_revision_history_by_program(program_id, user_id=user_id)
     rh_by_project: dict[str, dict[str, Any]] = {
@@ -509,6 +515,11 @@ def revision_trends_endpoint(
     analysis = _analyze_with_fallback(
         project_id=project_id, program_id=program_id, revisions=revisions
     )
+    if left_out:
+        analysis.notes.append(
+            f"showing the latest {MAX_TREND_REVISIONS} revisions by data date; "
+            f"{left_out} older revision(s) in the program are not plotted"
+        )
     analysis.skipped_revisions = list(skipped_pids)
     if skipped_pids:
         analysis.notes.append(
@@ -517,6 +528,33 @@ def revision_trends_endpoint(
             f"`skipped_revisions` field for the project_ids"
         )
     return _to_response(analysis)
+
+
+#: Most revisions one revision-trends request parses and runs CPM on.
+MAX_TREND_REVISIONS = 12
+
+
+def _latest_siblings(
+    siblings: list[dict[str, Any]], project_id: str
+) -> tuple[list[dict[str, Any]], int]:
+    """The newest ``MAX_TREND_REVISIONS`` siblings by data date, and how many were left out.
+
+    The current project is always kept, in place of the oldest kept one.
+    """
+    if len(siblings) <= MAX_TREND_REVISIONS:
+        return siblings, 0
+    dated = sorted(
+        (s for s in siblings if s.get("data_date")),
+        key=lambda s: str(s["data_date"]),
+        reverse=True,
+    )
+    ordered = dated + [s for s in siblings if not s.get("data_date")]
+    kept = ordered[:MAX_TREND_REVISIONS]
+    if all(s.get("project_id") != project_id for s in kept):
+        current = next((s for s in ordered if s.get("project_id") == project_id), None)
+        if current is not None:
+            kept[-1] = current
+    return kept, len(siblings) - len(kept)
 
 
 def _analyze_with_fallback(

@@ -132,6 +132,19 @@ def utc_month_start(now: datetime) -> datetime:
     return utc_day_start(now).replace(day=1)
 
 
+class ProgramPlacementError(Exception):
+    """A schedule could not be placed in a program.
+
+    ``reason`` is ``"not_found"`` when the caller does not own the project or
+    the program (missing and foreign look the same), and ``"linked"`` when the
+    project still has confirmed revision links from the program it is in.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 def newest_first(revisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Order a program's revisions newest first by data date.
 
@@ -246,8 +259,9 @@ class InMemoryStore:
 
     def get_or_create_program(self, user_id: str, project_name: str) -> str:
         """Find or create a program by name+user_id. Returns program_id."""
+        # Case-insensitive, like the (user_id, lower(name)) index in Postgres.
         for prog_id, prog in self._programs.items():
-            if prog["user_id"] == user_id and prog["name"] == project_name:
+            if prog["user_id"] == user_id and prog["name"].lower() == project_name.lower():
                 return prog_id
         self._program_counter += 1
         prog_id = f"prog-{self._program_counter:04d}"
@@ -262,8 +276,62 @@ class InMemoryStore:
         }
         return prog_id
 
+    def get_program(self, program_id: str, user_id: str | None) -> dict[str, Any] | None:
+        """Return the caller's program, or None if it is missing or not theirs."""
+        prog = self._programs.get(program_id)
+        if prog is None or not user_id or prog["user_id"] != user_id:
+            return None
+        return dict(prog)
+
+    def place_project_in_program(
+        self, user_id: str, project_id: str, program_id: str
+    ) -> tuple[int, bool]:
+        """Mirror of the ``place_project_in_program`` SQL function (migration 039).
+
+        Returns the project's revision number in the program and whether the
+        program it left was deleted for being empty.
+        """
+        prog = self._programs.get(program_id)
+        if (
+            not user_id
+            or prog is None
+            or prog["user_id"] != user_id
+            or self._project_owners.get(project_id) != user_id
+        ):
+            raise ProgramPlacementError("not_found")
+        source = self._upload_program.get(project_id)
+        current = self._upload_revision.get(project_id)
+        if source == program_id and current is not None:
+            return current, False
+        if any(
+            r["project_id"] == project_id and r.get("tombstoned_at") is None
+            for r in self._revision_history
+        ):
+            raise ProgramPlacementError("linked")
+        nxt = 1 + max(
+            (
+                self._upload_revision.get(p, 0)
+                for p, g in self._upload_program.items()
+                if g == program_id
+            ),
+            default=0,
+        )
+        self._upload_program[project_id] = program_id
+        self._upload_revision[project_id] = nxt
+        meta = self._project_meta.get(project_id)
+        if meta is not None:
+            meta["program_id"] = program_id
+        deleted = False
+        if source and source != program_id and source not in self._upload_program.values():
+            self._programs.pop(source, None)
+            deleted = True
+        return nxt, deleted
+
     def get_next_revision_number(self, program_id: str) -> int:
-        """Return the next revision number for a program."""
+        """Return the next revision number for a program.
+
+        Not used for placement: reading MAX + 1 and writing it later races.
+        Placement goes through ``place_project_in_program`` (migration 039)."""
         max_rev = 0
         for pid, prog_id in self._upload_program.items():
             if prog_id == program_id:
@@ -684,8 +752,17 @@ class InMemoryStore:
         schedule: ParsedSchedule,
         xer_bytes: bytes | None = None,
         user_id: str | None = None,
+        *,
+        program_id: str | None = None,
+        assign_program: bool = True,
     ) -> str:
-        """Persist a parsed schedule and return a project_id."""
+        """Persist a parsed schedule and return a project_id.
+
+        The schedule goes into ``program_id`` when given (the caller has
+        checked it is the user's), otherwise into the program named after its
+        short name; ``assign_program=False`` (a sandbox upload) leaves it out
+        of every program.
+        """
         pid = self._projects.add(schedule, xer_bytes or b"")
         if user_id:
             self._project_owners[pid] = user_id
@@ -702,12 +779,6 @@ class InMemoryStore:
             dd = schedule.projects[0].last_recalc_date or schedule.projects[0].sum_data_date
             if dd:
                 data_date_iso = dd.isoformat()
-        program_id_for_meta: str | None = None
-        if proj_name and user_id:
-            program_id_for_meta = self.get_or_create_program(user_id, proj_name)
-            rev = self.get_next_revision_number(program_id_for_meta)
-            self._upload_program[pid] = program_id_for_meta
-            self._upload_revision[pid] = rev
         # Cycle 4 W1 — populate project_meta for the W2 detect heuristic.
         # Mirrors SupabaseStore which writes data_date + revision_date to the
         # projects row (per Cycle 4 W1 / ADR-0022). InMemoryStore parity is
@@ -719,8 +790,14 @@ class InMemoryStore:
             "project_name": proj_name,
             "data_date": data_date_iso,
             "revision_date": datetime.now(UTC).isoformat(),
-            "program_id": program_id_for_meta,
+            "program_id": None,
         }
+        if user_id and assign_program:
+            target = program_id or (
+                self.get_or_create_program(user_id, proj_name) if proj_name else None
+            )
+            if target:
+                self.place_project_in_program(user_id, pid, target)
         return pid
 
     def set_project_status(self, project_id: str, status: str) -> bool:
@@ -814,21 +891,19 @@ class InMemoryStore:
 
     # -- legacy project-store delegation (used by app.py) ----------------
 
-    def add(self, schedule: ParsedSchedule, xer_bytes: bytes, user_id: str | None = None) -> str:
+    def add(
+        self,
+        schedule: ParsedSchedule,
+        xer_bytes: bytes,
+        user_id: str | None = None,
+        *,
+        program_id: str | None = None,
+        assign_program: bool = True,
+    ) -> str:
         """Alias for ``save_project`` matching the v0.5 ProjectStore API."""
-        pid = self._projects.add(schedule, xer_bytes)
-        if user_id:
-            self._project_owners[pid] = user_id
-        # Auto-assign program
-        proj_name = ""
-        if schedule.projects:
-            proj_name = schedule.projects[0].proj_short_name
-        if proj_name and user_id:
-            program_id = self.get_or_create_program(user_id, proj_name)
-            rev = self.get_next_revision_number(program_id)
-            self._upload_program[pid] = program_id
-            self._upload_revision[pid] = rev
-        return pid
+        return self.save_project(
+            "", schedule, xer_bytes, user_id, program_id=program_id, assign_program=assign_program
+        )
 
     def get(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """Alias for ``get_project`` matching the v0.5 ProjectStore API."""
@@ -2076,8 +2151,16 @@ class SupabaseStore:
         schedule: ParsedSchedule,
         xer_bytes: bytes | None = None,
         user_id: str | None = None,
+        *,
+        program_id: str | None = None,
+        assign_program: bool = True,
     ) -> str:
-        """Persist metadata + upload XER to Storage bucket.  No JSONB blob."""
+        """Persist metadata + upload XER to Storage bucket.  No JSONB blob.
+
+        Program placement follows ``InMemoryStore.save_project``; the number
+        comes from the ``place_project_in_program`` function (migration 039),
+        which serialises concurrent uploads into one program.
+        """
         proj_name = ""
         data_date = None
         if schedule.projects:
@@ -2102,15 +2185,15 @@ class SupabaseStore:
                 logger.warning("Storage upload failed, continuing with metadata only: %s", exc)
                 storage_path = ""
 
-        # Auto-assign program and revision number
-        program_id = None
-        revision_number = None
-        if proj_name and user_id:
+        # Program: the caller's choice, else the one named after the short name.
+        target_program: str | None = None
+        if user_id and assign_program:
             try:
-                program_id = self.get_or_create_program(user_id, proj_name)
-                revision_number = self.get_next_revision_number(program_id)
+                target_program = program_id or (
+                    self.get_or_create_program(user_id, proj_name) if proj_name else None
+                )
             except Exception as exc:
-                logger.warning("Program assignment failed: %s", exc)
+                logger.warning("Program lookup failed: %s", exc)
 
         # Insert metadata only — NO schedule_data JSONB. ``status='pending'``
         # reflects ADR-0015's async-materialization contract: the row exists
@@ -2142,12 +2225,15 @@ class SupabaseStore:
         }
         if user_id:
             data["user_id"] = user_id
-        if program_id:
-            data["program_id"] = program_id
-        if revision_number is not None:
-            data["revision_number"] = revision_number
         row = self._insert("projects", data)
         project_uuid = str(row["id"])
+
+        if user_id and target_program:
+            try:
+                self.place_project_in_program(user_id, project_uuid, target_program)
+            except Exception as exc:
+                # The schedule is stored and usable; it can be placed later.
+                logger.warning("Program placement failed: %s", exc)
 
         # Persist full schedule data to relational tables. On failure the
         # compensating path (see ``_persist_schedule_data``) flips
@@ -3030,8 +3116,57 @@ class SupabaseStore:
             return str(data.get("upsert_program") or data.get("id") or data)
         return str(data)
 
+    def get_program(self, program_id: str, user_id: str | None) -> dict[str, Any] | None:
+        """Return the caller's program, or None if it is missing or not theirs."""
+        if not user_id or not _is_uuid(program_id):
+            return None
+        rows = (
+            self._client.table("programs")
+            .select("*")
+            .eq("id", program_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+            .data
+        )
+        return rows[0] if rows else None
+
+    def place_project_in_program(
+        self, user_id: str, project_id: str, program_id: str
+    ) -> tuple[int, bool]:
+        """Put the caller's project in the caller's program (migration 039).
+
+        Returns the project's revision number in the program and whether the
+        program it left was deleted for being empty.
+        """
+        if not user_id or not _is_uuid(project_id) or not _is_uuid(program_id):
+            raise ProgramPlacementError("not_found")
+        try:
+            data = (
+                self._client.rpc(
+                    "place_project_in_program",
+                    {"p_user_id": user_id, "p_project_id": project_id, "p_program_id": program_id},
+                )
+                .execute()
+                .data
+            )
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code == "P0002":
+                raise ProgramPlacementError("not_found") from exc
+            if code == "P0001":
+                raise ProgramPlacementError("linked") from exc
+            raise
+        rows = _rpc_rows(data)
+        if not rows:
+            raise RuntimeError("place_project_in_program returned no row")
+        return int(rows[0]["revision_number"]), bool(rows[0]["source_program_deleted"])
+
     def get_next_revision_number(self, program_id: str) -> int:
         """Return the next revision number for a program.
+
+        Not used for placement: reading MAX + 1 and writing it later races.
+        Placement goes through ``place_project_in_program`` (migration 039).
 
         Read from ``projects``, the only table that carries ``program_id``;
         ``schedule_uploads.program_id`` is never written, so reading it made
@@ -3570,10 +3705,25 @@ class SupabaseStore:
 
     # -- legacy aliases for app.py compatibility -------------------------
 
-    def add(self, schedule: ParsedSchedule, xer_bytes: bytes, user_id: str | None = None) -> str:
+    def add(
+        self,
+        schedule: ParsedSchedule,
+        xer_bytes: bytes,
+        user_id: str | None = None,
+        *,
+        program_id: str | None = None,
+        assign_program: bool = True,
+    ) -> str:
         """v0.5-compatible add method."""
         upload_id = self.save_upload("upload.xer", xer_bytes, user_id=user_id)
-        return self.save_project(upload_id, schedule, xer_bytes, user_id=user_id)
+        return self.save_project(
+            upload_id,
+            schedule,
+            xer_bytes,
+            user_id=user_id,
+            program_id=program_id,
+            assign_program=assign_program,
+        )
 
     def get(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
         """v0.5-compatible get method."""

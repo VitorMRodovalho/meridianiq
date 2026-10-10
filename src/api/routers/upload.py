@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import ValidationError
 
 from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
@@ -25,7 +26,8 @@ from ..deps import (
     get_store,
     limiter,
 )
-from ..schemas import ProjectSummary, ScheduleMetadataSchema
+from ..schemas import ProgramTarget, ProjectSummary, ScheduleMetadataSchema
+from .programs import resolve_program_target
 
 router = APIRouter()
 
@@ -121,6 +123,8 @@ async def upload_xer(
     request: Request,
     file: UploadFile = File(...),
     is_sandbox: bool = Form(False),
+    program_id: str | None = Form(None),
+    new_program_name: str | None = Form(None),
     _user: object = Depends(optional_auth),
 ) -> ProjectSummary:
     """Upload a schedule file (XER or MS Project XML), parse it, and store the result.
@@ -132,9 +136,27 @@ async def upload_xer(
     Returns:
         A summary of the parsed project.
 
+    The schedule joins ``program_id`` (one of the caller's programs) or a new
+    program named ``new_program_name``; with neither, it joins the program
+    named after its P6 short name. A sandbox upload joins no program.
+
     Raises:
         HTTPException: If the file format is not supported.
     """
+    target: ProgramTarget | None = None
+    if program_id is not None or new_program_name is not None:
+        if is_sandbox:
+            raise HTTPException(status_code=422, detail="A sandbox upload joins no program")
+        if not _user:
+            raise HTTPException(status_code=401, detail="Sign in to choose a program")
+        try:
+            target = ProgramTarget(program_id=program_id, new_program_name=new_program_name)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=exc.errors(include_url=False, include_input=False, include_context=False),
+            ) from exc
+
     filename = (file.filename or "").lower()
     is_xer = filename.endswith(".xer")
     is_xml = filename.endswith(".xml")
@@ -187,7 +209,10 @@ async def upload_xer(
 
     store = get_store()
     user_id = _user["id"] if _user else None
-    project_id = store.add(schedule, xer_bytes, user_id=user_id)
+    chosen = resolve_program_target(store, user_id, target) if target and user_id else None
+    project_id = store.add(
+        schedule, xer_bytes, user_id=user_id, program_id=chosen, assign_program=not is_sandbox
+    )
 
     # Drop stale KPI aggregates — a new schedule invalidates any cached
     # CPM/DCMA/Health bundles under this user's project set. Namespace-wide
@@ -282,4 +307,13 @@ async def upload_xer(
         job_id=job_id,
         ws_url=ws_url,
         metadata=meta_schema,
+        program_id=_joined_program(store, project_id, user_id),
     )
+
+
+def _joined_program(store: Any, project_id: str, user_id: str | None) -> str | None:
+    """The program the upload ended up in, read back rather than assumed."""
+    if not user_id:
+        return None
+    meta = store.get_project_meta(project_id, user_id=user_id)
+    return str(meta["program_id"]) if meta and meta.get("program_id") else None

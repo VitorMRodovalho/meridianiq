@@ -6,12 +6,21 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.database.store import newest_first
+from typing import Any
 
+from src.database.store import ProgramPlacementError, newest_first
+
+from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
 from ..deps import RATE_LIMIT_MODERATE, get_store, limiter
 from ..kpi_helpers import schedule_kpi_bundle
-from ..schemas import UpdateProgramRequest
+from ..schemas import (
+    ProgramPlacement,
+    ProgramPlacementBatchRequest,
+    ProgramPlacementBatchResponse,
+    ProgramTarget,
+    UpdateProgramRequest,
+)
 
 # Postgres SQLSTATE for a UNIQUE violation, as PostgREST reports it.
 _UNIQUE_VIOLATION = "23505"
@@ -33,16 +42,16 @@ def get_program_detail(program_id: str, _user: object = Depends(optional_auth)):
     """Return a program with all its revisions."""
     store = get_store()
     user_id = _user["id"] if _user else None
-    revisions = store.get_program_revisions(program_id, user_id=user_id)
-    # Also get the program metadata
-    programs = store.get_programs(user_id=user_id)
-    program = None
-    for p in programs:
-        if p["id"] == program_id:
-            program = p
-            break
+    if user_id:
+        program = store.get_program(program_id, user_id)
+    else:
+        # Anonymous development caller: no owner to match, so scan.
+        program = next((p for p in store.get_programs() if p["id"] == program_id), None)
     if program is None:
         raise HTTPException(status_code=404, detail="Program not found")
+    revisions = store.get_program_revisions(program_id, user_id=user_id)
+    latest = revisions[0] if revisions else None
+    program = {**program, "latest_revision": latest, "revision_count": len(revisions)}
     return {"program": program, "revisions": revisions}
 
 
@@ -221,3 +230,88 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
         )
 
     return trends
+
+
+# ------------------------------------------------------------------ #
+# Placing schedules in programs                                      #
+# ------------------------------------------------------------------ #
+
+_PROGRAM_NOT_FOUND = "Program not found"
+
+
+def _owner(ctx: AccessContext) -> str:
+    """The signed-in user a placement acts for; programs belong to a user."""
+    if ctx.principal.kind not in ("user", "api_key"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return ctx.principal.user_id
+
+
+def resolve_program_target(store: Any, user_id: str, target: ProgramTarget) -> str:
+    """Return the id of the program ``target`` names, creating it if it is new."""
+    if target.program_id is not None:
+        if store.get_program(target.program_id, user_id) is None:
+            raise HTTPException(status_code=404, detail=_PROGRAM_NOT_FOUND)
+        return target.program_id
+    if target.new_program_name is None:  # the model guarantees one of the two
+        raise HTTPException(status_code=422, detail="Name a program")
+    return str(store.get_or_create_program(user_id, target.new_program_name))
+
+
+def _place(store: Any, user_id: str, project_id: str, program_id: str) -> ProgramPlacement:
+    try:
+        revision, deleted = store.place_project_in_program(user_id, project_id, program_id)
+    except ProgramPlacementError as exc:
+        if exc.reason == "linked":
+            raise HTTPException(
+                status_code=409,
+                detail="This schedule has confirmed revision links in its current "
+                "program; remove them before moving it",
+            ) from exc
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    return ProgramPlacement(
+        project_id=project_id,
+        program_id=program_id,
+        revision_number=revision,
+        source_program_deleted=deleted,
+    )
+
+
+@router.put("/api/v1/projects/{project_id}/program", response_model=ProgramPlacement)
+@limiter.limit(RATE_LIMIT_MODERATE)
+def place_project(
+    request: Request,
+    body: ProgramTarget,
+    project_id: str = Depends(owned_project),
+    ctx: AccessContext = Depends(get_access),
+) -> ProgramPlacement:
+    """Move a schedule into one of the caller's programs, or into a new one.
+
+    It becomes the program's next revision; revisions are shown by data date.
+    The program it left is deleted if that leaves it empty and unshared.
+    """
+    user_id = _owner(ctx)
+    store = get_store()
+    program_id = resolve_program_target(store, user_id, body)
+    return _place(store, user_id, project_id, program_id)
+
+
+@router.post("/api/v1/programs/placements", response_model=ProgramPlacementBatchResponse)
+@limiter.limit(RATE_LIMIT_MODERATE)
+def place_projects(
+    request: Request,
+    body: ProgramPlacementBatchRequest,
+    ctx: AccessContext = Depends(get_access),
+) -> ProgramPlacementBatchResponse:
+    """Move several schedules into one program.
+
+    Every id is checked before anything moves: one the caller cannot reach
+    makes the whole request a 404. The moves then run one by one; if one is
+    refused (409), the ones before it stay moved, and a retry is safe because
+    moving a schedule into the program it is in changes nothing.
+    """
+    user_id = _owner(ctx)
+    project_ids = ctx.projects(list(dict.fromkeys(body.project_ids)))
+    store = get_store()
+    program_id = resolve_program_target(store, user_id, body)
+    placements = [_place(store, user_id, pid, program_id) for pid in project_ids]
+    return ProgramPlacementBatchResponse(program_id=program_id, placements=placements)
