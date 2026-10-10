@@ -283,3 +283,71 @@ class TestBatchArtifactRead:
         store, client = _supabase({})
         assert store.get_latest_derived_artifacts(["not-a-uuid"], {"health": "h1"}, "8") == {}
         assert client.executed == []
+
+
+class TestRollupReadsStoredResults:
+    """The rollup's KPIs come from stored artifacts; recomputing is a fallback."""
+
+    def _program(self, store: InMemoryStore) -> tuple[str, str, str]:
+        older = store.save_project("u1", _schedule("A", datetime(2026, 3, 1), 3), b"", "user-1")
+        newer = store.save_project("u2", _schedule("A", datetime(2026, 5, 1), 7), b"", "user-1")
+        return str(store.get_programs(user_id="user-1")[0]["id"]), older, newer
+
+    def _store_all(self, store: InMemoryStore, pid: str, health: float) -> None:
+        from src.materializer.runtime import _ENGINE_VERSION, _RULESET_VERSIONS
+
+        payloads = {
+            "health": {"overall": health, "rating": "fair", "trend_arrow": "→"},
+            "dcma": {"overall_score": 42.86, "passed_count": 6, "failed_count": 8},
+            "cpm": {
+                "project_duration": 100.123,
+                "critical_path": ["T1", "T2"],
+                "has_cycles": False,
+                "activity_results": {
+                    "T1": {"total_float": -2.0},
+                    "T2": {"total_float": 0.0},
+                    "T3": {"total_float": 5.0},
+                },
+            },
+        }
+        for kind, payload in payloads.items():
+            store.save_derived_artifact(
+                pid,
+                kind,
+                payload,
+                _ENGINE_VERSION,
+                _RULESET_VERSIONS[kind],
+                f"h-{pid}-{kind}",
+                datetime(2026, 1, 1),
+            )
+
+    def test_kpis_come_from_artifacts_without_recomputing(
+        self, store: InMemoryStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.api.routers import programs as programs_router
+
+        prog, older, newer = self._program(store)
+        self._store_all(store, older, 50.0)
+        self._store_all(store, newer, 53.46)
+
+        def no_recompute(*_a: Any, **_k: Any) -> dict[str, Any]:
+            raise AssertionError("the rollup recomputed a schedule")
+
+        monkeypatch.setattr(programs_router, "schedule_kpi_bundle", no_recompute)
+        data = TestClient(app).get(f"/api/v1/programs/{prog}/rollup").json()
+        m = data["latest_metrics"]
+        assert m["health_score"] == 53.5
+        assert m["dcma_score"] == 42.9
+        assert (m["dcma_passed_count"], m["dcma_failed_count"]) == (6, 8)
+        assert m["critical_path_length_days"] == 100.12
+        assert m["critical_activities_count"] == 2
+        assert m["negative_float_count"] == 1
+        assert m["has_cycles"] is False
+        assert (m["activity_count"], m["relationship_count"]) == (7, 1)
+        assert (data["trend_delta"], data["trend_direction"]) == (3.5, "improving")
+
+    def test_without_artifacts_it_recomputes(self, store: InMemoryStore) -> None:
+        prog, _older, _newer = self._program(store)
+        data = TestClient(app).get(f"/api/v1/programs/{prog}/rollup").json()
+        assert "health_score" in data["latest_metrics"]
+        assert data["latest_metrics"]["activity_count"] == 7

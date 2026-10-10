@@ -1746,4 +1746,5 @@ export default {
 	'home.program_one': '1 programa',
 	'home.programs_n': '{n} programas',
 	'home.activities_n': '{n} actividades',
+	'program_page.summary_loading': 'Cargando el resumen de la revisión más reciente…',
 } as Record<string, string>;

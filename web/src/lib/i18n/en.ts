@@ -1755,4 +1755,5 @@ export default {
 	'home.program_one': '1 program',
 	'home.programs_n': '{n} programs',
 	'home.activities_n': '{n} activities',
+	'program_page.summary_loading': 'Loading the latest revision summary…',
 } as Record<string, string>;
