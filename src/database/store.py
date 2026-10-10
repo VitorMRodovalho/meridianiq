@@ -932,6 +932,7 @@ class InMemoryStore:
         self._upload_program.clear()
         self._upload_revision.clear()
         self._project_meta.clear()
+        self._derived_artifacts.clear()
         self._cost_uploads.clear()
         self._cost_upload_counter = 0
         self._risk_entries.clear()
@@ -1398,6 +1399,25 @@ class InMemoryStore:
         if latest["ruleset_version"] != current_ruleset_version:
             return None
         return latest
+
+    def get_latest_derived_artifacts(
+        self,
+        project_ids: list[str],
+        ruleset_versions: dict[str, str],
+        current_engine_version: str,
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """``get_latest_derived_artifact`` for many projects and kinds at once.
+
+        Keys are ``(project_id, artifact_kind)`` for the kinds in
+        ``ruleset_versions``; a pair with no current artifact is absent.
+        """
+        out: dict[tuple[str, str], dict[str, Any]] = {}
+        for pid in project_ids:
+            for kind, ruleset in ruleset_versions.items():
+                row = self.get_latest_derived_artifact(pid, kind, current_engine_version, ruleset)
+                if row is not None:
+                    out[(pid, kind)] = row
+        return out
 
     def get_projects_at_engine_version(
         self, engine_version: str, *, include_stale: bool = False
@@ -4461,6 +4481,49 @@ class SupabaseStore:
         if latest.get("ruleset_version") != current_ruleset_version:
             return None
         return latest
+
+    def get_latest_derived_artifacts(
+        self,
+        project_ids: list[str],
+        ruleset_versions: dict[str, str],
+        current_engine_version: str,
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """``get_latest_derived_artifact`` for many projects and kinds, in one query.
+
+        Same rule per ``(project_id, artifact_kind)``: the newest non-stale row,
+        kept only if its engine and ruleset versions are current. Keys of pairs
+        with no current artifact are absent. Callers pass ids they have already
+        authorised.
+        """
+        ids = [pid for pid in dict.fromkeys(project_ids) if _is_uuid(pid)]
+        if not ids or not ruleset_versions:
+            return {}
+        rows = (
+            self._client.table("schedule_derived_artifacts")
+            .select(
+                "project_id, artifact_kind, engine_version, ruleset_version, payload, computed_at"
+            )
+            .in_("project_id", ids)
+            .in_("artifact_kind", list(ruleset_versions))
+            .eq("is_stale", False)
+            .order("computed_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+        out: dict[tuple[str, str], dict[str, Any]] = {}
+        seen: set[tuple[str, str]] = set()
+        for row in rows:
+            key = (str(row["project_id"]), str(row["artifact_kind"]))
+            if key in seen:
+                continue  # only the newest row of each pair decides
+            seen.add(key)
+            if (
+                row.get("engine_version") == current_engine_version
+                and row.get("ruleset_version") == ruleset_versions[key[1]]
+            ):
+                out[key] = row
+        return out
 
     def get_projects_at_engine_version(
         self, engine_version: str, *, include_stale: bool = False

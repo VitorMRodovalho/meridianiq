@@ -178,3 +178,92 @@ class TestRename:
         monkeypatch.setattr(store, "update_program", clash)
         resp = TestClient(app).put(f"/api/v1/programs/{prog}", json={"name": "Beta"})
         assert resp.status_code == 409, resp.text
+
+
+class TestTrendsReadStoredResults:
+    """Health and DCMA trends come from the materializer's stored artifacts."""
+
+    def _program(self, store: InMemoryStore) -> tuple[str, str, str]:
+        older = store.save_project("u1", _schedule("A", datetime(2026, 3, 1)), b"", "user-1")
+        newer = store.save_project("u2", _schedule("A", datetime(2026, 5, 1)), b"", "user-1")
+        return str(store.get_programs(user_id="user-1")[0]["id"]), older, newer
+
+    def _store_result(
+        self, store: InMemoryStore, pid: str, kind: str, payload: dict[str, Any], **v: str
+    ) -> None:
+        from src.materializer.runtime import _ENGINE_VERSION, _RULESET_VERSIONS
+
+        store.save_derived_artifact(
+            pid,
+            kind,
+            payload,
+            v.get("engine", _ENGINE_VERSION),
+            v.get("ruleset", _RULESET_VERSIONS[kind]),
+            f"hash-{pid}-{kind}-{v}",
+            datetime(2026, 1, 1),
+        )
+
+    def test_scores_follow_the_revisions_in_date_order(self, store: InMemoryStore) -> None:
+        prog, older, newer = self._program(store)
+        self._store_result(store, older, "health", {"overall": 61.04})
+        self._store_result(store, older, "dcma", {"overall_score": 40.0})
+        self._store_result(store, newer, "health", {"overall": 54.0})
+        self._store_result(store, newer, "dcma", {"overall_score": 42.86})
+        data = TestClient(app).get(f"/api/v1/programs/{prog}/trends").json()
+        assert data["health_scores"] == [61.0, 54.0]
+        assert data["dcma_scores"] == [40.0, 42.9]
+        assert data["alert_counts"] == [None, None]
+
+    def test_a_result_from_an_older_engine_is_a_gap(self, store: InMemoryStore) -> None:
+        prog, older, newer = self._program(store)
+        self._store_result(store, older, "health", {"overall": 61.0}, engine="4.0")
+        self._store_result(store, newer, "health", {"overall": 54.0})
+        data = TestClient(app).get(f"/api/v1/programs/{prog}/trends").json()
+        assert data["health_scores"] == [None, 54.0]
+        assert data["dcma_scores"] == [None, None]
+
+
+class TestBatchArtifactRead:
+    """SupabaseStore.get_latest_derived_artifacts: one query, newest row decides."""
+
+    def test_newest_row_per_pair_decides(self) -> None:
+        a, b = "00000000-0000-4000-8000-00000000000a", "00000000-0000-4000-8000-00000000000b"
+        rows = [  # already ordered computed_at desc, as the query asks
+            {
+                "project_id": a,
+                "artifact_kind": "health",
+                "engine_version": "9",
+                "ruleset_version": "h1",
+            },
+            {
+                "project_id": a,
+                "artifact_kind": "health",
+                "engine_version": "8",
+                "ruleset_version": "h1",
+            },
+            {
+                "project_id": b,
+                "artifact_kind": "health",
+                "engine_version": "8",
+                "ruleset_version": "h1",
+            },
+            {
+                "project_id": b,
+                "artifact_kind": "dcma",
+                "engine_version": "8",
+                "ruleset_version": "old",
+            },
+        ]
+        store, client = _supabase({"schedule_derived_artifacts": rows})
+        got = store.get_latest_derived_artifacts(
+            [a, b, "not-a-uuid"], {"health": "h1", "dcma": "d1"}, "8"
+        )
+        assert set(got) == {(b, "health")}  # a's newest is engine 9; b's dcma is an old ruleset
+        assert [q.table for q in client.executed] == ["schedule_derived_artifacts"]
+        calls = dict((name, args) for name, args in client.executed[0].calls)
+        assert calls["in_"][0] == ("artifact_kind", ["health", "dcma"])
+
+    def test_nothing_to_ask_sends_nothing(self) -> None:
+        store, client = _supabase({})
+        assert store.get_latest_derived_artifacts(["not-a-uuid"], {"health": "h1"}, "8") == {}
+        assert client.executed == []
