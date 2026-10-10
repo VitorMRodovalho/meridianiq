@@ -6,10 +6,16 @@
 	let {
 		programs,
 		shortName,
-		excludeId = null
-	}: { programs: ProgramOption[]; shortName: string | null; excludeId?: string | null } = $props();
+		excludeId = null,
+		loading = false
+	}: {
+		programs: (ProgramOption & { revision_count?: number })[];
+		shortName: string | null;
+		excludeId?: string | null;
+		loading?: boolean;
+	} = $props();
 	let choice: ProgramChoice | null = $state(null);
 </script>
 
-<ProgramPicker {programs} {shortName} {excludeId} idPrefix="t" bind:choice />
+<ProgramPicker {programs} {shortName} {excludeId} {loading} idPrefix="t" bind:choice />
 <output data-testid="choice">{JSON.stringify(choice)}</output>

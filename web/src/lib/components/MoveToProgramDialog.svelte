@@ -7,6 +7,7 @@
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n';
 	import {
+		ApiError,
 		getPrograms,
 		placeProject,
 		placeProjects,
@@ -23,13 +24,22 @@
 		shortName?: string | null;
 		onClose: () => void;
 		onMoved: (result: { programId: string; programName: string; count: number }) => void;
+		/** A move failed; some of several may have moved, so the caller reloads. */
+		onFailed?: () => void;
 	}
 
-	let { projectIds, currentProgramId = null, shortName = null, onClose, onMoved }: Props =
-		$props();
+	let {
+		projectIds,
+		currentProgramId = null,
+		shortName = null,
+		onClose,
+		onMoved,
+		onFailed
+	}: Props = $props();
 
 	let programs: ProgramListItem[] = $state([]);
 	let loadingPrograms = $state(true);
+	let programsFailed = $state(false);
 	let choice: ProgramChoice | null = $state(null);
 	let submitting = $state(false);
 	let formError: string | null = $state(null);
@@ -52,10 +62,19 @@
 					: (programs.find((p) => p.id === programId)?.name ?? '');
 			onMoved({ programId, programName, count });
 		} catch (err) {
-			formError = err instanceof Error ? err.message : String(err);
+			formError = moveError(err);
+			onFailed?.();
 		} finally {
 			submitting = false;
 		}
+	}
+
+	function moveError(err: unknown): string {
+		if (err instanceof ApiError) {
+			if (err.status === 409) return $t('move.linked');
+			if (err.status === 404) return $t('move.not_found');
+		}
+		return $t('move.failed');
 	}
 
 	function handleKey(event: KeyboardEvent): void {
@@ -75,7 +94,7 @@
 				programs = res.programs ?? [];
 			})
 			.catch(() => {
-				programs = [];
+				programsFailed = true;
 			})
 			.finally(() => {
 				loadingPrograms = false;
@@ -115,6 +134,10 @@
 
 		{#if loadingPrograms}
 			<p class="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">{$t('common.loading')}</p>
+		{:else if programsFailed}
+			<p class="text-sm text-rose-700 dark:text-rose-300 py-6 text-center" role="alert">
+				{$t('upload.programs_failed')}
+			</p>
 		{:else}
 			<ProgramPicker
 				{programs}
@@ -141,7 +164,7 @@
 			<button
 				type="button"
 				onclick={submit}
-				disabled={!choice || submitting || loadingPrograms}
+				disabled={!choice || submitting || loadingPrograms || programsFailed}
 				class="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
 			>
 				{submitting ? $t('move.submitting') : $t('move.submit')}

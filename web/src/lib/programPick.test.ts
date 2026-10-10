@@ -48,6 +48,10 @@ describe('decodeText', () => {
 		expect(decodeText(new TextEncoder().encode('Ação'))).toBe('Ação');
 		expect(decodeText(new Uint8Array([0x41, 0xe7, 0xe3, 0x6f]))).toBe('Ação');
 	});
+	it('keeps UTF-8 when the slice ends inside a character', () => {
+		const bytes = new TextEncoder().encode('Construção ã');
+		expect(decodeText(bytes.slice(0, bytes.length - 1))).toBe('Construção ');
+	});
 });
 
 describe('readShortName', () => {

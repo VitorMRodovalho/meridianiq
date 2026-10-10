@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { uploadXER, getPrograms, ApiError, type ProgramListItem } from '$lib/api';
 	import { readShortName, type ProgramChoice } from '$lib/programPick';
 	import ProgramPicker from '$lib/components/ProgramPicker.svelte';
@@ -46,16 +46,22 @@
 	let staged: File | null = $state(null);
 	let stagedName: string | null = $state(null);
 	let programs: ProgramListItem[] = $state([]);
+	// The suggestion needs the real list: until it loads (Fly cold start) or
+	// if it fails, no program can be chosen, so a matching program is never
+	// missed and a duplicate created next to it.
+	let programsState: 'loading' | 'ready' | 'error' = $state('loading');
 	let programChoice: ProgramChoice | null = $state(null);
 	// The choice sent with the last upload, to tell whether it was honoured.
 	let sentChoice: ProgramChoice | null = $state(null);
+	let stagedTitle: HTMLHeadingElement | null = $state(null);
 
 	async function loadPrograms(): Promise<void> {
+		if (programsState !== 'ready') programsState = 'loading';
 		try {
 			programs = (await getPrograms()).programs ?? [];
+			programsState = 'ready';
 		} catch {
-			// Without the list the picker still offers a new program.
-			programs = [];
+			if (programsState !== 'ready') programsState = 'error';
 		}
 	}
 
@@ -96,6 +102,9 @@
 		result = null;
 		stagedName = await readShortName(file);
 		staged = file;
+		// Announce the second step: move focus to it.
+		await tick();
+		stagedTitle?.focus();
 	}
 
 	function unstage() {
@@ -225,11 +234,20 @@
 	</label>
 
 	{#if staged && !loading}
-		<section
+		<form
 			aria-labelledby="staged-title"
+			onsubmit={(e) => {
+				e.preventDefault();
+				void doUpload();
+			}}
 			class="mt-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5"
 		>
-			<h2 id="staged-title" class="text-base font-semibold text-gray-900 dark:text-gray-100">
+			<h2
+				id="staged-title"
+				bind:this={stagedTitle}
+				tabindex="-1"
+				class="text-base font-semibold text-gray-900 dark:text-gray-100 focus:outline-none"
+			>
 				{$t('upload.staged_title')}
 			</h2>
 			<p class="mt-1 text-sm text-gray-700 dark:text-gray-300 break-all">
@@ -249,8 +267,21 @@
 						{programs}
 						shortName={stagedName}
 						idPrefix="upload-program"
+						loading={programsState !== 'ready'}
 						bind:choice={programChoice}
 					/>
+					{#if programsState === 'error'}
+						<p class="mt-2 text-sm text-rose-700 dark:text-rose-300" role="alert">
+							{$t('upload.programs_failed')}
+							<button
+								type="button"
+								onclick={() => void loadPrograms()}
+								class="ml-1 underline hover:no-underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+							>
+								{$t('upload.programs_retry')}
+							</button>
+						</p>
+					{/if}
 				{/if}
 			</div>
 
@@ -263,33 +294,32 @@
 					{$t('upload.change_file')}
 				</button>
 				<button
-					type="button"
-					onclick={doUpload}
-					disabled={!isSandbox && !programChoice}
+					type="submit"
+					disabled={!isSandbox && (programsState !== 'ready' || !programChoice)}
 					class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
 				>
 					{$t('upload.submit')}
 				</button>
 			</div>
-		</section>
+		</form>
 	{/if}
 	{/if}
 
 	<!-- Error -->
 	{#if error}
-		<div class="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+		<div class="mt-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-700 dark:text-red-300">
 			{error}
 		</div>
 	{/if}
 
 	<!-- Result -->
 	{#if result}
-		<div class="mt-6 bg-white border border-gray-200 rounded-lg p-6">
+		<div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
 			<div class="flex flex-wrap items-center gap-2 mb-4">
 				<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
 					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 				</svg>
-				<h2 class="text-lg font-semibold text-gray-900">{$t('upload.success')}</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('upload.success')}</h2>
 				<StatusBadge status={result.status ?? 'pending'} />
 			</div>
 			{#if result.status === 'pending'}

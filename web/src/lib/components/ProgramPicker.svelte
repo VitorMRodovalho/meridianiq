@@ -23,6 +23,8 @@
 		idPrefix: string;
 		/** The current choice; null while it is incomplete. */
 		choice?: ProgramChoice | null;
+		/** The program list is still loading: no suggestion and no choice yet. */
+		loading?: boolean;
 	}
 
 	let {
@@ -30,7 +32,8 @@
 		shortName,
 		excludeId = null,
 		idPrefix,
-		choice = $bindable(null)
+		choice = $bindable(null),
+		loading = false
 	}: Props = $props();
 
 	const options = $derived(programs.filter((p) => p.id !== excludeId));
@@ -58,8 +61,9 @@
 
 	$effect(() => {
 		const name = newName.trim();
-		choice =
-			mode === 'existing'
+		choice = loading
+			? null
+			: mode === 'existing'
 				? selectedId
 					? { programId: selectedId }
 					: null
@@ -76,7 +80,10 @@
 	}
 
 	function revisions(n: number | undefined): string {
-		return $t('program_pick.revisions').replace('{n}', String(n ?? 0));
+		const count = n ?? 0;
+		return count === 1
+			? $t('program_pick.revision_one')
+			: $t('program_pick.revisions').replace('{n}', String(count));
 	}
 </script>
 
@@ -86,7 +93,9 @@
 	</legend>
 
 	<p id="{idPrefix}-reason" class="text-xs text-gray-500 dark:text-gray-400 mb-3" aria-live="polite">
-		{#if suggestion}
+		{#if loading}
+			{$t('common.loading')}
+		{:else if suggestion}
 			{$t('program_pick.suggested').replace('{name}', suggestion.matched)}
 		{:else if shortName}
 			{$t('program_pick.no_suggestion').replace('{name}', shortName)}
@@ -95,6 +104,12 @@
 		{/if}
 	</p>
 
+	{#if loading}
+		<div class="space-y-2" aria-hidden="true">
+			<div class="h-4 w-2/3 rounded bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+			<div class="h-9 w-full rounded bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+		</div>
+	{:else}
 	{#if options.length > 0}
 		<div class="flex flex-col gap-2 mb-3">
 			<label class="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
@@ -164,4 +179,5 @@
 			{/if}
 		{/if}
 	</div>
+	{/if}
 </fieldset>

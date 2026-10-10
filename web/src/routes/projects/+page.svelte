@@ -30,20 +30,27 @@
 		moveOpen = false;
 		selected = [];
 		success(
-			$t('move.done_many')
-				.replace('{n}', String(moved.count))
-				.replace('{name}', moved.programName)
+			moved.count === 1
+				? $t('move.done_one').replace('{name}', moved.programName)
+				: $t('move.done_many')
+						.replace('{n}', String(moved.count))
+						.replace('{name}', moved.programName)
 		);
 		await load();
 	}
 
+	/** Reload after a move, so the lists show what actually moved. */
 	async function load(): Promise<void> {
-		const [projRes, progRes] = await Promise.all([
-			getProjects(),
-			getPrograms().catch(() => ({ programs: [] }))
-		]);
-		projects = projRes.projects;
-		programs = progRes.programs;
+		try {
+			const [projRes, progRes] = await Promise.all([
+				getProjects(),
+				getPrograms().catch(() => ({ programs: [] }))
+			]);
+			projects = projRes.projects;
+			programs = progRes.programs;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : $t('projects.load_failed');
+		}
 	}
 
 	onMount(async () => {
@@ -261,6 +268,7 @@
 					projectIds={selected}
 					onClose={() => (moveOpen = false)}
 					onMoved={handleMoved}
+					onFailed={() => void load()}
 				/>
 			{/if}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">

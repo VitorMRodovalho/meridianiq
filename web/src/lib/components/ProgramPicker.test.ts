@@ -59,4 +59,15 @@ describe('ProgramPicker', () => {
 		expect(choice()).toEqual({ newProgramName: 'ALPHA-UP12' });
 		expect(screen.queryByRole('option', { name: /ALPHA-UP01/ })).toBeNull();
 	});
+
+	it('offers nothing to choose while the program list loads', () => {
+		render(Harness, { programs: [], shortName: 'ALPHA-UP12', loading: true });
+		expect(choice()).toBeNull();
+		expect(screen.queryAllByRole('radio')).toHaveLength(0);
+	});
+
+	it('says 1 revision, not 1 revisions', () => {
+		render(Harness, { programs: [{ id: 'p', name: 'Solo', revision_count: 1 }], shortName: 'Solo' });
+		expect(screen.getByRole('option').textContent).toMatch(/1 revision\b/);
+	});
 });

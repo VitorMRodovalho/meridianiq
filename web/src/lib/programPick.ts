@@ -11,7 +11,9 @@ export const NAME_SCAN_BYTES = 512 * 1024;
 /** Decode bytes as UTF-8, falling back to Windows-1252 (P6's usual export). */
 export function decodeText(bytes: Uint8Array): string {
 	try {
-		return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+		// stream: a slice can end inside a multi-byte character; the tail is
+		// held back instead of failing the whole decode.
+		return new TextDecoder('utf-8', { fatal: true }).decode(bytes, { stream: true });
 	} catch {
 		return new TextDecoder('windows-1252').decode(bytes);
 	}

@@ -1712,4 +1712,10 @@ export default {
 	'move.select_all': 'Select all',
 	'move.move_selected': 'Move selected to a program…',
 	'move.too_many': 'Up to {n} schedules at a time',
+	'program_pick.revision_one': '1 revision',
+	'upload.programs_failed': 'Your programs could not be loaded, so none can be chosen yet.',
+	'upload.programs_retry': 'Try again',
+	'move.linked': 'A schedule has confirmed revision links in its current program; remove them before moving it. Schedules listed before it were moved.',
+	'move.not_found': 'The schedule or the program was not found. The list was reloaded.',
+	'move.failed': 'The move could not be completed. Try again.',
 } as Record<string, string>;

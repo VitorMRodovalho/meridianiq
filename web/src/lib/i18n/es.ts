@@ -1703,4 +1703,10 @@ export default {
 	'move.select_all': 'Seleccionar todos',
 	'move.move_selected': 'Mover seleccionados a un programa…',
 	'move.too_many': 'Hasta {n} cronogramas a la vez',
+	'program_pick.revision_one': '1 revisión',
+	'upload.programs_failed': 'No se pudieron cargar sus programas, así que todavía no se puede elegir uno.',
+	'upload.programs_retry': 'Reintentar',
+	'move.linked': 'Un cronograma tiene vínculos de revisión confirmados en su programa actual; elimínelos antes de moverlo. Los cronogramas anteriores a él se movieron.',
+	'move.not_found': 'No se encontró el cronograma o el programa. La lista se recargó.',
+	'move.failed': 'No se pudo completar el movimiento. Inténtelo de nuevo.',
 } as Record<string, string>;
