@@ -59,7 +59,7 @@
 			}
 		} catch (e: unknown) {
 			if (id !== programId) return;
-			error = e instanceof Error ? e.message : 'Failed to load program';
+			error = e instanceof Error ? e.message : $t('program_page.load_failed');
 		} finally {
 			if (id === programId) loading = false;
 		}
@@ -72,10 +72,10 @@
 
 	function healthScoreColor(score: number | null | undefined): string {
 		if (score === null || score === undefined) return 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700';
-		if (score >= 85) return 'bg-green-100 text-green-700 border-green-300';
-		if (score >= 70) return 'bg-blue-100 text-blue-700 border-blue-300';
-		if (score >= 50) return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-		return 'bg-red-100 text-red-700 border-red-300';
+		if (score >= 85) return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800';
+		if (score >= 70) return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800';
+		if (score >= 50) return 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800';
+		return 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800';
 	}
 
 	function formatDate(dateStr: string | null | undefined): string {
@@ -94,6 +94,12 @@
 		}
 	}
 
+	function revisionCount(n: number): string {
+		return n === 1
+			? $t('program_pick.revision_one')
+			: $t('program_pick.revisions').replace('{n}', String(n));
+	}
+
 	// Find health score for a given revision id from trends data
 	function getRevisionHealthScore(revId: string): number | null {
 		if (!trends) return null;
@@ -104,17 +110,17 @@
 </script>
 
 <svelte:head>
-	<title>{program ? String(program.name ?? 'Program') : 'Loading...'} — MeridianIQ</title>
+	<title>{program ? String(program.name || $t('programs.unnamed')) : $t('common.loading')} — MeridianIQ</title>
 </svelte:head>
 
 <div class="p-8 max-w-6xl mx-auto">
 	<!-- Back navigation -->
 	<div class="mb-6">
-		<a href="/" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-300 transition-colors">
+		<a href="/programs" class="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
 			</svg>
-			Back to Dashboard
+			{$t('program_page.back')}
 		</a>
 	</div>
 
@@ -124,11 +130,11 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Loading program...
+			{$t('program_page.loading')}
 		</div>
 	{:else if error}
-		<div class="bg-red-50 dark:bg-red-950 border border-red-200 rounded-lg p-6 text-red-700">
-			<p class="font-semibold">Error</p>
+		<div class="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-6 text-red-700 dark:text-red-300" role="alert">
+			<p class="font-semibold">{$t('program_page.error')}</p>
 			<p class="text-sm mt-1">{error}</p>
 		</div>
 	{:else if program}
@@ -136,17 +142,17 @@
 		<div class="mb-8">
 			<div class="flex items-start justify-between">
 				<div>
-					<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{String(program.name ?? 'Unnamed Program')}</h1>
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{String(program.name || $t('programs.unnamed'))}</h1>
 					{#if program.description}
 						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{String(program.description)}</p>
 					{/if}
 				</div>
-				<div class="flex items-center gap-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg px-4 py-2">
-					<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<div class="flex items-center gap-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2">
+					<svg class="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 					</svg>
-					<span class="text-sm font-semibold text-blue-700">
-						{revisions.length} revision{revisions.length !== 1 ? 's' : ''}
+					<span class="text-sm font-semibold text-blue-700 dark:text-blue-300">
+						{revisionCount(revisions.length)}
 					</span>
 				</div>
 			</div>
@@ -158,9 +164,9 @@
 			<div class="mb-8">
 				<div class="flex items-baseline justify-between mb-4">
 					<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-						Latest Revision KPIs
+						{$t('program_page.latest_kpis')}
 						<span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">
-							Rev {rollup.latest_revision_number ?? '—'}
+							{$t('program_page.rev').replace('{n}', String(rollup.latest_revision_number ?? '—'))}
 							{#if rollup.latest_data_date}· {formatDate(rollup.latest_data_date)}{/if}
 						</span>
 					</h2>
@@ -173,7 +179,7 @@
 									? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
 									: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}"
 						>
-							Health trend {rollup.trend_direction}
+							{$t(`program_page.trend_${rollup.trend_direction}`)}
 							({rollup.trend_delta > 0 ? '+' : ''}{rollup.trend_delta.toFixed(1)})
 						</span>
 					{/if}
@@ -186,7 +192,7 @@
 							{m.health_score !== undefined ? m.health_score.toFixed(0) : '—'}
 						</p>
 						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-							Health Score {m.health_rating ? `· ${m.health_rating}` : ''}
+							{$t('program_page.kpi_health')} {m.health_rating ? `· ${m.health_rating}` : ''}
 						</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
@@ -195,7 +201,9 @@
 						</p>
 						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
 							DCMA {m.dcma_passed_count !== undefined
-								? `${m.dcma_passed_count} / ${(m.dcma_passed_count ?? 0) + (m.dcma_failed_count ?? 0)} passed`
+								? $t('program_page.dcma_passed')
+										.replace('{p}', String(m.dcma_passed_count))
+										.replace('{n}', String((m.dcma_passed_count ?? 0) + (m.dcma_failed_count ?? 0)))
 								: ''}
 						</p>
 					</div>
@@ -206,7 +214,7 @@
 								: '—'}
 						</p>
 						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-							CP Length (days) · {m.critical_activities_count ?? '—'} activities
+							{$t('program_page.kpi_cp').replace('{n}', String(m.critical_activities_count ?? '—'))}
 						</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
@@ -218,26 +226,26 @@
 							{m.negative_float_count ?? 0}
 						</p>
 						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-							Negative Float Activities
+							{$t('program_page.kpi_negative_float')}
 						</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
 							{m.activity_count ?? '—'}
 						</p>
-						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Activities</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{$t('program_page.kpi_activities')}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
 							{m.relationship_count ?? '—'}
 						</p>
-						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Relationships</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{$t('program_page.kpi_relationships')}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 						<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
 							{rollup.revision_count}
 						</p>
-						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Revisions</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{$t('program_page.kpi_revisions')}</p>
 					</div>
 					<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
 						<p
@@ -245,9 +253,9 @@
 								? 'text-red-600 dark:text-red-400'
 								: 'text-green-600 dark:text-green-400'}"
 						>
-							{m.has_cycles ? 'Yes' : 'No'}
+							{m.has_cycles ? $t('program_page.yes') : $t('program_page.no')}
 						</p>
-						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Network Cycles</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{$t('program_page.kpi_cycles')}</p>
 					</div>
 				</div>
 			</div>
@@ -256,12 +264,12 @@
 		<!-- Trend Charts (only if ≥2 revisions) -->
 		{#if trends && trends.revision_count >= 2}
 			<div class="mb-8">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Trend Analysis</h2>
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{$t('program_page.trends')}</h2>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<TrendChart
 						data={trends.health_scores}
 						labels={dayLabels(trends)}
-						title="Health Score"
+						title={$t('program_page.chart_health')}
 						color="#3b82f6"
 						height={200}
 						formatValue={(v) => v.toFixed(0)}
@@ -269,7 +277,7 @@
 					<TrendChart
 						data={trends.dcma_scores}
 						labels={dayLabels(trends)}
-						title="DCMA Compliance"
+						title={$t('program_page.chart_dcma')}
 						color="#8b5cf6"
 						height={200}
 						formatValue={(v) => v.toFixed(1)}
@@ -278,7 +286,7 @@
 						<TrendChart
 							data={trends.alert_counts}
 							labels={dayLabels(trends)}
-							title="Alert Count"
+							title={$t('program_page.chart_alerts')}
 							color="#ef4444"
 							height={200}
 							formatValue={(v) => v.toFixed(0)}
@@ -287,7 +295,7 @@
 					<TrendChart
 						data={trends.activity_counts}
 						labels={dayLabels(trends)}
-						title="Activity Count"
+						title={$t('program_page.chart_activities')}
 						color="#10b981"
 						height={200}
 						formatValue={(v) => v.toFixed(0)}
@@ -295,49 +303,49 @@
 				</div>
 			</div>
 		{:else if trends && trends.revision_count === 1}
-			<div class="mb-8 bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg p-5 flex items-center gap-3">
-				<svg class="w-5 h-5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<div class="mb-8 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-5 flex items-center gap-3">
+				<svg class="w-5 h-5 text-blue-500 shrink-0" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
-				<p class="text-sm text-blue-700">Upload a second revision to see trends across schedule updates.</p>
+				<p class="text-sm text-blue-700 dark:text-blue-300">{$t('program_page.single_revision')}</p>
 			</div>
 		{/if}
 
 		<!-- Revisions Table -->
 		<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-			<div class="px-6 py-4 border-b border-gray-100">
-				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Revisions</h2>
+			<div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+				<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('program_page.revisions')}</h2>
 			</div>
 			{#if revisions.length === 0}
-				<div class="px-6 py-8 text-center text-gray-400 text-sm">No revisions found.</div>
+				<div class="px-6 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">{$t('program_page.no_revisions')}</div>
 			{:else}
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm">
 						<thead>
-							<tr class="border-b border-gray-100 bg-gray-50 dark:bg-gray-800">
+							<tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">#</th>
-								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Data Date</th>
-								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Filename</th>
-								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Activities</th>
+								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('program_page.col_data_date')}</th>
+								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('program_page.col_schedule')}</th>
+								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('program_page.kpi_activities')}</th>
 								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('projects.col_status')}</th>
-								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Health Score</th>
-								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">Uploaded</th>
+								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('program_page.col_health')}</th>
+								<th class="text-left px-6 py-3 font-medium text-gray-500 dark:text-gray-400">{$t('program_page.col_uploaded')}</th>
 								<th class="px-6 py-3"></th>
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-gray-50">
-							{#each revisions as rev}
+						<tbody class="divide-y divide-gray-50 dark:divide-gray-800">
+							{#each revisions as rev (rev.id)}
 								{@const revObj = rev as unknown as Record<string, unknown>}
 								{@const healthScore = getRevisionHealthScore(String(revObj.id ?? ''))}
 								<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
 									<td class="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">
-										Rev {revObj.revision_number ?? '?'}
+										{$t('program_page.rev').replace('{n}', String(revObj.revision_number ?? '?'))}
 									</td>
 									<td class="px-6 py-4 text-gray-600 dark:text-gray-400">
 										{formatDate(revObj.data_date as string | null)}
 									</td>
-									<td class="px-6 py-4 text-gray-600 dark:text-gray-400 font-mono text-xs">
-										{String(revObj.filename ?? '—')}
+									<td class="px-6 py-4 text-gray-600 dark:text-gray-400 text-xs">
+										{String(revObj.project_name ?? revObj.filename ?? '—')}
 									</td>
 									<td class="px-6 py-4 text-gray-600 dark:text-gray-400">
 										{revObj.activity_count ?? '—'}
@@ -353,18 +361,18 @@
 												{healthScore.toFixed(0)}
 											</span>
 										{:else}
-											<span class="text-gray-400 text-xs">—</span>
+											<span class="text-gray-400 dark:text-gray-500 text-xs">—</span>
 										{/if}
 									</td>
 									<td class="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">
-										{formatDate(revObj.uploaded_at as string | null)}
+										{formatDate((revObj.created_at ?? revObj.uploaded_at) as string | null)}
 									</td>
 									<td class="px-6 py-4">
 										<a
 											href="/projects/{revObj.id}"
-											class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium transition-colors"
+											class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium transition-colors"
 										>
-											Analyze
+											{$t('program_page.analyze')}
 											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 											</svg>
