@@ -386,6 +386,7 @@ class InMemoryStore:
                     "uploaded_at": None,
                     "revision_number": self._upload_revision.get(pid, 0),
                     "activity_count": len(schedule.activities),
+                    "relationship_count": len(schedule.relationships),
                     "status": self._project_statuses.get(pid, "ready"),
                 }
             )
@@ -3265,7 +3266,8 @@ class SupabaseStore:
         revisions = (
             self._client.table("projects")
             .select(
-                "id, project_name, data_date, created_at, revision_number, activity_count, status"
+                "id, project_name, data_date, created_at, revision_number, activity_count, "
+                "relationship_count, status"
             )
             .eq("program_id", program_id)
         )

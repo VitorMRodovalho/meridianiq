@@ -87,33 +87,87 @@ def _rounded(value: Any) -> float | None:
     return round(float(value), 1) if isinstance(value, (int, float)) else None
 
 
+def _kpis_from_artifacts(
+    dcma: dict[str, Any] | None, health: dict[str, Any] | None, cpm: dict[str, Any] | None
+) -> dict[str, Any]:
+    """The rollup's KPI fields, from stored artifact payloads (same keys and
+    rounding as ``schedule_kpi_bundle``)."""
+    out: dict[str, Any] = {}
+    if cpm is not None:
+        out["critical_path_length_days"] = round(float(cpm.get("project_duration") or 0), 2)
+        out["critical_activities_count"] = len(cpm.get("critical_path") or [])
+        out["has_cycles"] = bool(cpm.get("has_cycles"))
+        results = cpm.get("activity_results") or {}
+        out["negative_float_count"] = sum(
+            1
+            for r in results.values()
+            if isinstance(r, dict) and float(r.get("total_float") or 0) < 0
+        )
+    if dcma is not None:
+        out["dcma_score"] = round(float(dcma.get("overall_score") or 0), 1)
+        out["dcma_passed_count"] = dcma.get("passed_count")
+        out["dcma_failed_count"] = dcma.get("failed_count")
+    if health is not None:
+        out["health_score"] = round(float(health.get("overall") or 0), 1)
+        out["health_rating"] = health.get("rating")
+        out["health_trend_arrow"] = health.get("trend_arrow")
+    return out
+
+
+def _payload(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    payload = (row or {}).get("payload")
+    return payload if isinstance(payload, dict) else None
+
+
 def _build_rollup(program_id: str, revisions: list[dict], user_id: str | None = None) -> dict:
     """Build the program rollup payload from a revisions list.
 
     Extracted so both the HTTP endpoint and other callers (exec-summary
-    PDF enrichment) can reuse the same computation path. Heavy CPM / DCMA /
-    Health work is delegated to ``schedule_kpi_bundle`` which caches by
-    (project_id, user_id).
+    PDF enrichment) can reuse the same computation path. The KPIs come from
+    the artifacts the materializer stored for the latest and previous
+    revisions (ADR-0014/0015); recomputing them parsed two schedules per
+    request and took over 13 s on a cold cache for 10k-activity schedules
+    (measured 2026-10-10). ``schedule_kpi_bundle`` is the fallback for a
+    revision with no current artifacts (not yet materialized).
     """
     revisions = newest_first(revisions)
     latest = revisions[0]
     prev = revisions[1] if len(revisions) > 1 else None
+    store = get_store()
 
     latest_metrics: dict = {
         "activity_count": latest.get("activity_count"),
+        "relationship_count": latest.get("relationship_count"),
         "revision_number": latest.get("revision_number"),
         "data_date": latest.get("data_date"),
     }
 
-    bundle = schedule_kpi_bundle(latest["id"], user_id)
-    if bundle:
-        latest_metrics.update(bundle)
+    ids = [str(latest["id"])] + ([str(prev["id"])] if prev else [])
+    stored = store.get_latest_derived_artifacts(
+        ids, {kind: _RULESET_VERSIONS[kind] for kind in ("health", "dcma")}, _ENGINE_VERSION
+    )
+    latest_id = str(latest["id"])
+    cpm_row = store.get_latest_derived_artifact(
+        latest_id, "cpm", _ENGINE_VERSION, _RULESET_VERSIONS["cpm"]
+    )
+    dcma = _payload(stored.get((latest_id, "dcma")))
+    health = _payload(stored.get((latest_id, "health")))
+    cpm = _payload(cpm_row)
+    if dcma is not None and health is not None and cpm is not None:
+        latest_metrics.update(_kpis_from_artifacts(dcma, health, cpm))
+    else:
+        bundle = schedule_kpi_bundle(latest["id"], user_id)
+        if bundle:
+            latest_metrics.update(bundle)
 
     trend_direction = "stable"
     trend_delta: float | None = None
     if prev and "health_score" in latest_metrics:
-        prev_bundle = schedule_kpi_bundle(prev["id"], user_id)
-        prev_health = prev_bundle.get("health_score")
+        prev_health_payload = _payload(stored.get((str(prev["id"]), "health")))
+        if prev_health_payload is not None:
+            prev_health = _kpis_from_artifacts(None, prev_health_payload, None).get("health_score")
+        else:
+            prev_health = schedule_kpi_bundle(prev["id"], user_id).get("health_score")
         if prev_health is not None:
             trend_delta = round(latest_metrics["health_score"] - prev_health, 1)
             if trend_delta > 2:

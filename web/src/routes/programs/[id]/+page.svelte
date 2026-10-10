@@ -27,6 +27,11 @@
 	let loading = $state(true);
 	let error = $state('');
 
+	// The page shows as soon as the program and its trends arrive; the
+	// latest-revision summary fills in when it is ready, so a slow summary
+	// never holds the whole page.
+	let rollupLoading = $state(false);
+
 	async function load(id: string) {
 		loading = true;
 		error = '';
@@ -34,11 +39,12 @@
 		revisions = [];
 		trends = null;
 		rollup = null;
+		rollupLoading = true;
+		void loadRollup(id);
 		try {
-			const [detailRes, trendsRes, rollupRes] = await Promise.allSettled([
+			const [detailRes, trendsRes] = await Promise.allSettled([
 				getProgramDetail(id),
-				getProgramTrends(id),
-				getProgramRollup(id)
+				getProgramTrends(id)
 			]);
 			// A newer navigation owns the page; drop this one's result.
 			if (id !== programId) return;
@@ -47,21 +53,28 @@
 				program = detailRes.value.program;
 				revisions = detailRes.value.revisions ?? [];
 			} else {
-				error = 'Program not found';
+				error = $t('program_page.load_failed');
 			}
 
 			if (trendsRes.status === 'fulfilled') {
 				trends = trendsRes.value;
-			}
-
-			if (rollupRes.status === 'fulfilled') {
-				rollup = rollupRes.value;
 			}
 		} catch (e: unknown) {
 			if (id !== programId) return;
 			error = e instanceof Error ? e.message : $t('program_page.load_failed');
 		} finally {
 			if (id === programId) loading = false;
+		}
+	}
+
+	async function loadRollup(id: string) {
+		try {
+			const value = await getProgramRollup(id);
+			if (id === programId) rollup = value;
+		} catch {
+			// The summary is optional; the rest of the page stands without it.
+		} finally {
+			if (id === programId) rollupLoading = false;
 		}
 	}
 
@@ -159,6 +172,16 @@
 		</div>
 
 		<!-- Rollup KPIs -->
+		{#if rollupLoading && !rollup}
+			<div class="mb-8" aria-busy="true">
+				<p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{$t('program_page.summary_loading')}</p>
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-3" aria-hidden="true">
+					{#each Array(8) as _, i (i)}
+						<div class="h-20 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse"></div>
+					{/each}
+				</div>
+			</div>
+		{/if}
 		{#if rollup}
 			{@const m = rollup.latest_metrics}
 			<div class="mb-8">
