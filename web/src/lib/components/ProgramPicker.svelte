@@ -173,11 +173,11 @@
 				/>
 			</label>
 			{#if isCurrent && current}
-				<p id="{idPrefix}-same" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
+				<p id="{idPrefix}-same" aria-live="polite" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
 					{$t('program_pick.name_is_current').replace('{name}', current.name)}
 				</p>
 			{:else if sameName}
-				<p id="{idPrefix}-same" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
+				<p id="{idPrefix}-same" aria-live="polite" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
 					{$t('program_pick.name_exists').replace('{name}', sameName.name)}
 					<button
 						type="button"

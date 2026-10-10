@@ -67,4 +67,38 @@ describe('trapFocus', () => {
 		b.focus();
 		expect(tab(b)).toBe(false);
 	});
+
+	it('treats a radio group as one stop, the checked radio', () => {
+		document.body.innerHTML = `
+			<div role="dialog">
+				<input type="radio" name="m" id="r1" />
+				<input type="radio" name="m" id="r2" checked />
+				<button id="last">last</button>
+			</div>`;
+		const node = document.querySelector<HTMLElement>('[role=dialog]')!;
+		const r2 = document.getElementById('r2')!;
+		const last = document.getElementById('last')!;
+		const trap = trapFocus(node);
+		r2.focus();
+		expect(tab(r2, true)).toBe(true);
+		expect(document.activeElement).toBe(last);
+		expect(tab(last)).toBe(true);
+		expect(document.activeElement).toBe(r2);
+		trap.destroy();
+	});
+
+	it('skips controls inside an inert or hidden part', () => {
+		document.body.innerHTML = `
+			<div role="dialog">
+				<button id="a">a</button>
+				<div hidden><button id="h">h</button></div>
+			</div>`;
+		const node = document.querySelector<HTMLElement>('[role=dialog]')!;
+		const a = document.getElementById('a')!;
+		const trap = trapFocus(node);
+		a.focus();
+		expect(tab(a)).toBe(true);
+		expect(document.activeElement).toBe(a);
+		trap.destroy();
+	});
 });

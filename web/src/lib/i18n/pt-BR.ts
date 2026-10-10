@@ -215,7 +215,6 @@ export default {
 	'programs.empty_hint': 'Escolha ou crie um programa ao enviar um cronograma; as atualizações dele passam a aparecer na linha do tempo do programa.',
 	'programs.upload_cta': 'Carregar Cronograma',
 	'programs.unnamed': 'Programa Sem Nome',
-	'programs.revisions_label': 'revisoes',
 	'programs.load_failed': 'Falha ao carregar programas',
 
 	// Projects page

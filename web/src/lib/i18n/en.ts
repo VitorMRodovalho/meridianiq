@@ -215,7 +215,6 @@ export default {
 	'programs.empty_hint': 'Choose or create a program when you upload a schedule; its updates then line up on the program\'s timeline.',
 	'programs.upload_cta': 'Upload Schedule',
 	'programs.unnamed': 'Unnamed Program',
-	'programs.revisions_label': 'revisions',
 	'programs.load_failed': 'Failed to load programs',
 
 	// Projects page

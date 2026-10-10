@@ -6,12 +6,23 @@ const FOCUSABLE =
 	'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 function focusables(node: HTMLElement): HTMLElement[] {
-	return [...node.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+	const items = [...node.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
 		(el) =>
 			!el.hasAttribute('disabled') &&
 			el.getAttribute('tabindex') !== '-1' &&
+			!el.closest('[inert],[hidden]') &&
 			!(el instanceof HTMLInputElement && el.type === 'hidden')
 	);
+	// A radio group is one tab stop: its checked radio, or its first one.
+	return items.filter((el) => {
+		if (!(el instanceof HTMLInputElement) || el.type !== 'radio' || !el.name) return true;
+		const group = items.filter(
+			(o): o is HTMLInputElement =>
+				o instanceof HTMLInputElement && o.type === 'radio' && o.name === el.name
+		);
+		const stop = group.find((o) => o.checked) ?? group[0];
+		return el === stop;
+	});
 }
 
 export function trapFocus(node: HTMLElement): { destroy: () => void } {

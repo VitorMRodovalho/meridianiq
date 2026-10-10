@@ -4,7 +4,7 @@
 	// desktop, bottom sheet on mobile, Escape closes, Tab stays inside, Enter
 	// submits, focus returns to the opener.
 
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { t } from '$lib/i18n';
 	import {
 		ApiError,
@@ -45,6 +45,7 @@
 	let submitting = $state(false);
 	let formError: string | null = $state(null);
 	let titleEl: HTMLHeadingElement | null = $state(null);
+	let errorEl: HTMLParagraphElement | null = $state(null);
 
 	const count = $derived(projectIds.length);
 
@@ -67,6 +68,12 @@
 			onFailed?.();
 		} finally {
 			submitting = false;
+		}
+		// The buttons were disabled while moving, which drops focus to the
+		// page; bring it back to the error so Tab stays in the dialog.
+		if (formError) {
+			await tick();
+			errorEl?.focus();
 		}
 	}
 
@@ -157,7 +164,14 @@
 		{/if}
 
 		{#if formError}
-			<p class="text-sm text-rose-600 dark:text-rose-400 mt-3" role="alert">{formError}</p>
+			<p
+				bind:this={errorEl}
+				tabindex="-1"
+				class="text-sm text-rose-600 dark:text-rose-400 mt-3 focus:outline-none"
+				role="alert"
+			>
+				{formError}
+			</p>
 		{/if}
 
 		<div class="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
