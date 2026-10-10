@@ -226,26 +226,22 @@ class TestTrendsReadStoredResults:
 class TestBatchArtifactRead:
     """SupabaseStore.get_latest_derived_artifacts: one query, newest row decides."""
 
-    def test_newest_row_per_pair_decides(self) -> None:
+    def test_query_asks_for_current_rows_newest_first(self) -> None:
         a, b = "00000000-0000-4000-8000-00000000000a", "00000000-0000-4000-8000-00000000000b"
-        rows = [  # already ordered computed_at desc, as the query asks
+        rows = [  # as the query returns them: current engine, newest first
             {
                 "project_id": a,
                 "artifact_kind": "health",
-                "engine_version": "9",
+                "engine_version": "8",
                 "ruleset_version": "h1",
+                "payload": {"overall": 2},
             },
             {
                 "project_id": a,
                 "artifact_kind": "health",
                 "engine_version": "8",
                 "ruleset_version": "h1",
-            },
-            {
-                "project_id": b,
-                "artifact_kind": "health",
-                "engine_version": "8",
-                "ruleset_version": "h1",
+                "payload": {"overall": 1},
             },
             {
                 "project_id": b,
@@ -258,10 +254,30 @@ class TestBatchArtifactRead:
         got = store.get_latest_derived_artifacts(
             [a, b, "not-a-uuid"], {"health": "h1", "dcma": "d1"}, "8"
         )
-        assert set(got) == {(b, "health")}  # a's newest is engine 9; b's dcma is an old ruleset
+        # The newest row of a pair wins; a row of another ruleset is not used.
+        assert set(got) == {(a, "health")}
+        assert got[(a, "health")]["payload"] == {"overall": 2}
         assert [q.table for q in client.executed] == ["schedule_derived_artifacts"]
-        calls = dict((name, args) for name, args in client.executed[0].calls)
-        assert calls["in_"][0] == ("artifact_kind", ["health", "dcma"])
+        calls = client.executed[0].calls
+        assert ("in_", (("project_id", [a, b]), {})) in calls
+        assert ("in_", (("artifact_kind", ["health", "dcma"]), {})) in calls
+        assert ("eq", (("engine_version", "8"), {})) in calls
+        assert ("eq", (("is_stale", False), {})) in calls
+        assert ("order", (("computed_at",), {"desc": True})) in calls
+
+    def test_ids_go_in_batches_of_100(self) -> None:
+        import uuid as _uuid
+
+        ids = [str(_uuid.uuid4()) for _ in range(250)]
+        store, client = _supabase({})
+        store.get_latest_derived_artifacts(ids, {"health": "h1"}, "8")
+        sizes = [
+            len(args[0][1])
+            for q in client.executed
+            for name, args in q.calls
+            if name == "in_" and args[0][0] == "project_id"
+        ]
+        assert sizes == [100, 100, 50]
 
     def test_nothing_to_ask_sends_nothing(self) -> None:
         store, client = _supabase({})
