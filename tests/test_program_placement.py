@@ -365,3 +365,15 @@ class TestSupabasePlacement:
             with pytest.raises(ProgramPlacementError):
                 store.place_project_in_program(*args)
         assert client.calls == []
+
+
+class TestProjectDetailNamesItsProgram:
+    def test_owner_sees_the_program(self, w: World) -> None:
+        pid = w.seed(USER_A, "Alpha", 1)
+        body = w.client.get(f"/api/v1/projects/{pid}", headers=w.a).json()
+        assert body["program_id"] == w.program_of(pid)
+
+    def test_a_schedule_in_no_program_says_so(self, w: World) -> None:
+        pid = w.store.add(_schedule("Alpha", 1), b"x", user_id=USER_A, assign_program=False)
+        body = w.client.get(f"/api/v1/projects/{pid}", headers=w.a).json()
+        assert body["program_id"] is None

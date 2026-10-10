@@ -40,6 +40,8 @@ export interface ProjectSummary {
 	job_id?: string | null;
 	ws_url?: string | null;
 	metadata?: ScheduleMetadata | null;
+	/** The program the schedule joined; null when it joined none. */
+	program_id?: string | null;
 }
 
 export interface ProjectListItem {
@@ -144,6 +146,8 @@ export interface ProjectDetailResponse {
 	wbs_stats: WBSStats | null;
 	activity_summary: ActivityStatusSummary | null;
 	relationship_summary: RelationshipTypeSummary | null;
+	/** The user's program holding this schedule; null when it is in none. */
+	program_id?: string | null;
 }
 
 export interface MetricSchema {

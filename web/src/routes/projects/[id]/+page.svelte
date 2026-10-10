@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV, clearRevisionSkips } from '$lib/api';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV, clearRevisionSkips, getProgramDetail } from '$lib/api';
 	import { t } from '$lib/i18n';
 	import { error as toastError, success } from '$lib/toast';
 	import { trackEvent } from '$lib/analytics';
@@ -12,6 +12,7 @@
 	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
 	import LifecyclePhaseCard from '$lib/components/LifecyclePhaseCard.svelte';
 	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
+	import MoveToProgramDialog from '$lib/components/MoveToProgramDialog.svelte';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 	import type {
 		ProjectDetailResponse,
@@ -64,6 +65,31 @@
 	// + mount the RevisionConfirmCard which re-runs detect (now without
 	// skip filter, so the previously-dismissed candidate resurfaces).
 	let revisionReconsiderShown = $state(false);
+
+	// The program this schedule is in, and moving it to another one.
+	let programName: string | null = $state(null);
+	let programRevisionCount = $state(0);
+	let moveOpen = $state(false);
+
+	async function loadProgram(programId: string | null | undefined): Promise<void> {
+		programName = null;
+		programRevisionCount = 0;
+		if (!programId) return;
+		try {
+			const detail = await getProgramDetail(programId);
+			programName = detail.program.name;
+			programRevisionCount = detail.revisions.length;
+		} catch {
+			// The line falls back to a plain link.
+		}
+	}
+
+	function handleMoved(moved: { programId: string; programName: string }): void {
+		moveOpen = false;
+		if (project) project = { ...project, program_id: moved.programId };
+		success($t('move.done_one').replace('{name}', moved.programName));
+		void loadProgram(moved.programId);
+	}
 	let revisionReconsiderLoading = $state(false);
 
 	async function handleReconsiderRevision(): Promise<void> {
@@ -136,6 +162,7 @@
 	onMount(async () => {
 		try {
 			project = await getProject(projectId);
+			void loadProgram(project.program_id);
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to load project';
 		} finally {
@@ -440,6 +467,44 @@
 		<div class="mb-6">
 			<LifecyclePhaseCard {projectId} />
 		</div>
+
+		<!-- Program: which one holds this schedule, and moving it. -->
+		<div class="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
+			<p class="text-gray-700 dark:text-gray-300">
+				{$t('program_pick.legend')}:
+				{#if project?.program_id}
+					<a
+						href="/programs/{project.program_id}"
+						class="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+					>
+						{programName ?? $t('move.view_program')}
+					</a>
+					{#if programName}
+						<span class="text-gray-500 dark:text-gray-400">
+							· {$t('program_pick.revisions').replace('{n}', String(programRevisionCount))}
+						</span>
+					{/if}
+				{:else}
+					<span class="text-gray-500 dark:text-gray-400">{$t('move.no_program')}</span>
+				{/if}
+			</p>
+			<button
+				type="button"
+				onclick={() => (moveOpen = true)}
+				class="self-start px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+			>
+				{$t('move.button')}
+			</button>
+		</div>
+		{#if moveOpen && project}
+			<MoveToProgramDialog
+				projectIds={[projectId]}
+				currentProgramId={project.program_id ?? null}
+				shortName={project.name}
+				onClose={() => (moveOpen = false)}
+				onMoved={handleMoved}
+			/>
+		{/if}
 
 		<!-- Revision Reconsider (Cycle 5 W3-E — issue #84):
 		     If the user previously skipped a revision-confirmation candidate
