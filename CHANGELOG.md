@@ -7,6 +7,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
+### October 2026 — privacy, accounts and program grouping (PRs #288–#311)
+
+PRs #153–#287 (2026-05-19 → 2026-09-27) are not yet recorded here; they
+must be before the next tag.
+
+#### Added
+- **AI access requests** (#288, migration 036): a user asks for access to "Ask Your Schedule" from the closed panel; the operator is emailed without the requester's details and approves or dismisses on `/admin/ai`.
+- **Database health endpoint and a scheduled uptime monitor** (#296).
+- **Choosing a schedule's program** (#307, #308, #309, migration 039): the upload page reads the project's short name from the file in the browser and pre-selects the user's program whose name resembles it (update, revision and date suffixes ignored); the user confirms or names a new program. Schedules move between programs from the project page or in bulk from `/projects` (up to 50). `place_project_in_program` makes the placement atomic, numbers revisions per program under a row lock, refuses a schedule with confirmed revision links, and deletes the program it left when that is now empty and unshared; a partial UNIQUE index rejects duplicate revision numbers.
+- **Re-materialization after each API deploy** (#311): the deploy job runs the materializer backfill over SSH when the deployed engine version cannot read the stored results; it needs the `FLY_SSH_TOKEN` secret.
+
+#### Fixed
+- Program grouping (#306): the next revision number was read from a column never written, so every upload was revision 1; revisions are now ordered by data date; the programs list linked by short name and every card failed to open; `PUT /programs/{id}` takes a validated body and returns 409 for a taken name.
+- Program trends (#310) read health and DCMA from the stored results in one query; they were always empty. Data dates show in UTC, where they are stored.
+- `/anomalies` renders from the fields the endpoint returns (#293, fixture from the route #294).
+- A 404 page says not found, in the user's language (#300).
+- Creating an organization with a reused name returns 409, not 500 (#305).
+- The AI provider client uses the SDK's own timeout; anthropic 1.x allowed (#291).
+
+#### Security and privacy
+- SuperAdmin is matched by user id only, never by the email claim (#302).
+- The user's data erasure also removes their uploaded files from Storage, at any depth, and reports `deleted_files` (#303).
+- Every foreign key to `auth.users` has a delete rule, so an account can be deleted after its data is erased (#304, migration 038).
+- Open `WITH CHECK (true)` INSERT policies on `alerts` and `health_scores` dropped (#301, migration 037).
+- Sentry gets only the minimum (#298): no outgoing-call query strings (#299) and no Storage paths (#301); PRIVACY.md corrected (region, retention, processors).
+- No Swagger UI or ReDoc in production (#297).
+- Web dependency security bumps: devalue, dompurify (#289).
+
+#### Changed
+- Web dependencies to the latest minor and patch of each major (#290); pages read `page` from `$app/state` (#292).
+- ADR-0031: the API contract is tested from route data first and typed second (#295).
+- Sandbox uploads join no program.
+- Revision detection no longer requires siblings to share a short name; program membership is the user's choice.
+
+#### Operator notes
+- Migrations 036–039 are applied by hand (`psql -f`), never `supabase db push`.
+- After a version bump, check the deploy job's re-materialization step (`docs/DEPLOY_CHECKLIST.md`, "Version Bump").
+
 ### Added — Cycle 6 W0-W1 hygiene
 
 - **Bucket A pre-W0 floor bumps** (PR #129) — `mcp<2` upper bound + Claude model migration window; security CVE patches for `PyJWT` / `weasyprint` / `starlette`; pre-council ship because external clocks could not wait.
