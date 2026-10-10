@@ -351,3 +351,24 @@ class TestRollupReadsStoredResults:
         data = TestClient(app).get(f"/api/v1/programs/{prog}/rollup").json()
         assert "health_score" in data["latest_metrics"]
         assert data["latest_metrics"]["activity_count"] == 7
+
+
+class TestProjectListReadsProgram:
+    def test_supabase_rows_carry_the_program_id(self) -> None:
+        prog = "11111111-2222-4333-8444-555555555555"
+        rows = [
+            {"id": "p1", "project_name": "A", "storage_path": "x", "program_id": prog},
+            {"id": "p2", "project_name": "B", "storage_path": "y", "program_id": None},
+        ]
+        sb, client = _supabase({"projects": rows})
+        out = sb.get_projects(user_id="u1")
+        assert [r["program_id"] for r in out] == [prog, None]
+        select = next(c for c in client.executed[0].calls if c[0] == "select")
+        assert "program_id" in select[1][0][0].split(",")
+
+    def test_anonymous_list_names_no_program(self, store: InMemoryStore) -> None:
+        pid = store.add(_schedule("Alpha", datetime(2026, 1, 1)), b"x", user_id="u1")
+        assert store._upload_program.get(pid) is not None
+        rows = TestClient(app).get("/api/v1/projects?include_sandbox=true").json()["projects"]
+        assert [r["project_id"] for r in rows] == [pid]
+        assert rows[0]["program_id"] is None

@@ -377,3 +377,19 @@ class TestProjectDetailNamesItsProgram:
         pid = w.store.add(_schedule("Alpha", 1), b"x", user_id=USER_A, assign_program=False)
         body = w.client.get(f"/api/v1/projects/{pid}", headers=w.a).json()
         assert body["program_id"] is None
+
+
+class TestProjectListNamesEachProgram:
+    def test_owner_sees_each_schedules_program(self, w: World) -> None:
+        grouped = w.seed(USER_A, "Alpha", 1)
+        alone = w.store.add(_schedule("Beta", 2), b"x", user_id=USER_A, assign_program=False)
+        resp = w.client.get("/api/v1/projects?include_sandbox=true", headers=w.a)
+        assert resp.status_code == 200, resp.text
+        rows = resp.json()["projects"]
+        programs = {r["project_id"]: r["program_id"] for r in rows}
+        assert programs == {grouped: w.program_of(grouped), alone: None}
+        assert programs[grouped] is not None
+
+    def test_signed_out_list_is_refused(self, w: World) -> None:
+        w.seed(USER_A, "Alpha", 1)
+        assert w.client.get("/api/v1/projects").status_code == 401

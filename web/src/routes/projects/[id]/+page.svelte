@@ -13,6 +13,7 @@
 	import LifecyclePhaseCard from '$lib/components/LifecyclePhaseCard.svelte';
 	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
 	import MoveToProgramDialog from '$lib/components/MoveToProgramDialog.svelte';
+	import { isAuthenticated } from '$lib/auth';
 	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
 	import type {
 		ProjectDetailResponse,
@@ -488,15 +489,18 @@
 					<span class="text-gray-500 dark:text-gray-400">{$t('move.no_program')}</span>
 				{/if}
 			</p>
-			<button
-				type="button"
-				onclick={() => (moveOpen = true)}
-				class="self-start px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-			>
-				{$t('move.button')}
-			</button>
+			<!-- Programs belong to their owner: signed out, there is nothing to move. -->
+			{#if $isAuthenticated}
+				<button
+					type="button"
+					onclick={() => (moveOpen = true)}
+					class="self-start px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+				>
+					{$t('move.button')}
+				</button>
+			{/if}
 		</div>
-		{#if moveOpen && project}
+		{#if moveOpen && project && $isAuthenticated}
 			<MoveToProgramDialog
 				projectIds={[projectId]}
 				currentProgramId={project.program_id ?? null}
@@ -526,15 +530,18 @@
 			</div>
 		{:else}
 			<div class="mb-6">
-				<RevisionConfirmCard
-					{projectId}
-					onConfirmed={() => {
-						revisionReconsiderShown = false;
-					}}
-					onSkipped={() => {
-						revisionReconsiderShown = false;
-					}}
-				/>
+				<!-- Detection compares within the program, so a move re-runs it. -->
+				{#key project?.program_id}
+					<RevisionConfirmCard
+						{projectId}
+						onConfirmed={() => {
+							revisionReconsiderShown = false;
+						}}
+						onSkipped={() => {
+							revisionReconsiderShown = false;
+						}}
+					/>
+				{/key}
 			</div>
 		{/if}
 

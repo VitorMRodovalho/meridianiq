@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { getProjects, getPrograms, MAX_PLACEMENT_PROJECT_IDS } from '$lib/api';
 	import { success } from '$lib/toast';
 	import MoveToProgramDialog from '$lib/components/MoveToProgramDialog.svelte';
+	import { isAuthenticated } from '$lib/auth';
 	import { t } from '$lib/i18n';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import type { ProjectListItem, ProgramListItem } from '$lib/types';
@@ -21,6 +22,7 @@
 	// Schedules picked in the uploads view, to move into one program.
 	let selected: string[] = $state([]);
 	let moveOpen = $state(false);
+	let selectionStatus: HTMLParagraphElement | null = $state(null);
 
 	function toggleSelected(id: string): void {
 		selected = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
@@ -37,6 +39,10 @@
 						.replace('{name}', moved.programName)
 		);
 		await load();
+		// The opener is disabled now that nothing is selected, so focus the
+		// selection line instead of letting it fall to the page.
+		await tick();
+		selectionStatus?.focus();
 	}
 
 	/** Reload after a move, so the lists show what actually moved. */
@@ -115,6 +121,16 @@
 	const allShownSelected = $derived(
 		filteredProjects.length > 0 && filteredProjects.every((p) => selected.includes(p.project_id))
 	);
+	const someShownSelected = $derived(
+		filteredProjects.some((p) => selected.includes(p.project_id))
+	);
+	// Selected schedules the search hides; Move still moves them.
+	const hiddenSelected = $derived.by(() => {
+		const shown = new Set(filteredProjects.map((p) => p.project_id));
+		return selected.filter((id) => !shown.has(id)).length;
+	});
+
+	const programNames = $derived(new Map(programs.map((p) => [p.id, p.name])));
 
 	function toggleAllShown(): void {
 		const shown = filteredProjects.map((p) => p.project_id);
@@ -242,13 +258,21 @@
 		{/if}
 	{:else}
 		<!-- Raw uploads view with sortable columns -->
-		{#if filteredProjects.length === 0}
-			<p class="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">{$t('projects.no_match')} "{search}"</p>
-		{:else}
-			<div class="mb-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm" aria-live="polite">
-				<span class="text-gray-600 dark:text-gray-400">
-					{$t('move.selected').replace('{n}', String(selected.length))}
-				</span>
+		<!-- The selection stays visible when the search hides every row. -->
+		{#if filteredProjects.length > 0 || selected.length > 0}
+			<div class="mb-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+				<p
+					bind:this={selectionStatus}
+					tabindex="-1"
+					aria-live="polite"
+					aria-atomic="true"
+					class="text-gray-600 dark:text-gray-400 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+				>
+					{$t('move.selected').replace('{n}', String(selected.length))}{#if hiddenSelected > 0}
+						<span class="text-amber-700 dark:text-amber-300">
+							· {$t('move.hidden_selected').replace('{n}', String(hiddenSelected))}</span
+						>{/if}
+				</p>
 				<button
 					type="button"
 					onclick={() => (moveOpen = true)}
@@ -258,7 +282,7 @@
 					{$t('move.move_selected')}
 				</button>
 				{#if selected.length > MAX_PLACEMENT_PROJECT_IDS}
-					<span class="text-amber-700 dark:text-amber-300">
+					<span role="status" class="text-amber-700 dark:text-amber-300">
 						{$t('move.too_many').replace('{n}', String(MAX_PLACEMENT_PROJECT_IDS))}
 					</span>
 				{/if}
@@ -271,6 +295,10 @@
 					onFailed={() => void load()}
 				/>
 			{/if}
+		{/if}
+		{#if filteredProjects.length === 0}
+			<p class="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">{$t('projects.no_match')} "{search}"</p>
+		{:else}
 			<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
 				<table class="min-w-full divide-y divide-gray-200">
 					<thead class="bg-gray-50 dark:bg-gray-800">
@@ -279,6 +307,7 @@
 								<input
 									type="checkbox"
 									checked={allShownSelected}
+									indeterminate={someShownSelected && !allShownSelected}
 									onchange={toggleAllShown}
 									aria-label={$t('move.select_all')}
 									class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -289,6 +318,9 @@
 									{$t('projects.col_project_name')} <span class="text-blue-500">{sortIcon('name')}</span>
 								</button>
 							</th>
+							{#if $isAuthenticated}
+								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('projects.col_program')}</th>
+							{/if}
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('projects.col_project_id')}</th>
 							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{$t('projects.col_status')}</th>
 							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -326,6 +358,18 @@
 										class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
 									>{project.name || $t('projects.unnamed')}</a>
 								</td>
+								{#if $isAuthenticated}
+									<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300" onclick={(e) => e.stopPropagation()}>
+										{#if project.program_id}
+											<a
+												href="/programs/{project.program_id}"
+												class="hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+											>{programNames.get(project.program_id) ?? $t('move.view_program')}</a>
+										{:else}
+											<span class="text-gray-400 dark:text-gray-500">{$t('move.no_program')}</span>
+										{/if}
+									</td>
+								{/if}
 								<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{project.project_id}</td>
 								<td class="px-6 py-4 text-sm">
 									<StatusBadge status={project.status ?? 'ready'} />

@@ -215,7 +215,6 @@ export default {
 	'programs.empty_hint': 'Elija o cree un programa al subir un cronograma; sus actualizaciones aparecen luego en la línea de tiempo del programa.',
 	'programs.upload_cta': 'Subir Cronograma',
 	'programs.unnamed': 'Programa Sin Nombre',
-	'programs.revisions_label': 'revisiones',
 	'programs.load_failed': 'Fallo al cargar programas',
 
 	// Projects page
@@ -1704,6 +1703,11 @@ export default {
 	'move.move_selected': 'Mover seleccionados a un programa…',
 	'move.too_many': 'Hasta {n} cronogramas a la vez',
 	'program_pick.revision_one': '1 revisión',
+	'program_pick.name_is_current': '“{name}” es el programa en el que ya está este cronograma.',
+	'move.hidden_selected': '{n} de ellos ocultos por la búsqueda',
+	'upload.sandbox_label': 'Modo sandbox',
+	'upload.sandbox_hint': 'Oculto para otros usuarios y en las vistas de la organización. Solo para pruebas y desarrollo.',
+	'upload.drop_aria': 'Suelte un archivo XER o XML aquí, o pulse Enter para buscar',
 	'upload.programs_failed': 'No se pudieron cargar sus programas, así que todavía no se puede elegir uno.',
 	'upload.programs_retry': 'Reintentar',
 	'move.linked': 'Un cronograma tiene vínculos de revisión confirmados en su programa actual; elimínelos antes de moverlo. Los cronogramas anteriores a él se movieron.',

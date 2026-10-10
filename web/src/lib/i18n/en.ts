@@ -215,7 +215,6 @@ export default {
 	'programs.empty_hint': 'Choose or create a program when you upload a schedule; its updates then line up on the program\'s timeline.',
 	'programs.upload_cta': 'Upload Schedule',
 	'programs.unnamed': 'Unnamed Program',
-	'programs.revisions_label': 'revisions',
 	'programs.load_failed': 'Failed to load programs',
 
 	// Projects page
@@ -1713,6 +1712,11 @@ export default {
 	'move.move_selected': 'Move selected to a program…',
 	'move.too_many': 'Up to {n} schedules at a time',
 	'program_pick.revision_one': '1 revision',
+	'program_pick.name_is_current': '“{name}” is the program this schedule is already in.',
+	'move.hidden_selected': '{n} of them hidden by the search',
+	'upload.sandbox_label': 'Sandbox mode',
+	'upload.sandbox_hint': 'Hidden from other users and org views. For testing and development only.',
+	'upload.drop_aria': 'Drop an XER or XML file here, or press Enter to browse',
 	'upload.programs_failed': 'Your programs could not be loaded, so none can be chosen yet.',
 	'upload.programs_retry': 'Try again',
 	'move.linked': 'A schedule has confirmed revision links in its current program; remove them before moving it. Schedules listed before it were moved.',

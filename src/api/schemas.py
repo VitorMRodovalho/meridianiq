@@ -100,6 +100,8 @@ class ProjectListItem(BaseModel):
     data_date: Optional[str] = None
     status: str = "ready"
     tags: list[str] = Field(default_factory=list)
+    # The caller's program for this schedule; null when signed out.
+    program_id: Optional[str] = None
 
 
 class ProjectListResponse(BaseModel):

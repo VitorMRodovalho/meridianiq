@@ -50,9 +50,11 @@ def list_projects(
     items = []
     for p in all_projects:
         meta = extract_metadata(filename="", project_name=p.get("name", ""))
+        # Programs are per owner: only a signed-in caller sees which one.
+        program_id = p.get("program_id") if user_id else None
         items.append(
             ProjectListItem(
-                **p,
+                **{**p, "program_id": program_id},
                 tags=meta.tags,
             )
         )

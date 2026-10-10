@@ -37,6 +37,7 @@
 	}: Props = $props();
 
 	const options = $derived(programs.filter((p) => p.id !== excludeId));
+	const current = $derived(programs.find((p) => p.id === excludeId) ?? null);
 	const suggestion = $derived(suggestProgram(shortName, options));
 
 	let mode = $state<'existing' | 'new'>('new');
@@ -59,9 +60,15 @@
 		newName = name ?? '';
 	});
 
+	// Typing the name of the program the schedule is already in would move
+	// it nowhere, so it is not a choice.
+	const isCurrent = $derived(
+		mode === 'new' && current !== null && programNamed(newName, [current]) !== null
+	);
+
 	$effect(() => {
 		const name = newName.trim();
-		choice = loading
+		choice = loading || isCurrent
 			? null
 			: mode === 'existing'
 				? selectedId
@@ -161,12 +168,16 @@
 					type="text"
 					bind:value={newName}
 					maxlength="200"
-					aria-describedby="{idPrefix}-reason{sameName ? ` ${idPrefix}-same` : ''}"
+					aria-describedby="{idPrefix}-reason{sameName || isCurrent ? ` ${idPrefix}-same` : ''}"
 					class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
 				/>
 			</label>
-			{#if sameName}
-				<p id="{idPrefix}-same" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
+			{#if isCurrent && current}
+				<p id="{idPrefix}-same" aria-live="polite" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
+					{$t('program_pick.name_is_current').replace('{name}', current.name)}
+				</p>
+			{:else if sameName}
+				<p id="{idPrefix}-same" aria-live="polite" class="sm:pl-6 text-xs text-amber-700 dark:text-amber-300">
 					{$t('program_pick.name_exists').replace('{name}', sameName.name)}
 					<button
 						type="button"
