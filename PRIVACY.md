@@ -96,14 +96,15 @@ hand; it is not a substitute for the source file.
 - `benchmarks`, `risk_register`, `erp_cost_tables`, etc. — feature-
   specific derivatives.
 
-### 1.5 AI assistant (migrations 035 and 036)
+### 1.5 AI assistant (migrations 035, 036 and 040)
 
 The AI assistant ("Ask Your Schedule") is off unless the operator enables
 it, and then only for accounts the operator approves.
 
 - `ai_entitlements` — which accounts may use it, their limits, who granted
-  or revoked access, and the account's email address as known at grant
-  time (for the operator's display).
+  or revoked access, the account's email address as known at grant time
+  (for the operator's display), and an optional free-text note by the
+  operator about the account.
 - `ai_usage` — one row per call: `user_id`, `project_id`, the model, the
   prices used, token counts and cost. It never stores the question or the
   answer. It has no foreign key, so it outlives the account's other data
@@ -111,6 +112,9 @@ it, and then only for accounts the operator approves.
 - `ai_access_requests` — an account's request for access: status, the
   times, who decided, and an optional free-text **note** written by the
   user. The note is cleared when the request is approved or dismissed.
+  A pending request is kept until it is decided; a decided request is
+  deleted by a daily job once 30 days have passed since the decision
+  (§3). The operator's decision itself stays in `audit_log` (§3).
 - When a request is made, the operator is emailed that "an account asked
   for access", with no address, id or note (see §7), at most 10 emails per
   hour over all accounts (`AI_REQUEST_ALERTS_PER_HOUR`); requests above
@@ -178,7 +182,17 @@ it, and then only for accounts the operator approves.
 
 ## 3. Retention
 
-MeridianIQ does not implement automatic deletion. Default behaviour:
+MeridianIQ schedules one automatic deletion of its own: a daily database
+job (pg_cron, migration 040) removes AI access requests that were approved
+or dismissed more than 30 days earlier; the operator confirms after
+applying it that the job runs (`scripts/rls_replica/040/postcheck.sql`,
+rc06 and rc07). Runs are skipped while the database
+is paused, so a request goes on the first run after its 30 days. The
+job's run history (`cron.job_run_details`, kept 7 days) records only the
+job, its command text and a status, no personal data. Copies in database
+backups expire with the provider's backup retention.
+
+Everything else persists until deleted. Default behaviour:
 
 - Uploaded XER/MSP files and their derivatives persist **until the
   uploading user or an organization admin triggers a delete**.
@@ -242,13 +256,18 @@ leaves the rows, so calling it again resumes.
 
 `DELETE /api/v1/user/data` also erases the AI access request's note,
 withdraws a pending request (it becomes dismissed, so the operator no
-longer sees it) and clears the address copied onto the AI entitlement.
-The request row itself is kept, with its status, times and who decided
-(no free text): it is what blocks a new request for 30 days after a
-dismissal or a withdrawal, and without it an account could erase and ask
-again at will, emailing the operator each time (legitimate interest in
-preventing abuse, LGPD Art. 7 IX / GDPR Art. 6(1)(f)). Deleting the
-account removes the row. Access itself and the pseudonymous `ai_usage`
+longer sees it), and clears the address and the operator's note on the
+AI entitlement. The request row itself is kept, with its status, times
+and who decided (no free text), until the block ends: it is what blocks a
+new request for 30 days after a dismissal or a withdrawal, and without it
+an account could erase and ask again at will, emailing the operator each
+time (legitimate interest in preventing abuse, LGPD Art. 7 IX / GDPR
+Art. 6(1)(f)). The daily job then deletes it (§3); deleting the account
+removes it at once. You may object to this block (LGPD Art. 18 §2, GDPR
+Art. 21) by contacting the operator of the deployment you use, who weighs
+the objection against the abuse it prevents and can remove the record by
+hand as the database owner (`postgres`; the API's `service_role` cannot
+delete requests). Access itself and the pseudonymous `ai_usage`
 rows remain (§1.5). If the AI part of the erasure fails, the response
 says `partial` instead of `complete`. Copies in database backups expire
 with the provider's backup retention.
@@ -256,7 +275,8 @@ with the provider's backup retention.
 ### 4.2 Operator-initiated erasure
 
 An operator with Supabase `service_role` credentials can delete any row
-or bucket object, bypassing RLS. This is the current path for
+or bucket object, bypassing RLS, except AI access requests, which only the
+database owner (`postgres`) can delete. This is the current path for
 administrative erasure requests (account-wide deletion, LGPD Art. 18 IV,
 GDPR Art. 17). Operators should log these actions separately from the
 MeridianIQ `audit_log` for their own compliance purposes.

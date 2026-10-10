@@ -1916,8 +1916,9 @@ class InMemoryStore:
         return True
 
     def ai_forget_user(self, user_id: str) -> None:
-        """Erasure (``public.ai_forget_user``): clear the note, withdraw a pending
-        request, and clear the address on the entitlement. Status and dates stay."""
+        """Erasure (``public.ai_forget_user``, migration 040): clear the note,
+        withdraw a pending request, and clear the address and the operator's
+        note on the entitlement. Status and dates stay."""
         with self._ai_lock:
             req = self._ai_requests.get(user_id)
             if req is not None:
@@ -1927,6 +1928,7 @@ class InMemoryStore:
             ent = self._ai_entitlements.get(user_id)
             if ent is not None:
                 ent["email"] = None
+                ent["note"] = None
 
     def ai_dismiss_request(
         self,
