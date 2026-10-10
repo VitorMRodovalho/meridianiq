@@ -932,6 +932,7 @@ class InMemoryStore:
         self._upload_program.clear()
         self._upload_revision.clear()
         self._project_meta.clear()
+        self._derived_artifacts.clear()
         self._cost_uploads.clear()
         self._cost_upload_counter = 0
         self._risk_entries.clear()
@@ -1398,6 +1399,25 @@ class InMemoryStore:
         if latest["ruleset_version"] != current_ruleset_version:
             return None
         return latest
+
+    def get_latest_derived_artifacts(
+        self,
+        project_ids: list[str],
+        ruleset_versions: dict[str, str],
+        current_engine_version: str,
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """``get_latest_derived_artifact`` for many projects and kinds at once.
+
+        Keys are ``(project_id, artifact_kind)`` for the kinds in
+        ``ruleset_versions``; a pair with no current artifact is absent.
+        """
+        out: dict[tuple[str, str], dict[str, Any]] = {}
+        for pid in project_ids:
+            for kind, ruleset in ruleset_versions.items():
+                row = self.get_latest_derived_artifact(pid, kind, current_engine_version, ruleset)
+                if row is not None:
+                    out[(pid, kind)] = row
+        return out
 
     def get_projects_at_engine_version(
         self, engine_version: str, *, include_stale: bool = False
@@ -3242,13 +3262,19 @@ class SupabaseStore:
         prog = query.execute()
         if not prog.data:
             return []
-        return (
+        revisions = (
             self._client.table("projects")
             .select(
                 "id, project_name, data_date, created_at, revision_number, activity_count, status"
             )
             .eq("program_id", program_id)
-            .order("data_date", desc=True, nullsfirst=False)
+        )
+        if user_id:
+            # Defence in depth: the program is the caller's, and so must be
+            # every schedule listed under it.
+            revisions = revisions.eq("user_id", user_id)
+        return (
+            revisions.order("data_date", desc=True, nullsfirst=False)
             .order("revision_number", desc=True)
             .execute()
             .data
@@ -4461,6 +4487,52 @@ class SupabaseStore:
         if latest.get("ruleset_version") != current_ruleset_version:
             return None
         return latest
+
+    def get_latest_derived_artifacts(
+        self,
+        project_ids: list[str],
+        ruleset_versions: dict[str, str],
+        current_engine_version: str,
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """The current health/DCMA-style artifacts of many projects, in few queries.
+
+        Per ``(project_id, artifact_kind)``: the newest non-stale row at the
+        current engine version and the kind's ruleset version. Filtering on the
+        versions in the query keeps the result to about one row per pair: rows
+        from older engines stay non-stale after a re-materialization, and every
+        release would otherwise add one more payload per pair. It differs from
+        ``get_latest_derived_artifact`` in one case: when an older-engine row is
+        newer than the current one (a write from an old machine during a rolling
+        deploy), this returns the current row, the single read returns None.
+        Ids go 100 per request to keep URLs short. Keys of pairs with no current
+        artifact are absent. Callers pass ids they have already authorised.
+        """
+        ids = [pid for pid in dict.fromkeys(project_ids) if _is_uuid(pid)]
+        if not ids or not ruleset_versions:
+            return {}
+        out: dict[tuple[str, str], dict[str, Any]] = {}
+        for start in range(0, len(ids), 100):
+            rows = (
+                self._client.table("schedule_derived_artifacts")
+                .select(
+                    "project_id, artifact_kind, engine_version, ruleset_version, "
+                    "payload, computed_at"
+                )
+                .in_("project_id", ids[start : start + 100])
+                .in_("artifact_kind", list(ruleset_versions))
+                .eq("engine_version", current_engine_version)
+                .eq("is_stale", False)
+                .order("computed_at", desc=True)
+                .execute()
+                .data
+                or []
+            )
+            for row in rows:
+                key = (str(row["project_id"]), str(row["artifact_kind"]))
+                if key in out or row.get("ruleset_version") != ruleset_versions.get(key[1]):
+                    continue
+                out[key] = row
+        return out
 
     def get_projects_at_engine_version(
         self, engine_version: str, *, include_stale: bool = False

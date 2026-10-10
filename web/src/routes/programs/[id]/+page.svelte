@@ -18,6 +18,11 @@
 	let program: ProgramListItem | null = $state(null);
 	let revisions: ProgramRevision[] = $state([]);
 	let trends: ProgramTrends | null = $state(null);
+
+	// The time axis shows the data date only (labels arrive as timestamps).
+	function dayLabels(tr: ProgramTrends): string[] {
+		return tr.labels.map((l) => l.slice(0, 10));
+	}
 	let rollup: ProgramRollup | null = $state(null);
 	let loading = $state(true);
 	let error = $state('');
@@ -76,10 +81,13 @@
 	function formatDate(dateStr: string | null | undefined): string {
 		if (!dateStr) return '—';
 		try {
+			// Data dates are stored as UTC midnight; formatting them in the
+			// viewer's zone showed the day before west of Greenwich.
 			return new Date(dateStr).toLocaleDateString(undefined, {
 				year: 'numeric',
 				month: 'short',
-				day: 'numeric'
+				day: 'numeric',
+				timeZone: 'UTC'
 			});
 		} catch {
 			return dateStr;
@@ -252,7 +260,7 @@
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<TrendChart
 						data={trends.health_scores}
-						labels={trends.labels}
+						labels={dayLabels(trends)}
 						title="Health Score"
 						color="#3b82f6"
 						height={200}
@@ -260,23 +268,25 @@
 					/>
 					<TrendChart
 						data={trends.dcma_scores}
-						labels={trends.labels}
+						labels={dayLabels(trends)}
 						title="DCMA Compliance"
 						color="#8b5cf6"
 						height={200}
 						formatValue={(v) => v.toFixed(1)}
 					/>
-					<TrendChart
-						data={trends.alert_counts}
-						labels={trends.labels}
-						title="Alert Count"
-						color="#ef4444"
-						height={200}
-						formatValue={(v) => v.toFixed(0)}
-					/>
+					{#if trends.alert_counts.some((v) => v !== null && v !== undefined)}
+						<TrendChart
+							data={trends.alert_counts}
+							labels={dayLabels(trends)}
+							title="Alert Count"
+							color="#ef4444"
+							height={200}
+							formatValue={(v) => v.toFixed(0)}
+						/>
+					{/if}
 					<TrendChart
 						data={trends.activity_counts}
-						labels={trends.labels}
+						labels={dayLabels(trends)}
 						title="Activity Count"
 						color="#10b981"
 						height={200}

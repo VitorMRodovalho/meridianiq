@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Any
 
 from src.database.store import ProgramPlacementError, newest_first
+from src.materializer.runtime import _ENGINE_VERSION, _RULESET_VERSIONS
 
 from ..access import AccessContext, get_access, owned_project
 from ..auth import optional_auth
@@ -80,6 +81,10 @@ def update_program(
     if updated is None:
         raise HTTPException(status_code=404, detail="Program not found")
     return {"program": updated}
+
+
+def _rounded(value: Any) -> float | None:
+    return round(float(value), 1) if isinstance(value, (int, float)) else None
 
 
 def _build_rollup(program_id: str, revisions: list[dict], user_id: str | None = None) -> dict:
@@ -200,25 +205,26 @@ def get_program_trends(program_id: str, _user: object = Depends(optional_auth)):
         "revisions": [],
     }
 
+    # Health and DCMA come from what the materializer stored for each
+    # revision (ADR-0014/0015), in one query; nothing is recomputed here. A
+    # revision without a current artifact plots as a gap (None). Alerts are
+    # not materialized, so their series stays None.
+    artifacts = store.get_latest_derived_artifacts(
+        [str(r.get("id")) for r in revisions],
+        {kind: _RULESET_VERSIONS[kind] for kind in ("health", "dcma")},
+        _ENGINE_VERSION,
+    )
+
     for rev in revisions:
-        results = rev.get("analysis_results") or {}
-        health = results.get("health", {})
-        dcma = results.get("dcma", {})
-        alerts = results.get("alerts", {})
+        rid = str(rev.get("id"))
+        health = (artifacts.get((rid, "health")) or {}).get("payload") or {}
+        dcma = (artifacts.get((rid, "dcma")) or {}).get("payload") or {}
 
         label = rev.get("data_date") or f"Rev {rev.get('revision_number', '?')}"
         trends["labels"].append(str(label))
-        trends["health_scores"].append(health.get("score") if health else None)
-        dcma_score = dcma.get("score") if dcma else None
-        if dcma_score is None and dcma:
-            dcma_score = dcma.get("pass_rate")
-        trends["dcma_scores"].append(dcma_score)
-        if alerts and isinstance(alerts.get("alerts"), list):
-            trends["alert_counts"].append(len(alerts["alerts"]))
-        elif alerts:
-            trends["alert_counts"].append(alerts.get("count", 0))
-        else:
-            trends["alert_counts"].append(None)
+        trends["health_scores"].append(_rounded(health.get("overall")))
+        trends["dcma_scores"].append(_rounded(dcma.get("overall_score")))
+        trends["alert_counts"].append(None)
         trends["activity_counts"].append(rev.get("activity_count"))
         trends["revisions"].append(
             {
