@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	interface Props {
 		data: (number | null)[];
 		labels: string[];
@@ -88,11 +89,11 @@
 	})());
 </script>
 
-<div class="bg-white border border-gray-200 rounded-lg p-4">
-	<p class="text-sm font-medium text-gray-700 mb-3">{title}</p>
+<div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+	<p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{title}</p>
 	{#if validData.length === 0}
-		<div class="flex items-center justify-center text-gray-400 text-sm" style="height: {height}px">
-			No data available
+		<div class="flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm" style="height: {height}px">
+			{$t('program_page.no_data')}
 		</div>
 	{:else}
 		<svg
@@ -101,7 +102,7 @@
 			class="w-full"
 			style="height: {height}px"
 			role="img"
-			aria-label="{title} trend chart"
+			aria-label={title}
 		>
 			<g transform="translate({PADDING.left}, {PADDING.top})">
 				<!-- Grid lines and Y-axis labels -->
@@ -111,7 +112,7 @@
 						y1={gl.y}
 						x2={chartWidth}
 						y2={gl.y}
-						stroke="#e5e7eb"
+						class="stroke-gray-200 dark:stroke-gray-700"
 						stroke-width="1"
 					/>
 					<text
@@ -120,7 +121,7 @@
 						text-anchor="end"
 						dominant-baseline="middle"
 						font-size="10"
-						fill="#9ca3af"
+						class="fill-gray-400 dark:fill-gray-500"
 					>{formatValue(gl.val)}</text>
 				{/each}
 
@@ -143,7 +144,7 @@
 						cy={yPos(pt.v)}
 						r="4"
 						fill={color}
-						stroke="white"
+						class="stroke-white dark:stroke-gray-900"
 						stroke-width="2"
 					>
 						<title>{pt.label}: {formatValue(pt.v)}</title>
@@ -157,7 +158,7 @@
 						y={chartHeight + 16}
 						text-anchor="middle"
 						font-size="10"
-						fill="#6b7280"
+						class="fill-gray-500 dark:fill-gray-400"
 					>{xl.label}</text>
 				{/each}
 

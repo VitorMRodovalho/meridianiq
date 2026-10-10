@@ -424,25 +424,25 @@
 			{#if programs.length > 0}
 				<div class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-10">
 					<div class="flex items-center justify-between mb-4">
-						<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Programs</h2>
-						<span class="text-sm text-gray-400">{programs.length} program{programs.length !== 1 ? 's' : ''}</span>
+						<h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{$t('nav.programs')}</h2>
+						<span class="text-sm text-gray-400 dark:text-gray-500">{programs.length === 1 ? $t('home.program_one') : $t('home.programs_n').replace('{n}', String(programs.length))}</span>
 					</div>
 					<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 						{#each programs as program}
 							<a
 								href="/programs/{program.id}"
-								class="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all group"
+								class="block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all group"
 							>
-								<h3 class="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-700 transition-colors">{program.name}</h3>
-								<div class="mt-2 flex gap-4 text-xs text-gray-500">
+								<h3 class="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors">{program.name}</h3>
+								<div class="mt-2 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
 									<span class="flex items-center gap-1">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-										{program.revision_count} revision{program.revision_count !== 1 ? 's' : ''}
+										{program.revision_count === 1 ? $t('program_pick.revision_one') : $t('program_pick.revisions').replace('{n}', String(program.revision_count))}
 									</span>
 									{#if program.latest_revision}
 										<span class="flex items-center gap-1">
 											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-											{program.latest_revision.activity_count} activities
+											{$t('home.activities_n').replace('{n}', String(program.latest_revision.activity_count))}
 										</span>
 									{/if}
 								</div>
