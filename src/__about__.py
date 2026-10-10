@@ -62,13 +62,13 @@ surfaced by W4. **It is NOT optional** — `src/database/store.py
 get_latest_derived_artifact` does an exact ``engine_version`` equality
 match, so pre-existing artifact rows written under the OLD version
 become **invisible to the read path** (not "stale-but-readable") the
-moment a bump merges. Consumer endpoints will see ``None`` and trigger
-re-mat on first read of every affected project. This is intentional
-per ADR-0014 (version mismatch → forced re-mat), but it means a deploy
-of a version-bump WITHOUT a coordinated re-mat plan produces a brief
-window of blank dashboards. The bump procedure should always be
-deploy-coordinated with a bulk re-mat or a tombstone migration on the
-old rows.
+moment a bump merges. Consumer endpoints see ``None``; the read paths
+(lifecycle card, program trends) do NOT re-materialize on read, so the
+results stay blank until a backfill runs (measured 2026-10-09: every
+stored result dated from an April run at ``4.0`` while the code read
+``4.3.0``). This is intentional per ADR-0014 (version mismatch → forced
+re-mat). The CI deploy job now runs ``src.materializer.backfill`` after
+each deploy (docs/DEPLOY_CHECKLIST.md, "Version Bump").
 
 .. _ADR-0014 §"Decision Outcome": ../docs/adr/0014-derived-artifact-provenance-hash.md#decision-outcome
 .. _AUDIT-2026-04-26-011 (P2): ../docs/audit/2026-04-26/02-architecture.md#audit-2026-04-26-011
