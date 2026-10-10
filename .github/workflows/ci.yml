@@ -183,6 +183,52 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      # Stored analysis results are read only at the current engine version
+      # (ADR-0014), and the engine version is the package version. After a
+      # version bump every result goes invisible: program trends and the
+      # lifecycle card go blank until the projects are re-materialized
+      # (observed 2026-10-09: all results dated from an April run at 4.0, the
+      # code read 4.3.0). This step re-materializes whatever the deployed
+      # code cannot read. On a deploy without a bump it finds 0 candidates
+      # and ends in seconds; after a bump it runs serially (~1.5-4 min per
+      # 10k-activity schedule, measured 2026-10-10). It stays inside the
+      # deploy job so the concurrency group keeps the next deploy (which
+      # restarts the machine) from cutting it off. A run that is cut off or
+      # fails is safe to repeat: the next deploy picks up what is missing.
+      - name: Re-materialize stored results the new version cannot read
+        timeout-minutes: 120
+        run: |
+          set -euo pipefail
+          if [ -z "${FLY_API_TOKEN:-}" ]; then
+            echo "::warning::FLY_SSH_TOKEN is not set; stored results were not re-materialized. Create it with: fly tokens create ssh -a meridianiq-api"
+            exit 0
+          fi
+          out="$(flyctl ssh console -a meridianiq-api -C "python -m src.materializer.backfill --dry-run" 2>&1)"
+          echo "$out" | grep -E "candidate project" || true
+          n="$(echo "$out" | sed -nE 's/.*→ ([0-9]+) candidate project.*/\1/p' | tail -1)"
+          if [ -z "$n" ]; then
+            echo "::error::could not read the candidate count from the dry run"
+            echo "$out" | tail -20
+            exit 1
+          fi
+          if [ "$n" -eq 0 ]; then
+            echo "Nothing to re-materialize."
+            exit 0
+          fi
+          echo "Re-materializing $n project(s)."
+          flyctl ssh console -a meridianiq-api -C "python -m src.materializer.backfill" 2>&1 \
+            | grep -E "candidate project|done:|failed for|Error" || true
+          after="$(flyctl ssh console -a meridianiq-api -C "python -m src.materializer.backfill --dry-run" 2>&1 \
+            | sed -nE 's/.*→ ([0-9]+) candidate project.*/\1/p' | tail -1)"
+          echo "Left after the run: ${after:-unknown}"
+          if [ "${after:-1}" -ne 0 ]; then
+            echo "::warning::${after:-some} project(s) still lack current results; see the backfill log above"
+          fi
+        env:
+          # SSH needs its own token (an app deploy token does not grant it):
+          # fly tokens create ssh -a meridianiq-api
+          FLY_API_TOKEN: ${{ secrets.FLY_SSH_TOKEN }}
+
   deploy-frontend:
     name: Deploy Web (Cloudflare Pages)
     needs: [backend, frontend, e2e]

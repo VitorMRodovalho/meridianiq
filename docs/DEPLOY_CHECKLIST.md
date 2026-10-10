@@ -42,6 +42,25 @@ Learned from ai-pm-research-hub: 5-phase sprint closure (Execute -> Audit -> Fix
 - [ ] Backend auto-deploys to Fly.io (check `fly status`)
 - [ ] Frontend auto-deploys to Cloudflare Pages (check CF dashboard)
 
+## Version Bump (pyproject `version`)
+
+The stored analysis results (`schedule_derived_artifacts`) are read only at
+the current engine version, which is the package version (ADR-0014). A bump
+makes every stored result invisible until the projects are re-materialized:
+program trends and the lifecycle card go blank.
+
+- [ ] The CI deploy job's "Re-materialize stored results" step ran and ended
+      with "Nothing to re-materialize" or "Left after the run: 0". It needs
+      the `FLY_SSH_TOKEN` repository secret
+      (`fly tokens create ssh -a meridianiq-api`); without it the step only
+      warns.
+- [ ] If the step was cut off or warned, run it by hand:
+      `fly ssh console -a meridianiq-api -C "python -m src.materializer.backfill --dry-run"`,
+      then without `--dry-run`. It is idempotent. Allow ~1.5–4 min per
+      10k-activity schedule (measured 2026-10-10).
+- [ ] A schedule whose stored data cannot be loaded is marked `failed` by
+      the run; that is the true state, not a regression (re-upload it).
+
 ## Post-Deploy Smoke Test
 
 - [ ] Visit https://getmeridianiq.com — landing page loads
