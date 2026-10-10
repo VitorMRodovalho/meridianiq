@@ -3,9 +3,14 @@
 """Revision detection heuristic + content_hash helper for Cycle 4 W2 PR-A.
 
 Implements the v1 heuristic per ADR-0022 §"Wave plan W2" + Amendment 2:
-same ``project_name`` (case-insensitive) + same ``program_id`` (already
-auto-assigned at upload by ``store.save_project`` via
-``get_or_create_program``) + different ``data_date`` (avoid duplicates).
+same ``program_id`` + different ``data_date`` (avoid duplicates).
+
+Since migration 039 the user chooses a schedule's program at upload, or
+moves it later, so program membership is the user's statement that the
+schedules belong together. The heuristic used to also require the same
+``project_name``; P6 short names change from one update to the next, so
+that clause rejected exactly the siblings it was meant to find, and it
+was dropped.
 
 ## Why ``project_name + program_id + data_date`` and NOT ADR-0022's
 ## original ``proj_short_name + proj_id + content_hash``
@@ -42,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 _HEURISTIC_CONFIDENCE_HIGH = 0.9
-"""Confidence assigned when the v1 heuristic finds an exact name+program match.
+"""Confidence assigned when the heuristic finds a sibling in the same program.
 
 NOT a calibrated probability — UI prioritization signal only. Bumping or
 recalibrating this requires ADR-0022 Amendment N or a successor ADR for
@@ -67,13 +72,6 @@ def compute_xer_content_hash(xer_bytes: bytes) -> str:
     return hashlib.sha256(xer_bytes).hexdigest()
 
 
-def _normalise_name(name: str | None) -> str:
-    """Case-insensitive, whitespace-trimmed name for heuristic comparison."""
-    if not name:
-        return ""
-    return name.strip().lower()
-
-
 def detect_candidate_parent(
     store: Any,
     user_id: str,
@@ -91,10 +89,7 @@ def detect_candidate_parent(
        OR has no ``program_id``, return no candidate.
     2. Load all of the caller's projects in the same program (excluding
        the current project itself) ordered by ``data_date DESC NULLS LAST``.
-       Note ``project_name`` is auto-shared within a program because
-       ``save_project`` groups by name; the program filter alone is
-       sufficient. The case-insensitive name check below is defensive
-       against future drift in the auto-grouping rule.
+       The program is the user's choice, so no name check applies.
     3. Filter: candidate.``data_date`` MUST differ from current.``data_date``
        (avoid duplicates of the same XER).
     4. Take the most recent. If found, return high confidence + reasoning.
@@ -132,7 +127,6 @@ def detect_candidate_parent(
             "reasoning": "current project has no program_id (anonymous upload?)",
         }
 
-    current_name = _normalise_name(current.get("project_name"))
     current_data_date = current.get("data_date")
 
     try:
@@ -141,12 +135,13 @@ def detect_candidate_parent(
         logger.warning("detect: list_projects_in_program failed for %s: %s", program_id, exc)
         return no_candidate
 
+    # Program membership is the user's own choice (they pick the program at
+    # upload or move the schedule), so every sibling is a candidate; P6 short
+    # names change from one update to the next and cannot be required to match.
     candidates = [
         s
         for s in siblings
-        if s.get("project_id") != project_id
-        and _normalise_name(s.get("project_name")) == current_name
-        and s.get("data_date") != current_data_date
+        if s.get("project_id") != project_id and s.get("data_date") != current_data_date
     ]
     if not candidates:
         return {**no_candidate, "reasoning": "no sibling with different data_date"}
@@ -172,7 +167,7 @@ def detect_candidate_parent(
         "candidate_revision_count": revision_count,
         "confidence": _HEURISTIC_CONFIDENCE_HIGH,
         "reasoning": (
-            f"matched on project_name + program_id; sibling has different data_date "
+            f"same program; sibling has different data_date "
             f"({top.get('data_date')} vs current {current_data_date})"
         ),
     }

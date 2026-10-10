@@ -91,7 +91,26 @@ def test_detect_returns_sibling_with_different_data_date() -> None:
     result = detect_candidate_parent(store, user_id="user-x", project_id=p2)
     assert result["candidate_project_id"] == p1
     assert result["confidence"] == _HEURISTIC_CONFIDENCE_HIGH
-    assert "matched on project_name" in result["reasoning"]
+    assert "same program" in result["reasoning"]
+
+
+def test_detect_finds_a_sibling_whose_short_name_changed() -> None:
+    """P6 short names change per update; the user's program choice groups them."""
+    store = InMemoryStore()
+    p1 = store.save_project(
+        upload_id="u1",
+        schedule=_schedule("PROJ-A UP01", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        user_id="user-x",
+    )
+    program = store.get_project_meta(p1, user_id="user-x")["program_id"]
+    p2 = store.save_project(
+        upload_id="u2",
+        schedule=_schedule("PROJ-A UP02", datetime(2026, 2, 1, tzinfo=timezone.utc)),
+        user_id="user-x",
+        program_id=program,
+    )
+    result = detect_candidate_parent(store, user_id="user-x", project_id=p2)
+    assert result["candidate_project_id"] == p1
 
 
 def test_detect_skips_sibling_with_same_data_date() -> None:

@@ -2427,3 +2427,49 @@ class UpdateProgramRequest(BaseModel):
         if self.name is None and self.description is None:
             raise ValueError("Send a name or a description")
         return self
+
+
+#: Most schedules one request may move into a program.
+MAX_PLACEMENT_PROJECT_IDS = 50
+
+
+class ProgramTarget(BaseModel):
+    """Where a schedule goes: one of the caller's programs, or a new one by name.
+
+    A new name that matches one of the caller's programs, ignoring case, joins
+    that program (program names are unique per user).
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    program_id: Optional[str] = Field(default=None, min_length=1, max_length=64)
+    new_program_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "ProgramTarget":
+        if (self.program_id is None) == (self.new_program_name is None):
+            raise ValueError("Send exactly one of program_id or new_program_name")
+        return self
+
+
+class ProgramPlacementBatchRequest(ProgramTarget):
+    """Body for POST /api/v1/programs/placements."""
+
+    project_ids: list[str] = Field(min_length=1, max_length=MAX_PLACEMENT_PROJECT_IDS)
+
+
+class ProgramPlacement(BaseModel):
+    """One schedule's place in a program after a move."""
+
+    project_id: str
+    program_id: str
+    revision_number: int
+    #: The program the schedule left was deleted because it became empty.
+    source_program_deleted: bool
+
+
+class ProgramPlacementBatchResponse(BaseModel):
+    """Response for POST /api/v1/programs/placements."""
+
+    program_id: str
+    placements: list[ProgramPlacement]

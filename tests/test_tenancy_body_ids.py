@@ -590,6 +590,9 @@ ELSEWHERE: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/shares/project"): _ORG_SURFACES,
     ("POST", "/api/v1/projects/{project_id}/value-milestones"): _ORG_SURFACES,
     ("PUT", "/api/v1/value-milestones/{milestone_id}"): f"project_id key; {_ORG_SURFACES}",
+    ("PUT", "/api/v1/projects/{project_id}/program"): "tests/test_program_placement.py",
+    ("POST", "/api/v1/programs/placements"): "tests/test_program_placement.py",
+    ("POST", "/api/v1/upload"): "program_id names an owned program; tests/test_program_placement.py",
 }
 
 #: Body-id routes that do not resolve their body id through the access context
