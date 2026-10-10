@@ -415,11 +415,13 @@ def test_data_erasure_clears_the_note_and_the_address_copy(gate: Gate) -> None:
     gate.client.post(f"/api/v1/superadmin/ai/requests/{USER_B}/approve", headers=_auth(ADMIN))
     _request(gate, user=USER_A)  # entitled: no row, nothing to remove
     assert gate.store._ai_entitlements[USER_B]["email"] == "b@example.test"
+    gate.store._ai_entitlements[USER_B]["note"] = "operator note about the account"
     resp = gate.client.delete("/api/v1/user/data", headers=_auth(USER_B))
     assert resp.status_code == 200, resp.text
     row = gate.store._ai_requests[USER_B]
     assert (row["status"], row["note"]) == ("approved", None)  # the record stays
     assert gate.store._ai_entitlements[USER_B]["email"] is None
+    assert gate.store._ai_entitlements[USER_B]["note"] is None  # migration 040
     assert gate.store._ai_entitlements[USER_B]["revoked_at"] is None  # access itself stays
 
 

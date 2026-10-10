@@ -26,9 +26,12 @@
 # change the catalog), probe reads/writes/RPCs as the client roles, the
 # read-only 034/postcheck.sql (clean, then after re-running 008 and 009,
 # which it must report), a signup after 034, then negative controls that
-# must make 034 abort. Each check prints PASS, FAIL or INFO (the census
-# also REVIEW). Exit status is 0 only when every stage ran and no check
-# failed.
+# must make 034 abort; then 035 and 036 stages, and, with the Supabase
+# image only (it ships pg_cron), 040: two applies, its postcheck, the purge
+# horizon scenarios, a real pg_cron run with a control row, negative
+# controls and the recovery after re-applying 036. Each check prints PASS,
+# FAIL or INFO (the census also REVIEW). Exit status is 0 only when every
+# stage ran and no check failed.
 
 set -euo pipefail
 
@@ -38,6 +41,7 @@ migrations="$repo/supabase/migrations"
 m034="$migrations/034_org_rls_rewrite.sql"
 m035="$migrations/035_ai_access_ledger.sql"
 m036="$migrations/036_ai_access_requests.sql"
+m040="$migrations/040_ai_request_retention.sql"
 image="${1:-postgres:17}"
 name="mq-rls-replica-$$-$RANDOM"
 password=$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')
@@ -626,6 +630,132 @@ psql_as postgres -At < "$here/036/postcheck.sql" > "$work/postcheck036_recovered
 tally "$work/postcheck036_recovered.log"
 fp036c=$(psql_as supabase_admin < "$here/fingerprint.sql")
 if [[ -n $fp7 && $fp036c == "$fp7" ]]; then pass "catalog after recovery equals the catalog after the first 036 apply"; else fail "catalog after recovery differs from the first 036 apply"; fi
+
+# Migration 040 (retention of AI access requests) needs pg_cron, which only
+# the Supabase image ships.
+cron_available=$(psql_as supabase_admin -At -c "SELECT count(*) FROM pg_available_extensions WHERE name = 'pg_cron'")
+if [[ $cron_available != 1 ]]; then
+    stage "040 skipped"
+    echo "INFO  pg_cron is not available in $image; run with the Supabase image to exercise 040"
+else
+    cron_jobs="SELECT string_agg(concat_ws('|', jobid, jobname, schedule, command, username, database, active), E'\n' ORDER BY jobname) FROM cron.job"
+
+    stage "apply 040 as postgres (1st)"
+    rc=0
+    psql_as postgres -v ON_ERROR_STOP=1 < "$m040" > "$work/apply040_1.log" 2>&1 || rc=$?
+    grep -E 'ERROR|WARNING' "$work/apply040_1.log" || true
+    if [[ $rc -eq 0 ]]; then pass "040 apply #1 rc=0"; else fail "040 apply #1 rc=$rc"; cat "$work/apply040_1.log"; exit 1; fi
+    fp8=$(psql_as supabase_admin < "$here/fingerprint.sql")
+    jobs8=$(psql_as supabase_admin -At -c "$cron_jobs")
+
+    stage "apply 040 as postgres (2nd, must be a no-op)"
+    rc=0
+    psql_as postgres -v ON_ERROR_STOP=1 < "$m040" > "$work/apply040_2.log" 2>&1 || rc=$?
+    if [[ $rc -eq 0 ]]; then pass "040 apply #2 rc=0"; else fail "040 apply #2 rc=$rc"; cat "$work/apply040_2.log"; fi
+    fp9=$(psql_as supabase_admin < "$here/fingerprint.sql")
+    jobs9=$(psql_as supabase_admin -At -c "$cron_jobs")
+    if [[ -n $fp8 && $fp8 == "$fp9" ]]; then pass "catalog fingerprint unchanged by the 2nd 040 apply"; else fail "catalog fingerprint changed by the 2nd 040 apply"; fi
+    if [[ -n $jobs8 && $jobs8 == "$jobs9" ]]; then pass "cron jobs unchanged by the 2nd 040 apply (same ids)"; else fail "cron jobs changed by the 2nd 040 apply"; printf '%s\n---\n%s\n' "$jobs8" "$jobs9"; fi
+
+    stage "036 and 040 postchecks after 040 (read-only)"
+    psql_as postgres -At < "$here/036/postcheck.sql" > "$work/postcheck036_after040.log" 2>&1
+    tally "$work/postcheck036_after040.log"
+    psql_as postgres -At < "$here/040/postcheck.sql" > "$work/postcheck040.log" 2>&1
+    tally "$work/postcheck040.log"
+
+    stage "040 scenarios (purge horizon, erasure, who can reach what)"
+    cat "$here/probe_lib.sql" "$here/040/scenarios.sql" | psql_as supabase_admin > "$work/scenarios040.log" 2>&1
+    tally "$work/scenarios040.log"
+
+    # The job itself, not only its command: a copy scheduled every 2 seconds
+    # must delete the 31-day row and keep the 29-day one (the control).
+    stage "040 the purge runs from pg_cron"
+    psql_as supabase_admin -v ON_ERROR_STOP=1 -q > "$work/cron040.log" 2>&1 <<'SQL'
+SET session_replication_role = replica;
+INSERT INTO auth.users (id, email) VALUES
+    ('40000000-0000-4000-8000-0000000004b1', 'b1@example.test'),
+    ('40000000-0000-4000-8000-0000000004b2', 'b2@example.test');
+SET session_replication_role = origin;
+INSERT INTO public.ai_access_requests (user_id, status, requested_at, decided_at) VALUES
+    ('40000000-0000-4000-8000-0000000004b1', 'dismissed', now() - interval '40 days', now() - interval '31 days'),
+    ('40000000-0000-4000-8000-0000000004b2', 'dismissed', now() - interval '40 days', now() - interval '29 days');
+SET ROLE postgres;
+SELECT cron.schedule('meridianiq-replica-probe', '2 seconds', 'SELECT public.ai_purge_decided_requests()');
+SQL
+    if grep -q 'ERROR' "$work/cron040.log"; then fail "040 cron probe setup"; cat "$work/cron040.log"; fi
+    left=""
+    for _ in $(seq 1 15); do
+        left=$(psql_as supabase_admin -At -c "SELECT string_agg(right(user_id::text, 2), ',' ORDER BY user_id) FROM public.ai_access_requests WHERE user_id::text LIKE '40000000-%-0000000004b_'")
+        [[ $left == b2 ]] && break
+        sleep 1
+    done
+    runs=$(psql_as supabase_admin -At -c "SELECT count(*) FILTER (WHERE status = 'succeeded') || ' succeeded, ' || count(*) FILTER (WHERE status = 'failed') || ' failed' FROM cron.job_run_details WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'meridianiq-replica-probe')")
+    echo "rows left: ${left:-none}; runs: $runs"
+    if [[ $left == b2 ]]; then pass "pg_cron deleted the 31-day row and kept the 29-day control"; else fail "after the cron runs the rows left are '${left:-none}', expected b2"; fi
+    if [[ $runs =~ ^[1-9][0-9]*\ succeeded,\ 0\ failed$ ]]; then pass "cron runs: $runs"; else fail "cron runs: $runs"; fi
+    psql_as supabase_admin -q -c "SET ROLE postgres; SELECT cron.unschedule('meridianiq-replica-probe'); RESET ROLE;
+        DELETE FROM cron.job_run_details WHERE jobid NOT IN (SELECT jobid FROM cron.job);
+        DELETE FROM public.ai_access_requests WHERE user_id::text LIKE '40000000-%';
+        DELETE FROM auth.users WHERE id::text LIKE '40000000-%';" > /dev/null 2>&1
+
+    stage "negative controls: 040 must abort (each in a rolled-back transaction)"
+    [[ $(grep -c '^BEGIN;$' "$m040") -eq 1 && $(grep -c '^COMMIT;$' "$m040") -eq 1 ]] \
+        || { fail "040 does not have exactly one BEGIN; and one COMMIT; line"; exit 1; }
+    sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' "$m040" > "$work/040_body.sql"
+    fp040a=$(psql_as supabase_admin < "$here/fingerprint.sql")
+    negative040() {  # <label> <expected rc: 0|nonzero> <regex> <setup SQL run after the body's REVOKEs would undo it>
+        local label=$1 want=$2 regex=$3 setup=$4 rc=0 hit
+        {
+            printf '\\set ON_ERROR_STOP on\nBEGIN;\nSET ROLE postgres;\n'
+            # The setup goes right before the guard, so the body's own
+            # REVOKEs cannot undo it.
+            sed -n '1,/^-- 4\. Guard/p' "$work/040_body.sql" | sed '$d'
+            printf 'RESET ROLE;\n%s\nSET ROLE postgres;\n' "$setup"
+            sed -n '/^-- 4\. Guard/,$p' "$work/040_body.sql"
+            printf 'ROLLBACK;\n'
+        } | psql_as supabase_admin > "$work/neg040.log" 2>&1 || rc=$?
+        hit=$(grep -Eo "$regex" "$work/neg040.log" | head -1 || true)
+        if [[ $want == 0 && $rc -eq 0 ]] || [[ $want == nonzero && $rc -ne 0 && -n $hit ]]; then
+            pass "$label  =>  rc=$rc ${hit:+| $hit}"
+        else
+            fail "$label  =>  rc=$rc, expected rc $want and /$regex/"
+            tail -5 "$work/neg040.log"
+        fi
+    }
+    negative040 "n0 unmodified body inside BEGIN/ROLLBACK applies (harness control)" 0 '' ''
+    negative040 "n1 service_role can call the purge" nonzero \
+        'service_role can call ai_purge_decided_requests' \
+        'GRANT EXECUTE ON FUNCTION public.ai_purge_decided_requests() TO service_role;'
+    negative040 "n2 a client role can use schema cron" nonzero \
+        'authenticated has USAGE on schema cron' \
+        'GRANT USAGE ON SCHEMA cron TO authenticated;'
+    negative040 "n3 the purge job is not scheduled" nonzero \
+        'the two meridianiq cron jobs are not scheduled as expected' \
+        "SET ROLE postgres; SELECT cron.unschedule('meridianiq-ai-requests-purge'); RESET ROLE;"
+    negative040 "n4 ai_forget_user callable by authenticated" nonzero \
+        'ai_forget_user is not service_role only' \
+        'GRANT EXECUTE ON FUNCTION public.ai_forget_user(uuid) TO authenticated;'
+    fp040b=$(psql_as supabase_admin < "$here/fingerprint.sql")
+    if [[ $fp040a == "$fp040b" ]]; then pass "catalog unchanged by the 040 negative controls"; else fail "040 negative controls changed the catalog"; fi
+
+    # Recovery path documented in 040 and its postcheck rc02: 036 re-applied
+    # after 040 restores ai_forget_user without the note; rc02 must FAIL, and
+    # applying 040 again must restore it.
+    stage "040 recovery: 036 re-applied after 040, then 040 again"
+    rc=0
+    psql_as postgres -v ON_ERROR_STOP=1 < "$m036" > "$work/apply036_after040.log" 2>&1 || rc=$?
+    if [[ $rc -eq 0 ]]; then pass "036 re-applied after 040 rc=0"; else fail "036 re-apply after 040 rc=$rc"; cat "$work/apply036_after040.log"; fi
+    psql_as postgres -At < "$here/040/postcheck.sql" > "$work/postcheck040_after036.log" 2>&1
+    cat "$work/postcheck040_after036.log"
+    expect_lines "$work/postcheck040_after036.log" "040 postcheck reports the re-applied 036" '^FAIL +rc02 .*md5 [0-9a-f]{32}$'
+    rc=0
+    psql_as postgres -v ON_ERROR_STOP=1 < "$m040" > "$work/apply040_3.log" 2>&1 || rc=$?
+    if [[ $rc -eq 0 ]]; then pass "040 re-applied rc=0"; else fail "040 re-apply rc=$rc"; cat "$work/apply040_3.log"; fi
+    psql_as postgres -At < "$here/040/postcheck.sql" > "$work/postcheck040_recovered.log" 2>&1
+    tally "$work/postcheck040_recovered.log"
+    fp040c=$(psql_as supabase_admin < "$here/fingerprint.sql")
+    if [[ -n $fp8 && $fp040c == "$fp8" ]]; then pass "catalog after recovery equals the catalog after the first 040 apply"; else fail "catalog after recovery differs from the first 040 apply"; fi
+fi
 
 stage "summary ($image)"
 echo "failures=$failures"

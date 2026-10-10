@@ -35,6 +35,7 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 - Sentry gets only the minimum (#298): no outgoing-call query strings (#299) and no Storage paths (#301); PRIVACY.md corrected (region, retention, processors).
 - No Swagger UI or ReDoc in production (#297).
 - Web dependency security bumps: devalue, dompurify (#289).
+- AI access requests are deleted by a daily pg_cron job 30 days after they are decided (pending requests are kept), and the user's data erasure also clears the operator's note on the AI entitlement (migration 040). PRIVACY.md §1.5, §3 and §4.1 updated, including the right to object to the 30-day block.
 
 #### Changed
 - Web dependencies to the latest minor and patch of each major (#290); pages read `page` from `$app/state` (#292).
@@ -44,7 +45,7 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 - Revision detection no longer requires siblings to share a short name; program membership is the user's choice.
 
 #### Operator notes
-- Migrations 036–039 are applied by hand (`psql -f`), never `supabase db push`.
+- Migrations 036–040 are applied by hand (`psql -f`), never `supabase db push`. Migration 040 enables the pg_cron extension; read `scripts/rls_replica/040/postcheck.sql` after applying it, and apply 040 again after any re-application of 036.
 - After a version bump, check the deploy job's re-materialization step (`docs/DEPLOY_CHECKLIST.md`, "Version Bump").
 
 ### May–September 2026 (PRs #153–#287)
