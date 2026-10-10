@@ -12,8 +12,12 @@ schedules belong together. The heuristic used to also require the same
 that clause rejected exactly the siblings it was meant to find, and it
 was dropped.
 
-## Why ``project_name + program_id + data_date`` and NOT ADR-0022's
-## original ``proj_short_name + proj_id + content_hash``
+## Why ``program_id + data_date`` and NOT ADR-0022's original
+## ``proj_short_name + proj_id + content_hash``
+
+(Until 2026-10 the heuristic also required the same ``project_name``; see
+above for why that clause was dropped. The 0.9 confidence now asserts "a
+sibling the user put in the same program, with a different data date".)
 
 Backend-reviewer entry council (PR-A) flagged that ADR-0022's original
 spec assumed no auto-grouping at upload. In reality, ``save_project``

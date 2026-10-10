@@ -252,7 +252,8 @@ def resolve_program_target(store: Any, user_id: str, target: ProgramTarget) -> s
         if store.get_program(target.program_id, user_id) is None:
             raise HTTPException(status_code=404, detail=_PROGRAM_NOT_FOUND)
         return target.program_id
-    assert target.new_program_name is not None
+    if target.new_program_name is None:  # the model guarantees one of the two
+        raise HTTPException(status_code=422, detail="Name a program")
     return str(store.get_or_create_program(user_id, target.new_program_name))
 
 

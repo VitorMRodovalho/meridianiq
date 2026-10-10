@@ -77,6 +77,9 @@ class ProjectSummary(BaseModel):
     job_id: Optional[str] = None
     ws_url: Optional[str] = None
     metadata: Optional[ScheduleMetadataSchema] = None
+    #: The program the schedule joined; None when it joined none (sandbox,
+    #: anonymous, or a placement that failed and can be retried by moving it).
+    program_id: Optional[str] = None
 
 
 # ── Project list ─────────────────────────────────────────

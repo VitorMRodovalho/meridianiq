@@ -243,6 +243,7 @@ class TestUpload:
         assert resp.status_code == 200, resp.text
         pid = resp.json()["project_id"]
         assert (w.program_of(pid), w.revision_of(pid)) == (program, 2)
+        assert resp.json()["program_id"] == program
 
     def test_into_a_new_program(self, w: World) -> None:
         resp = self._upload(w, w.a, new_program_name="Fresh")
@@ -258,6 +259,7 @@ class TestUpload:
     def test_a_sandbox_upload_joins_no_program(self, w: World) -> None:
         resp = self._upload(w, w.a, is_sandbox="true")
         assert w.program_of(resp.json()["project_id"]) is None
+        assert resp.json()["program_id"] is None
         assert w.store._programs == {}
         refused = self._upload(w, w.a, is_sandbox="true", new_program_name="X")
         assert refused.status_code == 422
@@ -272,6 +274,9 @@ class TestUpload:
     def test_both_choices_at_once_are_refused(self, w: World) -> None:
         resp = self._upload(w, w.a, program_id="p", new_program_name="n")
         assert resp.status_code == 422
+        assert resp.json()["detail"][0]["msg"].endswith(
+            "Send exactly one of program_id or new_program_name"
+        )
 
 
 class TestRevisionTrendsCap:

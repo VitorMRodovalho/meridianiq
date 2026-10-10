@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from pydantic import ValidationError
 
 from src.analytics.cpm import CPMCalculator
 from src.analytics.dcma14 import DCMA14Analyzer
@@ -150,8 +151,11 @@ async def upload_xer(
             raise HTTPException(status_code=401, detail="Sign in to choose a program")
         try:
             target = ProgramTarget(program_id=program_id, new_program_name=new_program_name)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=exc.errors(include_url=False, include_input=False, include_context=False),
+            ) from exc
 
     filename = (file.filename or "").lower()
     is_xer = filename.endswith(".xer")
@@ -303,4 +307,13 @@ async def upload_xer(
         job_id=job_id,
         ws_url=ws_url,
         metadata=meta_schema,
+        program_id=_joined_program(store, project_id, user_id),
     )
+
+
+def _joined_program(store: Any, project_id: str, user_id: str | None) -> str | None:
+    """The program the upload ended up in, read back rather than assumed."""
+    if not user_id:
+        return None
+    meta = store.get_project_meta(project_id, user_id=user_id)
+    return str(meta["program_id"]) if meta and meta.get("program_id") else None

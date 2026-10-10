@@ -328,7 +328,10 @@ class InMemoryStore:
         return nxt, deleted
 
     def get_next_revision_number(self, program_id: str) -> int:
-        """Return the next revision number for a program."""
+        """Return the next revision number for a program.
+
+        Not used for placement: reading MAX + 1 and writing it later races.
+        Placement goes through ``place_project_in_program`` (migration 039)."""
         max_rev = 0
         for pid, prog_id in self._upload_program.items():
             if prog_id == program_id:
@@ -3161,6 +3164,9 @@ class SupabaseStore:
 
     def get_next_revision_number(self, program_id: str) -> int:
         """Return the next revision number for a program.
+
+        Not used for placement: reading MAX + 1 and writing it later races.
+        Placement goes through ``place_project_in_program`` (migration 039).
 
         Read from ``projects``, the only table that carries ``program_id``;
         ``schedule_uploads.program_id`` is never written, so reading it made
