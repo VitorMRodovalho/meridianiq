@@ -36,10 +36,17 @@ describe('shortNameFromXer', () => {
 });
 
 describe('shortNameFromXml', () => {
-	it('reads the project name or title', () => {
+	it('reads the project name, as the server does', () => {
 		expect(shortNameFromXml('<Project><Name>Beta 03</Name></Project>')).toBe('Beta 03');
-		expect(shortNameFromXml('<Project><Title>Gamma</Title></Project>')).toBe('Gamma');
+		expect(shortNameFromXml('<Project><Title>Gamma</Title></Project>')).toBeNull();
 		expect(shortNameFromXml('<Project/>')).toBeNull();
+	});
+	it('never takes a calendar or task name', () => {
+		const xml =
+			'<Project><Title>T</Title><Calendars><Calendar><Name>Standard</Name></Calendar></Calendars>' +
+			'<Tasks><Task><Name>Dig</Name></Task></Tasks></Project>';
+		expect(shortNameFromXml(xml)).toBeNull();
+		expect(shortNameFromXml(xml.replace('<Title>T</Title>', '<Name>Root</Name>'))).toBe('Root');
 	});
 });
 

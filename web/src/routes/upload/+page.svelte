@@ -201,7 +201,7 @@
 		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
 		onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('xer-file')?.click(); }}}
-		aria-label="Drop XER file here or press Enter to browse"
+		aria-label={$t('upload.drop_aria')}
 	>
 		{#if loading}
 			<div class="flex flex-col items-center gap-3">
@@ -228,8 +228,8 @@
 	<label class="mt-4 flex items-center gap-3 cursor-pointer">
 		<input type="checkbox" bind:checked={isSandbox} class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
 		<div>
-			<span class="text-sm font-medium text-gray-700">Sandbox mode</span>
-			<p class="text-xs text-gray-400">Hidden from other users and org views. For testing and development only.</p>
+			<span class="text-sm font-medium text-gray-700 dark:text-gray-300">{$t('upload.sandbox_label')}</span>
+			<p class="text-xs text-gray-500 dark:text-gray-400">{$t('upload.sandbox_hint')}</p>
 		</div>
 	</label>
 

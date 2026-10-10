@@ -51,7 +51,7 @@
 						</div>
 						<div class="text-right text-sm">
 							{#if prog.revision_count}
-								<span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{prog.revision_count} {$t('programs.revisions_label')}</span>
+								<span class="px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{prog.revision_count === 1 ? $t('program_pick.revision_one') : $t('program_pick.revisions').replace('{n}', String(prog.revision_count))}</span>
 							{/if}
 						</div>
 					</div>

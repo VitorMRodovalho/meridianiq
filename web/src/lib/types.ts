@@ -52,6 +52,8 @@ export interface ProjectListItem {
 	data_date?: string | null;
 	status: ProjectStatus;
 	tags?: string[];
+	/** The program holding it; null when it is in none, or signed out. */
+	program_id?: string | null;
 }
 
 export interface ProjectListResponse {

@@ -40,10 +40,16 @@ export function shortNameFromXer(text: string): string | null {
 	return null;
 }
 
-/** The project title in Microsoft Project XML text, or null. */
+/**
+ * The project name in Microsoft Project XML text, or null. Like the server
+ * (`msp_reader`), only the root `<Name>` counts: the search stops at the
+ * first collection, so a calendar's or a task's name is never taken.
+ */
 export function shortNameFromXml(text: string): string | null {
-	const match = /<(Name|Title)>([^<]{1,200})<\/\1>/.exec(text);
-	return match ? match[2].trim() || null : null;
+	const end = text.search(/<(Calendars|Tasks|Resources|Assignments|ExtendedAttributes|OutlineCodes|WBSMasks)[\s>/]/);
+	const head = end === -1 ? text : text.slice(0, end);
+	const match = /<Name>([^<]{1,200})<\/Name>/.exec(head);
+	return match ? match[1].trim() || null : null;
 }
 
 /** Read the project's short name from the start of an uploaded file. */

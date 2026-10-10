@@ -1,8 +1,8 @@
 <script lang="ts">
 	// Move one or more schedules into one of the user's programs, or a new
 	// one. Same modal pattern as LifecycleOverrideDialog: centered on
-	// desktop, bottom sheet on mobile, Escape closes, focus returns to the
-	// opener.
+	// desktop, bottom sheet on mobile, Escape closes, Tab stays inside, Enter
+	// submits, focus returns to the opener.
 
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n';
@@ -15,6 +15,7 @@
 	} from '$lib/api';
 	import type { ProgramChoice } from '$lib/programPick';
 	import ProgramPicker from './ProgramPicker.svelte';
+	import { trapFocus } from '$lib/focusTrap';
 
 	interface Props {
 		projectIds: string[];
@@ -118,6 +119,7 @@
 		aria-modal="true"
 		aria-labelledby="move-program-title"
 		aria-describedby="move-program-help"
+		use:trapFocus
 		class="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-lg shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto"
 	>
 		<h2
@@ -132,6 +134,12 @@
 			{$t('move.help')}
 		</p>
 
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				void submit();
+			}}
+		>
 		{#if loadingPrograms}
 			<p class="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">{$t('common.loading')}</p>
 		{:else if programsFailed}
@@ -162,13 +170,13 @@
 				{$t('move.cancel')}
 			</button>
 			<button
-				type="button"
-				onclick={submit}
+				type="submit"
 				disabled={!choice || submitting || loadingPrograms || programsFailed}
 				class="px-3 py-1.5 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
 			>
 				{submitting ? $t('move.submitting') : $t('move.submit')}
 			</button>
 		</div>
+		</form>
 	</div>
 </div>

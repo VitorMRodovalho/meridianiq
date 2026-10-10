@@ -862,7 +862,7 @@ class InMemoryStore:
             if not include_all_statuses and user_id is None and status != "ready":
                 continue
             # Non-destructive copy — ``list_all()`` returns shared dicts.
-            out.append({**item, "status": status})
+            out.append({**item, "status": status, "program_id": self._upload_program.get(pid)})
         return out
 
     def get_project(self, project_id: str, user_id: str | None = None) -> ParsedSchedule | None:
@@ -2939,7 +2939,7 @@ class SupabaseStore:
         rows = self._select(
             "projects",
             filters,
-            columns="id,project_name,activity_count,relationship_count,storage_path,status",
+            columns="id,project_name,activity_count,relationship_count,storage_path,status,program_id",
         )
         out: list[dict[str, Any]] = []
         for r in rows:
@@ -2956,6 +2956,7 @@ class SupabaseStore:
                     "activity_count": r.get("activity_count", 0),
                     "relationship_count": r.get("relationship_count", 0),
                     "status": status,
+                    "program_id": str(r["program_id"]) if r.get("program_id") else None,
                 }
             )
         return out

@@ -8,6 +8,7 @@
 
 	import { t } from '$lib/i18n';
 	import { onMount } from 'svelte';
+	import { trapFocus } from '$lib/focusTrap';
 	import {
 		postLifecycleOverride,
 		type LifecycleOverrideRequest,
@@ -113,6 +114,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="lifecycle-override-title"
+		use:trapFocus
 		class="bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-lg shadow-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto"
 	>
 		<h2

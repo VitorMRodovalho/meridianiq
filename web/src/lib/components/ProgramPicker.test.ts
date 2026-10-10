@@ -54,6 +54,16 @@ describe('ProgramPicker', () => {
 		expect(choice()).toEqual({ programId: 'p2' });
 	});
 
+	it('refuses the name of the program a schedule is already in', async () => {
+		render(Harness, { programs, shortName: 'Charlie', excludeId: 'p2' });
+		const input = screen.getByRole('textbox');
+		await fireEvent.input(input, { target: { value: ' BRAVO ' } });
+		expect(choice()).toBeNull();
+		expect(screen.getByText(/Bravo/)).toBeTruthy();
+		await fireEvent.input(input, { target: { value: 'Bravo 2' } });
+		expect(choice()).toEqual({ newProgramName: 'Bravo 2' });
+	});
+
 	it('leaves out the program a schedule is moving from', () => {
 		render(Harness, { programs, shortName: 'ALPHA-UP12', excludeId: 'p1' });
 		expect(choice()).toEqual({ newProgramName: 'ALPHA-UP12' });
