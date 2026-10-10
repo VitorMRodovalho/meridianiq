@@ -90,7 +90,22 @@ def test_jobs_are_named_and_scheduled_once_each() -> None:
         in sql
     )
     assert "'meridianiq-cron-history-cleanup', '27 3 * * *'" in sql
-    assert "jobname like 'meridianiq-%'" in sql
+    assert "coalesce(end_time, start_time) < now() - interval '7 days'" in sql
+    assert "jobid not in (select jobid from cron.job where jobname not like 'meridianiq-%')" in sql
+
+
+def test_refuses_to_overwrite_an_unknown_forget_user() -> None:
+    sql = _normalised(M040)
+    check = sql.index("'e6742565f03a0d0c551817c169cef9ad'")
+    assert check < sql.index("create or replace function public.ai_forget_user(")
+    assert "'10c2f987c6eb5637f1a4dbcc894591c1'" in sql[: check + 200]
+
+
+def test_header_gives_the_safe_apply_command() -> None:
+    header = M040.read_text(encoding="utf-8").split("BEGIN;", 1)[0]
+    assert (
+        "psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/040_ai_request_retention.sql" in header
+    )
 
 
 def test_no_grant_on_schema_cron() -> None:

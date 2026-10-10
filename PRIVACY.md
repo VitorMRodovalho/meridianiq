@@ -182,9 +182,11 @@ it, and then only for accounts the operator approves.
 
 ## 3. Retention
 
-MeridianIQ implements one automatic deletion: a daily database job
-(pg_cron, migration 040) removes AI access requests that were approved or
-dismissed more than 30 days earlier. Runs are skipped while the database
+MeridianIQ schedules one automatic deletion of its own: a daily database
+job (pg_cron, migration 040) removes AI access requests that were approved
+or dismissed more than 30 days earlier; the operator confirms after
+applying it that the job runs (`scripts/rls_replica/040/postcheck.sql`,
+rc06 and rc07). Runs are skipped while the database
 is paused, so a request goes on the first run after its 30 days. The
 job's run history (`cron.job_run_details`, kept 7 days) records only the
 job, its command text and a status, no personal data. Copies in database
@@ -264,7 +266,8 @@ Art. 6(1)(f)). The daily job then deletes it (§3); deleting the account
 removes it at once. You may object to this block (LGPD Art. 18 §2, GDPR
 Art. 21) by contacting the operator of the deployment you use, who weighs
 the objection against the abuse it prevents and can remove the record by
-hand (§4.2). Access itself and the pseudonymous `ai_usage`
+hand as the database owner (`postgres`; the API's `service_role` cannot
+delete requests). Access itself and the pseudonymous `ai_usage`
 rows remain (§1.5). If the AI part of the erasure fails, the response
 says `partial` instead of `complete`. Copies in database backups expire
 with the provider's backup retention.
@@ -272,7 +275,8 @@ with the provider's backup retention.
 ### 4.2 Operator-initiated erasure
 
 An operator with Supabase `service_role` credentials can delete any row
-or bucket object, bypassing RLS. This is the current path for
+or bucket object, bypassing RLS, except AI access requests, which only the
+database owner (`postgres`) can delete. This is the current path for
 administrative erasure requests (account-wide deletion, LGPD Art. 18 IV,
 GDPR Art. 17). Operators should log these actions separately from the
 MeridianIQ `audit_log` for their own compliance purposes.

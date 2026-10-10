@@ -23,8 +23,9 @@
 -- 2. pg_cron (Supabase Cron) runs it daily at 03:17 UTC as
 --    'meridianiq-ai-requests-purge', and 'meridianiq-cron-history-cleanup'
 --    keeps 7 days of run history (cron.job_run_details) for meridianiq-*
---    jobs only; pg_cron never prunes it. Runs are skipped while the project
---    is paused, so a row is deleted on the first run after its 30 days.
+--    jobs and for jobs no longer scheduled; pg_cron never prunes it. Runs
+--    are skipped while the project is paused, so a row is deleted on the
+--    first run after its 30 days. cron.timezone is GMT (read in prod).
 --    The extension is created in pg_catalog, as the Supabase docs show. The
 --    docs' two GRANTs on schema cron are NOT run here: Supabase's own
 --    after-create script re-runs on every CREATE EXTENSION and revokes
@@ -38,12 +39,34 @@
 --    after 040 would silently restore the old body: apply 040 again after it
 --    (scripts/rls_replica/040/postcheck.sql detects it).
 --
--- Apply after 036, as postgres via psql -f (never `supabase db push`).
+-- Apply after 036, as postgres, never with `supabase db push`:
+--   psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/040_ai_request_retention.sql "<pooler dsn>"
+-- (without ON_ERROR_STOP an error rolls the transaction back and psql still
+-- exits 0). Before: scripts/rls_replica/040/preflight.sql. After:
+-- scripts/rls_replica/040/postcheck.sql, and again the day after, when
+-- rc07 must show a succeeded run of the purge job.
 -- Idempotent. Single transaction with a 5 s lock_timeout.
 
 BEGIN;
 
 SET LOCAL lock_timeout = '5s';
+
+-- ================================================================
+-- 0. Refuse to overwrite an ai_forget_user that is neither 036's nor 040's
+--    (a local change would be lost silently).
+-- ================================================================
+
+DO $$
+DECLARE
+    v_md5 text := (SELECT md5(p.prosrc) FROM pg_proc AS p
+                    WHERE p.oid = to_regprocedure('public.ai_forget_user(uuid)'));
+BEGIN
+    IF v_md5 IS NULL OR v_md5 NOT IN ('e6742565f03a0d0c551817c169cef9ad',
+                                      '10c2f987c6eb5637f1a4dbcc894591c1') THEN
+        RAISE EXCEPTION 'migration 040: ai_forget_user is not 036''s or 040''s (md5 %); apply 036 first or reconcile the change', coalesce(v_md5, 'absent');
+    END IF;
+END
+$$;
 
 -- ================================================================
 -- 1. Functions
@@ -112,7 +135,7 @@ SELECT cron.schedule(
 SELECT cron.schedule(
     'meridianiq-cron-history-cleanup',
     '27 3 * * *',
-    $cmd$DELETE FROM cron.job_run_details WHERE end_time < now() - interval '7 days' AND jobid IN (SELECT jobid FROM cron.job WHERE jobname LIKE 'meridianiq-%')$cmd$
+    $cmd$DELETE FROM cron.job_run_details WHERE coalesce(end_time, start_time) < now() - interval '7 days' AND jobid NOT IN (SELECT jobid FROM cron.job WHERE jobname NOT LIKE 'meridianiq-%')$cmd$
 );
 
 -- ================================================================
@@ -145,8 +168,11 @@ BEGIN
                 WHERE p.oid IN (v_purge, v_forget)
                   AND (p.prosecdef OR pg_get_userbyid(p.proowner) <> 'postgres'))
        OR pg_get_userbyid((SELECT c.relowner FROM pg_class AS c
-                            WHERE c.oid = 'public.ai_access_requests'::regclass)) <> 'postgres' THEN
-        RAISE EXCEPTION 'migration 040: a function or ai_access_requests is not owned by postgres with invoker rights';
+                            WHERE c.oid = 'public.ai_access_requests'::regclass)) <> 'postgres'
+       OR (SELECT c.relforcerowsecurity FROM pg_class AS c
+            WHERE c.oid = 'public.ai_access_requests'::regclass)
+       OR NOT (SELECT r.rolbypassrls FROM pg_roles AS r WHERE r.rolname = 'postgres') THEN
+        RAISE EXCEPTION 'migration 040: the purge would not see every row (owner, invoker rights, RLS bypass)';
     END IF;
     IF NOT has_schema_privilege('postgres', 'cron', 'USAGE')
        OR NOT has_table_privilege('postgres', 'cron.job_run_details', 'DELETE') THEN
@@ -157,7 +183,7 @@ BEGIN
            AND ((j.jobname = 'meridianiq-ai-requests-purge' AND j.schedule = '17 3 * * *'
                  AND j.command = 'SELECT public.ai_purge_decided_requests()')
              OR (j.jobname = 'meridianiq-cron-history-cleanup' AND j.schedule = '27 3 * * *'
-                 AND j.command LIKE 'DELETE FROM cron.job_run_details %'))) <> 2 THEN
+                 AND j.command = $c$DELETE FROM cron.job_run_details WHERE coalesce(end_time, start_time) < now() - interval '7 days' AND jobid NOT IN (SELECT jobid FROM cron.job WHERE jobname NOT LIKE 'meridianiq-%')$c$))) <> 2 THEN
         RAISE EXCEPTION 'migration 040: the two meridianiq cron jobs are not scheduled as expected';
     END IF;
 END

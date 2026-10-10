@@ -640,6 +640,26 @@ if [[ $cron_available != 1 ]]; then
 else
     cron_jobs="SELECT string_agg(concat_ws('|', jobid, jobname, schedule, command, username, database, active), E'\n' ORDER BY jobname) FROM cron.job"
 
+    stage "040 preflight (read-only, as postgres)"
+    psql_as postgres -At < "$here/040/preflight.sql" > "$work/preflight040.log" 2>&1
+    tally "$work/preflight040.log"
+
+    stage "040 refuses a changed ai_forget_user (planted in a rolled-back transaction)"
+    rc=0
+    {
+        printf '\\set ON_ERROR_STOP on\nBEGIN;\n'
+        printf '%s\n' "DO \$\$ BEGIN EXECUTE replace(pg_get_functiondef('public.ai_forget_user(uuid)'::regprocedure), 'BEGIN', 'BEGIN' || chr(10) || '    -- local hot-fix'); END \$\$;"
+        cat "$here/040/preflight.sql"
+        printf 'SET ROLE postgres;\n'
+        sed -e '/^BEGIN;$/d' -e '/^COMMIT;$/d' "$m040"
+        printf 'ROLLBACK;\n'
+    } | psql_as supabase_admin -At > "$work/n5_040.log" 2>&1 || rc=$?
+    cat "$work/n5_040.log"
+    expect_lines "$work/n5_040.log" "040 preflight and body refuse a changed ai_forget_user" \
+        '^FAIL +pf05 .*md5 [0-9a-f]{32}$' \
+        "ai_forget_user is not 036's or 040's"
+    if [[ $rc -ne 0 ]]; then pass "n5 the body aborted (rc=$rc)"; else fail "n5 the body applied over a changed ai_forget_user"; fi
+
     stage "apply 040 as postgres (1st)"
     rc=0
     psql_as postgres -v ON_ERROR_STOP=1 < "$m040" > "$work/apply040_1.log" 2>&1 || rc=$?
@@ -662,6 +682,18 @@ else
     tally "$work/postcheck036_after040.log"
     psql_as postgres -At < "$here/040/postcheck.sql" > "$work/postcheck040.log" 2>&1
     tally "$work/postcheck040.log"
+
+    stage "040 postcheck must report a stale decided request (planted in a rolled-back transaction)"
+    {
+        printf 'BEGIN;\nSET session_replication_role = replica;\n'
+        printf "INSERT INTO auth.users (id, email) VALUES ('40000000-0000-4000-8000-0000000004c1', 'c1@example.test');\n"
+        printf "INSERT INTO public.ai_access_requests (user_id, status, requested_at, decided_at) VALUES ('40000000-0000-4000-8000-0000000004c1', 'dismissed', now() - interval '60 days', now() - interval '40 days');\n"
+        printf 'SET session_replication_role = origin;\nSET ROLE postgres;\n'
+        cat "$here/040/postcheck.sql"
+        printf 'ROLLBACK;\n'
+    } | psql_as supabase_admin -At > "$work/postcheck040_planted.log" 2>&1
+    cat "$work/postcheck040_planted.log"
+    expect_lines "$work/postcheck040_planted.log" "040 postcheck reports" '^FAIL +rc06 .*=>  1 left$'
 
     stage "040 scenarios (purge horizon, erasure, who can reach what)"
     cat "$here/probe_lib.sql" "$here/040/scenarios.sql" | psql_as supabase_admin > "$work/scenarios040.log" 2>&1
