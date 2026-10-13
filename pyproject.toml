@@ -41,7 +41,7 @@ dependencies = [
     # audited against 2.13.x. Tightening the cap converts a silent
     # serialization-drift risk into a Dependabot bump that forces a
     # conscious re-audit at every minor.
-    "pydantic>=2.13.4,<2.14",
+    "pydantic>=2.13.4,<2.15",
     "networkx>=3.6",
     "numpy>=2.4",
     "supabase>=2.30",
