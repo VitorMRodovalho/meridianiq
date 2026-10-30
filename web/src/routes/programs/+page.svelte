@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { getPrograms, type ProgramListItem } from '$lib/api';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { getPrograms, type ProgramListItem } from '#lib/api.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 	import { onMount } from 'svelte';
 
 	let programs: ProgramListItem[] = $state([]);

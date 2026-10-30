@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { supabase } from '$lib/supabase';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { supabase } from '#lib/supabase.js';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
 
 	interface DurationResult {
 		predicted_duration_days: number;

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { generateSchedule } from '$lib/api';
-	import type { GeneratedScheduleResponse } from '$lib/types';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { generateSchedule } from '#lib/api.js';
+	import type { GeneratedScheduleResponse } from '#lib/types.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 
 	let result: GeneratedScheduleResponse | null = $state(null);
 	let loading: boolean = $state(false);

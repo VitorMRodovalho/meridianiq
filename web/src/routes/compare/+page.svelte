@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, compareSchedules, downloadReportPdf } from '$lib/api';
-	import type { ProjectListItem, CompareResponse } from '$lib/types';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { getProjects, compareSchedules, downloadReportPdf } from '#lib/api.js';
+	import type { ProjectListItem, CompareResponse } from '#lib/types.js';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let baselineId = $state('');

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { DemoProjectResponse } from '$lib/api';
-	import { t } from '$lib/i18n';
+	import type { DemoProjectResponse } from '#lib/api.js';
+	import { t } from '#lib/i18n/index.js';
 	import { dcmaMarginBars, thresholdComparator } from './dcmaChart';
 
 	let data: DemoProjectResponse | null = $state(null);

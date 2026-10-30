@@ -19,7 +19,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, cleanup, waitFor } from '@testing-library/svelte';
 import RevisionConfirmCard from './RevisionConfirmCard.svelte';
-import { ApiError } from '$lib/api';
+import { ApiError } from '#lib/api.js';
 
 // Deferred resolvers so tests can drive the order in which two
 // concurrent detect calls complete (race regression).
@@ -34,10 +34,10 @@ const detectCalls: string[] = [];
 // to the top of the file.
 const { confirmMock } = vi.hoisted(() => ({ confirmMock: vi.fn() }));
 
-vi.mock('$lib/api', async () => {
+vi.mock('#lib/api.js', async () => {
 	// Re-export the real `ApiError` class so tests can construct it AND
 	// the component import sees the same class identity (instanceof works).
-	const actual = await vi.importActual<typeof import('$lib/api')>('$lib/api');
+	const actual = await vi.importActual<typeof import('#lib/api.js')>('#lib/api.js');
 	return {
 		ApiError: actual.ApiError,
 		detectRevisionOf: vi.fn((projectId: string) => {
@@ -60,11 +60,11 @@ vi.mock('$lib/api', async () => {
 	};
 });
 
-vi.mock('$lib/analytics', () => ({
+vi.mock('#lib/analytics.js', () => ({
 	trackEvent: vi.fn(),
 }));
 
-vi.mock('$lib/toast', () => ({
+vi.mock('#lib/toast.js', () => ({
 	error: vi.fn(),
 	success: vi.fn(),
 }));

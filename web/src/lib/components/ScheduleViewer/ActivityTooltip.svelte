@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ActivityView } from './types';
 	import { formatDateShort } from './utils';
-	import { t, locale, dateLocale } from '$lib/i18n';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
 
 	interface Props {
 		activity: ActivityView;

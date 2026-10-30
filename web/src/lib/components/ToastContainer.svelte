@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { toasts, dismiss } from '$lib/toast';
+	import { toasts, dismiss } from '#lib/toast.js';
 
 	function iconColor(type: string): string {
 		if (type === 'success') return 'text-green-500';

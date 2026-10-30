@@ -4,13 +4,13 @@
 	// (advisory; the user confirms or changes it). Native radios, select and
 	// input, so keyboard, screen readers and mobile pickers work unaided.
 
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 	import {
 		programNamed,
 		suggestProgram,
 		type ProgramChoice,
 		type ProgramOption
-	} from '$lib/programPick';
+	} from '#lib/programPick.js';
 
 	interface Props {
 		/** The user's programs, most recently updated first. */

@@ -6,12 +6,12 @@
 		getProgramRollup,
 		type ProgramListItem,
 		type ProgramRevision
-	} from '$lib/api';
-	import TrendChart from '$lib/components/TrendChart.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import { t } from '$lib/i18n';
-	import type { ProgramTrends } from '$lib/types';
-	import type { ProgramRollup } from '$lib/api';
+	} from '#lib/api.js';
+	import TrendChart from '#lib/components/TrendChart.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import { t } from '#lib/i18n/index.js';
+	import type { ProgramTrends } from '#lib/types.js';
+	import type { ProgramRollup } from '#lib/api.js';
 
 	const programId = $derived(page.params.id!);
 

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getContractProvisions, contractCheck, getTIAAnalyses } from '$lib/api';
-	import PieChart from '$lib/components/charts/PieChart.svelte';
+	import { getContractProvisions, contractCheck, getTIAAnalyses } from '#lib/api.js';
+	import PieChart from '#lib/components/charts/PieChart.svelte';
 	import type {
 		ContractProvisionsResponse,
 		ContractCheckResponse,
 		ComplianceCheckSchema,
 		TIAAnalysisSummarySchema
-	} from '$lib/types';
-	import { error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
+	} from '#lib/types.js';
+	import { error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
 
 	let provisions: ContractProvisionsResponse | null = $state(null);
 	let analyses: TIAAnalysisSummarySchema[] = $state([]);

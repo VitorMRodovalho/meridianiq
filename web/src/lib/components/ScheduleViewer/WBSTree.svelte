@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { WBSAggregate, FlatRow } from './types';
 	import { formatDateCompact } from './utils';
-	import { t, locale, dateLocale } from '$lib/i18n';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
 
 	interface Props {
 		flatRows: FlatRow[];

@@ -36,11 +36,11 @@
 	// body + action row). Form pattern (props, $state, $derived, error
 	// surfacing) mirrors ``LifecycleOverrideDialog.svelte``.
 
-	import { ApiError, confirmRevisionOf, detectRevisionOf, skipRevisionOf } from '$lib/api';
-	import { trackEvent } from '$lib/analytics';
-	import { locale, t } from '$lib/i18n';
-	import { formatDate } from '$lib/i18n/format';
-	import { error as toastError, success } from '$lib/toast';
+	import { ApiError, confirmRevisionOf, detectRevisionOf, skipRevisionOf } from '#lib/api.js';
+	import { trackEvent } from '#lib/analytics.js';
+	import { locale, t } from '#lib/i18n/index.js';
+	import { formatDate } from '#lib/i18n/format.js';
+	import { error as toastError, success } from '#lib/toast.js';
 
 	interface Props {
 		projectId: string;
@@ -253,7 +253,7 @@
 
 	// Issue #85 (DA P3-2 from PR #83): legacy ``iso.slice(0, 10)`` returned
 	// raw YYYY-MM-DD. Replaced with ``formatDate(iso, $locale)`` from
-	// ``$lib/i18n/format`` — locale-aware (Apr 15, 2026 / 15 abr. 2026 /
+	// ``#lib/i18n/format`` — locale-aware (Apr 15, 2026 / 15 abr. 2026 /
 	// 15 abr 2026 across en/pt-BR/es) with ``timeZone: 'UTC'`` enforced
 	// for P6 data_date TZ-naive semantics. Called markup-side via
 	// ``formatDate(candidateDataDate, $locale)`` so $locale reactivity

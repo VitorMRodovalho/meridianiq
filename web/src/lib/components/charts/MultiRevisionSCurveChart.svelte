@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { RevisionCurveSchema, ChangePointMarkerSchema } from '$lib/types';
+	import type { RevisionCurveSchema, ChangePointMarkerSchema } from '#lib/types.js';
 	import {
 		getCurveColor,
 		getCurveStrokeWidth,

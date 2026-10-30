@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getTimeline, getDelayTrend } from '$lib/api';
-	import type { TimelineDetailSchema, DelayTrendResponse, WindowSchema } from '$lib/types';
+	import { getTimeline, getDelayTrend } from '#lib/api.js';
+	import type { TimelineDetailSchema, DelayTrendResponse, WindowSchema } from '#lib/types.js';
 
 	let timeline: TimelineDetailSchema | null = $state(null);
 	let trend: DelayTrendResponse | null = $state(null);

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getTIAAnalysis, contractCheck } from '$lib/api';
-	import type { TIAAnalysisSchema, ContractCheckResponse } from '$lib/types';
+	import { getTIAAnalysis, contractCheck } from '#lib/api.js';
+	import type { TIAAnalysisSchema, ContractCheckResponse } from '#lib/types.js';
 
 	let analysisId = $derived(page.params.id!);
 	let analysis: TIAAnalysisSchema | null = $state(null);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { searchActivities } from '$lib/api';
+	import { searchActivities } from '#lib/api.js';
 
 	interface ActivityEntry {
 		task_code: string;

@@ -1,3 +1,5 @@
+import adapter from '@sveltejs/adapter-static';
+import { relative, sep } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
@@ -12,7 +14,24 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [
+		tailwindcss(),
+		sveltekit({
+			compilerOptions: {
+				// defaults to rune mode for the project, except for `node_modules`. Can be removed in svelte 6.
+				runes: ({ filename }) => {
+					const relativePath = relative(import.meta.dirname, filename);
+					const pathSegments = relativePath.toLowerCase().split(sep);
+					const isExternalLibrary = pathSegments.includes('node_modules');
+
+					return isExternalLibrary ? undefined : true;
+				}
+			},
+
+			// Static SPA for Cloudflare Pages: every route falls back to 200.html.
+			adapter: adapter({ strict: false, fallback: '200.html' })
+		})
+	],
 	server: {
 		proxy: {
 			'/api': 'http://localhost:8000'

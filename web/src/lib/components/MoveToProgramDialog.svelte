@@ -5,17 +5,17 @@
 	// submits, focus returns to the opener.
 
 	import { onMount, tick } from 'svelte';
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 	import {
 		ApiError,
 		getPrograms,
 		placeProject,
 		placeProjects,
 		type ProgramListItem
-	} from '$lib/api';
-	import type { ProgramChoice } from '$lib/programPick';
+	} from '#lib/api.js';
+	import type { ProgramChoice } from '#lib/programPick.js';
 	import ProgramPicker from './ProgramPicker.svelte';
-	import { trapFocus } from '$lib/focusTrap';
+	import { trapFocus } from '#lib/focusTrap.js';
 
 	interface Props {
 		projectIds: string[];

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 
 	// The copy follows the status only. hooks.client.ts replaces every error's
 	// message with a generic one (no internals in the UI), so a 404 used to show

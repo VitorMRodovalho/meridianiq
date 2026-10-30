@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { uploadXER, getPrograms, ApiError, type ProgramListItem } from '$lib/api';
-	import { readShortName, type ProgramChoice } from '$lib/programPick';
-	import ProgramPicker from '$lib/components/ProgramPicker.svelte';
-	import { supabase } from '$lib/supabase';
-	import { trackEvent } from '$lib/analytics';
-	import { success, error as toastError } from '$lib/toast';
-	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import type { ProjectSummary } from '$lib/types';
-	import { t } from '$lib/i18n';
+	import { uploadXER, getPrograms, ApiError, type ProgramListItem } from '#lib/api.js';
+	import { readShortName, type ProgramChoice } from '#lib/programPick.js';
+	import ProgramPicker from '#lib/components/ProgramPicker.svelte';
+	import { supabase } from '#lib/supabase.js';
+	import { trackEvent } from '#lib/analytics.js';
+	import { success, error as toastError } from '#lib/toast.js';
+	import RevisionConfirmCard from '#lib/components/RevisionConfirmCard.svelte';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import type { ProjectSummary } from '#lib/types.js';
+	import { t } from '#lib/i18n/index.js';
 
 	// Auth gate — uploading a file requires an account in production. Resolve
 	// the session up front so a logged-out visitor sees a sign-in affordance

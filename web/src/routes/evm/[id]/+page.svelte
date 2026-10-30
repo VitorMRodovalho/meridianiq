@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getEVMAnalysis, type EVMAnalysis, type EVMSCurvePoint } from '$lib/api';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { getEVMAnalysis, type EVMAnalysis, type EVMSCurvePoint } from '#lib/api.js';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
 
 	let analysis: EVMAnalysis | null = $state(null);
 	let loading = $state(true);

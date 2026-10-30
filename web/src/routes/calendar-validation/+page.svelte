@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { supabase } from '$lib/supabase';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import PieChart from '$lib/components/charts/PieChart.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { supabase } from '#lib/supabase.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import PieChart from '#lib/components/charts/PieChart.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
 
 	interface CalendarIssue {
 		calendar_id: string;

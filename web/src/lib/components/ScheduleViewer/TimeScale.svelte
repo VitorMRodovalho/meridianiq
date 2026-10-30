@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { generateTimeTicks } from './utils';
-	import { t, locale, dateLocale } from '$lib/i18n';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
 
 	interface Props {
 		startDate: string;

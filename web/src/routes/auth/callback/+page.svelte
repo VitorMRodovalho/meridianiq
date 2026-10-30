@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { supabase } from '$lib/supabase';
+	import { supabase } from '#lib/supabase.js';
 
 	onMount(async () => {
 		// Supabase exchanges the auth code from the URL hash automatically.

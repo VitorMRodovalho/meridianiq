@@ -8,10 +8,10 @@
 		getMilestones,
 		type ValueMilestone,
 		type ValueMilestoneCreate
-	} from '$lib/api';
-	import { success, error as toastError } from '$lib/toast';
-	import { t, locale } from '$lib/i18n';
-	import type { ProjectListItem, MilestoneSchema } from '$lib/types';
+	} from '#lib/api.js';
+	import { success, error as toastError } from '#lib/toast.js';
+	import { t, locale } from '#lib/i18n/index.js';
+	import type { ProjectListItem, MilestoneSchema } from '#lib/types.js';
 
 	const TYPE_KEYS: Record<string, string> = {
 		payment: 'milestones.type_payment',

@@ -11,8 +11,8 @@
 		type Organization,
 		type OrgMember,
 		type AuditEntry
-	} from '$lib/api';
-	import { t, locale } from '$lib/i18n';
+	} from '#lib/api.js';
+	import { t, locale } from '#lib/i18n/index.js';
 
 	const ACTION_KEYS: Record<string, string> = {
 		upload: 'org_detail.action_upload',

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getProjects, getDashboard, getProjectHealth, getPrograms } from '$lib/api';
-	import { supabase } from '$lib/supabase';
-	import type { ProjectListItem, DashboardKPIs, ProgramListItem } from '$lib/types';
-	import { t } from '$lib/i18n';
-	import PieChart from '$lib/components/charts/PieChart.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import { getProjects, getDashboard, getProjectHealth, getPrograms } from '#lib/api.js';
+	import { supabase } from '#lib/supabase.js';
+	import type { ProjectListItem, DashboardKPIs, ProgramListItem } from '#lib/types.js';
+	import { t } from '#lib/i18n/index.js';
+	import PieChart from '#lib/components/charts/PieChart.svelte';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let programs: ProgramListItem[] = $state([]);
@@ -36,7 +36,7 @@
 	// portfolio, so its cost scales with the number of schedules. It is kept
 	// OFF the critical path (the project list and quick actions render as soon
 	// as they arrive) AND it needs its own error branch: the request rides the
-	// retry ladder in `$lib/api.ts`, so on a slow portfolio it can burn the
+	// retry ladder in `#lib/api.ts`, so on a slow portfolio it can burn the
 	// full budget and reject. Without a visible failure state the whole KPI
 	// strip would simply disappear with no explanation — the hardest kind of
 	// bug for a user to report, because a later load inside the 120s server

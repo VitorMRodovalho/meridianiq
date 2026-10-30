@@ -9,7 +9,7 @@
 		type RiskCriticalityEntry,
 		type RiskSensitivityEntry,
 		type RiskSCurvePoint
-	} from '$lib/api';
+	} from '#lib/api.js';
 
 	const simulationId = $derived(page.params.id!);
 	let loading = $state(true);

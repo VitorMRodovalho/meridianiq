@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { signInWithGoogle, signInWithAzure, signInWithLinkedIn } from '$lib/auth';
-	import { t } from '$lib/i18n';
+	import { signInWithGoogle, signInWithAzure, signInWithLinkedIn } from '#lib/auth.js';
+	import { t } from '#lib/i18n/index.js';
 
 	let error = $state('');
 	let loading = $state(false);

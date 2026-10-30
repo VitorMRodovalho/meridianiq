@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getProjects, getProjectAlerts } from '$lib/api';
-	import { error as toastError, success as toastSuccess } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import type { AlertsResponse } from '$lib/types';
+	import { getProjects, getProjectAlerts } from '#lib/api.js';
+	import { error as toastError, success as toastSuccess } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import type { AlertsResponse } from '#lib/types.js';
 
 	let projects: { project_id: string; name: string; activity_count?: number }[] = $state([]);
 	let selectedProject = $state('');

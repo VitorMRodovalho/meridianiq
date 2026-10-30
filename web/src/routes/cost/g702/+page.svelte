@@ -4,10 +4,10 @@
 		getProjects,
 		getCostSnapshots,
 		type CostSnapshotSummary
-	} from '$lib/api';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { error as toastError, success as toastSuccess } from '$lib/toast';
-	import { supabase } from '$lib/supabase';
+	} from '#lib/api.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { error as toastError, success as toastSuccess } from '#lib/toast.js';
+	import { supabase } from '#lib/supabase.js';
 
 	interface ProjectOption {
 		project_id: string;
