@@ -3,6 +3,21 @@
   "private": true,
   "version": "4.3.0",
   "type": "module",
+  "engines": {
+    "node": "^24"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^24",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": "^11.19.1",
+      "onFail": "error"
+    }
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build && cp build/200.html build/index.html",
