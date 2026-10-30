@@ -7,11 +7,11 @@ beside it in ``pyproject.toml`` rather than for one a resolver can infer:
 
 - ``mcp<2`` — the v2 SDK replaces the ``FastMCP`` API imported at
   ``src/mcp_server.py:61`` with ``McpServer``.
-- ``pydantic<2.14`` — serialization drift moves the ADR-0014 canonical
+- ``pydantic<2.15`` — serialization drift moves the ADR-0014 canonical
   ``input_hash``, which is a forensic contract.
-- ``anthropic<2`` — the AI gate builds the client and classifies provider
+- ``anthropic<3`` — the AI gate builds the client and classifies provider
   errors against the SDK's types, and its tests use a fake client.
-- ``ruff<0.17`` — the default rule set widens across minors, and CI gates on
+- ``ruff<0.18`` — the default rule set widens across minors, and CI gates on
   ``ruff format --check``.
 
 Until now each bound was enforced by its comment alone, and a comment lost
@@ -54,22 +54,24 @@ CAPPED_DEPENDENCIES: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "pydantic",
-        "pydantic>=2.13.4,<2.14",
+        "pydantic>=2.14.2,<2.15",
         "serialization drift across pydantic minors moves the ADR-0014 canonical "
         "`input_hash`, which is a forensic contract with rows already persisted "
-        "against it. See tests/test_canonical_hash.py::TestByteExactPin.",
+        "against it. See tests/test_canonical_hash.py::TestByteExactPin. 2.14.2 "
+        "audited 2026-10-30: both pinned digests held.",
     ),
     (
         "anthropic",
-        "anthropic>=0.100,<2",
+        "anthropic>=2.3,<3",
         "src/api/ai_gate.py builds the client and classifies provider errors "
         "against the SDK's types. 1.x passed CI with a client that could not be "
         "built (httpx -> httpx2), because the gate tests use a fake client; "
-        "tests/test_ai_gate.py now builds the real one. Re-audit each major.",
+        "tests/test_ai_gate.py now builds the real one. 2.x sends API version "
+        "2026-10-21, which rejects temperature/top_p/top_k. Re-audit each major.",
     ),
     (
         "ruff",
-        "ruff>=0.15.12,<0.17",
+        "ruff>=0.17.3,<0.18",
         "ruff's default rule set is not stable across minors: 0.16 widened it "
         "(UP/B/SIM/RUF/S) and turned a green suite into 801 findings with no "
         "source change. CI also gates on `ruff format --check`.",
