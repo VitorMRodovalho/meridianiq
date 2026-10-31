@@ -1,6 +1,6 @@
 # 0032. Move the MCP server to the mcp SDK 2.x (`MCPServer`)
 
-* Status: proposed
+* Status: accepted (merged in #327, 2026-10-31)
 * Deciders: @VitorMRodovalho
 * Date: 2026-10-30
 * Cites: [ADR-0025](0025-cycle-6-entry-h-shape.md) (where the `mcp<2` cap was set), issue #139 (the migration trigger), #227 / #244 / #245 (the regression the cap test exists for), `src/mcp_server.py`, `tests/test_dependency_caps.py`
