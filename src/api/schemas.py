@@ -18,7 +18,7 @@ class HealthResponse(BaseModel):
     """Response for GET /api/v1/health."""
 
     status: str = "ok"
-    version: str = "0.8.0-dev"
+    version: str = Field(description="Installed package version.")
 
 
 class DatabaseHealthResponse(BaseModel):
