@@ -5,8 +5,8 @@
 Four dependencies carry an *upper* bound that exists for a reason written
 beside it in ``pyproject.toml`` rather than for one a resolver can infer:
 
-- ``mcp<2`` — the v2 SDK replaces the ``FastMCP`` API imported at
-  ``src/mcp_server.py:61`` with ``McpServer``.
+- ``mcp<3`` — the server is written against one SDK major's public API;
+  the 2.x migration (``FastMCP`` → ``MCPServer``) is ADR-0032.
 - ``pydantic<2.15`` — serialization drift moves the ADR-0014 canonical
   ``input_hash``, which is a forensic contract.
 - ``anthropic<3`` — the AI gate builds the client and classifies provider
@@ -47,10 +47,11 @@ PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 CAPPED_DEPENDENCIES: tuple[tuple[str, str, str], ...] = (
     (
         "mcp",
-        "mcp>=1.28.1,<2",
-        "src/mcp_server.py:61 imports `mcp.server.fastmcp.FastMCP`, which the v2 "
-        "SDK replaces with `McpServer`. Widening this cap breaks the MCP server "
-        "at import (regression #227, fix #244). Bump only behind a v2 migration ADR.",
+        "mcp>=2.3,<3",
+        "src/mcp_server.py imports `mcp.server.mcpserver.MCPServer` and passes the "
+        "bind address to run(), the 2.x API (ADR-0032). A major SDK release renamed "
+        "the server class and removed its module once already, which broke the server "
+        "at import (regression #227, fix #244). Bump only behind a migration review.",
     ),
     (
         "pydantic",
@@ -127,7 +128,7 @@ def test_mcp_server_imports_under_the_capped_sdk() -> None:
 
     ``tests/test_mcp_cli.py`` reached for ``pytest.importorskip("src.mcp_server")``,
     which turns *the module is broken* into *the module is absent* and reports a
-    skip.  Under mcp 2.x the missing ``mcp.server.fastmcp`` raises
+    skip.  Under mcp 2.x the removed ``mcp.server.fastmcp`` raised
     ``ModuleNotFoundError`` — an ``ImportError`` subclass — so that guard would
     have stayed green through the very regression it looks like it covers.  The
     skip here is keyed on the **SDK**, so an absent extra skips and a broken
@@ -137,4 +138,4 @@ def test_mcp_server_imports_under_the_capped_sdk() -> None:
 
     module = importlib.import_module("src.mcp_server")
 
-    assert module.mcp is not None, "FastMCP server object failed to initialise"
+    assert module.mcp is not None, "MCPServer object failed to initialise"

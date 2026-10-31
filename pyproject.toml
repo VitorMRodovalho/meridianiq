@@ -71,12 +71,12 @@ reports = ["weasyprint>=70.0"]
 # keeps the four usage fields that cost_of reads. 2.x is Apache-2.0.
 ai = ["anthropic>=2.3,<3"]
 ml = ["scikit-learn>=1.9"]
-# Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
-# replaces the ``FastMCP`` API used at ``src/mcp_server.py:61`` with
-# ``McpServer`` (breaking change).  Cap at 1.x until a conscious v2
-# migration ADR lands.  Patch floor 1.28.1 is the first release past
-# CVE-2026-59950 (and -52869/-52870) without leaving the audited 1.x line.
-mcp = ["mcp>=1.28.1,<2"]
+# Upper bound per major: the server is written against one SDK major's
+# public API. It was capped `<2` (ADR-0025) because 2.x renamed ``FastMCP``
+# to ``MCPServer`` and dropped ``mcp.server.fastmcp``; ADR-0032 records the
+# 2.x migration (the bind address moved from ``mcp.settings`` to run()).
+# The next major is a conscious bump behind its own migration review.
+mcp = ["mcp>=2.3,<3"]
 dev = [
     "pytest>=9.2",
     "pytest-cov>=7.1",
@@ -84,7 +84,7 @@ dev = [
     # below stops NEW RULE FAMILIES from appearing on upgrade, but it does not
     # cover `ruff format`, whose style does change across minors and which CI
     # gates with `--check`; nor new rules landing inside an already-selected
-    # family. Same "conscious bump" reasoning as `pydantic<2.15` / `mcp<2`.
+    # family. Same "conscious bump" reasoning as `pydantic<2.15` / `mcp<3`.
     # 0.17.3 audited 2026-10-30: `check` and `format --check` clean, no edits.
     "ruff>=0.17.3,<0.18",
     "mypy>=2.4",
@@ -118,7 +118,7 @@ line-length = 100
 # single line of source changing.  An explicit ``select`` makes the rule
 # set a repo decision instead of a tool default that shifts underneath us
 # — the same "convert silent drift into a conscious bump" reasoning
-# applied to the ``pydantic<2.15`` and ``mcp<2`` caps.
+# applied to the ``pydantic<2.15`` and ``mcp<3`` caps.
 #
 # This list reproduces ruff 0.15's default (E4/E7/E9 + F) — i.e. it is
 # behaviour-preserving, NOT a loosening.  Adopting the wider 0.16 set is
