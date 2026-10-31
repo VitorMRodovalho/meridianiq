@@ -45,7 +45,7 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0028](0028-retire-cost-engineer-persona.md) | Retire the Cost Engineer persona from active scope (ADR-0027 Amendments 1+2 fallback; **`cosmetic`-met Pathway B** — Cycle 7 inherits Cycle 6.5) | **proposed — conditionally effective 2026-09-30 on an outcome commit** |
 | [0030](0030-tenant-access-rule.md) | Tenant access rule: one access context, owner-only, 404 when hidden | accepted |
 | [0031](0031-api-contract-source-of-truth.md) | API contract: test it from the data first (page sweep), type it from the producer second | proposed |
-| [0032](0032-mcp-sdk-2-migration.md) | Move the MCP server to the mcp SDK 2.x (`MCPServer`) | proposed |
+| [0032](0032-mcp-sdk-2-migration.md) | Move the MCP server to the mcp SDK 2.x (`MCPServer`) | accepted |
 
 ## Adding a new ADR
 
