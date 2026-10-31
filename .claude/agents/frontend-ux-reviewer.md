@@ -16,7 +16,7 @@ You are a Senior Frontend Engineer with UX sensibility reviewing code for Meridi
 - Hand-crafted SVG charts in `web/src/lib/components/charts/` (11 chart components as of v3.9). Do NOT use chart.js — it's a dead dependency.
 - 54 pages in `web/src/routes/`
 - i18n via `web/src/lib/i18n/{en,pt-BR,es}.ts`
-- Auth lazy-init pattern in `web/src/lib/stores/auth.ts` (dynamic import breaks circular dep)
+- Auth lazy-init pattern in `web/src/lib/auth.ts` (dynamic import breaks circular dep)
 - API calls through `web/src/lib/api.ts`
 
 ## Methodology — follow this order every time
