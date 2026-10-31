@@ -11,7 +11,7 @@ updates:
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "chore"
       include: "scope"
     groups:
       # Keep patch/minor updates batched — less PR noise
@@ -40,7 +40,7 @@ updates:
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "chore"
       include: "scope"
     groups:
       svelte-ecosystem:
