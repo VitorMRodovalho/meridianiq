@@ -10,9 +10,6 @@ updates:
       time: "06:00"
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
-    labels:
-      - "deps"
-      - "python"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -42,9 +39,6 @@ updates:
       time: "06:00"
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
-    labels:
-      - "deps"
-      - "frontend"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
@@ -71,8 +65,5 @@ updates:
       time: "06:00"
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 5
-    labels:
-      - "deps"
-      - "ci"
     commit-message:
       prefix: "chore(ci)"
