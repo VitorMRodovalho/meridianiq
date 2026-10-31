@@ -1,8 +1,10 @@
 version: 2
 
 updates:
-  # Python backend dependencies (pyproject.toml)
-  - package-ecosystem: "pip"
+  # Python backend dependencies (pyproject.toml + uv.lock, ADR-0033). The
+  # `uv` ecosystem updates the lock; the `pip` one would leave it stale, and
+  # `uv sync --locked` fails CI and the image build on a stale lock.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -10,6 +12,16 @@ updates:
       time: "06:00"
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
+    # With a lock, a transitive dependency moves only when the lock is
+    # regenerated, so version updates cover indirect dependencies too.
+    allow:
+      - dependency-type: "all"
+    # An in-range release updates only uv.lock and leaves the ranges in
+    # pyproject.toml alone; tests/test_dependency_caps.py matches the capped
+    # ranges byte-exactly, so raising a floor there would fail the group.
+    # A release outside a range still edits pyproject.toml, and a widened cap
+    # still fails that test on purpose.
+    versioning-strategy: "increase-if-necessary"
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -19,16 +31,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    ignore:
-      # pyiceberg is a TRANSITIVE dep (supabase → storage3 → pyiceberg).
-      # The pin-major rule below is defensive: a major bump arriving via
-      # transitive resolution can break Docker deploy if the new pyiceberg
-      # major drops Python 3.13 wheel support OR adds incompatible C-ext
-      # build requirements (see commit df672d9 for history). Patches/minors
-      # of pyiceberg flow through normally — only majors require manual
-      # eval against the Dockerfile Python pin.
-      - dependency-name: "pyiceberg"
-        update-types: ["version-update:semver-major"]
 
   # Frontend dependencies (web/package.json)
   - package-ecosystem: "npm"

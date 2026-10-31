@@ -46,6 +46,7 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | [0030](0030-tenant-access-rule.md) | Tenant access rule: one access context, owner-only, 404 when hidden | accepted |
 | [0031](0031-api-contract-source-of-truth.md) | API contract: test it from the data first (page sweep), type it from the producer second | proposed |
 | [0032](0032-mcp-sdk-2-migration.md) | Move the MCP server to the mcp SDK 2.x (`MCPServer`) | accepted |
+| [0033](0033-python-lockfile-uv.md) | Lock the Python dependencies with uv; CI and the API image install the same set | proposed |
 
 ## Adding a new ADR
 
