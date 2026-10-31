@@ -137,12 +137,10 @@ contributors don't infer commitment from absence elsewhere.
 
 ## Hard upstream blocks
 
-1. **Python 3.14 in `Dockerfile`** — blocked by `supabase ≥ 2.10 →
-   storage3 → pyiceberg`. pyiceberg has no 3.14 wheel for Debian slim
-   as of 2026-04-26; build-from-source fails on missing system C
-   headers. Bump only after pyiceberg ships a 3.14 wheel **or**
-   storage3 drops the dependency. Revert history:
-   `f1bd4e2` bumped → broke deploy → reverted in `df672d9`.
+1. ~~**Python 3.14 in `Dockerfile`**~~ — unblocked: since storage3 2.33
+   pyiceberg is an optional extra the image does not install. #329 moved
+   the image to 3.14, and it now runs 3.15 like CI. History: `f1bd4e2`
+   bumped → broke deploy → reverted in `df672d9`.
 2. **`websockets` major 16** — blocked by `realtime 2.29.0` (Supabase
    realtime sub-package) pinning `websockets<16,>=11`. Local install
    stays at `15.0.1`.

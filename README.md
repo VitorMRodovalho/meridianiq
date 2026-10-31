@@ -7,7 +7,7 @@
 Open-source schedule intelligence platform — from validation to prediction to cost-schedule integration.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Python 3.15](https://img.shields.io/badge/Python-3.15-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SvelteKit](https://img.shields.io/badge/SvelteKit-2.59-FF3E00?logo=svelte&logoColor=white)](https://kit.svelte.dev)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](https://vite.dev)
@@ -227,7 +227,7 @@ See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP
 
 ### Prerequisites
 
-- Python 3.14+
+- Python 3.15+
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier) with URL and anon/service keys
 
@@ -269,7 +269,7 @@ The platform is deployed and available at **[getmeridianiq.com](https://getmerid
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | Python 3.14+ · FastAPI · Pydantic v2 |
+| **Backend** | Python 3.15+ · FastAPI · Pydantic v2 |
 | **CPM Engine** | NetworkX (BSD) |
 | **Monte Carlo** | NumPy (BSD) |
 | **PDF Generation** | WeasyPrint |

@@ -20,7 +20,7 @@ Thank you for your interest in contributing to MeridianIQ. This document outline
 
 ### Code Standards
 
-- Python 3.14+ type hints on all public functions
+- Python 3.15+ type hints on all public functions
 - Docstrings on all public classes and functions (Google style)
 - MIT license header on all source files
 - No client names, proprietary data, or credentials in code

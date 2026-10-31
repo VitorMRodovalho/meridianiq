@@ -71,7 +71,7 @@ body:
       label: Environment
       description: Python version, OS, browser (for frontend bugs), deployment target.
       placeholder: |
-        - Python 3.14.4
+        - Python 3.15.2
         - Ubuntu 24.04
         - Chrome 128 (for UI bugs)
         - Running locally / Fly.io / Cloudflare Pages
