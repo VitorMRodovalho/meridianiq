@@ -9,6 +9,9 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 
 ### October 2026 — Excel in the API image (#348)
 
+#### Added
+- **CI builds the API image and drives it** (#349). The new job builds the Dockerfile, waits for the container's HEALTHCHECK, then runs `scripts/image_smoke.py` against the server: the health report PDF, the Excel and AIA G703 exports, and a CBS upload. An image without `openpyxl`, or without WeasyPrint, fails it.
+
 #### Fixed
 - **The API image installs `openpyxl`** (the `export` extra). It had not since 2026-03-29, so in production the Excel and AIA G703 exports answered 501, and a CBS cost upload answered 200 with nothing parsed and still stored a cost source.
 - A CBS upload that does not open as a workbook, or holds no CBS data, answers 400 and stores nothing; without `openpyxl` it answers 501.

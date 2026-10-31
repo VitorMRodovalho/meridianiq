@@ -18,6 +18,13 @@ python3 scripts/generate_mcp_catalog.py
 
 Each prints a one-line summary of what it wrote. Commit the regenerated Markdown alongside the source-code change that triggered the regeneration.
 
+## Other scripts
+
+| Script | What it does | Run by |
+|---|---|---|
+| `check_stats_consistency.py` | Fails when a count the top-level docs claim disagrees with the generated catalogs | `Doc sync check` workflow |
+| `image_smoke.py` | Runs inside the API image and drives its server over HTTP: health report PDF, Excel and AIA G703 exports, CBS cost upload | `API image (build and smoke)` CI job (#349) |
+
 ## Why generators instead of hand-written docs?
 
 Hand-written catalogs for 98 endpoints / 40 engines / 22 tools drift within one release cycle. The generators:
