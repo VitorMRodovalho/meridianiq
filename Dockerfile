@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev l
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_NO_CACHE=1 UV_NO_DEV=1 UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/opt/venv
 COPY pyproject.toml uv.lock ./
 # `--locked` fails the build if uv.lock does not match pyproject.toml.
-RUN uv sync --locked --no-install-project --extra api --extra reports --extra export
+RUN uv sync --locked --no-install-project --extra api --extra reports --extra export --extra ml
 COPY README.md ./
 COPY src/ src/
-RUN uv sync --locked --no-editable --extra api --extra reports --extra export
+RUN uv sync --locked --no-editable --extra api --extra reports --extra export --extra ml
 ENV PATH="/opt/venv/bin:$PATH"
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
