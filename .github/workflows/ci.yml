@@ -24,6 +24,10 @@ jobs:
           python-version: "3.15"
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # The same uv the Dockerfile copies, so CI and the image read the
+          # lock with one version (ADR-0033).
+          version: "0.13.6"
 
       - name: Install dependencies
         # From uv.lock, the set the API image installs (ADR-0033): this job
@@ -72,13 +76,13 @@ jobs:
         run: python -m pytest tests/ -q --tb=short
 
   backend-floors:
-    # The Backend job resolves the newest version each range allows, so the
-    # lower bounds in pyproject.toml are never installed and can go stale
-    # unnoticed (#131). This job installs the oldest combination the project
+    # The Backend job installs uv.lock, so the lower bounds in pyproject.toml
+    # are never installed there and can go stale unnoticed (#131). This job
+    # ignores the lock and installs the oldest combination the project
     # declares: the `requires-python` floor and, with uv's `lowest-direct`
     # resolution, the floor of every direct dependency (transitive ones still
     # resolve to their newest). Same extras as the Backend job. It does not
-    # gate the deploy jobs: the image installs the newest versions, not these.
+    # gate the deploy jobs: the image installs the lock, not these.
     name: Backend (Python 3.12, dependency floors)
     runs-on: ubuntu-latest
     steps:
@@ -89,6 +93,10 @@ jobs:
           python-version: "3.12"
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # The same uv the Dockerfile copies, so CI and the image read the
+          # lock with one version (ADR-0033).
+          version: "0.13.6"
 
       - name: Install the declared floors
         run: |
@@ -244,7 +252,7 @@ jobs:
             echo "::warning::FLY_SSH_TOKEN is not set; stored results were not re-materialized. Create it with: fly tokens create ssh -a meridianiq-api"
             exit 0
           fi
-          out="$(flyctl ssh console -a meridianiq-api -C "python -m src.materializer.backfill --dry-run" 2>&1)"
+          out="$(flyctl ssh console -a meridianiq-api -C "/opt/venv/bin/python -m src.materializer.backfill --dry-run" 2>&1)"
           echo "$out" | grep -E "candidate project" || true
           n="$(echo "$out" | sed -nE 's/.*→ ([0-9]+) candidate project.*/\1/p' | tail -1)"
           if [ -z "$n" ]; then
@@ -257,9 +265,9 @@ jobs:
             exit 0
           fi
           echo "Re-materializing $n project(s)."
-          flyctl ssh console -a meridianiq-api -C "python -m src.materializer.backfill" 2>&1 \
+          flyctl ssh console -a meridianiq-api -C "/opt/venv/bin/python -m src.materializer.backfill" 2>&1 \
             | grep -E "candidate project|done:|failed for|Error" || true
-          after="$(flyctl ssh console -a meridianiq-api -C "python -m src.materializer.backfill --dry-run" 2>&1 \
+          after="$(flyctl ssh console -a meridianiq-api -C "/opt/venv/bin/python -m src.materializer.backfill --dry-run" 2>&1 \
             | sed -nE 's/.*→ ([0-9]+) candidate project.*/\1/p' | tail -1)"
           echo "Left after the run: ${after:-unknown}"
           if [ "${after:-1}" -ne 0 ]; then

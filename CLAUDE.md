@@ -5,7 +5,7 @@ Open-source P6 XER schedule intelligence platform. Python/FastAPI backend, Svelt
 ## Build & Run
 
 ```bash
-# Backend (`uv sync --locked --extra dev` reproduces CI from uv.lock, ADR-0033)
+# Backend (`uv sync --locked --extra dev --extra mcp --extra ai` installs what CI installs, from uv.lock, ADR-0033)
 pip install -e ".[dev]"
 python -m uvicorn src.api.app:app --reload --port 8080
 

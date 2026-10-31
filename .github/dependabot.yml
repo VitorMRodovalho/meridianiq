@@ -12,6 +12,16 @@ updates:
       time: "06:00"
       timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
+    # With a lock, a transitive dependency moves only when the lock is
+    # regenerated, so version updates cover indirect dependencies too.
+    allow:
+      - dependency-type: "all"
+    # An in-range release updates only uv.lock and leaves the ranges in
+    # pyproject.toml alone; tests/test_dependency_caps.py matches the capped
+    # ranges byte-exactly, so raising a floor there would fail the group.
+    # A release outside a range still edits pyproject.toml, and a widened cap
+    # still fails that test on purpose.
+    versioning-strategy: "increase-if-necessary"
     commit-message:
       prefix: "chore"
       include: "scope"

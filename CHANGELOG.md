@@ -10,7 +10,9 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 ### October 2026 — Python lockfile (#131, ADR-0033)
 
 #### Changed
-- **CI and the API image install the same locked set** from `uv.lock` with `uv sync --locked` (ADR-0033). Before, each resolved the newest release on its own, minutes apart, so a release published in between shipped untested. A stale lock fails both. Dependabot moves to the `uv` ecosystem, which updates the lock; the dead `pyiceberg` ignore rule is dropped (it is not in the lock). The image's environment is root-owned `/opt/venv`.
+- **CI and the API image install the same locked set** from `uv.lock` with `uv sync --locked` (ADR-0033). Before, each resolved the newest release on its own, minutes apart, so a release published in between shipped untested. A stale lock fails both. Dependabot moves to the `uv` ecosystem, which updates the lock, including indirect dependencies, and leaves in-range ranges alone. The dead `pyiceberg` ignore rule is dropped (it is not in the lock). The image's environment is root-owned `/opt/venv`, and the deploy job's re-materialization calls `/opt/venv/bin/python`.
+- A version bump now also needs `uv lock`, because the lock records the project version: `/release`, the `__about__` bump procedure and the deploy checklist say so. `/release` also bumps `src/__about__.py`.
+- New guards: `tests/test_lockfile_sources.py` keeps every locked artifact on PyPI, and the Python runtime guard also reads `UV_PYTHON`. A `.dockerignore` keeps local secrets and environments out of the image build context.
 
 ### October 2026 — Excel in the API image (#348)
 
