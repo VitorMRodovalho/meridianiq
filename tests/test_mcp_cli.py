@@ -3,8 +3,8 @@
 """Tests for the MCP server CLI argument parsing.
 
 We don't actually start the server (would block on a socket); we exercise
-the argparse layer and verify the FastMCP settings are mutated as expected
-when the http / sse transports are selected.
+the argparse layer and verify which transport options reach ``run()`` when
+the http / sse transports are selected.
 """
 
 from __future__ import annotations
@@ -51,30 +51,48 @@ def test_host_and_port_overrides() -> None:
     assert args.port == 9090
 
 
-def test_main_updates_settings_for_http(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When --transport http is selected, FastMCP settings get the host + port."""
+def test_main_passes_host_and_port_to_run_for_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When --transport http is selected, run() receives the host + port."""
     captured: dict = {}
 
-    def fake_run(self: object, transport: str = "stdio", **_: object) -> None:
+    def fake_run(self: object, transport: str = "stdio", **kwargs: object) -> None:
         captured["transport"] = transport
-        captured["host"] = mcp_server.mcp.settings.host
-        captured["port"] = mcp_server.mcp.settings.port
+        captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server.mcp, "run", fake_run.__get__(mcp_server.mcp))
     mcp_server.main(["--transport", "http", "--host", "0.0.0.0", "--port", "8765"])
 
-    assert captured["transport"] == "streamable-http"
-    assert captured["host"] == "0.0.0.0"
-    assert captured["port"] == 8765
+    assert captured == {"transport": "streamable-http", "host": "0.0.0.0", "port": 8765}
+
+
+def test_main_passes_host_and_port_to_run_for_sse(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+
+    def fake_run(self: object, transport: str = "stdio", **kwargs: object) -> None:
+        captured["transport"] = transport
+        captured.update(kwargs)
+
+    monkeypatch.setattr(mcp_server.mcp, "run", fake_run.__get__(mcp_server.mcp))
+    mcp_server.main(["--transport", "sse", "--port", "8766"])
+
+    assert captured == {"transport": "sse", "host": "127.0.0.1", "port": 8766}
+
+
+def test_server_reports_the_package_version() -> None:
+    """mcp 2.x reports an empty version unless the server is given one."""
+    from importlib.metadata import version
+
+    assert mcp_server.mcp.version == version("meridianiq")
 
 
 def test_main_uses_stdio_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict = {}
 
-    def fake_run(self: object, transport: str = "stdio", **_: object) -> None:
+    def fake_run(self: object, transport: str = "stdio", **kwargs: object) -> None:
         captured["transport"] = transport
+        captured.update(kwargs)
 
     monkeypatch.setattr(mcp_server.mcp, "run", fake_run.__get__(mcp_server.mcp))
     mcp_server.main([])
 
-    assert captured["transport"] == "stdio"
+    assert captured == {"transport": "stdio"}

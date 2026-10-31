@@ -34,6 +34,10 @@ dependencies = [
     # + TestContentSensitivity + TestChainFilters + TestCanonicalJsonRules
     # (28/28 pass). No RootModel usage in src/ → 2.13.4 RootModel core-metadata
     # change is moot. Safe within 2.13.x.
+    # Cap widened to ``<2.15`` 2026-10-30: pydantic 2.14.2 (pydantic-core
+    # 2.50.2) re-audited against the same six classes (28/28 pass, both
+    # TestByteExactPin digests unchanged), so stored ``input_hash`` values
+    # stay readable. Safe within 2.14.x.
     #
     # Upper bound tightened to ``<2.14`` per Cycle 6 W1 exit-council DA
     # finding: a floor ``>=2.13.4,<3.0`` allows resolvers to pick 2.14+
@@ -41,52 +45,57 @@ dependencies = [
     # audited against 2.13.x. Tightening the cap converts a silent
     # serialization-drift risk into a Dependabot bump that forces a
     # conscious re-audit at every minor.
-    "pydantic>=2.13.4,<2.14",
-    "networkx>=3.6",
-    "numpy>=2.4",
-    "supabase>=2.30",
-    "python-dotenv>=1.2.2",
+    "pydantic>=2.14.2,<2.15",
+    "networkx>=3.7",
+    "numpy>=2.5",
+    "supabase>=2.33",
+    "python-dotenv>=1.2.4",
     "python-multipart",
-    "sentry-sdk[fastapi]>=2.59",
-    "PyJWT[crypto]>=2.13.0",
+    "sentry-sdk[fastapi]>=2.73",
+    "PyJWT[crypto]>=2.15.1",
     "defusedxml>=0.7",
 ]
 
 [project.optional-dependencies]
-api = ["fastapi>=0.136.1", "uvicorn[standard]>=0.46", "slowapi>=0.1.9", "psutil>=5.9"]
-export = ["pandas>=2.2", "openpyxl>=3.1"]
+api = ["fastapi>=0.162", "uvicorn[standard]>=0.54", "slowapi>=0.1.10", "psutil>=7.2"]
+export = ["pandas>=3.1", "openpyxl>=3.1.5"]
 reports = ["weasyprint>=70.0"]
 # Upper bound: the AI gate classifies provider errors by their status code and
 # response (src/api/ai_gate.py _outcome_of) and builds the client with
 # max_retries/timeout; a major SDK release is a conscious bump. 1.x was
 # audited: it moved to httpx2, so the client takes anthropic.Timeout, and
 # tests/test_ai_gate.py builds the real client to catch that class of break.
-ai = ["anthropic>=0.100,<2"]
-ml = ["scikit-learn>=1.8"]
-# Upper bound `<2` per Cycle 6 W1 Bucket B (ADR-0025): the mcp SDK v2
-# replaces the ``FastMCP`` API used at ``src/mcp_server.py:61`` with
-# ``McpServer`` (breaking change).  Cap at 1.x until a conscious v2
-# migration ADR lands.  Patch floor 1.28.1 is the first release past
-# CVE-2026-59950 (and -52869/-52870) without leaving the audited 1.x line.
-mcp = ["mcp>=1.28.1,<2"]
+# 2.x audited 2026-10-30 against the vendor's migration guide for API version
+# 2026-10-21: it rejects temperature/top_p/top_k and document/citation blocks
+# in the wrong role (none are sent here), sends the key as a bearer token, and
+# keeps the four usage fields that cost_of reads. 2.x is Apache-2.0.
+ai = ["anthropic>=2.3,<3"]
+ml = ["scikit-learn>=1.9"]
+# Upper bound per major: the server is written against one SDK major's
+# public API. It was capped `<2` (ADR-0025) because 2.x renamed ``FastMCP``
+# to ``MCPServer`` and dropped ``mcp.server.fastmcp``; ADR-0032 records the
+# 2.x migration (the bind address moved from ``mcp.settings`` to run()).
+# The next major is a conscious bump behind its own migration review.
+mcp = ["mcp>=2.3,<3"]
 dev = [
-    "pytest>=9.0.3",
+    "pytest>=9.2",
     "pytest-cov>=7.1",
     # Capped, not just `select`-pinned. The explicit `[tool.ruff.lint] select`
     # below stops NEW RULE FAMILIES from appearing on upgrade, but it does not
     # cover `ruff format`, whose style does change across minors and which CI
     # gates with `--check`; nor new rules landing inside an already-selected
-    # family. Same "conscious bump" reasoning as `pydantic<2.14` / `mcp<2`.
-    "ruff>=0.15.12,<0.17",
-    "mypy>=1.20",
-    "httpx>=0.27",
-    "slowapi>=0.1.9",
-    "psutil>=5.9",
+    # family. Same "conscious bump" reasoning as `pydantic<2.15` / `mcp<3`.
+    # 0.17.3 audited 2026-10-30: `check` and `format --check` clean, no edits.
+    "ruff>=0.17.3,<0.18",
+    "mypy>=2.4",
+    "httpx>=0.28",
+    "slowapi>=0.1.10",
+    "psutil>=7.2",
     # Type stubs (Cycle 5 W4 hygiene). Reduces mypy --strict noise from
     # untyped third-party imports without per-module ``# type: ignore``
     # suppression.
-    "types-networkx>=3.6.1.20260508",
-    "types-openpyxl>=3.1.5.20260508",
+    "types-networkx>=3.6.1.20261029",
+    "types-openpyxl>=3.1.5.20261017",
     "types-defusedxml>=0.7.0.20260504",
 ]
 all = ["meridianiq[api,export,reports,ai,ml,mcp,dev]"]
@@ -109,7 +118,7 @@ line-length = 100
 # single line of source changing.  An explicit ``select`` makes the rule
 # set a repo decision instead of a tool default that shifts underneath us
 # — the same "convert silent drift into a conscious bump" reasoning
-# applied to the ``pydantic<2.14`` and ``mcp<2`` caps.
+# applied to the ``pydantic<2.15`` and ``mcp<3`` caps.
 #
 # This list reproduces ruff 0.15's default (E4/E7/E9 + F) — i.e. it is
 # behaviour-preserving, NOT a loosening.  Adopting the wider 0.16 set is

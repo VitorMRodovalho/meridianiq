@@ -55,16 +55,26 @@ from __future__ import annotations
 
 import json
 import logging
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 logger = logging.getLogger(__name__)
 
-# Create MCP server
-mcp = FastMCP(
+try:
+    _VERSION = _pkg_version("meridianiq")
+except PackageNotFoundError:  # running from a checkout that was never installed
+    _VERSION = ""
+
+# Create MCP server. Everything after the name is keyword-only on purpose: in
+# the 2.x constructor the second positional parameter is ``title``. Without
+# ``version`` the server reports an empty string.
+mcp = MCPServer(
     "MeridianIQ",
+    version=_VERSION,
     instructions="Schedule intelligence platform — P6 XER analysis, DCMA validation, "
     "critical path, forensic delay analysis, and more. "
     "Upload XER files, then use tools to analyze schedule quality, "
@@ -888,15 +898,17 @@ def main(argv: list[str] | None = None) -> None:
     """Run the MCP server with the requested transport."""
     args = _parse_args(argv)
 
-    # Map our friendly 'http' alias to FastMCP's transport name.
+    # Map our friendly 'http' alias to the SDK's transport name.
     transport = "streamable-http" if args.transport == "http" else args.transport
 
-    if transport in ("streamable-http", "sse"):
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-        logger.info("MCP server starting on %s://%s:%s", transport, args.host, args.port)
+    if transport == "stdio":
+        mcp.run(transport=transport)
+        return
 
-    mcp.run(transport=transport)
+    # mcp 2.x takes the bind address as run() options; it no longer reads
+    # them from ``mcp.settings``.
+    logger.info("MCP server starting on %s://%s:%s", transport, args.host, args.port)
+    mcp.run(transport=transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

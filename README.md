@@ -36,7 +36,7 @@ Every methodology is traceable to published standards: AACE Recommended Practice
 | Indicator | Value |
 |-----------|-------|
 | Analysis engines | 48 + 1 export module |
-| MCP tools | 22 (Claude integration via FastMCP) |
+| MCP tools | 22 (Claude integration via the MCP Python SDK) |
 | Schedule formats | 2 (Primavera P6 XER + Microsoft Project XML) |
 | Tests passing | 1687 backend + 175 Vitest (composables + Svelte 5 components + i18n key-parity + charts) + 64 Playwright E2E |
 | Frontend pages | 56 (Schedule Viewer, EVM S-Curve, Cost Integration, Health Score, NLP Query, Early Warning, Lifecycle Phase, Revision Trends, …) |

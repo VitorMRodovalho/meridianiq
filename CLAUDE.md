@@ -67,7 +67,7 @@ mypy src/ --strict              # type check
 - ScheduleViewer: `web/src/lib/components/ScheduleViewer/` — Interactive Gantt with WBS tree, baseline bars, float, dependencies
 - UI: Breadcrumb, Skeleton, AnalysisSkeleton, ToastContainer, ThemeToggle components
 - Theme: `web/src/lib/stores/theme.ts` — dark mode with localStorage + system preference
-- MCP Server: `src/mcp_server.py` — 22 tools for Claude integration via FastMCP
+- MCP Server: `src/mcp_server.py` — 22 tools for Claude integration via the mcp SDK 2.x `MCPServer` (ADR-0032)
 - NLP: `src/analytics/nlp_query.py` — Claude API integration, sends summary not raw data
 - Root Cause: `src/analytics/root_cause.py` — backwards network trace via NetworkX
 

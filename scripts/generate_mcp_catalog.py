@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO_ROOT))
 def _find_mcp_tools(module: Any) -> list[tuple[str, Any]]:
     """Find functions registered as MCP tools.
 
-    FastMCP wraps decorated functions; we read the module directly and
+    The SDK wraps decorated functions; we read the module directly and
     identify ``@mcp.tool()`` decorated items by scanning source lines.
     """
     src_path = Path(module.__file__)
