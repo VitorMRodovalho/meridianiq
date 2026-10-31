@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getProjects, runResourceLeveling } from '$lib/api';
-	import type { LevelingResponse } from '$lib/types';
-	import ResourceChart from '$lib/components/charts/ResourceChart.svelte';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { getProjects, runResourceLeveling } from '#lib/api.js';
+	import type { LevelingResponse } from '#lib/types.js';
+	import ResourceChart from '#lib/components/charts/ResourceChart.svelte';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');

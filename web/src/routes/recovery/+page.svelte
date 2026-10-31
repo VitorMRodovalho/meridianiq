@@ -5,13 +5,13 @@
 		uploadXER,
 		validateRecovery,
 		type RecoveryValidationResult
-	} from '$lib/api';
-	import { useProjectStatusPolling } from '$lib/composables/useProjectStatusPolling';
-	import { t } from '$lib/i18n';
-	import type { ProjectListItem, ProjectSummary } from '$lib/types';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import PieChart from '$lib/components/charts/PieChart.svelte';
+	} from '#lib/api.js';
+	import { useProjectStatusPolling } from '#lib/composables/useProjectStatusPolling.js';
+	import { t } from '#lib/i18n/index.js';
+	import type { ProjectListItem, ProjectSummary } from '#lib/types.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import PieChart from '#lib/components/charts/PieChart.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let loading = $state(true);

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { user } from '$lib/auth';
-	import { getProjects, getPrograms } from '$lib/api';
-	import { t, locale } from '$lib/i18n';
+	import { user } from '#lib/auth.js';
+	import { getProjects, getPrograms } from '#lib/api.js';
+	import { t, locale } from '#lib/i18n/index.js';
 	import type { User } from '@supabase/supabase-js';
 
 	let stats = $state({ projects: 0, programs: 0 });

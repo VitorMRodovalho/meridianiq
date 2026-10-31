@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import HeatMapChart from '$lib/components/charts/HeatMapChart.svelte';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import HeatMapChart from '#lib/components/charts/HeatMapChart.svelte';
 
 	const CATEGORY_KEYS: Record<string, string> = {
 		schedule: 'risk_register.category_schedule',

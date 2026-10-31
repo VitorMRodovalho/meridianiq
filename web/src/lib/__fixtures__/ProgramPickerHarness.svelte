@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Test harness: renders ProgramPicker and shows its bound choice as JSON.
-	import ProgramPicker from '$lib/components/ProgramPicker.svelte';
-	import type { ProgramChoice, ProgramOption } from '$lib/programPick';
+	import ProgramPicker from '#lib/components/ProgramPicker.svelte';
+	import type { ProgramChoice, ProgramOption } from '#lib/programPick.js';
 
 	let {
 		programs,

@@ -12,11 +12,11 @@
 		type AiAdminSummary,
 		type AiEntitlement,
 		type AiMonthCalls
-	} from '$lib/api';
-	import { supabase } from '$lib/supabase';
-	import { t, locale, dateLocale } from '$lib/i18n';
-	import { formatNumber } from '$lib/i18n/format';
-	import { interpolate } from '$lib/aiGate';
+	} from '#lib/api.js';
+	import { supabase } from '#lib/supabase.js';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
+	import { formatNumber } from '#lib/i18n/format.js';
+	import { interpolate } from '#lib/aiGate.js';
 	import {
 		AI_GRANT_MAX_DAILY_QUESTIONS,
 		AI_GRANT_MAX_MONTHLY_USD,
@@ -29,7 +29,7 @@
 		ledgerUnavailable,
 		pendingRequests,
 		pendingRequestsTotal
-	} from '$lib/aiAdmin';
+	} from '#lib/aiAdmin.js';
 
 	// The first GET is the guard: nothing below the heading renders until it
 	// answers 200, so a signed-out or non-superadmin visitor never sees the form.

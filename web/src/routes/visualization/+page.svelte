@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { getProjects, getVisualization } from '$lib/api';
-	import type { VisualizationResponse } from '$lib/types';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { getProjects, getVisualization } from '#lib/api.js';
+	import type { VisualizationResponse } from '#lib/types.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { getProjects, getPrograms, MAX_PLACEMENT_PROJECT_IDS } from '$lib/api';
-	import { success } from '$lib/toast';
-	import MoveToProgramDialog from '$lib/components/MoveToProgramDialog.svelte';
-	import { isAuthenticated } from '$lib/auth';
-	import { t } from '$lib/i18n';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import type { ProjectListItem, ProgramListItem } from '$lib/types';
+	import { getProjects, getPrograms, MAX_PLACEMENT_PROJECT_IDS } from '#lib/api.js';
+	import { success } from '#lib/toast.js';
+	import MoveToProgramDialog from '#lib/components/MoveToProgramDialog.svelte';
+	import { isAuthenticated } from '#lib/auth.js';
+	import { t } from '#lib/i18n/index.js';
+	import StatusBadge from '#lib/components/StatusBadge.svelte';
+	import type { ProjectListItem, ProgramListItem } from '#lib/types.js';
 
 	let projects: ProjectListItem[] = $state([]);
 	let programs: ProgramListItem[] = $state([]);

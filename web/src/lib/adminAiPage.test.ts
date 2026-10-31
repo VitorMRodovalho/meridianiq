@@ -9,8 +9,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import { locale, t } from '$lib/i18n';
-import { ApiError, TimeoutError } from '$lib/api';
+import { locale, t } from '#lib/i18n/index.js';
+import { ApiError, TimeoutError } from '#lib/api.js';
 import AdminAiPage from '../routes/admin/ai/+page.svelte';
 
 const { adminMock, approveMock, dismissMock } = vi.hoisted(() => ({
@@ -19,7 +19,7 @@ const { adminMock, approveMock, dismissMock } = vi.hoisted(() => ({
 	dismissMock: vi.fn()
 }));
 
-vi.mock('$lib/supabase', () => ({
+vi.mock('#lib/supabase.js', () => ({
 	supabase: {
 		auth: {
 			getSession: vi.fn(async () => ({ data: { session: { access_token: 'token' } } }))
@@ -27,8 +27,8 @@ vi.mock('$lib/supabase', () => ({
 	}
 }));
 
-vi.mock('$lib/api', async () => {
-	const actual = await vi.importActual<typeof import('$lib/api')>('$lib/api');
+vi.mock('#lib/api.js', async () => {
+	const actual = await vi.importActual<typeof import('#lib/api.js')>('#lib/api.js');
 	return {
 		ApiError: actual.ApiError,
 		TimeoutError: actual.TimeoutError,

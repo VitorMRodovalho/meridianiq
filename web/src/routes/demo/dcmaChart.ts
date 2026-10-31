@@ -4,7 +4,7 @@
 // Pure transform behind the /demo DCMA margin chart (W2 chart-completeness).
 // Kept out of the .svelte file so the margin math is unit-testable.
 
-import type { DemoDCMAMetric } from '$lib/api';
+import type { DemoDCMAMetric } from '#lib/api.js';
 
 export interface DcmaMarginBar extends DemoDCMAMetric {
 	/**

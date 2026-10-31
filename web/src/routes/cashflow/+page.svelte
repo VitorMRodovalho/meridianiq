@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { supabase } from '$lib/supabase';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { supabase } from '#lib/supabase.js';
 
 	interface CashFlowPoint {
 		day: number;

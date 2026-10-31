@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { dcmaMarginBars, thresholdComparator } from './dcmaChart';
-import type { DemoDCMAMetric } from '$lib/api';
+import type { DemoDCMAMetric } from '#lib/api.js';
 
 function metric(p: Partial<DemoDCMAMetric>): DemoDCMAMetric {
 	return {

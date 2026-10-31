@@ -1,20 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV, clearRevisionSkips, getProgramDetail } from '$lib/api';
-	import { t } from '$lib/i18n';
-	import { error as toastError, success } from '$lib/toast';
-	import { trackEvent } from '$lib/analytics';
-	import PieChart from '$lib/components/charts/PieChart.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
-	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
-	import LifecyclePhaseCard from '$lib/components/LifecyclePhaseCard.svelte';
-	import RevisionConfirmCard from '$lib/components/RevisionConfirmCard.svelte';
-	import MoveToProgramDialog from '$lib/components/MoveToProgramDialog.svelte';
-	import { isAuthenticated } from '$lib/auth';
-	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
+	import { getProject, getValidation, getCriticalPath, getFloatDistribution, getMilestones, getProjectHealth, getProjectAlerts, getDelayPrediction, generateReport, downloadReport, getAvailableReports, exportExcel, exportJSON, exportCSV, clearRevisionSkips, getProgramDetail } from '#lib/api.js';
+	import { t } from '#lib/i18n/index.js';
+	import { error as toastError, success } from '#lib/toast.js';
+	import { trackEvent } from '#lib/analytics.js';
+	import PieChart from '#lib/components/charts/PieChart.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import ScatterChart from '#lib/components/charts/ScatterChart.svelte';
+	import ScheduleViewer from '#lib/components/ScheduleViewer/ScheduleViewer.svelte';
+	import LifecyclePhaseCard from '#lib/components/LifecyclePhaseCard.svelte';
+	import RevisionConfirmCard from '#lib/components/RevisionConfirmCard.svelte';
+	import MoveToProgramDialog from '#lib/components/MoveToProgramDialog.svelte';
+	import { isAuthenticated } from '#lib/auth.js';
+	import type { ScheduleViewData } from '#lib/components/ScheduleViewer/types.js';
 	import type {
 		ProjectDetailResponse,
 		ValidationResponse,
@@ -24,8 +24,8 @@
 		ScheduleHealthResponse,
 		AlertsResponse,
 		DelayPredictionResponse
-	} from '$lib/types';
-	import type { ReportAvailabilityEntry } from '$lib/api';
+	} from '#lib/types.js';
+	import type { ReportAvailabilityEntry } from '#lib/api.js';
 
 	let activeTab = $state('overview');
 	let loading = $state(true);

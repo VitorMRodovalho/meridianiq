@@ -16,7 +16,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import MultiRevisionSCurveChart from './MultiRevisionSCurveChart.svelte';
-import type { RevisionCurveSchema, ChangePointMarkerSchema } from '$lib/types';
+import type { RevisionCurveSchema, ChangePointMarkerSchema } from '#lib/types.js';
 
 // jsdom does not implement window.matchMedia; the chart's mobile-legend
 // $effect at MultiRevisionSCurveChart.svelte:48 calls it unconditionally.

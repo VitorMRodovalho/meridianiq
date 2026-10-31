@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import { supabase } from '$lib/supabase';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import { supabase } from '#lib/supabase.js';
 	import { page } from '$app/state';
-	import ScheduleViewer from '$lib/components/ScheduleViewer/ScheduleViewer.svelte';
-	import ResourceHistogramPanel from '$lib/components/ScheduleViewer/ResourceHistogramPanel.svelte';
-	import type { ScheduleViewData } from '$lib/components/ScheduleViewer/types';
+	import ScheduleViewer from '#lib/components/ScheduleViewer/ScheduleViewer.svelte';
+	import ResourceHistogramPanel from '#lib/components/ScheduleViewer/ResourceHistogramPanel.svelte';
+	import type { ScheduleViewData } from '#lib/components/ScheduleViewer/types.js';
 
 	let projects: { project_id: string; name: string; tags?: string[] }[] = $state([]);
 	let selectedProject: string = $state('');
@@ -16,7 +16,7 @@
 	let data = $state<ScheduleViewData | null>(null);
 	let loading: boolean = $state(false);
 	let error: string = $state('');
-	let selectedActivity = $state<import('$lib/components/ScheduleViewer/types').ActivityView | null>(null);
+	let selectedActivity = $state<import('#lib/components/ScheduleViewer/types.js').ActivityView | null>(null);
 	let showFloat: boolean = $state(true);
 	let showBaseline: boolean = $state(true);
 	let showDependencies: boolean = $state(false);
@@ -147,7 +147,7 @@
 		sortKey: string;
 		align: string;
 		visible: boolean;
-		render: (act: import('$lib/components/ScheduleViewer/types').ActivityView) => string;
+		render: (act: import('#lib/components/ScheduleViewer/types.js').ActivityView) => string;
 	}
 
 	let columns = $state<ColDef[]>([

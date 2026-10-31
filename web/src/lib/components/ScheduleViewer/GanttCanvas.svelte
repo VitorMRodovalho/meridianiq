@@ -2,7 +2,7 @@
 	import type { ActivityView, RelationshipView, WBSAggregate, FlatRow } from './types';
 	import { daysBetween, parseDate, getBarColor, generateTimeTicks } from './utils';
 	import TimeScale from './TimeScale.svelte';
-	import { t, locale, dateLocale } from '$lib/i18n';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
 
 	interface Props {
 		flatRows: FlatRow[];

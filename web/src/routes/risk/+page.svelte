@@ -6,11 +6,11 @@
 		getProjects,
 		type RiskSimulationSummary,
 		type RiskSimulationRunConfig
-	} from '$lib/api';
-	import { error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { useWebSocketProgress } from '$lib/composables/useWebSocketProgress';
+	} from '#lib/api.js';
+	import { error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { useWebSocketProgress } from '#lib/composables/useWebSocketProgress.js';
 
 	interface ProjectItem {
 		project_id: string;

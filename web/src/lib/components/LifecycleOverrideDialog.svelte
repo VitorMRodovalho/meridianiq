@@ -6,14 +6,14 @@
 	// enforced here), preset quickpicks that prefill the textarea.
 	// Focus trap + Escape closes (FE pre-check a11y P1s).
 
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 	import { onMount } from 'svelte';
-	import { trapFocus } from '$lib/focusTrap';
+	import { trapFocus } from '#lib/focusTrap.js';
 	import {
 		postLifecycleOverride,
 		type LifecycleOverrideRequest,
-	} from '$lib/api';
-	import type { LifecyclePhase } from '$lib/types';
+	} from '#lib/api.js';
+	import type { LifecyclePhase } from '#lib/types.js';
 
 	interface Props {
 		projectId: string;

@@ -24,10 +24,8 @@ export default defineConfig({
 		// does not carry the subscribe semantics we rely on.
 		conditions: ['browser'],
 		alias: {
-			// SvelteKit's $lib alias — provided by adapter at build time;
-			// vitest needs it explicitly. Pointing at src/lib means tests
-			// resolve $lib/api, $lib/i18n, etc. the same way the app does.
-			$lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
+			// `#lib/*` needs no alias: it is a subpath import declared in
+			// package.json, which Vite resolves natively (SvelteKit 3).
 			// $app/* comes from SvelteKit's plugin, absent here. Pages import
 			// `page` from $app/state; tests mock it per case.
 			'$app/state': fileURLToPath(new URL('./src/test-stubs/app-state.ts', import.meta.url)),

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
-	import type { ProjectStatus } from '$lib/types';
+	import { t } from '#lib/i18n/index.js';
+	import type { ProjectStatus } from '#lib/types.js';
 
 	type Props = {
 		status: ProjectStatus;

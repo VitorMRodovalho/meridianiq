@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getProjects, runWhatIf } from '$lib/api';
-	import type { WhatIfResponse, DurationAdjustment } from '$lib/types';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	import { getProjects, runWhatIf } from '#lib/api.js';
+	import type { WhatIfResponse, DurationAdjustment } from '#lib/types.js';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 
 	let projects: { project_id: string; name: string }[] = $state([]);
 	let selectedProject: string = $state('');

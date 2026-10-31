@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import { t } from '$lib/i18n';
+import { t } from '#lib/i18n/index.js';
 import ErrorPage from '../routes/+error.svelte';
 
 const state = vi.hoisted(() => ({

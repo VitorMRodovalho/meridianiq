@@ -9,8 +9,8 @@
 		ApiError,
 		type Invitation,
 		type OrganizationWithRole
-	} from '$lib/api';
-	import { t, locale } from '$lib/i18n';
+	} from '#lib/api.js';
+	import { t, locale } from '#lib/i18n/index.js';
 
 	let orgs: OrganizationWithRole[] = $state([]);
 	let loading = $state(true);

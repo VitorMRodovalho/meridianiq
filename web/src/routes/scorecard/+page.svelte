@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { getProjects, getScorecard } from '$lib/api';
-	import type { ScorecardResponse } from '$lib/types';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
+	import { getProjects, getScorecard } from '#lib/api.js';
+	import type { ScorecardResponse } from '#lib/types.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
 	import { page } from '$app/state';
 
 	let projects: { project_id: string; name: string }[] = $state([]);

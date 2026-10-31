@@ -7,13 +7,13 @@
 	// the override / revert action that opens LifecycleOverrideDialog.
 
 	import LifecycleOverrideDialog from './LifecycleOverrideDialog.svelte';
-	import { t } from '$lib/i18n';
-	import { useProjectStatusPolling } from '$lib/composables/useProjectStatusPolling';
+	import { t } from '#lib/i18n/index.js';
+	import { useProjectStatusPolling } from '#lib/composables/useProjectStatusPolling.js';
 	import {
 		getLifecycleSummary,
 		deleteLifecycleOverride,
 		type LifecyclePhaseSummary,
-	} from '$lib/api';
+	} from '#lib/api.js';
 
 	interface Props {
 		projectId: string;

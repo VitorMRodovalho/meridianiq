@@ -7,18 +7,18 @@
 		requestAiAccess,
 		ApiError,
 		type AiStatus
-	} from '$lib/api';
-	import type { ProjectListItem } from '$lib/types';
-	import { supabase } from '$lib/supabase';
-	import { t, locale, dateLocale } from '$lib/i18n';
-	import { formatNumber } from '$lib/i18n/format';
+	} from '#lib/api.js';
+	import type { ProjectListItem } from '#lib/types.js';
+	import { supabase } from '#lib/supabase.js';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
+	import { formatNumber } from '#lib/i18n/format.js';
 	import {
 		gateView,
 		classifyAskError,
 		gateMessage,
 		remainingMessage,
 		interpolate
-	} from '$lib/aiGate';
+	} from '#lib/aiGate.js';
 	import {
 		ACCESS_ALERT_KEYS,
 		ACCESS_FORM_KEYS,
@@ -27,7 +27,7 @@
 		accessMessage,
 		accessView,
 		classifyAccessRequestError
-	} from '$lib/aiAccess';
+	} from '#lib/aiAccess.js';
 
 	interface QA {
 		question: string;

@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import Harness from '$lib/__fixtures__/ProgramPickerHarness.svelte';
+import Harness from '#lib/__fixtures__/ProgramPickerHarness.svelte';
 
 const programs = [
 	{ id: 'p1', name: 'ALPHA-UP01' },

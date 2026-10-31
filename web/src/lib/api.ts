@@ -304,13 +304,13 @@ export async function getProjects(includeSandbox: boolean = false): Promise<Proj
 }
 
 // Re-export commonly used schema types so consumer pages don't have to
-// reach into `$lib/schemas` directly.
+// reach into `#lib/schemas` directly.
 export type { ProjectSummary };
 
 // ── Programs (revision-grouped uploads) ─────────────────
 
-import type { ProgramListItem, ProgramListResponse, ProgramRevision } from '$lib/types';
-import type { ProgramChoice } from '$lib/programPick';
+import type { ProgramListItem, ProgramListResponse, ProgramRevision } from '#lib/types.js';
+import type { ProgramChoice } from '#lib/programPick.js';
 
 export type { ProgramChoice };
 
@@ -627,7 +627,7 @@ export async function downloadReportPdf(
 	const { report_id } = await generateReport(projectId, reportType, baselineId);
 
 	const BASE = import.meta.env.VITE_API_URL || '';
-	const { supabase } = await import('$lib/supabase');
+	const { supabase } = await import('#lib/supabase.js');
 	const {
 		data: { session }
 	} = await supabase.auth.getSession();

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ResourceChart from '$lib/components/charts/ResourceChart.svelte';
-	import { supabase } from '$lib/supabase';
-	import { t } from '$lib/i18n';
+	import ResourceChart from '#lib/components/charts/ResourceChart.svelte';
+	import { supabase } from '#lib/supabase.js';
+	import { t } from '#lib/i18n/index.js';
 
 	interface Props {
 		projectId: string;

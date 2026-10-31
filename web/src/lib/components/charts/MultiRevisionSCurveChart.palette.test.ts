@@ -31,7 +31,7 @@
 // runtime dependency.
 
 import { describe, it, expect } from 'vitest';
-import { contrastRatio, srgbToLinear } from '$lib/utils/wcagContrast';
+import { contrastRatio, srgbToLinear } from '#lib/utils/wcagContrast.js';
 import {
 	PALETTE_10,
 	SINGLE_CURVE_COLOR,

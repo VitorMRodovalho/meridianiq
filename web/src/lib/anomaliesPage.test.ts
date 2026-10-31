@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import { t } from '$lib/i18n';
+import { t } from '#lib/i18n/index.js';
 import payload from './__fixtures__/anomalies.sample_update.json';
 import AnomaliesPage from '../routes/anomalies/+page.svelte';
 
@@ -17,7 +17,7 @@ vi.mock('$app/state', () => ({
 	page: { url: new URL('http://localhost/anomalies?project=p1') }
 }));
 
-vi.mock('$lib/supabase', () => ({
+vi.mock('#lib/supabase.js', () => ({
 	supabase: {
 		auth: {
 			getSession: vi.fn(async () => ({ data: { session: { access_token: 'token' } } }))
@@ -25,7 +25,7 @@ vi.mock('$lib/supabase', () => ({
 	}
 }));
 
-vi.mock('$lib/api', () => ({
+vi.mock('#lib/api.js', () => ({
 	getProjects: vi.fn(async () => ({
 		projects: [{ project_id: 'p1', name: 'Synthetic project', activity_count: 9 }]
 	}))

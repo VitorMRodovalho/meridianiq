@@ -4,12 +4,12 @@
 		createEVMAnalysis,
 		getProjects,
 		type EVMAnalysisSummary
-	} from '$lib/api';
-	import type { ProjectListItem } from '$lib/types';
-	import { error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import EVMSCurveChart from '$lib/components/charts/EVMSCurveChart.svelte';
+	} from '#lib/api.js';
+	import type { ProjectListItem } from '#lib/types.js';
+	import { error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import EVMSCurveChart from '#lib/components/charts/EVMSCurveChart.svelte';
 
 	let analyses: EVMAnalysisSummary[] = $state([]);
 	let projects: ProjectListItem[] = $state([]);

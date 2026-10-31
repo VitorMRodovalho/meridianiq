@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { supabase } from '$lib/supabase';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { supabase } from '#lib/supabase.js';
 	import { page } from '$app/state';
-	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import ScatterChart from '#lib/components/charts/ScatterChart.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
 
 	// Mirrors asdict(AnomalyDetectionResult) in src/analytics/anomaly_detection.py.
 	// tests/test_anomalies_contract.py keeps the fixture used by

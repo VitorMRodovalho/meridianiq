@@ -7,8 +7,8 @@
 	// dismissed at count N the banner stays hidden until the count exceeds
 	// N (FE pre-check spec — surface only on new computing).
 
-	import { computingProjects, startComputingPoll } from '$lib/stores/computing';
-	import { t } from '$lib/i18n';
+	import { computingProjects, startComputingPoll } from '#lib/stores/computing.js';
+	import { t } from '#lib/i18n/index.js';
 
 	const SESSION_KEY = 'meridianiq-computing-banner-dismissed-at-count';
 

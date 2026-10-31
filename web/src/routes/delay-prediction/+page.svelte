@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { supabase } from '$lib/supabase';
-	import ScatterChart from '$lib/components/charts/ScatterChart.svelte';
-	import HeatMapChart from '$lib/components/charts/HeatMapChart.svelte';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { supabase } from '#lib/supabase.js';
+	import ScatterChart from '#lib/components/charts/ScatterChart.svelte';
+	import HeatMapChart from '#lib/components/charts/HeatMapChart.svelte';
 
 	interface ActivityPrediction {
 		task_id: string;

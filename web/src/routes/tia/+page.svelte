@@ -5,18 +5,18 @@
 		getTIAAnalyses,
 		createTIAAnalysis,
 		getProject
-	} from '$lib/api';
-	import ActivityPicker from '$lib/components/ActivityPicker.svelte';
+	} from '#lib/api.js';
+	import ActivityPicker from '#lib/components/ActivityPicker.svelte';
 	import type {
 		ProjectListItem,
 		TIAAnalysisSummarySchema,
 		TIAAnalysisSchema,
 		DelayFragmentSchema,
 		FragmentActivitySchema
-	} from '$lib/types';
-	import { error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
+	} from '#lib/types.js';
+	import { error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
 
 	let projects: ProjectListItem[] = $state([]);
 	let analyses: TIAAnalysisSummarySchema[] = $state([]);

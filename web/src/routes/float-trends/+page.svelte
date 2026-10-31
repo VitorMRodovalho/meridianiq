@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getProjects } from '$lib/api';
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import { supabase } from '$lib/supabase';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import GaugeChart from '$lib/components/charts/GaugeChart.svelte';
+	import { getProjects } from '#lib/api.js';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import { supabase } from '#lib/supabase.js';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import GaugeChart from '#lib/components/charts/GaugeChart.svelte';
 
 	interface EntropyResult {
 		entropy: number;

@@ -4,7 +4,7 @@
 	import GanttCanvas from './GanttCanvas.svelte';
 	import ActivityTooltip from './ActivityTooltip.svelte';
 	import { onMount, untrack } from 'svelte';
-	import { t, locale, dateLocale } from '$lib/i18n';
+	import { t, locale, dateLocale } from '#lib/i18n/index.js';
 	import { daysBetween, formatDateShort, computeWBSAggregates, buildFlatRows, getMaxWBSDepth, collectActivitiesByWbs, applyClientGrouping, presetCollapse, defaultGroupLabel } from './utils';
 
 	interface Props {

@@ -6,10 +6,10 @@
 		compareCostSnapshots,
 		type CostSnapshotSummary,
 		type CostCompareResult
-	} from '$lib/api';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import { error as toastError } from '$lib/toast';
+	} from '#lib/api.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import { error as toastError } from '#lib/toast.js';
 
 	interface ProjectOption {
 		project_id: string;

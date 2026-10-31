@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getProjects, getRevisionTrends } from '$lib/api';
-	import type { RevisionTrendsResponse } from '$lib/types';
-	import { error as toastError } from '$lib/toast';
-	import { t, locale } from '$lib/i18n';
-	import { formatNumber } from '$lib/i18n/format';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import MultiRevisionSCurveChart from '$lib/components/charts/MultiRevisionSCurveChart.svelte';
-	import { directionTextClass } from '$lib/utils/revisionTrendsDirection';
+	import { getProjects, getRevisionTrends } from '#lib/api.js';
+	import type { RevisionTrendsResponse } from '#lib/types.js';
+	import { error as toastError } from '#lib/toast.js';
+	import { t, locale } from '#lib/i18n/index.js';
+	import { formatNumber } from '#lib/i18n/format.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import MultiRevisionSCurveChart from '#lib/components/charts/MultiRevisionSCurveChart.svelte';
+	import { directionTextClass } from '#lib/utils/revisionTrendsDirection.js';
 
 	let projects = $state<{ project_id: string; name: string }[]>([]);
 	let selectedProject = $state<string>('');

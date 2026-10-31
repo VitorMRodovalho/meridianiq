@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { success as toastSuccess, error as toastError } from '$lib/toast';
-	import { t } from '$lib/i18n';
-	import AnalysisSkeleton from '$lib/components/AnalysisSkeleton.svelte';
-	import BarChart from '$lib/components/charts/BarChart.svelte';
-	import PieChart from '$lib/components/charts/PieChart.svelte';
-	import { supabase } from '$lib/supabase';
+	import { success as toastSuccess, error as toastError } from '#lib/toast.js';
+	import { t } from '#lib/i18n/index.js';
+	import AnalysisSkeleton from '#lib/components/AnalysisSkeleton.svelte';
+	import BarChart from '#lib/components/charts/BarChart.svelte';
+	import PieChart from '#lib/components/charts/PieChart.svelte';
+	import { supabase } from '#lib/supabase.js';
 
 	let data: CostData | null = $state(null);
 	let loading = $state(false);
