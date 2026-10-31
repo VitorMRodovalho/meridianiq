@@ -10,9 +10,12 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import { compilerOptions } from './vite.config';
 
 export default defineConfig({
-	plugins: [svelte()],
+	// svelte.config.js is gone (SvelteKit 3), so the compiler options come
+	// from vite.config.ts; without them the plugin falls back to its defaults.
+	plugins: [svelte({ compilerOptions })],
 	test: {
 		environment: 'jsdom',
 		include: ['src/**/*.test.ts'],

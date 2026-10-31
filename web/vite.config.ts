@@ -10,6 +10,18 @@ import { defineConfig } from 'vite';
 // (was hard-coded "v3.9.0" while package.json said 4.3.0).
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'));
 
+// Shared with vitest.config.ts, so components compile the same way in tests.
+export const compilerOptions = {
+	// defaults to rune mode for the project, except for `node_modules`. Can be removed in svelte 6.
+	runes: ({ filename }: { filename: string }) => {
+		const relativePath = relative(import.meta.dirname, filename);
+		const pathSegments = relativePath.toLowerCase().split(sep);
+		const isExternalLibrary = pathSegments.includes('node_modules');
+
+		return isExternalLibrary ? undefined : true;
+	}
+};
+
 export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
@@ -17,16 +29,7 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit({
-			compilerOptions: {
-				// defaults to rune mode for the project, except for `node_modules`. Can be removed in svelte 6.
-				runes: ({ filename }) => {
-					const relativePath = relative(import.meta.dirname, filename);
-					const pathSegments = relativePath.toLowerCase().split(sep);
-					const isExternalLibrary = pathSegments.includes('node_modules');
-
-					return isExternalLibrary ? undefined : true;
-				}
-			},
+			compilerOptions,
 
 			// Static SPA for Cloudflare Pages: every route falls back to 200.html.
 			adapter: adapter({ strict: false, fallback: '200.html' })
