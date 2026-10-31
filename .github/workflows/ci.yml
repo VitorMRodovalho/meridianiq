@@ -57,6 +57,33 @@ jobs:
       - name: Test
         run: python -m pytest tests/ -q --tb=short
 
+  backend-floors:
+    # The Backend job resolves the newest version each range allows, so the
+    # lower bounds in pyproject.toml are never installed and can go stale
+    # unnoticed (#131). This job installs the oldest combination the project
+    # declares: the `requires-python` floor and, with uv's `lowest-direct`
+    # resolution, the floor of every direct dependency (transitive ones still
+    # resolve to their newest). Same extras as the Backend job. It does not
+    # gate the deploy jobs: the image installs the newest versions, not these.
+    name: Backend (Python 3.12, dependency floors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install the declared floors
+        run: |
+          uv pip install --system --resolution lowest-direct -e ".[dev,mcp,ai]"
+          uv pip freeze --system
+
+      - name: Test
+        run: python -m pytest tests/ -q --tb=short
+
   frontend:
     name: Frontend (SvelteKit)
     runs-on: ubuntu-latest
