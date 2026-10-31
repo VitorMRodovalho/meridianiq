@@ -23,8 +23,13 @@
 //   `setTimeout`) are guarded behind `typeof window !== 'undefined'`
 //   so the adapter-static prerender on Cloudflare Pages does not
 //   trip.
+// - Signed-in only: the endpoint requires a session, so the poll follows
+//   `isAuthenticated`. It starts on sign-in (including the first session
+//   restored after load) and stops, with the statuses cleared, on
+//   sign-out. A signed-out visit sends no request.
 
 import { readable, type Readable } from 'svelte/store';
+import { isAuthenticated } from '../auth';
 import type { PendingStatusItem, ProjectStatus } from '../types';
 
 const DEFAULT_INTERVAL_MS = 3000;
@@ -55,6 +60,7 @@ let _state: ComputingState = _emptyState;
 let _timer: ReturnType<typeof setTimeout> | null = null;
 let _visibilityListener: (() => void) | null = null;
 let _stopRequested = false;
+let _authUnsubscribe: (() => void) | null = null;
 
 function _publish(next: Partial<ComputingState>): void {
 	_state = { ..._state, ...next };
@@ -67,6 +73,9 @@ async function _pollOnce(): Promise<void> {
 	const { getPendingStatuses } = await import('../api');
 	try {
 		const result = await getPendingStatuses();
+		// Signed out while the request was in flight: drop the answer so the
+		// cleared statuses are not repainted.
+		if (_stopRequested) return;
 		const next = new Map<string, ProjectStatus>();
 		for (const item of result.items as PendingStatusItem[]) {
 			next.set(item.project_id, item.status);
@@ -134,8 +143,24 @@ export async function pollNow(): Promise<void> {
 	_scheduleNext();
 }
 
+/**
+ * Opt the page into the poll. Idempotent. The poll itself runs only while
+ * the user is signed in, and follows sign-in and sign-out from then on.
+ */
 export function startComputingPoll(): void {
 	if (typeof window === 'undefined') return;
+	if (_authUnsubscribe) return;
+	_authUnsubscribe = isAuthenticated.subscribe((signedIn) => {
+		if (signedIn) {
+			_beginPolling();
+		} else {
+			stopComputingPoll();
+			_publish({ statuses: new Map(), consecutiveErrors: 0, lastPolled: null });
+		}
+	});
+}
+
+function _beginPolling(): void {
 	if (_started) return;
 	_started = true;
 	_stopRequested = false;

@@ -38,8 +38,8 @@ export interface ProjectStatusPolling {
  * status updates. Subsequent callers just attach a listener.
  *
  * Cleanup is automatic via `onDestroy`. The global poll itself
- * continues running for other consumers — explicit teardown happens
- * at sign-out by calling `stopComputingPoll()` directly.
+ * continues running for other consumers, and stops on its own at
+ * sign-out (it follows `isAuthenticated`).
  */
 export function useProjectStatusPolling(
 	projectId: string,
