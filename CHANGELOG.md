@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
+### October 2026 — Python lockfile (#131, ADR-0033)
+
+#### Changed
+- **CI and the API image install the same locked set** from `uv.lock` with `uv sync --locked` (ADR-0033). Before, each resolved the newest release on its own, minutes apart, so a release published in between shipped untested. A stale lock fails both. Dependabot moves to the `uv` ecosystem, which updates the lock; the dead `pyiceberg` ignore rule is dropped (it is not in the lock). The image's environment is root-owned `/opt/venv`.
+
 ### October 2026 — Excel in the API image (#348)
 
 #### Fixed
