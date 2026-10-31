@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -48,6 +49,13 @@ class TestHealth:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
+        assert data["version"] == version("meridianiq")
+
+    def test_root_health_reports_the_package_version(self, client: TestClient) -> None:
+        """GET /health reports the installed version, not a literal (#334)."""
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok", "version": version("meridianiq")}
 
 
 class TestUpload:

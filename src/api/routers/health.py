@@ -7,6 +7,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from typing import Literal
 
 from fastapi import APIRouter, Request, Response
@@ -17,6 +19,12 @@ from ..schemas import DatabaseHealthResponse, HealthResponse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+try:
+    #: The installed package version, the one ``app.py`` reports as the Sentry release.
+    APP_VERSION = _pkg_version("meridianiq")
+except PackageNotFoundError:  # a checkout that was never installed
+    APP_VERSION = "unknown"
 
 #: One database probe per this many seconds, whoever asks. The endpoint is
 #: public, so a flood of requests reads the cached answer instead of the database.
@@ -35,13 +43,13 @@ async def root_health() -> dict[str, str]:
     # Captures the runtime snapshot into Sentry breadcrumbs + INFO log so the
     # leak curve is observable without a separate background task pattern.
     maybe_emit_breadcrumb()
-    return {"status": "ok", "version": "1.0.0-dev"}
+    return {"status": "ok", "version": APP_VERSION}
 
 
 @router.get("/api/v1/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     """Health check endpoint."""
-    return HealthResponse()
+    return HealthResponse(version=APP_VERSION)
 
 
 def _probe_database() -> DatabaseState:

@@ -193,7 +193,9 @@ class MSPReader:
 
     def _parse_tasks(self, root: ET.Element, schedule: ParsedSchedule) -> None:
         """Extract tasks — distinguish between summary tasks (WBS) and leaf tasks (activities)."""
-        tasks_elem = root.find(_ns("Tasks")) or root.find("Tasks")
+        tasks_elem = root.find(_ns("Tasks"))
+        if tasks_elem is None:
+            tasks_elem = root.find("Tasks")
         if tasks_elem is None:
             return
 
@@ -318,7 +320,9 @@ class MSPReader:
 
     def _parse_links(self, root: ET.Element, schedule: ParsedSchedule) -> None:
         """Extract predecessor links from task definitions."""
-        tasks_elem = root.find(_ns("Tasks")) or root.find("Tasks")
+        tasks_elem = root.find(_ns("Tasks"))
+        if tasks_elem is None:
+            tasks_elem = root.find("Tasks")
         if tasks_elem is None:
             return
 
