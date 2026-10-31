@@ -28,7 +28,7 @@ For the **active forward plan** (committed cycle scope, queued tech-debt, deferr
 | 0011 | _(reserved — fuzzy-match dep category)_ | reserved, not authored — see ADR-0009 §"Wave A" |
 | [0012](0012-schedule-persistence-atomicity.md) | Schedule persistence atomicity (phased) | accepted, phase closed by 0015 |
 | [0013](0013-websocket-progress-hardening.md) | WebSocket progress hardening | accepted |
-| [0014](0014-derived-artifact-provenance-hash.md) | Derived-artifact provenance hash | accepted, amended by 0015 |
+| [0014](0014-derived-artifact-provenance-hash.md) | Derived-artifact provenance hash — re-audit record in [`0014-audit-log.md`](0014-audit-log.md) | accepted, amended by 0015 |
 | [0015](0015-async-materialization-state-machine.md) | Async materializer + `projects.status` state machine | accepted |
 | [0016](0016-lifecycle-phase-inference.md) | Lifecycle phase inference + override log + lock-flag | accepted |
 | [0017](0017-deduplicate-api-keys-migration.md) | Deduplicate `api_keys` migration (012 vs 017) | accepted |
