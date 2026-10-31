@@ -97,7 +97,7 @@ Required in `.env`:
 - See `docs/ROADMAP.md` for the roadmap (older plans are in `docs/archive/`)
 - Version: **v4.3.0** (2026-05-09) is the latest release tag. `main` is in Cycle 6 (ADR-0025); the next tag is v4.4.0 or v4.3.1. What merged since the tag is in `CHANGELOG.md` under [Unreleased], and decisions are indexed in `docs/adr/README.md`. Version and test figures are not repeated here: `pyproject.toml` holds the dependency ranges and CI reports the test counts.
 - CI: Python 3.15, Node 24, Vite 8, TypeScript 6, GitHub Actions v7
-- Dockerfile: Python 3.15-slim, the same version CI tests on (3.13 → 3.14 in #329, 3.15 in #342). It was held at 3.13 because `supabase` pulled `storage3` → `pyiceberg`, which had no 3.14 wheel (bumped in `f1bd4e2`, broke deploy, reverted in `df672d9`). Since supabase/storage3 2.33, `pyiceberg` is only the optional `iceberg` extra, which the image does not install. It installs the `api`, `reports` and `export` extras from `uv.lock` with `uv sync --locked`, the same lock CI installs (ADR-0033); a change to a dependency range needs `uv lock` in the same commit.
+- Dockerfile: Python 3.15-slim, the same version CI tests on (3.13 → 3.14 in #329, 3.15 in #342). It was held at 3.13 because `supabase` pulled `storage3` → `pyiceberg`, which had no 3.14 wheel (bumped in `f1bd4e2`, broke deploy, reverted in `df672d9`). Since supabase/storage3 2.33, `pyiceberg` is only the optional `iceberg` extra, which the image does not install. It installs the `api`, `reports`, `export` and `ml` extras from `uv.lock` with `uv sync --locked`, the same lock CI installs (ADR-0033); a change to a dependency range needs `uv lock` in the same commit.
 
 ## Portfolio PMO (knowledge loop)
 

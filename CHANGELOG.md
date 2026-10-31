@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
+### October 2026 — ML predictions in production (#351)
+
+#### Changed
+- **The API image installs the `ml` extra** (scikit-learn), so `model=ml` on the delay prediction runs the ML ensemble instead of falling back to the rule-based path. CI installs it too, so the 33 delay- and duration-prediction tests run instead of skipping. Measured on the image: 828 MB (was 634 MB), first `/health` 200 after 1.6 s (was 1.3 s), idle memory unchanged (scikit-learn loads on first use); after the first prediction about 220 MiB (was about 100 MiB), on a 2048 MB machine.
+
 ### October 2026 — Python lockfile (#131, ADR-0033)
 
 #### Changed
