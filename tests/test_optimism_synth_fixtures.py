@@ -67,10 +67,10 @@ _LOCKED_SUB_GATE_C_F1: float = 0.769231
 # version but may drift across versions. The committed
 # `optimism_synth.lock` was authored under THIS interpreter version (Python
 # 3.12 — the development host's available interpreter at PR #99 W3-C
-# authoring time, 2026-05-09). CI runs Python 3.14 (canonical CI per
+# authoring time, 2026-05-09). CI runs Python 3.15 (canonical CI per
 # CLAUDE.md), so on every CI run `test_generator_is_deterministic`
 # CURRENTLY SKIPS — the operator follow-up issue tracks regenerating the
-# lock under Python 3.14 (the canonical CI Python) so determinism fires
+# lock under the canonical CI Python so determinism fires
 # in CI. DA exit-council PR #111 P1 #1 + DA P2 #5+#6: skip emits a
 # ``UserWarning`` so pytest's warning summary surfaces the gap on every
 # CI run rather than silently passing. Operator ceremony on regen:

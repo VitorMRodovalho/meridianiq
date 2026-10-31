@@ -100,7 +100,7 @@ See `BUGS.md` for the full catalog. Top-impact:
 - Supabase port 6543 (pooler), not 5432
 - JWT algorithm is ES256, not HS256/RS256 — JWKS auto-detects
 - `web/src/lib/stores/auth.ts` uses dynamic import to break circular dep
-- Dockerfile pinned to Python 3.13-slim — pyiceberg transitive dep has no 3.14 wheel as of 2026-04-26
+- Dockerfile runs `python:3.15-slim`, the CI version. The old 3.13 pin (pyiceberg had no 3.14 wheel) ended in #329: since storage3 2.33 pyiceberg is an optional extra the image does not install
 
 ## When to consult external sources
 

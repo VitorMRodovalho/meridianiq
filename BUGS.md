@@ -85,7 +85,7 @@ pending). Report new issues via GitHub Issues._
 | ~~Large schedule profiling (>5K activities)~~ | ~~P1~~ | Tested with 10K+ activities — virtual scrolling works |
 | ~~Schedule Viewer virtual scrolling~~ | ~~P1~~ | Done — viewport-aware rendering with 20-row buffer |
 | ~~Audit trail IP not populated~~ | ~~P2~~ | Done v3.8 wave 13 — `_client_ip()` honours XFF leftmost; `_audit()` accepts request |
-| Dockerfile pinned to Python 3.13 | P3 | pyiceberg lacks 3.14 wheel; CI tests on 3.14 |
+| ~~Dockerfile pinned to Python 3.13~~ | ~~P3~~ | Done — #329 moved the image to 3.14 (pyiceberg is an optional extra since storage3 2.33), then to 3.15 with CI |
 | ~~slowapi potentially unmaintained~~ | ~~P2~~ | Evaluated v3.9 wave 2 — slowapi 0.1.9 active (Aug 2025 commits, 1952 stars), no `starlette-ratelimit` package exists, alternatives need Redis. Stayed and consolidated duplicate Limiter into deps.py |
 | Wire $t() i18n keys to page titles | P3 | #22 (v4.0.2) closed page CONTENT (15/15 pages, ~402 keys × 3 locales). Page TITLES in `<svelte:head><title>` are still partial — `web/src/routes/evm/+page.svelte:83` and `evm/[id]/+page.svelte:88` remain hardcoded English. Full audit pending. |
 | ~~Sidebar has 34 links (cognitive load)~~ | ~~P2~~ | Done v3.9 wave 1 — regrouped to 8 sections × ≤7 items, added search-icon + `/` kbd hint |
