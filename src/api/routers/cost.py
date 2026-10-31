@@ -42,6 +42,9 @@ async def upload_cost_data(
     exactly like a missing one. Without ``project_id`` the file is only
     parsed and nothing is stored.
 
+    A file that does not open as a workbook, or holds no CBS data, answers
+    400 and nothing is stored; 501 if openpyxl is unavailable.
+
     Reference: AACE RP 10S-90 — Cost Engineering Terminology.
     """
     if project_id:
@@ -60,9 +63,15 @@ async def upload_cost_data(
         tmp_path = Path(tmp.name)
 
     try:
-        from src.analytics.cost_integration import parse_cbs_excel
+        from src.analytics.cost_integration import CBSWorkbookError, parse_cbs_excel
 
         result = parse_cbs_excel(str(tmp_path))
+    except ImportError:
+        raise HTTPException(
+            status_code=501, detail="Excel import requires openpyxl (pip install openpyxl)"
+        ) from None
+    except CBSWorkbookError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     finally:
         tmp_path.unlink(missing_ok=True)
 

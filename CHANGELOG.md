@@ -7,7 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
-### October 2026 — dependency sweep to the latest stable releases (PRs #327–#344)
+### October 2026 — Excel in the API image (#348)
+
+#### Fixed
+- **The API image installs `openpyxl`** (the `export` extra). It had not since 2026-03-29, so in production the Excel and AIA G703 exports answered 501, and a CBS cost upload answered 200 with nothing parsed and still stored a cost source.
+- A CBS upload that does not open as a workbook, or holds no CBS data, answers 400 and stores nothing; without `openpyxl` it answers 501.
+
+#### Changed
+- `pandas` leaves the `export` extra: nothing imports it. `openpyxl` joins `dev`, so the Excel tests run in CI instead of skipping.
+
+#### Operator notes
+- Uploads made before this fix may have left cost sources with no CBS elements in production (#348).
+
+### October 2026 — dependency sweep to the latest stable releases (PRs #327–#347)
 
 #### Changed
 - **Python 3.15** in CI and the API image: 3.13 → 3.14 (#329), then 3.15 (#342). The image had been held at 3.13 because `pyiceberg` had no 3.14 wheel; since supabase/storage3 2.33 it is an optional extra the image does not install.
@@ -15,7 +27,8 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 - **MCP server on the mcp SDK 2.x** `MCPServer` (#327, ADR-0032): the bind address goes to `run()`, and the server reports the package version. The `mcp` cap is now `<3`.
 - **SvelteKit 3.1.1 and adapter-static 4.0.1** (#328), svelte 5.57.3: `$lib` imports become `#lib`, `svelte.config.js` moves into `vite.config.ts`, and the client `handleError` receives `{ kind, error }`. The `cookie` override is removed. TypeScript stays on 6.0.3, because kit 3.1.1 and svelte-check 4.7.7 declare a `typescript ^6` peer.
 - Node 24 is pinned in `web/.nvmrc` and `engines`; `devEngines` declares Node `^24` and npm `^11.19.1` with `onFail: "error"`, and CI reads `.nvmrc` (#328).
-- core-js's install script is denied in `allowScripts` (#344). Dependabot applies its default labels (#344).
+- core-js's install script is denied in `allowScripts` (#344). Dependabot applies its default labels (#344), and its titles no longer repeat the scope (#346).
+- CI tests the declared dependency floors on Python 3.12, the `requires-python` floor (#346). A test fails any Python 3.16 target while slowapi still calls `asyncio.iscoroutinefunction`, which 3.16 removes (#345).
 
 #### Fixed
 - Signed-out visits no longer call the pending-statuses endpoint, which answered 401 on every page. The computing banner starts after sign-in without a reload, and stops and clears on sign-out (#343).
@@ -24,7 +37,7 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 - Component tests compile with the app's compiler options (runes mode) again; the SvelteKit 3 move had left Vitest on the defaults (#344).
 
 #### Docs
-- ADR-0032 accepted (#341).
+- ADR-0032 accepted (#341). CLAUDE.md states the current version without stale figures, and points to the real auth module (#347).
 
 ### October 2026 — privacy, accounts and program grouping (PRs #288–#315)
 

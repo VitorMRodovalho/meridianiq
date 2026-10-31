@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+import io
+import sys
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
+from openpyxl import Workbook
 
 from src.analytics.cost_integration import (
     CBSElement,
     CBSWBSMapping,
+    CBSWorkbookError,
     CostIntegrationResult,
     WBSBudget,
     _generate_insights,
     compare_cost_snapshots,
+    parse_cbs_excel,
 )
 from src.api.app import app
 from src.api.deps import get_store
@@ -369,3 +378,147 @@ class TestCostCompareAPI:
         assert data["added_count"] == 1
         assert data["changed_count"] == 1
         assert data["removed_count"] == 0
+
+
+def _cbs_workbook() -> bytes:
+    """A synthetic program budget in the layout parse_cbs_excel reads."""
+    wb = Workbook()
+    cbs = wb.active
+    cbs.title = "Summary by CBS"
+    cbs.append(["Synthetic program budget"])
+    cbs.append(
+        [
+            "CBS-Lvl1",
+            "CBS-Lvl2",
+            "Scope",
+            "WBSE L1",
+            "Design Package",
+            "DJV Estimate",
+            "DJV Contingency (25%)",
+            "Escalation",
+        ]
+    )
+    cbs.append(["Construction", "01", "Earthwork", "W1", "DP-1", 1000.0, 250.0, 50.0])
+    cbs.append(["Design", "02", "Engineering", "W2", "DP-2", 400.0, 100.0, 20.0])
+    cbs.append(["Total", "", "", "", "", 1400.0, 350.0, 70.0])
+    wbse = wb.create_sheet("Summary by WBSE")
+    wbse.append(["Synthetic WBS budget"])
+    wbse.append([])
+    wbse.append(["WBSE", "Budget"])
+    wbse.append(["W1", 1300.0])
+    wbse.append(["W2", 520.0])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _empty_workbook() -> bytes:
+    buf = io.BytesIO()
+    Workbook().save(buf)
+    return buf.getvalue()
+
+
+class TestParseCbsExcel:
+    """parse_cbs_excel on real workbooks: data, unreadable files, no CBS sheets."""
+
+    def test_reads_cbs_elements_totals_and_wbs_budgets(self, tmp_path: Path) -> None:
+        path = tmp_path / "budget.xlsx"
+        path.write_bytes(_cbs_workbook())
+
+        result = parse_cbs_excel(str(path))
+
+        assert [e.cbs_code for e in result.cbs_elements] == ["Construction.01", "Design.02"]
+        assert result.cbs_elements[0].budget == 1300.0
+        assert (result.total_budget, result.total_contingency, result.total_escalation) == (
+            1400.0,
+            350.0,
+            70.0,
+        )
+        assert [(w.wbs_code, w.total_budget) for w in result.wbs_budgets] == [
+            ("W1", 1300.0),
+            ("W2", 520.0),
+        ]
+
+    def test_a_file_that_is_not_a_workbook_raises(self, tmp_path: Path) -> None:
+        path = tmp_path / "budget.xlsx"
+        path.write_bytes(b"not a workbook")
+
+        with pytest.raises(CBSWorkbookError, match="could not be opened"):
+            parse_cbs_excel(str(path))
+
+    def test_a_workbook_without_cbs_sheets_raises(self, tmp_path: Path) -> None:
+        path = tmp_path / "budget.xlsx"
+        path.write_bytes(_empty_workbook())
+
+        with pytest.raises(CBSWorkbookError, match="No CBS data found"):
+            parse_cbs_excel(str(path))
+
+    def test_without_openpyxl_raises_import_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "budget.xlsx"
+        path.write_bytes(_cbs_workbook())
+        monkeypatch.setitem(sys.modules, "openpyxl", None)
+
+        with pytest.raises(ImportError):
+            parse_cbs_excel(str(path))
+
+
+class TestCostUploadAPI:
+    """POST /api/v1/cost/upload: a parsed workbook is stored, a failed parse is not (#348)."""
+
+    @staticmethod
+    def _upload(client: TestClient, pid: str, content: bytes) -> Response:
+        return client.post(
+            "/api/v1/cost/upload",
+            params={"project_id": pid},
+            files={"file": ("budget.xlsx", content, "application/octet-stream")},
+        )
+
+    @staticmethod
+    def _snapshot_count(client: TestClient, pid: str) -> int:
+        resp = client.get(f"/api/v1/projects/{pid}/cost/snapshots")
+        assert resp.status_code == 200
+        return int(resp.json()["count"])
+
+    def test_a_parsed_workbook_is_stored(self) -> None:
+        client = TestClient(app)
+        pid = _dev_project()
+
+        resp = self._upload(client, pid, _cbs_workbook())
+
+        assert resp.status_code == 200
+        assert resp.json()["cbs_element_count"] == 2
+        assert resp.json()["snapshot_id"]
+        assert self._snapshot_count(client, pid) == 1
+
+    def test_a_file_that_is_not_a_workbook_is_400_and_not_stored(self) -> None:
+        client = TestClient(app)
+        pid = _dev_project()
+
+        resp = self._upload(client, pid, b"not a workbook")
+
+        assert resp.status_code == 400
+        assert "could not be opened" in resp.json()["detail"]
+        assert self._snapshot_count(client, pid) == 0
+
+    def test_a_workbook_without_cbs_data_is_400_and_not_stored(self) -> None:
+        client = TestClient(app)
+        pid = _dev_project()
+
+        resp = self._upload(client, pid, _empty_workbook())
+
+        assert resp.status_code == 400
+        assert "No CBS data found" in resp.json()["detail"]
+        assert self._snapshot_count(client, pid) == 0
+
+    def test_without_openpyxl_is_501_and_not_stored(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        client = TestClient(app)
+        pid = _dev_project()
+        content = _cbs_workbook()
+        monkeypatch.setitem(sys.modules, "openpyxl", None)
+
+        resp = self._upload(client, pid, content)
+
+        assert resp.status_code == 501
+        assert self._snapshot_count(client, pid) == 0

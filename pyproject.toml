@@ -59,7 +59,7 @@ dependencies = [
 
 [project.optional-dependencies]
 api = ["fastapi>=0.162", "uvicorn[standard]>=0.54", "slowapi>=0.1.10", "psutil>=7.2"]
-export = ["pandas>=3.1", "openpyxl>=3.1.5"]
+export = ["openpyxl>=3.1.5"]
 reports = ["weasyprint>=70.0"]
 # Upper bound: the AI gate classifies provider errors by their status code and
 # response (src/api/ai_gate.py _outcome_of) and builds the client with
@@ -92,6 +92,10 @@ dev = [
     "httpx>=0.28",
     "slowapi>=0.1.10",
     "psutil>=7.2",
+    # The Excel paths (export/excel, export/aia-g703, the CBS cost upload) need
+    # openpyxl. Without it here their tests skip, and a skip is how the image
+    # shipped without it for months (#348).
+    "openpyxl>=3.1.5",
     # Type stubs (Cycle 5 W4 hygiene). Reduces mypy --strict noise from
     # untyped third-party imports without per-module ``# type: ignore``
     # suppression.

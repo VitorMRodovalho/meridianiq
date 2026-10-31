@@ -14,10 +14,12 @@ from __future__ import annotations
 import csv
 import io
 import json
+import sys
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 
 from src.api.app import app, get_store
 
@@ -196,3 +198,28 @@ class TestCSVExport:
     def test_csv_project_not_found(self, client: TestClient) -> None:
         resp = client.get("/api/v1/projects/nonexistent/export/csv")
         assert resp.status_code == 404
+
+
+class TestExcelExport:
+    """GET /api/v1/projects/{id}/export/excel returns a workbook (#348)."""
+
+    def test_excel_export_returns_a_workbook_with_the_activities(self, client: TestClient) -> None:
+        project_id = _upload(client)
+
+        resp = client.get(f"/api/v1/projects/{project_id}/export/excel")
+
+        assert resp.status_code == 200
+        assert resp.content[:2] == b"PK"
+        wb = load_workbook(io.BytesIO(resp.content))
+        assert wb.sheetnames[:4] == ["Summary", "Activities", "Relationships", "WBS"]
+        assert wb["Activities"].max_row > 1
+
+    def test_excel_export_without_openpyxl_is_501(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        project_id = _upload(client)
+        monkeypatch.setitem(sys.modules, "openpyxl", None)
+
+        resp = client.get(f"/api/v1/projects/{project_id}/export/excel")
+
+        assert resp.status_code == 501
