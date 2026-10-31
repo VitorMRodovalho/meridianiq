@@ -75,6 +75,10 @@ class CostIntegrationResult:
     insights: list[str] = field(default_factory=list)
 
 
+class CBSWorkbookError(ValueError):
+    """The file cannot be read as a workbook, or holds no CBS data."""
+
+
 def parse_cbs_excel(file_path: str) -> CostIntegrationResult:
     """Parse CBS data from an Excel file.
 
@@ -87,21 +91,22 @@ def parse_cbs_excel(file_path: str) -> CostIntegrationResult:
     Returns:
         CostIntegrationResult with parsed CBS, WBS budgets, and mappings.
 
+    Raises:
+        ImportError: openpyxl is not installed.
+        CBSWorkbookError: the file does not open as a workbook, or none of
+            the sheets above yields a CBS element, WBS budget or mapping.
+
     Reference: AACE RP 10S-90 — Cost Engineering Terminology.
     """
-    try:
-        import openpyxl
-    except ImportError:
-        logger.warning("openpyxl not installed — CBS parsing unavailable")
-        return CostIntegrationResult(insights=["openpyxl required for CBS parsing"])
+    import openpyxl
 
     result = CostIntegrationResult()
 
     try:
         wb = openpyxl.load_workbook(file_path, data_only=True)
     except Exception as exc:
-        logger.error("Failed to open CBS Excel: %s", exc)
-        return CostIntegrationResult(insights=[f"Failed to open file: {exc}"])
+        logger.warning("Failed to open CBS Excel: %s", exc)
+        raise CBSWorkbookError("The file could not be opened as an Excel workbook.") from exc
 
     # Parse "Summary by CBS" sheet
     if "Summary by CBS" in wb.sheetnames:
@@ -119,6 +124,12 @@ def parse_cbs_excel(file_path: str) -> CostIntegrationResult:
             ws = wb[sheet_name]
             _parse_cbs_wbs_mapping(ws, result)
             break
+
+    if not (result.cbs_elements or result.wbs_budgets or result.cbs_wbs_mappings):
+        raise CBSWorkbookError(
+            "No CBS data found. Expected a 'Summary by CBS' or 'Summary by WBSE' sheet, "
+            "or a CBS-WBS mapping sheet named 'Sheet1', 'Mapping' or 'CBS-WBS'."
+        )
 
     # Parse budget date
     if "Summary by CBS" in wb.sheetnames:
