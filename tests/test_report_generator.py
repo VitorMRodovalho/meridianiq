@@ -15,8 +15,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.analytics.report_generator import ReportGenerator
 
 
@@ -645,15 +643,13 @@ class TestReportAPI:
         # Use the test fixture XER file
         import os
 
-        fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "simple.xer")
-        if not os.path.exists(fixture_path):
-            pytest.skip("Test fixture simple.xer not found")
+        # A missing fixture or a failed upload must fail, not skip (#350).
+        fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "sample.xer")
 
         with open(fixture_path, "rb") as f:
             resp = client.post("/api/v1/upload", files={"file": ("test.xer", f)})
 
-        if resp.status_code != 200:
-            pytest.skip("Upload failed, skipping report API test")
+        assert resp.status_code == 200, resp.text
 
         project_id = resp.json()["project_id"]
 

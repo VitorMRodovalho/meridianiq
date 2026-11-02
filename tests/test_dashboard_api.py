@@ -28,15 +28,15 @@ def client():
 @pytest.fixture
 def uploaded_project(client):
     """Upload a test XER file and return the project_id."""
-    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "simple.xer")
-    if not os.path.exists(fixture_path):
-        pytest.skip("Test fixture simple.xer not found")
+    # A missing fixture or a failed upload must fail, not skip: this fixture
+    # pointed at a file that did not exist, and every test using it skipped
+    # on every run (#350).
+    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "sample.xer")
 
     with open(fixture_path, "rb") as f:
         resp = client.post("/api/v1/upload", files={"file": ("test.xer", f)})
 
-    if resp.status_code != 200:
-        pytest.skip("Upload failed")
+    assert resp.status_code == 200, resp.text
 
     return resp.json()["project_id"]
 
