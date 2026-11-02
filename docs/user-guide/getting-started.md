@@ -15,15 +15,17 @@ Open [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) and sign in with G
 Running locally:
 
 ```bash
-# Backend
-pip install -e ".[dev]"
-python -m uvicorn src.api.app:app --reload --port 8080
+# Backend (uv: https://docs.astral.sh/uv/); installs uv.lock, the set CI tests
+uv sync --locked --extra dev --extra api
+uv run python -m uvicorn src.api.app:app --reload --port 8000
 
 # Frontend (separate terminal)
 cd web && npm install && npm run dev -- --port 5173
 ```
 
-Then open [http://localhost:5173](http://localhost:5173).
+Then open [http://localhost:5173](http://localhost:5173). The web app's development build calls the API on port 8000 (`web/.env.development`).
+
+Without uv, `pip install -e ".[dev,api]"` installs the same packages, but it resolves the newest releases instead of `uv.lock`.
 
 ## 2. Upload an XER
 

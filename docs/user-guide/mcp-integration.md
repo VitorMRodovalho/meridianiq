@@ -4,16 +4,18 @@ MeridianIQ exposes **22 tools** via the Model Context Protocol (MCP), letting Cl
 
 ## Install
 
-MCP support is optional — install with the `mcp` extras:
+MCP support is optional. Install the `mcp` extra from `uv.lock` with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install -e ".[mcp]"
+uv sync --locked --extra mcp
 ```
+
+`uv sync` removes the extras you do not name, so add the others you use (`--extra dev`, `--extra api`). Without uv: `pip install -e ".[mcp]"`, which resolves the newest releases instead of the lock.
 
 Run the server (stdio transport, local only):
 
 ```bash
-python -m src.mcp_server
+uv run python -m src.mcp_server
 ```
 
 The server reads from the same data store as the web app. If you're using `InMemoryStore` (dev default), only projects uploaded via the MCP server's `upload_xer` tool will be visible — not projects uploaded through the web UI against a separate Python process. For cross-process visibility, point `MCP_ENVIRONMENT=production` and wire it to your Supabase instance.
@@ -38,13 +40,13 @@ When running over a network, terminate TLS at a reverse proxy (Caddy, Nginx, Clo
 
 ## Configure Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows). The `command` is the Python in the project's `.venv`, where `uv sync` installs (on Windows, `.venv\Scripts\python.exe`):
 
 ```json
 {
   "mcpServers": {
     "meridianiq": {
-      "command": "python",
+      "command": "/absolute/path/to/meridianiq/.venv/bin/python",
       "args": ["-m", "src.mcp_server"],
       "cwd": "/absolute/path/to/meridianiq"
     }
@@ -56,10 +58,10 @@ Restart Claude Desktop. The 22 tools appear in the MCP tools list — Claude wil
 
 ## Configure Claude Code
 
-Add the same snippet to your user-level config (typically `~/.config/claude-code/config.json`) or invoke once per project:
+Add it with the `claude` CLI. The default scope, `local`, covers you in the current project; `--scope user` makes it available in every project (stored in `~/.claude.json`):
 
 ```bash
-claude-code mcp add meridianiq -- python -m src.mcp_server
+claude mcp add --transport stdio meridianiq -- /absolute/path/to/meridianiq/.venv/bin/python -m src.mcp_server
 ```
 
 ## Tool categories
@@ -127,7 +129,7 @@ If you need raw access, use the full API (see [API Reference](../api-reference.m
 ## Troubleshooting
 
 - **Claude doesn't see the tools** — restart Claude Desktop / Claude Code after editing config. Check the config path is correct for your OS.
-- **`ImportError: mcp`** — you didn't install the `mcp` extras. Run `pip install -e ".[mcp]"`.
+- **`ImportError: mcp`** — the `mcp` extra is not installed in the environment the client runs. Run `uv sync --locked --extra mcp` (plus the other extras you use), and check that `command` points at `.venv/bin/python`.
 - **"Project not found"** — the MCP server and web app are running against different Python processes / stores. Either point both at Supabase, or upload via the MCP tool itself.
 
 ## Related

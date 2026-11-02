@@ -4,27 +4,35 @@ MeridianIQ exposes **22 tools** via the Model Context Protocol so AI assistants 
 
 ## Installation
 
-Install the MCP extras and run the server:
+Install the MCP extras from `uv.lock` and run the server:
 
 ```bash
-pip install -e ".[mcp]"
-python -m src.mcp_server
+uv sync --locked --extra mcp
+uv run python -m src.mcp_server
 ```
+
+`uv sync` removes the extras you do not name, so add the others you use (`--extra dev`, `--extra api`). Without uv: `pip install -e ".[mcp]"`.
 
 ### Claude Code / Claude Desktop configuration
 
-Add to your MCP servers config (e.g. `~/.config/claude-code/config.json`):
+Point the client at the Python in the project's `.venv`, where `uv sync` installs (on Windows, `.venv\Scripts\python.exe`). Claude Desktop reads `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "meridianiq": {
-      "command": "python",
+      "command": "/absolute/path/to/meridianiq/.venv/bin/python",
       "args": ["-m", "src.mcp_server"],
       "cwd": "/absolute/path/to/meridianiq"
     }
   }
 }
+```
+
+Claude Code adds it with its CLI (`--scope user` makes it available in every project):
+
+```bash
+claude mcp add --transport stdio meridianiq -- /absolute/path/to/meridianiq/.venv/bin/python -m src.mcp_server
 ```
 
 ## Tool index

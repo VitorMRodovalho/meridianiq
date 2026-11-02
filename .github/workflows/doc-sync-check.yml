@@ -52,8 +52,20 @@ jobs:
         with:
           python-version: "3.15"
 
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          # The same uv as ci.yml and the Dockerfile (ADR-0033).
+          version: "0.13.6"
+
       - name: Install dependencies
-        run: pip install -e ".[dev,mcp]"
+        # From uv.lock, like the Backend job (ADR-0033): the generators run
+        # against the locked versions, not the newest release of each.
+        env:
+          UV_PYTHON: "3.15"
+          UV_PYTHON_DOWNLOADS: never
+        run: |
+          uv sync --locked --extra dev --extra mcp
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Regenerate catalogs
         run: |
