@@ -58,6 +58,30 @@ updates:
           - "minor"
           - "patch"
 
+  # The API image's Python base, pinned by digest in both Dockerfile stages
+  # (ADR-0033 Amendment 2): a new digest arrives as a pull request, which runs
+  # the image smoke. Only the `python` image: the uv image in the same file
+  # moves with the `version` CI pins for setup-uv, which no updater touches,
+  # so it stays a manual bump (#352). A new Python minor is a decision, not a
+  # weekly update.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 2
+    allow:
+      - dependency-name: "python"
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+    commit-message:
+      prefix: "chore(docker)"
+
   # GitHub Actions workflow pins
   - package-ecosystem: "github-actions"
     directory: "/"

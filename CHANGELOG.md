@@ -13,6 +13,11 @@ Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2
 - **`main` requires the CI checks to merge.** The default-branch ruleset now requires 7 GitHub Actions checks (Backend, Backend on the 3.12 dependency floors, API image build and smoke, Frontend, Resolve Playwright image, E2E, gitleaks), without the up-to-date requirement and without bypass. Before, it blocked only deletion and force-push, so #361 kept a red PR from deploying but not from merging. The doc sync check stays optional because it runs only on some paths. `CONTRIBUTING.md` and `CLAUDE.md` say so.
 - `CLAUDE.md` records what is left of the Fly cold start: with one machine always on, the idle cold start (BUG-007) no longer happens, and each API deploy leaves ~6 s with no ready machine, during which requests waited and none failed (one sample, 2026-11-02). Accepted as is.
 
+### November 2026 — the API image's Python base pinned by digest
+
+#### Changed
+- **Both Dockerfile stages pin `python:3.15-slim` by digest** (ADR-0033 Amendment 2). CI's smoke build and Fly's deploy build now pull the same base; before, each resolved the tag on its own, minutes apart. On the last deploy both happened to resolve the same digest, the one now pinned. Dependabot's new `docker` ecosystem proposes the next digest as a pull request: the `python` image only, without new Python minors; the uv image stays a manual bump with CI's `version`. `tests/test_image_base_pin.py` fails if a stage loses the digest or the stages diverge. Not covered: the runtime stage's `apt-get` layer still resolves at build time.
+
 ### November 2026 — current hosts in the user docs
 
 #### Fixed
