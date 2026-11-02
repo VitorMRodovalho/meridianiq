@@ -84,6 +84,43 @@ jobs:
       - name: Test
         run: python -m pytest tests/ -q --tb=short
 
+  api-image:
+    # The deploy job builds the image remotely (`flyctl deploy --remote-only`)
+    # after the tests pass, so the image itself was never tested before it
+    # reached production: it shipped without openpyxl from 2026-03-29 until
+    # #348. This job builds the same Dockerfile, waits for the container's own
+    # HEALTHCHECK, and drives the running server through scripts/image_smoke.py
+    # (health report PDF, Excel and AIA G703 exports, CBS cost upload). The
+    # container has no Supabase credentials, so the app uses its in-memory
+    # store. Not in the deploy jobs' `needs` yet (#349).
+    name: API image (build and smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image from the Dockerfile
+        run: docker build -t meridianiq-api:ci .
+
+      - name: Start it and wait for its HEALTHCHECK
+        run: |
+          docker run -d --name api \
+            -v "$PWD/scripts/image_smoke.py:/tmp/image_smoke.py:ro" meridianiq-api:ci
+          status=starting
+          for _ in $(seq 1 45); do
+            status="$(docker inspect -f '{{.State.Health.Status}}' api)"
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+          echo "container health: $status"
+          if [ "$status" != healthy ]; then docker logs api; exit 1; fi
+
+      - name: Drive the server inside the image
+        run: docker exec api python /tmp/image_smoke.py
+
+      - name: Server log on failure
+        if: failure()
+        run: docker logs api
+
   frontend:
     name: Frontend (SvelteKit)
     runs-on: ubuntu-latest
