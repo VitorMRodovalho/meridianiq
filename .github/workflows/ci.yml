@@ -116,7 +116,9 @@ jobs:
     # HEALTHCHECK, and drives the running server through scripts/image_smoke.py
     # (health report PDF, Excel and AIA G703 exports, CBS cost upload). The
     # container has no Supabase credentials, so the app uses its in-memory
-    # store. Not in the deploy jobs' `needs` yet (#349).
+    # store. Both deploy jobs need it: an image that fails here never reaches
+    # Fly.io, and the web is not deployed against an API that was not
+    # (#349; gated after 10 of 10 green runs since #354).
     name: API image (build and smoke)
     runs-on: ubuntu-latest
     steps:
@@ -244,7 +246,7 @@ jobs:
 
   deploy-backend:
     name: Deploy API (Fly.io)
-    needs: [backend, frontend, e2e]
+    needs: [backend, api-image, frontend, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     # Serialise deploys. Merging several PRs back-to-back previously started
@@ -340,7 +342,7 @@ jobs:
 
   deploy-frontend:
     name: Deploy Web (Cloudflare Pages)
-    needs: [backend, frontend, e2e]
+    needs: [backend, api-image, frontend, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     # Separate group from deploy-api: Cloudflare Pages tolerated the

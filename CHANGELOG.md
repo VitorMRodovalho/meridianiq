@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
+### November 2026 — deploy gated on the API image (#349)
+
+#### Changed
+- **Both deploy jobs wait for "API image (build and smoke)"**. Before, the job ran beside them, so an image that failed its smoke still went to Fly.io. It had passed 10 of 10 runs since #354 (4 on PRs, 6 on main), and in each it finished 11-66 s before the last job the deploys already waited for, so on those runs the gate would not have delayed a deploy.
+
 ### October 2026 — ML predictions in production (#351)
 
 #### Changed
