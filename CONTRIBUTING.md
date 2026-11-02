@@ -12,9 +12,9 @@ Thank you for your interest in contributing to MeridianIQ. This document outline
 ## Code Contributions
 
 1. Fork the repository and create a feature branch from `main`
-2. Install development dependencies: `pip install -e ".[all]"`
+2. Install development dependencies from `uv.lock` with [uv](https://docs.astral.sh/uv/): `uv sync --locked --extra dev --extra mcp --extra ai --extra ml` is what CI's Backend job installs (ADR-0033). Add `--extra api` to run the server. `uv sync` removes the extras you do not name, so name all of them each time. Without uv, `pip install -e ".[all]"` works, but it resolves the newest releases instead of the lock.
 3. Write tests for any new functionality
-4. Ensure all tests pass: `pytest`
+4. Ensure all tests pass: `uv run pytest`
 5. Follow existing code style (enforced by `ruff`)
 6. Submit a pull request with a clear description of the change
 

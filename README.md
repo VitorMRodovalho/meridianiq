@@ -228,6 +228,7 @@ See [full roadmap with architecture decisions](docs/archive/v06-planning/ROADMAP
 ### Prerequisites
 
 - Python 3.15+
+- [uv](https://docs.astral.sh/uv/) (installs the locked dependency set CI tests; pip also works, see below)
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier) with URL and anon/service keys
 
@@ -242,9 +243,9 @@ cd meridianiq
 cp .env.example .env
 # Edit .env: set SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 
-# Backend
-pip install -e ".[dev]"
-python -m uvicorn src.api.app:app --reload --port 8000
+# Backend: installs uv.lock, the set CI tests (ADR-0033); `api` adds the server
+uv sync --locked --extra dev --extra api
+uv run python -m uvicorn src.api.app:app --reload --port 8000
 
 # Frontend
 cd web
@@ -253,6 +254,8 @@ npm run dev -- --port 5173
 
 # Open http://localhost:5173
 ```
+
+Without uv, `pip install -e ".[dev,api]"` installs the same packages, but it resolves the newest release of each instead of `uv.lock`, so it can install versions CI has not tested.
 
 **Or with Docker:**
 ```bash

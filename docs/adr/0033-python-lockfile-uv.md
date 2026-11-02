@@ -106,7 +106,7 @@ Option 2.
 
 **What changes for contributors**
 - Any change to `pyproject.toml` that the lock records (ranges, extras, the version) needs `uv lock` in the same commit.
-- `pip install -e ".[dev]"` still works locally, but it resolves the newest releases, which CI no longer tests. `uv sync --locked --extra dev --extra mcp --extra ai` installs what CI installs. README, CONTRIBUTING and the user guides still show the pip command; updating them is a follow-up.
+- `pip install -e ".[dev]"` still works locally, but it resolves the newest releases, which CI no longer tests. `uv sync --locked --extra dev --extra mcp --extra ai` installs what CI installs. README, CONTRIBUTING and the user guides still show the pip command; updating them is a follow-up. **Done 2026-11-02:** they lead with `uv sync --locked` and keep pip as the alternative, and the doc-sync workflow installs from the lock too.
 
 **What stays the same**
 - The floor job (#346) still resolves `lowest-direct` without the lock. The cap contract is unchanged.

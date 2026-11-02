@@ -129,27 +129,47 @@ def main() -> None:
     lines.append("")
     lines.append("## Installation")
     lines.append("")
-    lines.append("Install the MCP extras and run the server:")
+    lines.append("Install the MCP extras from `uv.lock` and run the server:")
     lines.append("")
     lines.append("```bash")
-    lines.append('pip install -e ".[mcp]"')
-    lines.append("python -m src.mcp_server")
+    lines.append("uv sync --locked --extra mcp")
+    lines.append("uv run python -m src.mcp_server")
     lines.append("```")
+    lines.append("")
+    lines.append(
+        "`uv sync` removes the extras you do not name, so add the others you use "
+        '(`--extra dev`, `--extra api`). Without uv: `pip install -e ".[mcp]"`.'
+    )
     lines.append("")
     lines.append("### Claude Code / Claude Desktop configuration")
     lines.append("")
-    lines.append("Add to your MCP servers config (e.g. `~/.config/claude-code/config.json`):")
+    lines.append(
+        "Point the client at the Python in the project's `.venv`, where `uv sync` "
+        "installs (on Windows, `.venv\\Scripts\\python.exe`). Claude Desktop "
+        "reads `claude_desktop_config.json`:"
+    )
     lines.append("")
     lines.append("```json")
     lines.append("{")
     lines.append('  "mcpServers": {')
     lines.append('    "meridianiq": {')
-    lines.append('      "command": "python",')
+    lines.append('      "command": "/absolute/path/to/meridianiq/.venv/bin/python",')
     lines.append('      "args": ["-m", "src.mcp_server"],')
     lines.append('      "cwd": "/absolute/path/to/meridianiq"')
     lines.append("    }")
     lines.append("  }")
     lines.append("}")
+    lines.append("```")
+    lines.append("")
+    lines.append(
+        "Claude Code adds it with its CLI (`--scope user` makes it available in every project):"
+    )
+    lines.append("")
+    lines.append("```bash")
+    lines.append(
+        "claude mcp add --transport stdio meridianiq -- "
+        "/absolute/path/to/meridianiq/.venv/bin/python -m src.mcp_server"
+    )
     lines.append("```")
     lines.append("")
     lines.append("## Tool index")
