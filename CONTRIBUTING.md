@@ -16,7 +16,7 @@ Thank you for your interest in contributing to MeridianIQ. This document outline
 3. Write tests for any new functionality
 4. Ensure all tests pass: `uv run pytest`
 5. Follow existing code style (enforced by `ruff`)
-6. Submit a pull request with a clear description of the change
+6. Submit a pull request with a clear description of the change. It can be merged once the required checks pass: Backend, Backend on the Python 3.12 dependency floors, API image (build and smoke), Frontend, the Playwright image and E2E tests, and gitleaks
 
 ### Code Standards
 

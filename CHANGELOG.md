@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
+### November 2026 — merge gate on the required checks
+
+#### Changed
+- **`main` requires the CI checks to merge.** The default-branch ruleset now requires 7 GitHub Actions checks (Backend, Backend on the 3.12 dependency floors, API image build and smoke, Frontend, Resolve Playwright image, E2E, gitleaks), without the up-to-date requirement and without bypass. Before, it blocked only deletion and force-push, so #361 kept a red PR from deploying but not from merging. The doc sync check stays optional because it runs only on some paths. `CONTRIBUTING.md` and `CLAUDE.md` say so.
+- `CLAUDE.md` records what is left of the Fly cold start: with one machine always on, the idle cold start (BUG-007) no longer happens, and each API deploy leaves ~6 s with no ready machine, during which requests waited and none failed (one sample, 2026-11-02). Accepted as is.
+
 ### November 2026 — the API image's Python base pinned by digest
 
 #### Changed
