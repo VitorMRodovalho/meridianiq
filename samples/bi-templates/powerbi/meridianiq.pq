@@ -5,7 +5,7 @@
 // -----
 // 1. In Power BI Desktop: Home → Transform data → New Parameter
 //    Create two text parameters:
-//      - BaseUrl   (e.g. https://meridianiq.vitormr.dev  or  http://localhost:8080)
+//      - BaseUrl   (e.g. https://api.getmeridianiq.com  or  http://localhost:8080)
 //      - ApiToken  (Supabase JWT; leave empty string "" for anonymous access)
 // 2. Home → Get data → Blank Query. Open Advanced Editor and paste the
 //    contents of this file. Save. You'll get a record with three query
@@ -22,7 +22,7 @@
 
 let
     // ---- Parameters (created in Power BI Desktop before pasting this) ----
-    _BaseUrl = try BaseUrl otherwise "https://meridianiq.vitormr.dev",
+    _BaseUrl = try BaseUrl otherwise "https://api.getmeridianiq.com",
     _Token   = try ApiToken otherwise "",
 
     // ---- HTTP headers ----

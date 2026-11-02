@@ -36,7 +36,7 @@ Via API:
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@q2-budget.xlsx" \
-  "https://meridianiq.vitormr.dev/api/v1/cost/upload?project_id=$PROJECT_ID"
+  "https://api.getmeridianiq.com/api/v1/cost/upload?project_id=$PROJECT_ID"
 ```
 
 Response (abridged):
@@ -72,7 +72,7 @@ Pass `project_id=` to persist the snapshot; omit it to receive a parse-only resp
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://meridianiq.vitormr.dev/api/v1/projects/$PROJECT_ID/cost/snapshots"
+  "https://api.getmeridianiq.com/api/v1/projects/$PROJECT_ID/cost/snapshots"
 ```
 
 Returns the newest-first list of snapshots with totals, element counts, and the auto-generated `budget_date`. Useful when you want to pick a prior snapshot to compare against in v3.7 (compare endpoint is on the roadmap).
@@ -97,7 +97,7 @@ curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"project_id": "'$PROJECT_ID'", "report_type": "narrative", "baseline_id": "'$BASELINE_ID'"}' \
-  https://meridianiq.vitormr.dev/api/v1/reports/generate
+  https://api.getmeridianiq.com/api/v1/reports/generate
 ```
 
 The response contains a `report_id`; download with:
@@ -105,7 +105,7 @@ The response contains a `report_id`; download with:
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   -o narrative.pdf \
-  https://meridianiq.vitormr.dev/api/v1/reports/$REPORT_ID/download
+  https://api.getmeridianiq.com/api/v1/reports/$REPORT_ID/download
 ```
 
 The narrative combines schedule view summary, scorecard, and optional comparison into severity-tagged sections (info / warning / critical) rendered via WeasyPrint. See [Analysis Workflow §8](analysis-workflow.md#8-narrative-report--claim-ready-write-up) for the full flow.

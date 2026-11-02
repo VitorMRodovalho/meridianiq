@@ -187,7 +187,7 @@ def main() -> None:
     lines.append("")
     lines.append(
         "All paths are prefixed with the deployment base URL (e.g. "
-        "`https://meridianiq.fly.dev`). Auth column: `none` (public), "
+        "`https://api.getmeridianiq.com`). Auth column: `none` (public), "
         "`optional` (degrades gracefully), `required` (returns 401 without bearer token)."
     )
     lines.append("")

@@ -23,7 +23,7 @@ Example `meridianiq-bi-sync.py` pseudocode:
 
 ```python
 import httpx, os, psycopg
-BASE = "https://meridianiq.vitormr.dev"
+BASE = "https://api.getmeridianiq.com"
 TOKEN = os.environ["SUPABASE_JWT"]
 
 def fetch_all(path: str) -> list[dict]:

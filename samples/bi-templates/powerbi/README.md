@@ -8,7 +8,7 @@ Power BI Desktop → **Home → Transform data → Manage Parameters → New Par
 
 | Name | Type | Required | Current value |
 |---|---|---|---|
-| `BaseUrl` | Text | Yes | `https://meridianiq.vitormr.dev` (or your self-hosted URL) |
+| `BaseUrl` | Text | Yes | `https://api.getmeridianiq.com` (or your self-hosted URL) |
 | `ApiToken` | Text | Yes | Supabase JWT, or empty string `""` for anonymous |
 
 ## 2. Paste the M script
