@@ -112,7 +112,7 @@ Option 2.
 - The floor job (#346) still resolves `lowest-direct` without the lock. The cap contract is unchanged.
 
 **Operator notes**
-- In a production shell, `pip list` now shows the base interpreter. Use `uv pip list --python /opt/venv/bin/python`.
+- In a production shell, `pip list` now shows the base interpreter. Use `pip --python /opt/venv/bin/python list` (the image has no uv since Amendment 1).
 
 **Rollback**
 - Restore the two pip install lines and the plain `python` in the re-materialization step, delete `uv.lock`, and switch the Dependabot entry back to `pip`.
@@ -157,3 +157,21 @@ Open, not fixed here:
 14. gitleaks ran on this branch with the lock in place and passed.
 15. See "Operator notes" above.
 19. The uv digest in the Dockerfile and the CI `version` have no automatic updater. They are listed with the other holds in #352.
+
+## Amendment 1 (2026-11-02): two stages
+
+The decision driver "It stays a single stage" is dropped. The image now builds in two stages on the same `python:3.15-slim` base: the first copies uv, runs both `uv sync --locked` steps and builds the project; the runtime stage copies only `/opt/venv` and `/app`, and installs only WeasyPrint's system libraries.
+
+What leaves the runtime image: the uv binary (about 40 MiB), gcc, `libpq-dev` and `libffi-dev`. Measured on the image before the change: none of the 250 shared objects in `/opt/venv` links `libpq` or `libffi`, and pyyaml (the one dependency built from source) builds as pure Python (`yaml.__with_libyaml__` is False), so gcc produced nothing. The build stage installs no system packages at all, and pyyaml still builds there.
+
+Measured with local Docker, against the single-stage image built from the same lock:
+- 828 MB → 608 MB (588 MB without the standard library's bytecode, see below).
+- The same 73 installed distributions at the same versions, and the same 122 files under `/app/src` (`/app` also holds `pyproject.toml`, `uv.lock` and `README.md`, as before). 250 shared objects in `/opt/venv` in both.
+- `scripts/image_smoke.py`: 6 of 6, and the container reports healthy. Memory after the smoke: 192 MiB against 195 MiB.
+- Startup: five runs of `python -c "import urllib.request"` take 160 ms against 168 ms, and three runs of `import src.api.app` 2236 ms against 2584 ms. `python -v` reports 0 bytecode files it could not write (196 without the compile step).
+- 0 shared objects in `/opt/venv` with an unresolved library; `libffi` is still present (a glib dependency); `gcc`, `uv` and `libpq` are gone.
+- `/opt/venv` stays root-owned and not writable by `appuser`.
+
+The runtime stage compiles the standard library's bytecode as root. The base image ships it without bytecode, and in the single-stage image it existed only because Python ran as root during the build; without it every start compiled the stdlib again (found in the `backend-reviewer` review and re-measured).
+
+Consequences: a dependency that requires a compiler now fails the image build, in CI's API image job, which gates both deploys. A dependency whose C extension is optional installs its pure-Python path without one, as pyyaml already did. Add build-only system packages to the build stage, never to the runtime stage. Rollback: restore the single-stage Dockerfile from before this amendment.
