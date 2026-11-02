@@ -175,3 +175,13 @@ Measured with local Docker, against the single-stage image built from the same l
 The runtime stage compiles the standard library's bytecode as root. The base image ships it without bytecode, and in the single-stage image it existed only because Python ran as root during the build; without it every start compiled the stdlib again (found in the `backend-reviewer` review and re-measured).
 
 Consequences: a dependency that requires a compiler now fails the image build, in CI's API image job, which gates both deploys. A dependency whose C extension is optional installs its pure-Python path without one, as pyyaml already did. Add build-only system packages to the build stage, never to the runtime stage. Rollback: restore the single-stage Dockerfile from before this amendment.
+
+## Amendment 2 (2026-11-02): the Python base pinned by digest
+
+Both stages now start from `python:3.15-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0` instead of the bare tag. CI's API image job builds the image for its smoke test, and Fly's remote builder builds it again at the deploy (`flyctl deploy --remote-only`), minutes later. With the bare tag each build resolved the base on its own, so a base republished in between would have shipped without the smoke. On the deploy of `278b9b1` both builds resolved this same digest (CI at 20:59:51Z, Fly at 21:02:16Z, read in the job logs), so the risk was a window, not an observed divergence. The pinned digest is that one, and it was also the tag's index digest on Docker Hub at 21:48Z.
+
+Dependabot's new `docker` ecosystem proposes the next digest as a pull request, which runs the image smoke. It watches the `python` image only: a new Python minor stays a decision (minor and major updates are ignored), and the uv image stays a manual bump together with the CI `version` (Review item 19, #352). `tests/test_image_base_pin.py` fails if either stage loses the digest or the two stages diverge, and it ships with the cases it must reject.
+
+Not covered: the runtime stage's `apt-get install` still resolves Debian packages at build time, so the two builds can still differ in that layer. Deploying the image CI built (pushed from the API image job, then `flyctl deploy --image`) would close that as well; it is not done.
+
+Consequences: a patched base reaches production when its Dependabot pull request is merged, not at the next deploy. Not yet measured: Dependabot's first run on this ecosystem (it should list `python` and no uv image, and it should propose a digest-only update despite the minor and major ignore). Rollback: restore the bare tag in both `FROM` lines and remove the `docker` block.

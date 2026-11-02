@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 
 Cycle 6 entry is an **H-shape** (forced Bucket B hygiene W0-W1 + HARD GATE at W2 on demand-validation evidence + conditional W3-W5) per [ADR-0025](docs/adr/0025-cycle-6-entry-h-shape.md). Off-list choice after Round 2 paired DA+IV adversarial demolition of Round 1 Z2-DA convergence; "compounding primitives" framing rejected as sycophancy-pattern v2. W2 GATE outcome: **cosmetic-met** — operator-declared 2026-05, outside the pre-registered Pathway A/B/C set (previously labelled "Pathway D", a name ADR-0025 does not define); the conditional W3 waves shipped on the operator's acceptance of the cosmetic-met consequence per ADR-0025 §"Honest GATE vs cosmetic GATE distinction". Cycle 7 inherits Cycle 6.5 obligations. See [ADR-0028](docs/adr/0028-retire-cost-engineer-persona.md) §"Prior record reconciliation".
 
+### November 2026 — the API image's Python base pinned by digest
+
+#### Changed
+- **Both Dockerfile stages pin `python:3.15-slim` by digest** (ADR-0033 Amendment 2). CI's smoke build and Fly's deploy build now pull the same base; before, each resolved the tag on its own, minutes apart. On the last deploy both happened to resolve the same digest, the one now pinned. Dependabot's new `docker` ecosystem proposes the next digest as a pull request: the `python` image only, without new Python minors; the uv image stays a manual bump with CI's `version`. `tests/test_image_base_pin.py` fails if a stage loses the digest or the stages diverge. Not covered: the runtime stage's `apt-get` layer still resolves at build time.
+
 ### November 2026 — current hosts in the user docs
 
 #### Fixed
