@@ -2,7 +2,7 @@
 
 Generated from `src/api/app.py` — **144 endpoints** across **27 routers**. Interactive Swagger UI is served at `/docs` when the API is running; this document is a static browseable index.
 
-All paths are prefixed with the deployment base URL (e.g. `https://meridianiq.fly.dev`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
+All paths are prefixed with the deployment base URL (e.g. `https://api.getmeridianiq.com`). Auth column: `none` (public), `optional` (degrades gracefully), `required` (returns 401 without bearer token).
 
 Regenerate with: `python3 scripts/generate_api_reference.py`
 

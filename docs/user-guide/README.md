@@ -33,5 +33,5 @@ For technical reference see:
 ## Conventions in this guide
 
 - Code blocks prefixed with `$` are shell commands; everything else is `curl` / API output or UI description.
-- Screenshots are omitted — the UI changes more often than screenshots can be refreshed. Use the live deployment at [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) to follow along.
+- Screenshots are omitted — the UI changes more often than screenshots can be refreshed. Use the live deployment at [getmeridianiq.com](https://getmeridianiq.com) to follow along.
 - All example XER fixtures in `tests/fixtures/` are synthetic. Never use real project data when following these walkthroughs unless you're operating on your own deployment.

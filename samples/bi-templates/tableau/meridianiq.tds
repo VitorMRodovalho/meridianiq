@@ -9,7 +9,7 @@
 
     1. Pull the full dataset with curl:
        curl -H "Accept: application/json" \
-            "https://meridianiq.vitormr.dev/api/v1/bi/projects?limit=500" \
+            "https://api.getmeridianiq.com/api/v1/bi/projects?limit=500" \
             | jq '.items' > projects.json
 
     2. Place projects.json next to this .tds file.

@@ -10,7 +10,7 @@ Five-minute walkthrough: upload a P6 XER, see the schedule validated (DCMA), com
 
 ## 1. Sign in
 
-Open [meridianiq.vitormr.dev](https://meridianiq.vitormr.dev) and sign in with Google, LinkedIn, or Microsoft. The backend issues a Supabase JWT that's auto-attached to all subsequent API calls.
+Open [getmeridianiq.com](https://getmeridianiq.com) and sign in with Google, LinkedIn, or Microsoft. The backend issues a Supabase JWT that's auto-attached to all subsequent API calls.
 
 Running locally:
 
@@ -57,7 +57,7 @@ Back on the project, open the **DCMA** tab or hit the endpoint:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  https://meridianiq.vitormr.dev/api/v1/projects/$PROJECT_ID/validation
+  https://api.getmeridianiq.com/api/v1/projects/$PROJECT_ID/validation
 ```
 
 You'll get 14 check results (missing logic, negative float, high float, excess lags, etc.) with thresholds, pass/fail, and a composite score. Red badges indicate fails, amber warnings, green passes.
@@ -68,7 +68,7 @@ The Health Score combines DCMA structural quality, float health, logic integrity
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  https://meridianiq.vitormr.dev/api/v1/projects/$PROJECT_ID/health
+  https://api.getmeridianiq.com/api/v1/projects/$PROJECT_ID/health
 ```
 
 A rating of A–F plus a trend arrow lands on the dashboard.

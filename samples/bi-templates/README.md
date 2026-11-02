@@ -24,7 +24,7 @@ Each template exposes an `ApiToken` parameter — leave it blank for anonymous u
 
 ## Base URL
 
-- Hosted: `https://meridianiq.vitormr.dev`
+- Hosted: `https://api.getmeridianiq.com`
 - Self-hosted default: `http://localhost:8080`
 
 Templates use a `BaseUrl` parameter; swap it once per file.

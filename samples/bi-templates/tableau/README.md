@@ -10,7 +10,7 @@ For live dashboards over large portfolios, use the Supabase Postgres connection 
 
 ```bash
 curl -H "Accept: application/json" \
-     "https://meridianiq.vitormr.dev/api/v1/bi/projects?limit=500" \
+     "https://api.getmeridianiq.com/api/v1/bi/projects?limit=500" \
      | jq '.items' > projects.json
 ```
 
@@ -19,7 +19,7 @@ For authenticated multi-tenant use:
 ```bash
 curl -H "Accept: application/json" \
      -H "Authorization: Bearer $SUPABASE_JWT" \
-     "https://meridianiq.vitormr.dev/api/v1/bi/projects?limit=500" \
+     "https://api.getmeridianiq.com/api/v1/bi/projects?limit=500" \
      | jq '.items' > projects.json
 ```
 
