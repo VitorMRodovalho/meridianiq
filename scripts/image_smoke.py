@@ -14,6 +14,8 @@ here instead of in production:
 - generate and download the health report PDF (WeasyPrint);
 - export the project to Excel (openpyxl);
 - upload a synthetic CBS workbook, then export it as AIA G703 (openpyxl).
+- predict delays with ``model=ml`` and check the ML ensemble ran (scikit-learn);
+  without it the endpoint falls back to the rule-based path and says so.
 
 The container has no Supabase credentials, so the app uses its in-memory
 store; the script refuses to run if the opt-in for a remote store is set.
@@ -128,10 +130,21 @@ def main() -> int:
         assert r.content[:2] == b"PK", "not a zip container"
         return f"{len(r.content)} bytes"
 
+    def ml_prediction() -> str:
+        r = client.get(
+            f"/api/v1/projects/{state['project_id']}/delay-prediction",
+            params={"model": "ml"},
+        )
+        assert r.status_code == 200, f"HTTP {r.status_code} {r.text[:200]}"
+        methodology = r.json()["methodology"]
+        assert methodology.startswith("ML ensemble"), f"methodology: {methodology}"
+        return methodology
+
     check("upload the bundled sample", upload)
     if "project_id" in state:
         check("health report PDF", health_pdf)
         check("Excel export", excel_export)
+        check("ML delay prediction", ml_prediction)
         check("CBS cost upload", cbs_upload)
         if "snapshot_id" in state:
             check("AIA G703 export", aia_export)
