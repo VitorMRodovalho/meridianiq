@@ -3,7 +3,11 @@
 # /opt/venv and /app: not uv, and no compiler. pyyaml is the only dependency
 # built from source here (no cp315 wheel), and it builds as pure Python, as
 # it did when the image carried gcc (no libyaml headers either way).
-FROM python:3.15-slim AS build
+# Both stages pin the same base by digest (ADR-0033 Amendment 2): CI's smoke
+# build and Fly's deploy build pull the same bytes, and Dependabot proposes
+# the next digest as a pull request. tests/test_image_base_pin.py keeps the
+# two FROM lines identical.
+FROM python:3.15-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0 AS build
 # Pinned by digest, as uv's Docker guide recommends: a tag can move.
 COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/uv
 WORKDIR /app
@@ -19,7 +23,7 @@ RUN uv sync --locked --no-editable --extra api --extra reports --extra export --
 
 # Runtime stage: the same base, so /opt/venv/bin/python still points at this
 # image's /usr/local/bin/python3.15. Only WeasyPrint's system libraries.
-FROM python:3.15-slim
+FROM python:3.15-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0
 RUN apt-get update && apt-get install -y --no-install-recommends libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libcairo2 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
