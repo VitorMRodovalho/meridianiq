@@ -84,7 +84,7 @@ Required in `.env`:
 - Supabase uses port 6543 (pooler), not 5432
 - JWT algorithm is ES256 (not HS256/RS256) — JWKS auto-detects
 - WeasyPrint needs system deps: libpango, libcairo (in Dockerfile)
-- Fly.io cold start ~10s causes 502+CORS on first request (BUG-007)
+- Fly.io: `min_machines_running = 1` keeps one machine warm, so idle no longer causes the BUG-007 cold start (~10 s, 502+CORS). What is left is each API deploy: the running machine restarts and for ~6 s no machine is ready, because the deploy holds the stopped spare's lease. Measured 2026-11-02: requests waited (one for 6.5 s) and none failed. Accepted by the owner on 2026-11-02; revisit if real traffic arrives or a probe sees a 5xx during a deploy
 - `web/src/lib/auth.ts` uses dynamic import to break circular dependency
 - Supabase clients are only created when `ALLOW_REMOTE_SUPABASE=1` (set in `fly.toml`). `.env` is loaded at import and usually holds production credentials, so local scripts, tests and MCP sessions stay in-memory unless you opt in deliberately. Note: `env -u VAR` does not isolate, because `load_dotenv` re-reads the unset key from `.env`; blank it (`VAR=`) instead.
 - Rate limits and the audit trail attribute a request to `deps.trusted_client_ip`: the header named in `TRUSTED_CLIENT_IP_HEADER` (`fly.toml` sets `fly-client-ip`; `x-forwarded-for` uses the rightmost hop), else the socket peer. Leave it unset when clients connect directly (e.g. `docker compose`), since the client writes those headers. Limits are per machine (in-memory) and IPv6 is keyed on its /64.
@@ -99,6 +99,7 @@ Required in `.env`:
 - See `docs/ROADMAP.md` for the roadmap (older plans are in `docs/archive/`)
 - Version: **v4.3.0** (2026-05-09) is the latest release tag. `main` is in Cycle 6 (ADR-0025); the next tag is v4.4.0 or v4.3.1. What merged since the tag is in `CHANGELOG.md` under [Unreleased], and decisions are indexed in `docs/adr/README.md`. Version and test figures are not repeated here: `pyproject.toml` holds the dependency ranges and CI reports the test counts.
 - CI: Python 3.15, Node 24, Vite 8, TypeScript 6, GitHub Actions v7
+- Merge gate: the default-branch ruleset requires 7 checks from GitHub Actions (Backend, Backend 3.12 dependency floors, API image, Frontend, Resolve Playwright image, E2E, gitleaks), without the up-to-date requirement and without bypass; a PR shows `BLOCKED` until they pass. The deploys also wait for them (#361). Keep path-filtered workflows such as the doc sync check out of that list: a required check that never runs blocks the PR forever, and a skipped job counts as passed (so E2E's `needs` job is required too)
 - Dockerfile: Python 3.15-slim, the same version CI tests on (3.13 → 3.14 in #329, 3.15 in #342). It was held at 3.13 because `supabase` pulled `storage3` → `pyiceberg`, which had no 3.14 wheel (bumped in `f1bd4e2`, broke deploy, reverted in `df672d9`). Since supabase/storage3 2.33, `pyiceberg` is only the optional `iceberg` extra, which the image does not install. It installs the `api`, `reports`, `export` and `ml` extras from `uv.lock` with `uv sync --locked`, the same lock CI installs (ADR-0033); a change to a dependency range needs `uv lock` in the same commit.
 
 ## Portfolio PMO (knowledge loop)
