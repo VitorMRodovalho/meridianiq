@@ -9,9 +9,10 @@ would fail at import. slowapi 0.1.10 (2026-06) is the latest release and still
 calls it; two upstream pull requests with the fix were closed without merge.
 
 A 3.16 runner would fail the suite anyway, after the bump. This guard fails on
-the change that points CI, the image, mypy or the classifiers at 3.16 while the
-installed slowapi still makes the call, and says why. Once a slowapi release
-drops the call, the guard passes on its own and can be deleted.
+the change that points CI (``python-version`` or ``UV_PYTHON``), the image,
+mypy or the classifiers at 3.16 while the installed slowapi still makes the
+call, and says why. Once a slowapi release drops the call, the guard passes on
+its own and can be deleted.
 """
 
 from __future__ import annotations
@@ -61,7 +62,8 @@ def _version(text: str) -> tuple[int, int]:
 def _targeted_versions() -> dict[str, list[tuple[int, int]]]:
     """Every place that picks the Python CI, the image or the type checker runs on."""
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    workflow = re.compile(r"""python-version:\s*["']?(\d+\.\d+)""")
+    # `python-version` for setup-python, `UV_PYTHON` for the uv-managed install.
+    workflow = re.compile(r"""(?:python-version|UV_PYTHON):\s*["']?(\d+\.\d+)""")
     return {
         "Dockerfile": [
             _version(v)

@@ -49,13 +49,16 @@ the current engine version, which is the package version (ADR-0014). A bump
 makes every stored result invisible until the projects are re-materialized:
 program trends and the lifecycle card go blank.
 
+- [ ] `uv lock` ran in the bump commit. `uv.lock` records the project version,
+      and CI and the image build run `uv sync --locked`, which fails on a
+      stale lock (ADR-0033).
 - [ ] The CI deploy job's "Re-materialize stored results" step ran and ended
       with "Nothing to re-materialize" or "Left after the run: 0". It needs
       the `FLY_SSH_TOKEN` repository secret
       (`fly tokens create ssh -a meridianiq-api`); without it the step only
       warns.
 - [ ] If the step was cut off or warned, run it by hand:
-      `fly ssh console -a meridianiq-api -C "python -m src.materializer.backfill --dry-run"`,
+      `fly ssh console -a meridianiq-api -C "/opt/venv/bin/python -m src.materializer.backfill --dry-run"`,
       then without `--dry-run`. It is idempotent. Allow ~1.5–4 min per
       10k-activity schedule (measured 2026-10-10).
 - [ ] A schedule whose stored data cannot be loaded is marked `failed` by

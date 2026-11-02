@@ -19,19 +19,21 @@ Expected argument: semver version without the `v` prefix (e.g., `3.8.0`, `3.8.0-
 7. Edit the following files, replacing the current version (which is typically `X.Y.Z-dev`) with `$ARGUMENTS`:
    - `CHANGELOG.md` — rename the top heading from `## [X.Y.Z-dev] — …` to `## [$ARGUMENTS] — YYYY-MM-DD — …` (today's date).
    - `pyproject.toml` — `version = "$ARGUMENTS"`.
+   - `src/__about__.py` — `__version__ = "$ARGUMENTS"` (`tests/test_engine_version_source.py` fails a half-bumped commit).
+   - `uv.lock` — run `uv lock`. The lock records the project's own version, so after the bump `uv sync --locked` fails CI and the image build until the lock is regenerated (ADR-0033).
    - `web/package.json` — `"version": "$ARGUMENTS"`.
-   - `src/api/app.py` — both `release="meridianiq-api@$ARGUMENTS"` (Sentry init) and `version="$ARGUMENTS"` (FastAPI constructor).
+   - `src/api/app.py` needs no edit: it reads the version from the installed package metadata.
    - `README.md` — increment the "Released versions" count and append a new row to the Roadmap table if this is a minor/major bump.
    - `CLAUDE.md` — refresh the `Version:` line with stats pulled from the doc generators (engines, endpoints, routers, tests, pages, PDF report types, MCP tools).
 
 ## Verify
 
-8. `python3 -m pytest tests/ -q` — abort on failure.
+8. `uv lock --check && python3 -m pytest tests/ -q` — abort on failure.
 9. `cd web && npm run check` — abort on failure.
 
 ## Commit, tag, push, release
 
-10. `git add CHANGELOG.md pyproject.toml web/package.json src/api/app.py README.md CLAUDE.md`.
+10. `git add CHANGELOG.md pyproject.toml src/__about__.py uv.lock web/package.json README.md CLAUDE.md`.
 11. Commit with subject `chore(release): v$ARGUMENTS — <codename>` (codename from CHANGELOG heading). Use a HEREDOC for the body with wave-level highlights. **Never** add `Co-Authored-By` trailers.
 12. Create annotated tag: `git tag -a v$ARGUMENTS -m "<release message>"` (message mirrors the release notes summary).
 13. Push: `git push origin main && git push origin v$ARGUMENTS`.

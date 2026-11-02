@@ -1,0 +1,13 @@
+# The Dockerfile copies only pyproject.toml, uv.lock, README.md and src/.
+# Keep everything else out of the build context, above all local secrets and
+# environments, so a build from a laptop does not send them to a builder.
+.env
+.env.*
+.venv/
+venv/
+.git/
+**/__pycache__/
+web/
+tests/
+docs/
+archive/

@@ -50,14 +50,17 @@ lookup (Sentry telemetry, ``/health`` endpoint) — that's correct for
 
 1. Bump ``pyproject.toml [project.version]`` to the new ``X.Y.Z``.
 2. Bump ``__version__`` below to the same string in the same commit.
-3. Re-materialize derived artifacts per `ADR-0014`_ provenance contract.
+3. Run ``uv lock`` in the same commit: ``uv.lock`` records the project
+   version, and ``uv sync --locked`` fails CI and the image build on a
+   stale lock (ADR-0033).
+4. Re-materialize derived artifacts per `ADR-0014`_ provenance contract.
 
 Step 2 is intentional defensive duplication. The regression test in
 ``tests/test_engine_version_source.py`` asserts that ``__version__``
 here equals ``pyproject.toml [project.version]`` so a half-bumped
 commit fails CI loud.
 
-Step 3 is the operator hand-off that closes the multi-cycle drift
+Step 4 is the operator hand-off that closes the multi-cycle drift
 surfaced by W4. **It is NOT optional** — `src/database/store.py
 get_latest_derived_artifact` does an exact ``engine_version`` equality
 match, so pre-existing artifact rows written under the OLD version
